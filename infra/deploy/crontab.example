@@ -1,0 +1,22 @@
+# ─────────────────────────────────────────────────────────────
+# Cron DigiSanté Mobile — à installer en root sur le VPS.
+# cf. CLAUDE.md §7 : pg_dump chiffré 02:00, réconciliation FedaPay 02:30.
+#
+# Installation :
+#   sudo crontab infra/deploy/crontab.example
+# (ou copier ces lignes dans `sudo crontab -e`)
+#
+# Fuseau : régler l'horloge serveur sur Africa/Porto-Novo (UTC+1) :
+#   sudo timedatectl set-timezone Africa/Porto-Novo
+# ─────────────────────────────────────────────────────────────
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Sauvegarde PostgreSQL chiffrée — tous les jours à 02:00
+0 2 * * * /var/www/digisante-mobile/infra/deploy/scripts/pg_dump_encrypted.sh >> /var/log/digisante/pg_dump.log 2>&1
+
+# Réconciliation FedaPay (module gelé) — tous les jours à 02:30
+30 2 * * * /var/www/digisante-mobile/infra/deploy/scripts/fedapay_reconcile.sh >> /var/log/digisante/reconcile.log 2>&1
+
+# Renouvellement SSL Certbot — deux fois par jour (no-op si pas dû)
+15 3,15 * * * certbot renew --quiet --deploy-hook "systemctl reload nginx"
