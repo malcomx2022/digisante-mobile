@@ -1,0 +1,28 @@
+{
+  "name": "digisante-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DigiSanté Mobile — PWA e-santé Bénin (programme NEXT IMPACT). Monorepo web (Next.js 14) + api (Fastify).",
+  "author": "SEGLA E. Ulrich Gislain",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "dev:web": "pnpm --filter @digisante/web dev",
+    "dev:api": "pnpm --filter @digisante/api dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "services:up": "docker compose -f infra/docker-compose.dev.yml up -d",
+    "services:down": "docker compose -f infra/docker-compose.dev.yml down",
+    "db:migrate": "pnpm --filter @digisante/api prisma migrate dev",
+    "db:generate": "pnpm --filter @digisante/api prisma generate",
+    "db:seed": "pnpm --filter @digisante/api prisma db seed",
+    "db:studio": "pnpm --filter @digisante/api prisma studio"
+  }
+}

@@ -1,0 +1,37 @@
+# ─────────────────────────────────────────────────────────────
+# Services de DÉVELOPPEMENT LOCAL UNIQUEMENT.
+# La production tourne sur PostgreSQL 16 NATIF + Redis NATIF
+# sur le VPS Infomaniak (cf. CLAUDE.md §3). Pas de Docker en prod.
+# ─────────────────────────────────────────────────────────────
+services:
+  db:
+    image: postgres:16
+    container_name: digisante_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: digisante
+      POSTGRES_PASSWORD: devpassword
+      POSTGRES_DB: digisante_dev
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U digisante -d digisante_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    container_name: digisante_redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+
+volumes:
+  pgdata:
+  redisdata:

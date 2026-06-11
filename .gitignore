@@ -1,0 +1,39 @@
+# Dépendances
+node_modules/
+.pnpm-store/
+
+# Secrets — JAMAIS commités (cf. CLAUDE.md §3)
+.env
+.env.*
+!.env.example
+
+# Builds
+.next/
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# Prisma (bases locales éventuelles)
+apps/api/prisma/*.db
+apps/api/prisma/*.db-journal
+
+# Tests / couverture
+coverage/
+.vitest/
+
+# Caches
+.turbo/
+.cache/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS / éditeurs
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

@@ -1,0 +1,65 @@
+// ─────────────────────────────────────────────────────────────
+// DigiSanté Mobile — schéma Prisma (SQUELETTE)
+// Remplacer par tes 26 modèles + 28 enums existants.
+// Cible : PostgreSQL 16 natif (dev local via docker, prod = VPS natif).
+// ─────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Exemple minimal pour que `migrate dev` fonctionne au 1er démarrage ──
+// (à supprimer une fois tes vrais modèles importés)
+
+enum UserRole {
+  PATIENT
+  MEDECIN
+  PHARMACIE
+  LABORATOIRE
+  DIASPORA
+  ADMIN
+}
+
+enum Language {
+  FR
+  FON
+  YO
+  BAATONUM
+  DENDI
+}
+
+model User {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  fullName  String
+  role      UserRole @default(PATIENT)
+  language  Language @default(FR)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role])
+  @@index([language])
+}
+
+// ── Audit trail immuable (append-only) — cf. CLAUDE.md §3 ──
+// Le trigger anti UPDATE/DELETE est posé via une migration SQL manuelle.
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String   // DMP_ACCESS, KYC_APPROVE, PAYMENT_REFUND, AUTH_FAIL…
+  actorId   String?
+  targetId  String?
+  ip        String?
+  meta      Json?
+  prevHash  String?
+  hash      String
+  createdAt DateTime @default(now())
+
+  @@index([action])
+  @@index([createdAt])
+}
