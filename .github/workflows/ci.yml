@@ -48,11 +48,16 @@ jobs:
       - run: pnpm build
 
   # ── Déploiement VPS Infomaniak (SSH) ──
-  # Secrets requis (Settings → Secrets and variables → Actions) :
-  #   VPS_HOST · VPS_USER · VPS_SSH_KEY (clé privée) · VPS_SSH_PORT (optionnel)
+  # Opt-in : ne s'exécute QUE si la variable de dépôt DEPLOY_ENABLED == 'true'
+  # (Settings → Secrets and variables → Actions → Variables). Tant qu'elle est
+  # absente, main reste verte. Activer une fois le VPS prêt + les secrets posés.
+  # Secrets requis : VPS_HOST · VPS_USER · VPS_SSH_KEY (clé privée) · VPS_SSH_PORT (optionnel)
   deploy:
     needs: build-and-test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: >-
+      github.ref == 'refs/heads/main'
+      && github.event_name == 'push'
+      && vars.DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     concurrency:
       group: deploy-production
