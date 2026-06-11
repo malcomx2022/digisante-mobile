@@ -32,9 +32,9 @@ jobs:
       JWT_SECRET: ci-secret
     steps:
       - uses: actions/checkout@v4
+      # Version de pnpm lue depuis le champ "packageManager" du package.json
+      # (ne pas spécifier "version" ici : conflit ERR_PNPM_BAD_PM_VERSION).
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -47,21 +47,25 @@ jobs:
       - run: pnpm test
       - run: pnpm build
 
-  # ── Déploiement VPS Infomaniak (SSH) — à activer quand prêt ──
-  # deploy:
-  #   needs: build-and-test
-  #   if: github.ref == 'refs/heads/main'
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: appleboy/ssh-action@v1
-  #       with:
-  #         host: ${{ secrets.VPS_HOST }}
-  #         username: ${{ secrets.VPS_USER }}
-  #         key: ${{ secrets.VPS_SSH_KEY }}
-  #         script: |
-  #           cd /var/www/digisante-mobile
-  #           git pull origin main
-  #           pnpm install --frozen-lockfile
-  #           pnpm --filter @digisante/api prisma migrate deploy
-  #           pnpm build
-  #           pm2 reload ecosystem.config.cjs
+  # ── Déploiement VPS Infomaniak (SSH) ──
+  # Secrets requis (Settings → Secrets and variables → Actions) :
+  #   VPS_HOST · VPS_USER · VPS_SSH_KEY (clé privée) · VPS_SSH_PORT (optionnel)
+  deploy:
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - name: Déploiement SSH sur le VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_SSH_PORT || 22 }}
+          script: |
+            set -e
+            cd /var/www/digisante-mobile
+            bash infra/deploy/scripts/deploy.sh

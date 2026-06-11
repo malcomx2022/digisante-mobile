@@ -1,0 +1,27 @@
+# Normalisation des fins de ligne — DigiSanté Mobile
+# Par défaut : laisser Git gérer, normaliser en LF dans le dépôt.
+* text=auto eol=lf
+
+# Scripts shell exécutés sur le VPS Ubuntu : TOUJOURS en LF.
+# (CRLF Windows casserait le shebang et bash sur le serveur.)
+*.sh        text eol=lf
+*.bash      text eol=lf
+
+# Fichiers de config serveur déployés tels quels : LF.
+*.conf      text eol=lf
+*.service   text eol=lf
+crontab*    text eol=lf
+Dockerfile  text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+
+# Fichiers binaires — ne jamais convertir.
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.woff      binary
+*.woff2     binary
+*.pdf       binary
+*.docx      binary
