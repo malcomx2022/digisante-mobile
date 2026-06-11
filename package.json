@@ -24,5 +24,10 @@
     "db:generate": "pnpm --filter @digisante/api prisma generate",
     "db:seed": "pnpm --filter @digisante/api prisma db seed",
     "db:studio": "pnpm --filter @digisante/api prisma studio"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.57.1"
   }
 }
