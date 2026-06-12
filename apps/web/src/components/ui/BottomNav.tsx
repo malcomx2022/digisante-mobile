@@ -1,3 +1,6 @@
+'use client';
+
+import { useLocale } from '@/i18n/LocaleProvider';
 import { cn } from '@/lib/cn';
 import { Nkyinkyim } from './Nkyinkyim';
 
@@ -18,20 +21,21 @@ function Icon({ name }: { name: IconName }) {
 }
 
 interface NavItem {
-  label: string;
+  labelKey: string;
   icon: IconName;
   active?: boolean;
 }
 
 const DEFAULT_ITEMS: NavItem[] = [
-  { label: 'Accueil', icon: 'home', active: true },
-  { label: 'Dossier', icon: 'file' },
-  { label: 'Agenda', icon: 'calendar' },
-  { label: 'Profil', icon: 'user' },
+  { labelKey: 'nav.home', icon: 'home', active: true },
+  { labelKey: 'nav.dossier', icon: 'file' },
+  { labelKey: 'nav.agenda', icon: 'calendar' },
+  { labelKey: 'nav.profil', icon: 'user' },
 ];
 
 /** Barre de navigation basse : 5 emplacements, FAB centrale (card-pagne rotate-3). */
 export function BottomNav({ items = DEFAULT_ITEMS }: { items?: NavItem[] }) {
+  const { t } = useLocale();
   const left = items.slice(0, 2);
   const right = items.slice(2);
   return (
@@ -39,9 +43,8 @@ export function BottomNav({ items = DEFAULT_ITEMS }: { items?: NavItem[] }) {
       <Nkyinkyim className="absolute -top-3 left-0 right-0" />
       <div className="grid grid-cols-5 items-end pt-2 pb-3">
         {left.map((it) => (
-          <NavButton key={it.label} item={it} />
+          <NavButton key={it.labelKey} item={it} label={t(it.labelKey)} />
         ))}
-        {/* FAB centrale */}
         <div className="flex justify-center">
           <div className="w-14 h-14 -mt-7 card-pagne bg-terre-500 text-white flex items-center justify-center border-4 border-creme rotate-3 shadow-[0_10px_24px_rgba(194,84,43,.45)]">
             <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
@@ -50,14 +53,14 @@ export function BottomNav({ items = DEFAULT_ITEMS }: { items?: NavItem[] }) {
           </div>
         </div>
         {right.map((it) => (
-          <NavButton key={it.label} item={it} />
+          <NavButton key={it.labelKey} item={it} label={t(it.labelKey)} />
         ))}
       </div>
     </nav>
   );
 }
 
-function NavButton({ item }: { item: NavItem }) {
+function NavButton({ item, label }: { item: NavItem; label: string }) {
   return (
     <button
       type="button"
@@ -67,7 +70,7 @@ function NavButton({ item }: { item: NavItem }) {
       )}
     >
       <Icon name={item.icon} />
-      {item.label}
+      {label}
     </button>
   );
 }
