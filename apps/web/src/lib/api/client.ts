@@ -93,10 +93,9 @@ export async function flushQueue(): Promise<{ flushed: number }> {
   });
 }
 
-export const api = {
-  get,
-  post: <T>(path: string, body?: unknown) => mutate<T>('POST', path, body),
-  patch: <T>(path: string, body?: unknown) => mutate<T>('PATCH', path, body),
-  put: <T>(path: string, body?: unknown) => mutate<T>('PUT', path, body),
-  del: <T>(path: string) => mutate<T>('DELETE', path),
-};
+export const post = <T>(path: string, body?: unknown) => mutate<T>('POST', path, body);
+export const patch = <T>(path: string, body?: unknown) => mutate<T>('PATCH', path, body);
+export const put = <T>(path: string, body?: unknown) => mutate<T>('PUT', path, body);
+export const del = <T>(path: string) => mutate<T>('DELETE', path);
+
+export const api = { get, post, patch, put, del };
