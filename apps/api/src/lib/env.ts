@@ -25,6 +25,14 @@ const schema = z.object({
   // ── Chiffrement des données de santé au repos (AES-256, CLAUDE.md §4) ──
   // En production cette clé est OBLIGATOIRE ; en dev/local, fallback non chiffré.
   HEALTH_ENCRYPTION_KEY: z.string().optional(),
+
+  // ── FedaPay (Mobile Money / cartes) — optionnel : stub si absent ──
+  FEDAPAY_SECRET_KEY: z.string().optional(),
+  FEDAPAY_PUBLIC_KEY: z.string().optional(),
+  FEDAPAY_WEBHOOK_SECRET: z.string().optional(),
+
+  // ── Jeton de service pour la réconciliation cron (cf. infra/deploy) ──
+  RECONCILE_TOKEN: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -42,3 +50,6 @@ export const isTwilioConfigured = Boolean(
 
 /** Vrai si Daily.co est configuré (sinon les salles/jetons sont des stubs). */
 export const isDailyConfigured = Boolean(env.DAILY_API_KEY && env.DAILY_DOMAIN);
+
+/** Vrai si FedaPay est configuré (sinon création de transaction en stub). */
+export const isFedapayConfigured = Boolean(env.FEDAPAY_SECRET_KEY && env.FEDAPAY_PUBLIC_KEY);
