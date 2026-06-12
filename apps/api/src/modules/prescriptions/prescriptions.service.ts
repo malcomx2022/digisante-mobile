@@ -33,9 +33,19 @@ interface CreateInput {
   overrideAllergyWarning?: boolean;
 }
 
+/** Calcul pur du sceau de signature (testable). */
+export function computeSignature(prescriptionId: string, licenseNumber: string, secret: string): string {
+  return createHash('sha256').update(`${prescriptionId}:${licenseNumber}:${secret}`).digest('hex');
+}
+
 /** Signature numérique : sceau dérivé de l'ordonnance + N° d'Ordre du médecin. */
 function signPrescription(prescriptionId: string, licenseNumber: string): string {
-  return createHash('sha256').update(`${prescriptionId}:${licenseNumber}:${env.JWT_SECRET}`).digest('hex');
+  return computeSignature(prescriptionId, licenseNumber, env.JWT_SECRET);
+}
+
+/** Vérifie l'authenticité du QR d'une ordonnance (intégrité de la signature). */
+export function verifySignature(prescriptionId: string, licenseNumber: string, qrCode: string): boolean {
+  return qrCode === signPrescription(prescriptionId, licenseNumber);
 }
 
 /** Crée une ordonnance signée pour un patient (médecin). */
