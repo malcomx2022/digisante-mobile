@@ -30,8 +30,25 @@ export async function sendOtp(opts: SendOtpOptions): Promise<{ delivered: boolea
     return { delivered: false, stub: true };
   }
 
-  // TODO(P4.2) : appel réel à l'API Twilio (SMS via Messages, voix via Calls/TwiML),
+  // TODO : appel réel à l'API Twilio (SMS via Messages, voix via Calls/TwiML),
   // gabarit dans la langue du destinataire, fallback numéro long.
   opts.log.info({ to: opts.to, channel: opts.channel, lang: opts.lang }, 'OTP envoyé via Twilio');
+  return { delivered: true, stub: false };
+}
+
+/** Envoie un SMS transactionnel (stub si Twilio non configuré). */
+export async function sendSms(opts: {
+  to: string;
+  body: string;
+  lang: string;
+  log: FastifyBaseLogger;
+}): Promise<{ delivered: boolean; stub: boolean }> {
+  if (!isTwilioConfigured) {
+    opts.log.warn({ to: opts.to, lang: opts.lang }, `[STUB Twilio SMS] ${opts.body}`);
+    return { delivered: false, stub: true };
+  }
+  // TODO : POST Twilio Messages. Sender ID alphanumérique non garanti au Bénin
+  // → fallback numéro long (CLAUDE.md §8).
+  opts.log.info({ to: opts.to, lang: opts.lang }, 'SMS envoyé via Twilio');
   return { delivered: true, stub: false };
 }

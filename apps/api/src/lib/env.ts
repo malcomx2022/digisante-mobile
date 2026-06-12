@@ -31,8 +31,16 @@ const schema = z.object({
   FEDAPAY_PUBLIC_KEY: z.string().optional(),
   FEDAPAY_WEBHOOK_SECRET: z.string().optional(),
 
-  // ── Jeton de service pour la réconciliation cron (cf. infra/deploy) ──
+  // ── Jeton de service pour les tâches internes (réconciliation, dispatch) ──
   RECONCILE_TOKEN: z.string().optional(),
+
+  // ── Firebase FCM (push) — optionnel : stub si absent ──
+  FIREBASE_PROJECT_ID: z.string().optional(),
+  FIREBASE_CLIENT_EMAIL: z.string().optional(),
+  FIREBASE_PRIVATE_KEY: z.string().optional(),
+
+  // ── Resend (emails transactionnels) — optionnel : stub si absent ──
+  RESEND_API_KEY: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -53,3 +61,11 @@ export const isDailyConfigured = Boolean(env.DAILY_API_KEY && env.DAILY_DOMAIN);
 
 /** Vrai si FedaPay est configuré (sinon création de transaction en stub). */
 export const isFedapayConfigured = Boolean(env.FEDAPAY_SECRET_KEY && env.FEDAPAY_PUBLIC_KEY);
+
+/** Vrai si Firebase FCM est configuré (sinon push en stub). */
+export const isFirebaseConfigured = Boolean(
+  env.FIREBASE_PROJECT_ID && env.FIREBASE_CLIENT_EMAIL && env.FIREBASE_PRIVATE_KEY,
+);
+
+/** Vrai si Resend est configuré (sinon email en stub). */
+export const isResendConfigured = Boolean(env.RESEND_API_KEY);

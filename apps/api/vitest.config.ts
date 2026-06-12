@@ -15,5 +15,9 @@ export default defineConfig({
   test: {
     // Les tests d'intégration partagent la DB/Redis : pas de parallélisme entre fichiers.
     fileParallelism: false,
+    // Chaque fichier d'intégration démarre un serveur complet (Prisma + Redis) dans
+    // beforeAll : marge confortable pour éviter les timeouts de hook sous charge.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
   },
 });
