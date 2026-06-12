@@ -2,12 +2,14 @@ import { fileURLToPath } from 'node:url';
 
 import { defineConfig } from 'vitest/config';
 
-// Résout l'alias `@/` (identique à tsconfig paths) pour les tests qui
-// importent le serveur et ses modules.
+// Résout les alias pour les tests qui importent le serveur et ses modules.
 export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      // Pointe @digisante/shared vers sa SOURCE : les tests ne dépendent pas
+      // du build dist (qui, en CI, n'est produit qu'après l'étape de test).
+      '@digisante/shared': fileURLToPath(new URL('../../packages/shared/src/index.ts', import.meta.url)),
     },
   },
   test: {
