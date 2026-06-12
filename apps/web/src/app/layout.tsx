@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 
+import { AuthProvider } from '@/auth/AuthProvider';
 import { OfflineBanner } from '@/components/pwa/OfflineBanner';
 import { PwaRegister } from '@/components/pwa/PwaRegister';
 import { LocaleProvider } from '@/i18n/LocaleProvider';
@@ -23,9 +24,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="fr" className={`${fontDisplay.variable} ${fontBody.variable}`}>
       <body>
         <LocaleProvider>
-          <PwaRegister />
-          <OfflineBanner />
-          {children}
+          <AuthProvider>
+            <PwaRegister />
+            <OfflineBanner />
+            {children}
+          </AuthProvider>
         </LocaleProvider>
       </body>
     </html>
