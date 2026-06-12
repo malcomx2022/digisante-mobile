@@ -2,10 +2,13 @@
 // Routes Professionnels (préfixe /api/v1/professionals).
 // Fiche publique (badge « vérifié ») + édition de sa fiche par le médecin.
 // ─────────────────────────────────────────────────────────────
+import { paginationSchema } from '@digisante/shared';
+import type { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
 import { forbidden, notFound } from '@/lib/errors.js';
+import { paginate } from '@/lib/http.js';
 import { requireRole } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
 
@@ -16,9 +19,48 @@ const updateProSchema = z.object({
   bio: z.string().max(2000).optional(),
 });
 
+const listSchema = paginationSchema.extend({
+  speciality: z.string().trim().min(1).optional(),
+  q: z.string().trim().min(1).optional(),
+});
+
 const idParams = z.object({ id: z.string().cuid() });
 
 export default async function professionalsRoutes(app: FastifyInstance) {
+  // Annuaire des professionnels VÉRIFIÉS (D-05), paginé + filtres.
+  app.get('/', { preHandler: [app.authenticate] }, async (request) => {
+    const q = zParse(listSchema, request.query);
+    const where: Prisma.DoctorWhereInput = {
+      verifiedAt: { not: null },
+      ...(q.speciality ? { speciality: { contains: q.speciality, mode: 'insensitive' } } : {}),
+      ...(q.q
+        ? {
+            OR: [
+              { speciality: { contains: q.q, mode: 'insensitive' } },
+              { user: { profile: { OR: [{ firstName: { contains: q.q, mode: 'insensitive' } }, { lastName: { contains: q.q, mode: 'insensitive' } }] } } },
+            ],
+          }
+        : {}),
+    };
+    const [items, total] = await Promise.all([
+      app.prisma.doctor.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (q.page - 1) * q.pageSize,
+        take: q.pageSize,
+        select: {
+          id: true,
+          speciality: true,
+          consultFee: true,
+          user: { select: { profile: { select: { firstName: true, lastName: true, spokenLangs: true, avatarUrl: true } } } },
+        },
+      }),
+      app.prisma.doctor.count({ where }),
+    ]);
+    const data = items.map((d) => ({ id: d.id, speciality: d.speciality, consultFee: d.consultFee, isVerified: true, profile: d.user.profile }));
+    return paginate(data, total, q.page, q.pageSize);
+  });
+
   // Fiche publique d'un professionnel (authentifié).
   app.get('/:id', { preHandler: [app.authenticate] }, async (request) => {
     const { id } = zParse(idParams, request.params);
