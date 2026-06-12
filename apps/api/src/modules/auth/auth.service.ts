@@ -17,6 +17,8 @@ import {
   hashOtp,
   OTP_LOCK_SECONDS,
   OTP_MAX_ATTEMPTS,
+  OTP_SEND_MAX,
+  OTP_SEND_WINDOW_SECONDS,
   OTP_TTL_SECONDS,
   safeEqualHex,
 } from './auth.otp.js';
@@ -45,7 +47,17 @@ interface RegisterInput {
 const otpKey = (phone: string) => `otp:${phone}`;
 const attemptsKey = (phone: string) => `otp:attempts:${phone}`;
 const lockKey = (phone: string) => `otp:lock:${phone}`;
+const sendKey = (phone: string) => `otp:send:${phone}`;
 const refreshKey = (jti: string) => `refresh:${jti}`;
+
+/** Anti-abus d'envoi d'OTP (bombing SMS / coût) : limite par numéro et fenêtre. */
+async function assertSendQuota(app: FastifyInstance, phone: string): Promise<void> {
+  const count = await app.redis.incr(sendKey(phone));
+  if (count === 1) await app.redis.expire(sendKey(phone), OTP_SEND_WINDOW_SECONDS);
+  if (count > OTP_SEND_MAX) {
+    throw tooManyRequests("Trop de demandes de code. Réessayez plus tard.");
+  }
+}
 
 function otpResponse(channel: OtpChannel, code: string) {
   return {
@@ -90,6 +102,7 @@ async function generateAndSendOtp(
   user: { phone: string; lang: string },
   channel: OtpChannel,
 ): Promise<string> {
+  await assertSendQuota(app, user.phone);
   const code = generateOtp();
   await app.redis.set(otpKey(user.phone), hashOtp(user.phone, code), 'EX', OTP_TTL_SECONDS);
   await app.redis.del(attemptsKey(user.phone));
