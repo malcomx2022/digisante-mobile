@@ -7,13 +7,14 @@ import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
 
 import { env } from '@/lib/env.js';
+import authRoutes from '@/modules/auth/auth.routes.js';
 import healthRoutes from '@/modules/health/health.routes.js';
+import authenticate from '@/plugins/authenticate.js';
 import errorHandler from '@/plugins/error-handler.js';
 import prismaPlugin from '@/plugins/prisma.js';
 import redisPlugin from '@/plugins/redis.js';
 import requestContext from '@/plugins/request-context.js';
-// import authRoutes from '@/modules/auth/auth.routes.js';
-// … enregistrer ici les 20 modules métier (préfixe /api/v1)
+// … enregistrer ici les autres modules métier (préfixe /api/v1)
 
 let reqCounter = 0;
 
@@ -41,6 +42,7 @@ export async function buildServer() {
   await app.register(cors, { origin: env.CORS_ORIGIN, credentials: true });
   await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
   await app.register(jwt, { secret: env.JWT_SECRET });
+  await app.register(authenticate);
 
   // ── Infrastructure (décorateurs app.prisma / app.redis) ──
   await app.register(prismaPlugin);
@@ -48,7 +50,7 @@ export async function buildServer() {
 
   // ── Modules métier (préfixe /api/v1) ──
   await app.register(healthRoutes, { prefix: '/api/v1' });
-  // await app.register(authRoutes, { prefix: '/api/v1/auth' });
+  await app.register(authRoutes, { prefix: '/api/v1/auth' });
 
   return app;
 }
