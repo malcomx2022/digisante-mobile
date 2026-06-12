@@ -9,7 +9,6 @@ import { Loading } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
-import { buildSosSmsLink } from '@/lib/sos';
 
 interface Appointment {
   id: string;
@@ -30,6 +29,9 @@ export default function PatientDashboard() {
     { key: 'patient.quick.dmp', href: '/patient/dmp', rotate: 'rotate-1', bg: 'bg-sante-50 text-sante-700' },
     { key: 'patient.quick.doctors', href: '/patient/doctors', rotate: '-rotate-1', bg: 'bg-indigo-50 text-indigo-700' },
     { key: 'patient.quick.prescriptions', href: '/patient/prescriptions', rotate: 'rotate-2', bg: 'bg-ocre-50 text-ocre-600' },
+    { key: 'reminders.title', href: '/patient/reminders', rotate: '-rotate-2', bg: 'bg-sante-50 text-sante-700' },
+    { key: 'results.title', href: '/patient/results', rotate: 'rotate-1', bg: 'bg-indigo-50 text-indigo-700' },
+    { key: 'teleconsult.title', href: '/patient/teleconsult', rotate: '-rotate-1', bg: 'bg-ocre-50 text-ocre-600' },
   ];
 
   return (
@@ -72,13 +74,13 @@ export default function PatientDashboard() {
           ))}
         </div>
 
-        {/* SOS — fonctionne hors-ligne (repli SMS dans la langue) */}
-        <a
-          href={buildSosSmsLink()}
+        {/* SOS — écran dédié (API + repli SMS hors-ligne) */}
+        <Link
+          href="/patient/sos"
           className="block w-full text-center bg-sos-500 text-white font-display font-extrabold card-pagne py-4 pulse-sos shadow-[0_10px_26px_rgba(214,69,51,.4)]"
         >
           {t('patient.quick.sos')}
-        </a>
+        </Link>
       </main>
     </>
   );

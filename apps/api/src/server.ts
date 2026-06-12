@@ -23,6 +23,7 @@ import prescriptionsRoutes from '@/modules/prescriptions/prescriptions.routes.js
 import professionalsRoutes from '@/modules/professionals/professionals.routes.js';
 import referralsRoutes from '@/modules/referrals/referrals.routes.js';
 import remindersRoutes from '@/modules/reminders/reminders.routes.js';
+import sosRoutes from '@/modules/sos/sos.routes.js';
 import subscriptionsRoutes from '@/modules/subscriptions/subscriptions.routes.js';
 import translationsRoutes from '@/modules/translations/translations.routes.js';
 import usersRoutes from '@/modules/users/users.routes.js';
@@ -87,6 +88,7 @@ export async function buildServer() {
   await app.register(walletRoutes, { prefix: '/api/v1/wallet' });
   await app.register(subscriptionsRoutes, { prefix: '/api/v1/subscriptions' });
   await app.register(notificationsRoutes, { prefix: '/api/v1/notifications' });
+  await app.register(sosRoutes, { prefix: '/api/v1/sos' });
 
   return app;
 }

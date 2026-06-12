@@ -34,11 +34,11 @@ const DEFAULT_ITEMS: NavItem[] = [
   { labelKey: 'nav.home', icon: 'home', href: '/patient' },
   { labelKey: 'nav.dossier', icon: 'file', href: '/patient/dmp' },
   { labelKey: 'nav.search', icon: 'search', href: '/patient/doctors' },
-  { labelKey: 'nav.profil', icon: 'user', href: '/patient/prescriptions' },
+  { labelKey: 'nav.profil', icon: 'user', href: '/patient/profile' },
 ];
 
 /** Barre de navigation basse : 5 emplacements, FAB centrale (card-pagne rotate-3). */
-export function BottomNav({ items = DEFAULT_ITEMS, fabHref = '/patient/doctors' }: { items?: NavItem[]; fabHref?: string }) {
+export function BottomNav({ items = DEFAULT_ITEMS, fabHref = '/patient/sos' }: { items?: NavItem[]; fabHref?: string }) {
   const { t } = useLocale();
   const pathname = usePathname();
   const left = items.slice(0, 2);
