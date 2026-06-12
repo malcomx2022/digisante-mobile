@@ -21,6 +21,10 @@ const schema = z.object({
   // ── Daily.co (téléconsultation WebRTC) — optionnel : stub si absent ──
   DAILY_API_KEY: z.string().optional(),
   DAILY_DOMAIN: z.string().optional(),
+
+  // ── Chiffrement des données de santé au repos (AES-256, CLAUDE.md §4) ──
+  // En production cette clé est OBLIGATOIRE ; en dev/local, fallback non chiffré.
+  HEALTH_ENCRYPTION_KEY: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);
