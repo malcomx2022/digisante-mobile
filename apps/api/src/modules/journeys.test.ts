@@ -1,0 +1,106 @@
+// Tests d'intégration des PARCOURS de bout en bout (continuités inter-lots, P7.1).
+// Vérifient que les modules s'enchaînent correctement. Si DB+Redis (CI).
+import { createHmac } from 'node:crypto';
+
+import type { FastifyInstance } from 'fastify';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
+const PHONES = ['+22988000001', '+22988000002', '+22988000003'];
+const WHSEC = 'whsec_journeys';
+
+describe.skipIf(!HAS_INFRA)('Parcours de bout en bout (intégration)', () => {
+  let app: FastifyInstance;
+  let patientToken: string;
+  let doctorToken: string;
+  let pharmaToken: string;
+  let patientId: string;
+  let patientUserId: string;
+
+  const auth = (t: string, share?: string) => ({ authorization: `Bearer ${t}`, ...(share ? { 'x-share-token': share } : {}) });
+  const sign = (b: string) => createHmac('sha256', WHSEC).update(b).digest('hex');
+  const cleanup = async () => {
+    await app.prisma.payment.deleteMany({ where: { user: { phone: { in: PHONES } } } });
+    await app.prisma.prescription.deleteMany({ where: { patient: { user: { phone: { in: PHONES } } } } });
+    await app.prisma.user.deleteMany({ where: { phone: { in: PHONES } } });
+  };
+
+  beforeAll(async () => {
+    process.env.FEDAPAY_WEBHOOK_SECRET = WHSEC;
+    const { buildServer } = await import('@/server.js');
+    app = await buildServer();
+    await app.ready();
+    await cleanup();
+
+    const patient = await app.prisma.user.create({
+      data: { phone: PHONES[0], role: 'PATIENT', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Aïcha', lastName: 'D' } }, patient: { create: { allergies: [] } } },
+      include: { patient: true },
+    });
+    const doctor = await app.prisma.user.create({
+      data: { phone: PHONES[1], role: 'MEDECIN', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Awa', lastName: 'K' } }, doctor: { create: { speciality: 'G', licenseNumber: 'BJ-MED-2001', consultFee: 5000, verifiedAt: new Date() } } },
+    });
+    const pharma = await app.prisma.user.create({ data: { phone: PHONES[2], role: 'PHARMACIE', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Ph', lastName: 'X' } } } });
+
+    patientId = patient.patient!.id;
+    patientUserId = patient.id;
+    patientToken = app.jwt.sign({ sub: patient.id, role: 'PATIENT' }, { expiresIn: '15m' });
+    doctorToken = app.jwt.sign({ sub: doctor.id, role: 'MEDECIN' }, { expiresIn: '15m' });
+    pharmaToken = app.jwt.sign({ sub: pharma.id, role: 'PHARMACIE' }, { expiresIn: '15m' });
+  });
+
+  afterAll(async () => {
+    if (!app) return;
+    await cleanup();
+    await app.close();
+  });
+
+  it('Chaîne 1 : DMP saisi → partage consenti → lecture médecin (DMP_ACCESS)', async () => {
+    const rec = await app.inject({ method: 'POST', url: '/api/v1/dmp/records', headers: auth(patientToken), payload: { type: 'VITAL_SIGNS', title: 'Tension', data: { bp: '15.1/9.2' } } });
+    expect(rec.statusCode).toBe(201);
+    const recordId = rec.json().id as string;
+
+    const share = await app.inject({ method: 'POST', url: `/api/v1/dmp/records/${recordId}/share`, headers: auth(patientToken), payload: { shareType: 'QR_CODE', ttlHours: 24 } });
+    const token = share.json().shareToken as string;
+
+    const before = await app.prisma.auditLog.count({ where: { action: 'DMP_ACCESS' } });
+    const read = await app.inject({ method: 'GET', url: `/api/v1/dmp/records?patientId=${patientId}`, headers: auth(doctorToken, token) });
+    expect(read.statusCode).toBe(200);
+    expect(read.json()[0].data.bp).toBe('15.1/9.2');
+    const after = await app.prisma.auditLog.count({ where: { action: 'DMP_ACCESS' } });
+    expect(after).toBeGreaterThan(before);
+  });
+
+  it('Chaîne 2 : ordonnance signée → scan pharmacie → délivrance synchronisée', async () => {
+    const validUntil = new Date(Date.now() + 30 * 24 * 3600_000).toISOString();
+    const presc = await app.inject({ method: 'POST', url: '/api/v1/prescriptions', headers: auth(doctorToken), payload: { patientId, validUntil, items: [{ medicationName: 'Paracétamol', dosage: '1g', frequency: '3x/j', duration: '5j' }] } });
+    const qrCode = presc.json().qrCode as string;
+    const prescId = presc.json().id as string;
+    const itemId = presc.json().items[0].id as string;
+
+    const scan = await app.inject({ method: 'POST', url: '/api/v1/pharmacy/scan', headers: auth(pharmaToken), payload: { qrCode } });
+    expect(scan.json().authentic).toBe(true);
+
+    await app.inject({ method: 'POST', url: `/api/v1/pharmacy/prescriptions/${prescId}/dispense`, headers: auth(pharmaToken), payload: { items: [{ itemId, status: 'DISPENSED' }] } });
+
+    const mine = await app.inject({ method: 'GET', url: '/api/v1/prescriptions', headers: auth(patientToken) });
+    expect(mine.json()[0].status).toBe('FULLY_DISPENSED');
+  });
+
+  it('Chaîne 3 : recharge wallet (webhook) → paiement → solde', async () => {
+    const topup = await app.inject({ method: 'POST', url: '/api/v1/wallet/topup', headers: auth(patientToken), payload: { amountEur: 10, method: 'VISA_MC' } });
+    const fedapayId = topup.json().payment.fedapayId as string;
+
+    const body = JSON.stringify({ fedapayId, status: 'approved' });
+    const wh = await app.inject({ method: 'POST', url: '/api/v1/payments/webhook', headers: { 'content-type': 'application/json', 'x-fedapay-signature': sign(body) }, payload: body });
+    expect(wh.json().processed).toBe(true);
+
+    const w = await app.inject({ method: 'GET', url: '/api/v1/wallet', headers: auth(patientToken) });
+    expect(Number(w.json().balance)).toBe(6560);
+
+    const pay = await app.inject({ method: 'POST', url: '/api/v1/wallet/pay', headers: auth(patientToken), payload: { amount: 1000, description: 'Soins famille' } });
+    expect(Number(pay.json().balance)).toBe(5560);
+
+    const audited = await app.prisma.auditLog.count({ where: { action: 'PAYMENT_CONFIRMED', actorId: patientUserId } });
+    expect(audited).toBeGreaterThanOrEqual(1);
+  });
+});
