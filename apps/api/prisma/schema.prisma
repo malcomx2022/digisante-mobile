@@ -291,6 +291,7 @@ model Profile {
   address          String?
   emergencyContact String?
   avatarUrl        String?
+  spokenLangs      Lang[]    @default([]) // langues parlées (🗣 fiche personne, CLAUDE.md §5)
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
