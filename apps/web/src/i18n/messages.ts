@@ -28,6 +28,8 @@ const fr: Messages = {
   'badge.eleve': 'Élevé ▲',
   'badge.priorite': 'Priorité',
   'badge.pro': 'PRO',
+  'offline.banner': 'Vous êtes hors-ligne — vos actions seront synchronisées.',
+  'offline.pending': '{n} action(s) en attente',
 };
 
 const en: Messages = {
@@ -50,6 +52,8 @@ const en: Messages = {
   'badge.eleve': 'High ▲',
   'badge.priorite': 'Priority',
   'badge.pro': 'PRO',
+  'offline.banner': 'You are offline — your actions will sync later.',
+  'offline.pending': '{n} action(s) pending',
 };
 
 // Fɔ̀ngbè — salutation native (cf. design system) ; le reste reprend FR (repli).

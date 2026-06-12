@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hors-ligne — DigiSanté</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #faf6f0;
+        color: #211c16;
+        font-family: 'DM Sans', system-ui, sans-serif;
+        text-align: center;
+        padding: 24px;
+      }
+      .card {
+        background: #fff;
+        border: 1px solid #e7e0d4;
+        clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
+        padding: 28px;
+        max-width: 340px;
+        box-shadow: 5px 5px 0 rgba(212, 168, 67, 0.25);
+      }
+      h1 {
+        font-size: 19px;
+        color: #94690f;
+        margin: 0 0 8px;
+      }
+      p {
+        font-size: 14px;
+        color: #6b6357;
+        line-height: 1.5;
+      }
+      .bar {
+        height: 8px;
+        margin-top: 16px;
+        background: repeating-linear-gradient(90deg, #c2542b 0 16px, #d4a843 16px 30px, #2e8b4f 30px 46px, #211c16 46px 50px, #2b3a67 50px 66px, #d4a843 66px 72px);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Vous êtes hors-ligne</h1>
+      <p>
+        DigiSanté fonctionne sans connexion. Vos actions seront synchronisées dès le retour du réseau.
+        En cas d'urgence, le SOS reste disponible par SMS.
+      </p>
+      <div class="bar"></div>
+    </div>
+  </body>
+</html>

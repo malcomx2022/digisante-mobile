@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Version maskable : fond plein bord-à-bord (safe zone respectée). -->
+  <rect width="512" height="512" fill="#C2542B"/>
+  <path d="M256 372 C168 312 152 252 182 218 C212 184 248 206 256 228 C264 206 300 184 330 218 C360 252 344 312 256 372 Z" fill="#FAF6F0"/>
+  <path d="M168 276 H222 L242 238 L272 318 L292 276 H344" fill="none" stroke="#C2542B" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

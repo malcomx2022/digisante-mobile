@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Carré pagne terre cuite, coin coupé (card-pagne), légère rotation « fait main » -->
+  <g transform="rotate(3 256 256)">
+    <path d="M64 64 H392 L448 120 V448 H64 Z" fill="#C2542B"/>
+  </g>
+  <!-- Cœur + ligne de pouls, SVG inline blanc -->
+  <g fill="none" stroke="#FAF6F0" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M256 360 C160 296 144 232 176 196 C208 160 248 184 256 208 C264 184 304 160 336 196 C368 232 352 296 256 360 Z" fill="#FAF6F0" stroke="none"/>
+    <path d="M150 268 H214 L236 224 L268 312 L290 268 H362" stroke="#C2542B" stroke-width="16"/>
+  </g>
+</svg>
