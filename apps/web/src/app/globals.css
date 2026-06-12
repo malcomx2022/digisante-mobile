@@ -1,0 +1,28 @@
+/* Motifs africains « Wax & Terre » (data-URI calibrés — ne pas ré-encoder). */
+@import './patterns.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    /* Fond app = crème + trame wax verte (JAMAIS gray-50/blanc pur). */
+    @apply bg-creme text-nuit font-body;
+    background-color: #faf6f0;
+  }
+  /* Liens texte : soulignés pointillés (signature « fait main »). */
+  a {
+    text-underline-offset: 4px;
+  }
+}
+
+@layer utilities {
+  /* Coin coupé inversé pour bulles de chat / rubans (complément de patterns.css). */
+  .clip-inv {
+    clip-path: polygon(18px 0, 100% 0, 100% 100%, 0 100%, 0 18px);
+  }
+}

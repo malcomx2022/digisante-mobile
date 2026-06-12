@@ -1,0 +1,137 @@
+/* ════════════════════════════════════════════════════════════════
+   DigiSanté Mobile — Design System v2 « Wax & Terre »
+   patterns.css — Motifs africains 100% CSS/SVG inline (0 image)
+   À copier tel quel : les data-URI (%23 = #) et opacités sont calibrés.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── BOGOLAN (mudcloth) ─ zigzags + tirets + carrés ─────────────── */
+
+/* Blanc op .09 — pour TOUS les fonds sombres (sante-900, indigo-900, or, nuit) */
+.bogolan-dark {
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='52' height='52'><g fill='none' stroke='%23FFFFFF' stroke-width='1.4' opacity='.09'><path d='M0 13 L8.5 4 L17 13 L25.5 4 L34 13 L42.5 4 L52 13'/><path d='M0 30 L8.5 21 L17 30 L25.5 21 L34 30 L42.5 21 L52 30'/><path d='M4 44 h8 M21 44 h8 M38 44 h8'/></g><g fill='%23FFFFFF' opacity='.10'><rect x='7' y='36' width='3' height='3'/><rect x='24' y='36' width='3' height='3'/><rect x='41' y='36' width='3' height='3'/></g></svg>");
+}
+
+/* Terre op .07 — fonds clairs ponctuels */
+.bogolan-light {
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='52' height='52'><g fill='none' stroke='%23C2542B' stroke-width='1.4' opacity='.07'><path d='M0 13 L8.5 4 L17 13 L25.5 4 L34 13 L42.5 4 L52 13'/><path d='M0 30 L8.5 21 L17 30 L25.5 21 L34 30 L42.5 21 L52 30'/><path d='M4 44 h8 M21 44 h8 M38 44 h8'/></g></svg>");
+}
+
+/* ── WAX ─ cercles concentriques ────────────────────────────────── */
+
+/* Vert op .06 — fond de page patient/PRO (sur crème) */
+.wax-light {
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='84' height='84'><g fill='none' stroke='%232E8B4F' opacity='.06' stroke-width='1.3'><circle cx='42' cy='42' r='26'/><circle cx='42' cy='42' r='15'/><circle cx='42' cy='42' r='5'/><circle cx='0' cy='0' r='12'/><circle cx='84' cy='0' r='12'/><circle cx='0' cy='84' r='12'/><circle cx='84' cy='84' r='12'/></g></svg>");
+}
+
+/* Indigo op .05 — variante fond espace PRO */
+.wax-indigo {
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='84' height='84'><g fill='none' stroke='%232B3A67' opacity='.05' stroke-width='1.3'><circle cx='42' cy='42' r='26'/><circle cx='42' cy='42' r='15'/><circle cx='42' cy='42' r='5'/><circle cx='0' cy='0' r='12'/><circle cx='84' cy='0' r='12'/><circle cx='0' cy='84' r='12'/><circle cx='84' cy='84' r='12'/></g></svg>");
+}
+
+/* Or op .08 — fond mode HORS-LIGNE (D-13) */
+.wax-ocre {
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='84' height='84'><g fill='none' stroke='%23B8891A' opacity='.08' stroke-width='1.3'><circle cx='42' cy='42' r='26'/><circle cx='42' cy='42' r='15'/><circle cx='42' cy='42' r='5'/><circle cx='0' cy='0' r='12'/><circle cx='84' cy='0' r='12'/><circle cx='0' cy='84' r='12'/><circle cx='84' cy='84' r='12'/></g></svg>");
+}
+
+/* Blanc op .07 — zones vidéo / scanner sombres */
+.wax-dark {
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='84' height='84'><g fill='none' stroke='%23FFFFFF' opacity='.07' stroke-width='1.3'><circle cx='42' cy='42' r='26'/><circle cx='42' cy='42' r='15'/><circle cx='42' cy='42' r='5'/><circle cx='0' cy='0' r='12'/><circle cx='84' cy='0' r='12'/><circle cx='0' cy='84' r='12'/><circle cx='84' cy='84' r='12'/></g></svg>");
+}
+
+/* ── NKYINKYIM ─ séparateur zigzag adinkra or (remplace <hr>) ──── */
+.nkyinkyim {
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='12'><path d='M0 9 L6 3 L12 9 L18 3 L24 9' fill='none' stroke='%23D4A843' stroke-width='2'/></svg>");
+  background-repeat:repeat-x;
+  height:12px;
+}
+/* Usage : <div class="nkyinkyim w-full my-3 opacity-30"></div>
+   opacités usuelles : .25-.30 (interne carte), .40-.50 (titre section), .60 (sombre) */
+
+/* ── KENTÉ ─ frise tissée 6 couleurs (remplace flag-bar) ────────── */
+.kente-bar {
+  height:8px;
+  background:repeating-linear-gradient(90deg,
+    #C2542B 0 16px, #D4A843 16px 30px, #2E8B4F 30px 46px,
+    #211C16 46px 50px, #2B3A67 50px 66px, #D4A843 66px 72px);
+  position:relative;
+}
+/* Trame de tissage en surimpression */
+.kente-bar::after {
+  content:''; position:absolute; inset:0;
+  background:repeating-linear-gradient(90deg, transparent 0 6px, rgba(0,0,0,.18) 6px 8px);
+}
+/* Placement : bas de chaque header sombre (absolute bottom-0 inset-x-0),
+   haut des cartes héro (absolute top-0 inset-x-0), footers (rounded-full) */
+
+/* ── CARD-PAGNE ─ coin coupé façon patch de tissu ───────────────── */
+.card-pagne { clip-path:polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%); }
+/* Variante coin inversé (bulles chat utilisateur, ruban "Plan actuel") : */
+.card-pagne-inv { clip-path:polygon(18px 0, 100% 0, 100% 100%, 0 100%, 0 18px); }
+/* Petits éléments (badges, cases à cocher) : le 18px reste correct grâce au calc. */
+
+/* ── COUTURES (stitch) ─ outline dashed offset -7px ─────────────── */
+.stitch        { outline:2px dashed rgba(194,84,43,.35);  outline-offset:-7px; } /* terre — cartes claires */
+.stitch-indigo { outline:2px dashed rgba(43,58,103,.35);  outline-offset:-7px; } /* espace PRO */
+.stitch-sos    { outline:2px dashed rgba(214,69,51,.40);  outline-offset:-7px; } /* alertes critiques */
+.stitch-light  { outline:2px dashed rgba(255,255,255,.25); outline-offset:-7px; } /* sur fonds sombres */
+/* Règle : 1 seule couture par groupe visuel (la carte la plus importante). */
+
+/* ── BANNIÈRE TRAME (offline, étiquettes tissées) ───────────────── */
+.trame-tissee {
+  background-image:repeating-linear-gradient(90deg, transparent 0 10px, rgba(0,0,0,.05) 10px 12px);
+}
+
+/* ── REMPLISSAGE TISSÉ (jauges, barres de progression) ──────────── */
+.fill-tisse-indigo { background:repeating-linear-gradient(90deg,#2B3A67 0 14px,#3F578A 14px 24px); }
+.fill-tisse-or     { background:repeating-linear-gradient(90deg,#D4A843 0 12px,#B8891A 12px 20px); }
+.fill-tisse-multi  { background:repeating-linear-gradient(90deg,#C2542B 0 40px,#D4A843 40px 75px,#2E8B4F 75px 115px,#2B3A67 115px 150px); }
+
+/* ── TOGGLES ────────────────────────────────────────────────────── */
+.toggle-on  { width:44px; height:26px; border-radius:99px; background:#1F7040; position:relative; }
+.toggle-on::after  { content:''; position:absolute; right:3px; top:3px; width:20px; height:20px; border-radius:99px; background:#FAF6F0; box-shadow:0 1px 3px rgba(0,0,0,.25); }
+.toggle-off { width:44px; height:26px; border-radius:99px; background:#D6D0C4; position:relative; }
+.toggle-off::after { content:''; position:absolute; left:3px;  top:3px; width:20px; height:20px; border-radius:99px; background:#FAF6F0; box-shadow:0 1px 3px rgba(0,0,0,.25); }
+
+/* ── ANIMATIONS ─────────────────────────────────────────────────── */
+
+/* SOS — halo pulsant */
+.pulse-sos { animation:pulseSos 1.8s ease-in-out infinite; }
+@keyframes pulseSos {
+  0%,100% { box-shadow:0 0 0 0 rgba(214,69,51,.45); }
+  50%     { box-shadow:0 0 0 26px rgba(214,69,51,0); }
+}
+
+/* Présence live (consultation en cours) — teinte par espace */
+.pulse-live { animation:pulseLive 2s ease-in-out infinite; }
+@keyframes pulseLive {
+  0%,100% { box-shadow:0 0 0 0 rgba(43,58,103,.40); }
+  50%     { box-shadow:0 0 0 14px rgba(43,58,103,0); }
+}
+
+/* Ligne de scan QR (pharmacie) — couleur ocre #D4A843 */
+.scan-line { animation:scanMove 2.4s ease-in-out infinite; }
+@keyframes scanMove {
+  0%,100% { transform:translateY(-60px); opacity:.4; }
+  50%     { transform:translateY(60px);  opacity:1; }
+}
+
+/* Accessibilité */
+@media (prefers-reduced-motion: reduce) {
+  .pulse-sos, .pulse-live, .scan-line, .animate-spin, .animate-pulse, .animate-bounce, .animate-ping {
+    animation:none !important;
+  }
+}
+
+/* ── BOUTON SOS OCTOGONAL ───────────────────────────────────────── */
+.sos-octogone {
+  clip-path:polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
+  background:linear-gradient(135deg, #D64533, #962F23);
+  border:5px solid #F9DCD7;
+}
+
+/* ── OMBRES SÉRIGRAPHIE (référence rapide Tailwind arbitrary) ───── */
+/* terre  : shadow-[5px_5px_0_rgba(194,84,43,.18)]   + border-2 border-terre-500
+   indigo : shadow-[5px_5px_0_rgba(43,58,103,.18)]   + border-2 border-indigo-600
+   ocre   : shadow-[4px_4px_0_rgba(212,168,67,.25)]  + border-2 border-ocre-400
+   sos    : shadow-[3px_3px_0_rgba(214,69,51,.20)]   + border-2 border-sos-500
+   noir (recherche) : shadow-[4px_4px_0_rgba(33,28,22,.15)] + border-2 border-stone-900 */
