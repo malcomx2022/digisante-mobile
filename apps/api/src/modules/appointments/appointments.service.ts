@@ -1,0 +1,169 @@
+// ─────────────────────────────────────────────────────────────
+// Service Rendez-vous : réservation, confirmation, annulation, agenda, triage.
+// L'annulation par le médecin signale un remboursement (audit PAYMENT_REFUND) ;
+// la logique de remboursement réelle est branchée en Phase 4 (module payments gelé).
+// ─────────────────────────────────────────────────────────────
+import type { AppointmentType } from '@digisante/shared';
+import type { FastifyInstance } from 'fastify';
+
+import { writeAudit } from '@/lib/audit.js';
+import { badRequest, conflict, forbidden, notFound } from '@/lib/errors.js';
+import { isFuture, overlaps } from './appointments.rules.js';
+
+/** Résout l'id Patient à partir de l'id User (ou lève). */
+async function patientIdOf(app: FastifyInstance, userId: string): Promise<string> {
+  const p = await app.prisma.patient.findUnique({ where: { userId }, select: { id: true } });
+  if (!p) throw forbidden('Profil patient requis');
+  return p.id;
+}
+
+/** Résout l'id Doctor à partir de l'id User (ou lève). */
+async function doctorIdOf(app: FastifyInstance, userId: string): Promise<string> {
+  const d = await app.prisma.doctor.findUnique({ where: { userId }, select: { id: true } });
+  if (!d) throw forbidden('Profil médecin requis');
+  return d.id;
+}
+
+interface BookInput {
+  doctorId: string;
+  type: AppointmentType;
+  scheduledAt: Date;
+}
+
+/** Réserve un RDV (PATIENT). Vérifie l'absence de conflit sur le créneau du médecin. */
+export async function book(app: FastifyInstance, patientUserId: string, input: BookInput) {
+  const patientId = await patientIdOf(app, patientUserId);
+  const doctor = await app.prisma.doctor.findUnique({
+    where: { id: input.doctorId },
+    select: { id: true, slotDuration: true },
+  });
+  if (!doctor) throw notFound('Médecin introuvable');
+  if (!isFuture(input.scheduledAt.getTime(), Date.now())) {
+    throw badRequest('La date du rendez-vous doit être dans le futur');
+  }
+
+  // Conflit : RDV actifs du médecin chevauchant le créneau demandé.
+  const dayStart = new Date(input.scheduledAt);
+  dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(dayStart);
+  dayEnd.setDate(dayEnd.getDate() + 1);
+
+  const sameDay = await app.prisma.appointment.findMany({
+    where: {
+      doctorId: doctor.id,
+      status: { in: ['PENDING', 'CONFIRMED'] },
+      scheduledAt: { gte: dayStart, lt: dayEnd },
+    },
+    select: { scheduledAt: true },
+  });
+  const reqStart = input.scheduledAt.getTime();
+  const clash = sameDay.some((a) =>
+    overlaps(reqStart, doctor.slotDuration, a.scheduledAt.getTime(), doctor.slotDuration),
+  );
+  if (clash) throw conflict('Créneau indisponible pour ce médecin');
+
+  return app.prisma.appointment.create({
+    data: { patientId, doctorId: doctor.id, type: input.type, status: 'PENDING', scheduledAt: input.scheduledAt },
+  });
+}
+
+/** RDV de l'utilisateur courant (patient → les siens ; médecin → les siens). */
+export async function listMine(
+  app: FastifyInstance,
+  user: { sub: string; role: string },
+  filters: { page: number; pageSize: number; status?: string },
+) {
+  const where =
+    user.role === 'MEDECIN'
+      ? { doctorId: await doctorIdOf(app, user.sub) }
+      : { patientId: await patientIdOf(app, user.sub) };
+  if (filters.status) Object.assign(where, { status: filters.status });
+
+  return app.prisma.appointment.findMany({
+    where,
+    orderBy: { scheduledAt: 'desc' },
+    skip: (filters.page - 1) * filters.pageSize,
+    take: filters.pageSize,
+  });
+}
+
+/** Charge un RDV en vérifiant que l'utilisateur en est un participant. */
+async function loadParticipantAppointment(app: FastifyInstance, user: { sub: string; role: string }, id: string) {
+  const appt = await app.prisma.appointment.findUnique({
+    where: { id },
+    include: { doctor: { select: { userId: true } }, patient: { select: { userId: true } } },
+  });
+  if (!appt) throw notFound('Rendez-vous introuvable');
+  const isParticipant = appt.patient.userId === user.sub || appt.doctor.userId === user.sub;
+  if (!isParticipant) throw forbidden('Accès réservé aux participants du rendez-vous');
+  return appt;
+}
+
+export async function getOne(app: FastifyInstance, user: { sub: string; role: string }, id: string) {
+  return loadParticipantAppointment(app, user, id);
+}
+
+/** Confirmation par le médecin propriétaire (PENDING → CONFIRMED). */
+export async function confirm(app: FastifyInstance, doctorUserId: string, id: string) {
+  const appt = await loadParticipantAppointment(app, { sub: doctorUserId, role: 'MEDECIN' }, id);
+  if (appt.doctor.userId !== doctorUserId) throw forbidden('Seul le médecin peut confirmer');
+  if (appt.status !== 'PENDING') throw badRequest('Seul un RDV en attente peut être confirmé');
+  return app.prisma.appointment.update({ where: { id }, data: { status: 'CONFIRMED' } });
+}
+
+/** Annulation par un participant. Annulation par le médecin → signal de remboursement. */
+export async function cancel(
+  app: FastifyInstance,
+  user: { sub: string; role: string },
+  id: string,
+  reason: string,
+  ip?: string | null,
+) {
+  const appt = await loadParticipantAppointment(app, user, id);
+  if (['CANCELLED', 'COMPLETED'].includes(appt.status)) {
+    throw badRequest('Ce rendez-vous ne peut plus être annulé');
+  }
+
+  const updated = await app.prisma.appointment.update({
+    where: { id },
+    data: { status: 'CANCELLED', cancelReason: reason },
+  });
+
+  // Annulation côté médecin : déclenche le remboursement d'un paiement éventuel (Phase 4).
+  if (appt.doctor.userId === user.sub) {
+    const paid = await app.prisma.payment.findFirst({
+      where: { appointmentId: id, status: 'COMPLETED' },
+      select: { id: true },
+    });
+    if (paid) {
+      await writeAudit(app.prisma, {
+        action: 'PAYMENT_REFUND',
+        actorId: user.sub,
+        targetId: id,
+        ip,
+        meta: { reason: 'doctor_cancel', paymentId: paid.id, todo: 'refund branché en Phase 4' },
+      });
+    }
+  }
+  return updated;
+}
+
+/** Agenda du médecin sur une plage de dates. */
+export async function agenda(app: FastifyInstance, doctorUserId: string, range: { from: Date; to: Date }) {
+  const doctorId = await doctorIdOf(app, doctorUserId);
+  return app.prisma.appointment.findMany({
+    where: { doctorId, scheduledAt: { gte: range.from, lte: range.to } },
+    orderBy: { scheduledAt: 'asc' },
+    include: { patient: { select: { user: { select: { profile: { select: { firstName: true, lastName: true } } } } } } },
+  });
+}
+
+/** Triage / priorisation par le médecin. */
+export async function setTriage(app: FastifyInstance, doctorUserId: string, id: string, triage: unknown) {
+  const appt = await loadParticipantAppointment(app, { sub: doctorUserId, role: 'MEDECIN' }, id);
+  if (appt.doctor.userId !== doctorUserId) throw forbidden('Seul le médecin peut trier ce RDV');
+  return app.prisma.appointment.update({
+    where: { id },
+    data: { triage: triage as object },
+  });
+}

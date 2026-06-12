@@ -7,10 +7,13 @@ import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
 
 import { env } from '@/lib/env.js';
+import appointmentsRoutes from '@/modules/appointments/appointments.routes.js';
 import authRoutes from '@/modules/auth/auth.routes.js';
+import consultationsRoutes from '@/modules/consultations/consultations.routes.js';
 import healthRoutes from '@/modules/health/health.routes.js';
 import kycRoutes from '@/modules/kyc/kyc.routes.js';
 import professionalsRoutes from '@/modules/professionals/professionals.routes.js';
+import referralsRoutes from '@/modules/referrals/referrals.routes.js';
 import usersRoutes from '@/modules/users/users.routes.js';
 import authenticate from '@/plugins/authenticate.js';
 import errorHandler from '@/plugins/error-handler.js';
@@ -57,6 +60,9 @@ export async function buildServer() {
   await app.register(usersRoutes, { prefix: '/api/v1/users' });
   await app.register(professionalsRoutes, { prefix: '/api/v1/professionals' });
   await app.register(kycRoutes, { prefix: '/api/v1/kyc' });
+  await app.register(appointmentsRoutes, { prefix: '/api/v1/appointments' });
+  await app.register(consultationsRoutes, { prefix: '/api/v1/consultations' });
+  await app.register(referralsRoutes, { prefix: '/api/v1/referrals' });
 
   return app;
 }
