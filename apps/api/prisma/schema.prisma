@@ -738,6 +738,9 @@ model HealthContent {
   tags         String[]
   translations Json?
   isPublished  Boolean         @default(false)
+  // Workflow éditorial : DRAFT → MEDICAL_REVIEW → TRANSLATION → PUBLISHED
+  status       String          @default("DRAFT")
+  reviewedById String? // professionnel vérifié ayant validé médicalement
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
 
