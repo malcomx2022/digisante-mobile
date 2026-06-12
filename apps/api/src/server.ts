@@ -16,13 +16,16 @@ import educationRoutes from '@/modules/education/education.routes.js';
 import healthRoutes from '@/modules/health/health.routes.js';
 import kycRoutes from '@/modules/kyc/kyc.routes.js';
 import laboratoryRoutes from '@/modules/laboratory/laboratory.routes.js';
+import paymentsRoutes from '@/modules/payments/payments.routes.js';
 import pharmacyRoutes from '@/modules/pharmacy/pharmacy.routes.js';
 import prescriptionsRoutes from '@/modules/prescriptions/prescriptions.routes.js';
 import professionalsRoutes from '@/modules/professionals/professionals.routes.js';
 import referralsRoutes from '@/modules/referrals/referrals.routes.js';
 import remindersRoutes from '@/modules/reminders/reminders.routes.js';
+import subscriptionsRoutes from '@/modules/subscriptions/subscriptions.routes.js';
 import translationsRoutes from '@/modules/translations/translations.routes.js';
 import usersRoutes from '@/modules/users/users.routes.js';
+import walletRoutes from '@/modules/wallet/wallet.routes.js';
 import authenticate from '@/plugins/authenticate.js';
 import errorHandler from '@/plugins/error-handler.js';
 import prismaPlugin from '@/plugins/prisma.js';
@@ -79,6 +82,9 @@ export async function buildServer() {
   await app.register(educationRoutes, { prefix: '/api/v1/education' });
   await app.register(translationsRoutes, { prefix: '/api/v1/translations' });
   await app.register(adminRoutes, { prefix: '/api/v1/admin' });
+  await app.register(paymentsRoutes, { prefix: '/api/v1/payments' });
+  await app.register(walletRoutes, { prefix: '/api/v1/wallet' });
+  await app.register(subscriptionsRoutes, { prefix: '/api/v1/subscriptions' });
 
   return app;
 }

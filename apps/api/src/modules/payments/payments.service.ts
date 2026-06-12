@@ -1,0 +1,113 @@
+// ─────────────────────────────────────────────────────────────
+// Service Paiements FedaPay. ⚠️ GELÉ une fois validé (CLAUDE.md §5).
+// Webhook : HMAC vérifié AVANT traitement, idempotence par fedapayId/statut.
+// Une recharge confirmée (WALLET_TOPUP) crédite le portefeuille.
+// ─────────────────────────────────────────────────────────────
+import type { PaymentMethod, PaymentType } from '@digisante/shared';
+import { Prisma } from '@prisma/client';
+import type { FastifyInstance } from 'fastify';
+
+import { writeAudit } from '@/lib/audit.js';
+import { badRequest, unauthorized } from '@/lib/errors.js';
+import * as wallet from '@/modules/wallet/wallet.service.js';
+import { computeCommission, createTransaction, mapFedapayStatus, verifyWebhookSignature } from '@/services/fedapay.js';
+
+interface InitiateInput {
+  type: PaymentType;
+  method: PaymentMethod;
+  amount: number;
+  appointmentId?: string;
+}
+
+/** Initie un paiement : crée la transaction FedaPay + l'enregistrement local. */
+export async function initiate(app: FastifyInstance, userId: string, input: InitiateInput) {
+  if (input.amount <= 0) throw badRequest('Montant invalide');
+  const { commission, net } = computeCommission(input.amount);
+
+  const tx = await createTransaction({
+    amount: input.amount,
+    method: input.method,
+    description: `${input.type} (${input.amount} XOF)`,
+    log: app.log,
+  });
+
+  const payment = await app.prisma.payment.create({
+    data: {
+      userId,
+      appointmentId: input.appointmentId,
+      type: input.type,
+      method: input.method,
+      amount: new Prisma.Decimal(input.amount),
+      currency: 'XOF',
+      status: 'PENDING',
+      fedapayId: tx.fedapayId,
+    },
+    select: { id: true, fedapayId: true, amount: true, status: true },
+  });
+
+  return { payment, paymentUrl: tx.paymentUrl, commission, net };
+}
+
+/**
+ * Traite un webhook FedaPay. Vérifie d'abord la signature HMAC (sinon 401),
+ * puis applique le statut de façon idempotente.
+ */
+export async function handleWebhook(
+  app: FastifyInstance,
+  rawBody: string,
+  signature: string | undefined,
+  secret: string | undefined,
+  ip?: string | null,
+) {
+  // 1) HMAC AVANT tout traitement.
+  if (!verifyWebhookSignature(rawBody, signature, secret)) {
+    await writeAudit(app.prisma, { action: 'AUTH_FAIL', ip, meta: { source: 'fedapay_webhook', reason: 'bad_signature' } });
+    throw unauthorized('Signature de webhook invalide');
+  }
+
+  // 2) Extraction normalisée { fedapayId, status }.
+  let event: { fedapayId?: string; id?: string; status?: string; entity?: { id?: string; status?: string } };
+  try {
+    event = JSON.parse(rawBody);
+  } catch {
+    throw badRequest('Charge de webhook illisible');
+  }
+  const fedapayId = event.fedapayId ?? event.id ?? event.entity?.id;
+  const rawStatus = event.status ?? event.entity?.status;
+  if (!fedapayId || !rawStatus) throw badRequest('Webhook incomplet');
+
+  const status = mapFedapayStatus(rawStatus);
+  if (!status) return { ignored: true, reason: 'statut non géré' };
+
+  const payment = await app.prisma.payment.findUnique({ where: { fedapayId } });
+  if (!payment) return { ignored: true, reason: 'paiement inconnu' };
+
+  // 3) Idempotence : un paiement déjà terminal n'est pas retraité.
+  if (['COMPLETED', 'FAILED', 'REFUNDED', 'CANCELLED'].includes(payment.status)) {
+    return { idempotent: true, status: payment.status };
+  }
+
+  await app.prisma.payment.update({ where: { id: payment.id }, data: { status } });
+
+  if (status === 'COMPLETED') {
+    await writeAudit(app.prisma, { action: 'PAYMENT_CONFIRMED', actorId: payment.userId, targetId: payment.id, ip, meta: { fedapayId, type: payment.type } });
+    // Recharge de portefeuille → crédit du solde.
+    if (payment.type === 'WALLET_TOPUP') {
+      await wallet.credit(app, payment.userId, payment.amount.toNumber(), payment.id, 'Recharge wallet');
+    }
+  }
+
+  return { processed: true, status };
+}
+
+/**
+ * Réconciliation quotidienne (cron) : balaye les paiements PENDING anciens.
+ * En l'absence d'API FedaPay configurée, opération de balayage seule (stub).
+ */
+export async function reconcile(app: FastifyInstance) {
+  const threshold = new Date(Date.now() - 60 * 60 * 1000); // > 1 h
+  const stale = await app.prisma.payment.count({ where: { status: 'PENDING', createdAt: { lt: threshold } } });
+  app.log.info({ job: 'reconcile', scanned: stale }, 'réconciliation FedaPay (balayage)');
+  // TODO : interroger FedaPay pour chaque paiement PENDING et résoudre son statut.
+  return { scanned: stale, resolved: 0 };
+}
