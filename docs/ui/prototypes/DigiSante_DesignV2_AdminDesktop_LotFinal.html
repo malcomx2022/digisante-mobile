@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DigiSanté Mobile — Admin Desktop · Lot Final (Utilisateurs · Paiements · Audit · Éducation)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        sante: {50:'#EFF8F1',100:'#D8EEDD',200:'#AEDCB9',300:'#7CC48F',400:'#47A562',500:'#2E8B4F',600:'#1F7040',700:'#1A5A36',800:'#15462B',900:'#0E3120',950:'#082016'},
+        terre: {50:'#FBF1EC',100:'#F5DCD0',200:'#EAB9A1',300:'#DD9270',400:'#CF6F45',500:'#C2542B',600:'#A84421',700:'#86361B'},
+        indigo: {50:'#EEF1F8',100:'#D8DEED',200:'#B0BDDB',300:'#8399C4',400:'#5C76A8',500:'#3F578A',600:'#2B3A67',700:'#223055',800:'#1A2440',900:'#121A2E',950:'#0C1220'},
+        ocre: {50:'#FBF5E4',100:'#F5E7BE',200:'#EAD088',300:'#DDB75A',400:'#D4A843',500:'#B8891A',600:'#94690F',900:'#4A3A0E'},
+        sos: {50:'#FDF1EF',100:'#F9DCD7',500:'#D64533',600:'#B93A2B',700:'#962F23'},
+        creme: {DEFAULT:'#FAF6F0', deep:'#F3ECE1'},
+      },
+      fontFamily: {
+        display: ['"Bricolage Grotesque"','sans-serif'],
+        body: ['"DM Sans"','sans-serif'],
+      }
+    }
+  }
+}
+</script>
+<style>
+  body { background:#16120D; font-family:'DM Sans',sans-serif; }
+  .screen-label { font-family:'Bricolage Grotesque'; }
+  .bogolan-dark {
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='52' height='52'><g fill='none' stroke='%23FFFFFF' stroke-width='1.4' opacity='.09'><path d='M0 13 L8.5 4 L17 13 L25.5 4 L34 13 L42.5 4 L52 13'/><path d='M0 30 L8.5 21 L17 30 L25.5 21 L34 30 L42.5 21 L52 30'/><path d='M4 44 h8 M21 44 h8 M38 44 h8'/></g><g fill='%23FFFFFF' opacity='.10'><rect x='7' y='36' width='3' height='3'/><rect x='24' y='36' width='3' height='3'/><rect x='41' y='36' width='3' height='3'/></g></svg>");
+  }
+  .wax-light {
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='84' height='84'><g fill='none' stroke='%232B3A67' opacity='.05' stroke-width='1.3'><circle cx='42' cy='42' r='26'/><circle cx='42' cy='42' r='15'/><circle cx='42' cy='42' r='5'/><circle cx='0' cy='0' r='12'/><circle cx='84' cy='0' r='12'/><circle cx='0' cy='84' r='12'/><circle cx='84' cy='84' r='12'/></g></svg>");
+  }
+  .nkyinkyim {
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='12'><path d='M0 9 L6 3 L12 9 L18 3 L24 9' fill='none' stroke='%23D4A843' stroke-width='2'/></svg>");
+    background-repeat:repeat-x; height:12px;
+  }
+  .kente-bar {
+    height:8px;
+    background:repeating-linear-gradient(90deg,#C2542B 0 16px,#D4A843 16px 30px,#2E8B4F 30px 46px,#211C16 46px 50px,#2B3A67 50px 66px,#D4A843 66px 72px);
+    position:relative;
+  }
+  .kente-bar::after { content:''; position:absolute; inset:0; background:repeating-linear-gradient(90deg, transparent 0 6px, rgba(0,0,0,.18) 6px 8px); }
+  .card-pagne { clip-path:polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%); }
+  .stitch { outline:2px dashed rgba(194,84,43,.35); outline-offset:-7px; }
+  .stitch-light { outline:2px dashed rgba(255,255,255,.25); outline-offset:-7px; }
+  .desktop {
+    width:100%; max-width:1500px; border-radius:18px; overflow:hidden;
+    box-shadow:0 0 0 1px #47382A, 0 40px 90px -20px rgba(0,0,0,.7);
+    background:#FAF6F0;
+  }
+</style>
+</head>
+<body class="p-10">
+
+<!-- ════════════ EN-TÊTE ════════════ -->
+<div class="max-w-[1700px] mx-auto mb-10">
+  <div class="flex items-center gap-4 mb-3">
+    <div class="w-12 h-12 card-pagne bg-indigo-600 flex items-center justify-center rotate-2">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#D4A843" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+    </div>
+    <div>
+      <h1 class="font-display font-extrabold text-[30px] text-white leading-tight">Admin Desktop — Lot Final « Wax &amp; Terre »</h1>
+      <p class="text-stone-400 text-sm">4 vues restantes : Utilisateurs · Paiements FedaPay · Audit logs · Éducation santé — la suite backoffice est complète (7/7)</p>
+    </div>
+  </div>
+  <div class="kente-bar w-72 rounded-full"></div>
+</div>
+
+<!-- ╔════════════ VUE 1 — UTILISATEURS ════════════╗ -->
+<div class="max-w-[1700px] mx-auto mb-14">
+  <div class="mb-5 flex items-center gap-2">
+    <span class="screen-label text-[11px] font-bold bg-indigo-600 text-white rounded-md px-2 py-0.5">DESKTOP · UTILISATEURS</span>
+    <span class="screen-label text-sm font-semibold text-stone-300">Annuaire complet — filtres rôle / statut / langue + panneau détail</span>
+  </div>
+  <div class="desktop flex" style="min-height:640px">
+    <!-- Sidebar -->
+    <aside class="w-[270px] flex-shrink-0 hidden lg:flex flex-col relative bogolan-dark" style="background:linear-gradient(180deg,#1A2440 0%,#121A2E 100%)">
+      <div class="relative z-10 p-5 flex-1">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-10 h-10 card-pagne bg-terre-500 flex items-center justify-center rotate-2">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21C7 17 2 13.5 2 9a5.5 5.5 0 0 1 10-3 5.5 5.5 0 0 1 10 3c0 4.5-5 8-10 12Z"/></svg>
+          </div>
+          <div><p class="font-display font-extrabold text-white text-[16px] leading-tight">DigiSanté</p><p class="text-[10px] text-indigo-300 font-bold uppercase tracking-widest">Backoffice</p></div>
+        </div>
+        <div class="kente-bar w-full rounded-full mb-4"></div>
+        <nav class="space-y-1">
+          <a class="flex items-center gap-3 px-3 py-2.5 text-indigo-200"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg><span class="text-[13px] font-medium">Tableau de bord</span></a>
+          <a class="flex items-center gap-3 px-3 py-2.5 text-indigo-200"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg><span class="text-[13px] font-medium">Vérifications KYC</span><span class="ml-auto px-1.5 py-0.5 card-pagne bg-terre-500 text-white text-[9.5px] font-extrabold">7</span></a>
+          <a class="flex items-center gap-3 px-3 py-2.5 card-pagne relative" style="background:rgba(194,84,43,.18)">
+            <span class="absolute left-0 top-1 bottom-1 w-[3px] bg-terre-400 rounded-full"></span>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#DD9270" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span class="text-[13px] font-bold text-white">Utilisateurs</span>
+          </a>
+          <a class="flex items-center gap-3 px-3 py-2.5 text-indigo-200"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/></svg><span class="text-[13px] font-medium">Paiements FedaPay</span></a>
+          <a class="flex items-center gap-3 px-3 py-2.5 text-indigo-200"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg><span class="text-[13px] font-medium">Éducation santé</span></a>
+          <a class="flex items-center gap-3 px-3 py-2.5 text-indigo-200"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2v6h6M4 22V4a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/></svg><span class="text-[13px] font-medium">Audit logs</span></a>
+        </nav>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="flex-1 wax-light">
+      <div class="h-[64px] bg-white border-b border-stone-200 px-7 flex items-center justify-between">
+        <div>
+          <h1 class="font-display font-extrabold text-[18px] text-stone-900 leading-tight">Utilisateurs — 3 482</h1>
+          <p class="text-[11px] text-stone-400">3 393 patients · 64 médecins · 18 pharmacies · 7 laboratoires</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="px-2.5 py-1.5 card-pagne bg-stone-900 text-creme text-[11px] font-bold">FR ▾</span>
+          <button class="px-3.5 py-2 card-pagne bg-terre-500 text-white text-[12px] font-extrabold shadow-[0_4px_12px_rgba(194,84,43,.3)]">Exporter (CSV)</button>
+        </div>
+      </div>
+
+      <div class="p-7">
+        <!-- Filtres -->
+        <div class="flex flex-wrap items-center gap-2.5 mb-5">
+          <div class="flex items-center gap-2 bg-white border border-stone-200 card-pagne px-3.5 py-2 w-72">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#78716C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <span class="text-[12.5px] text-stone-400">Nom, téléphone, IFU, N° Ordre…</span>
+          </div>
+          <span class="px-3 py-2 card-pagne bg-indigo-600 text-white text-[11.5px] font-extrabold">Tous</span>
+          <span class="px-3 py-2 card-pagne bg-white border border-stone-200 text-stone-600 text-[11.5px] font-bold">Patients</span>
+          <span class="px-3 py-2 card-pagne bg-white border border-stone-200 text-stone-600 text-[11.5px] font-bold">Médecins ✓</span>
+          <span class="px-3 py-2 card-pagne bg-white border border-stone-200 text-stone-600 text-[11.5px] font-bold">Pharmacies</span>
+          <span class="px-3 py-2 card-pagne bg-white border border-stone-200 text-stone-600 text-[11.5px] font-bold">Diaspora</span>
+          <div class="ml-auto flex items-center gap-2">
+            <span class="text-[11px] text-stone-400 font-bold">Langue :</span>
+            <span class="px-2.5 py-1.5 card-pagne bg-white border border-stone-200 text-stone-600 text-[11px] font-bold">Toutes ▾</span>
+            <span class="text-[11px] text-stone-400 font-bold">Statut :</span>
+            <span class="px-2.5 py-1.5 card-pagne bg-white border border-stone-200 text-stone-600 text-[11px] font-bold">Tous ▾</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-5">
+          <!-- Table (2 col) -->
+          <div class="col-span-2 bg-white card-pagne border border-stone-200 overflow-hidden">
+            <table class="w-full">
+              <thead><tr class="bg-creme">
+                <th class="text-left px-5 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase tracking-wide">Utilisateur</th>
+                <th class="text-left px-3 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase tracking-wide">Rôle</th>
+                <th class="text-left px-3 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase tracking-wide">Langue</th>
+                <th class="text-left px-3 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase tracking-wide">Activité</th>
+                <th class="text-left px-3 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase tracking-wide">Statut</th>
+              </tr></thead>
+              <tbody class="divide-y divide-stone-100">
+                <tr class="bg-indigo-50/50">
+                  <td class="px-5 py-3"><div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 card-pagne bg-ocre-400 flex items-center justify-center font-display font-extrabold text-ocre-900 text-[11px] rotate-1">AB</div>
+                    <div><p class="font-bold text-[13px] text-stone-900">Aïcha BONOU</p><p class="text-[10px] text-stone-400">+229 96 12 34 56 · Cotonou</p></div>
+                  </div></td>
+                  <td class="px-3 py-3"><span class="px-2 py-0.5 card-pagne bg-sante-50 text-sante-700 text-[9.5px] font-extrabold">Patient ★ Premium</span></td>
+                  <td class="px-3 py-3 text-[12px] font-bold text-stone-700">🗣 Fon</td>
+                  <td class="px-3 py-3 text-[11.5px] text-stone-500">il y a 12 min</td>
+                  <td class="px-3 py-3"><span class="px-2 py-0.5 card-pagne bg-sante-50 text-sante-700 text-[9px] font-extrabold">ACTIF</span></td>
+                </tr>
+                <tr>
+                  <td class="px-5 py-3"><div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 card-pagne bg-indigo-600 flex items-center justify-center font-display font-extrabold text-white text-[11px] -rotate-1">HK</div>
+                    <div><p class="font-bold text-[13px] text-stone-900">Dr. Honoré KASSA <span class="text-ocre-500">✓</span></p><p class="text-[10px] text-stone-400">CNOM 04-B-1187 · CNHU</p></div>
+                  </div></td>
+                  <td class="px-3 py-3"><span class="px-2 py-0.5 card-pagne bg-indigo-50 text-indigo-600 text-[9.5px] font-extrabold">Médecin PRO</span></td>
+                  <td class="px-3 py-3 text-[12px] font-bold text-stone-700">🗣 Fon · FR</td>
+                  <td class="px-3 py-3 text-[11.5px] text-stone-500">en consultation</td>
+                  <td class="px-3 py-3"><span class="px-2 py-0.5 card-pagne bg-sante-50 text-sante-700 text-[9px] font-extrabold">ACTIF</span></td>
+                </tr>
+                <tr>
+                  <td class="px-5 py-3"><div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 card-pagne bg-sante-700 flex items-center justify-center font-display font-extrabold text-white text-[11px] rotate-1">TA</div>
+                    <div><p class="font-bold text-[13px] text-stone-900">Pharmacie Camp Guézo</p><p class="text-[10px] text-stone-400">T. AHOLOU · IFU 3201…442</p></div>
+                  </div></td>
+                  <td class="px-3 py-3"><span class="px-2 py-0.5 card-pagne bg-ocre-50 text-ocre-600 text-[9.5px] font-extrabold">Pharmacie</span></td>
+                  <td class="px-3 py-3 text-[12px] font-bold text-stone-700">FR</td>
+                  <td class="px-3 py-3 text-[11.5px] text-stone-500">il y a 2 h</td>
+                  <td class="px-3 py-3"><span class="px-2 py-0.5 card-pagne bg-sante-50 text-sante-700 text-[9px] font-extrabold">ACTIF</span></td>
+                </tr>
+                <tr>
+                  <td class="px-5 py-3"><div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 card-pagne flex items-center justify-center font-display font-extrabold text-ocre-600 text-[11px] -rotate-1" style="background:linear-gradient(135deg,#F5E7BE,#EAD088)">PB</div>
+                    <div><p class="font-bold text-[13px] text-stone-900">Pierre BONOU 🇫🇷</p><p class="text-[10px] text-stone-400">Paris · wallet 18 500 F · 3 proches</p></div>
+                  </div></td>
+                  <td class="px-3 py-3"><span class="px-2 py-0.5 card-pagne bg-ocre-50 text-ocre-600 text-[9.5px] font-extrabold">Diaspora ★</span></td>
+                  <td class="px-3 py-3 text-[12px] font-bold text-stone-700">FR</td>
+                  <td class="px-3 py-3 text-[11.5px] text-stone-500">hier 21:18</td>
+                  <td class="px-3 py-3"><span class="px-2 py-0.5 card-pagne bg-sante-50 text-sante-700 text-[9px] font-extrabold">ACTIF</span></td>
+                </tr>
+                <tr style="background:rgba(214,69,51,.05)">
+                  <td class="px-5 py-3"><div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 card-pagne bg-stone-200 flex items-center justify-center font-display font-extrabold text-stone-500 text-[11px]">XM</div>
+                    <div><p class="font-bold text-[13px] text-stone-900">« Dr » X. MENSAH</p><p class="text-[10px] text-sos-600 font-bold">KYC rejeté ×2 · 4 signalements</p></div>
+                  </div></td>
+                  <td class="px-3 py-3"><span class="px-2 py-0.5 card-pagne bg-stone-100 text-stone-500 text-[9.5px] font-extrabold">Médecin (non vérifié)</span></td>
+                  <td class="px-3 py-3 text-[12px] font-bold text-stone-700">FR</td>
+                  <td class="px-3 py-3 text-[11.5px] text-stone-500">16 mai</td>
+                  <td class="px-3 py-3"><span class="px-2 py-0.5 card-pagne bg-sos-50 text-sos-600 text-[9px] font-extrabold border border-sos-100">SUSPENDU</span></td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="px-5 py-3 border-t border-stone-100 flex items-center justify-between bg-creme">
+              <span class="text-[11px] text-stone-400">1–5 sur 3 482</span>
+              <div class="flex gap-1.5">
+                <span class="w-7 h-7 card-pagne bg-indigo-600 text-white text-[11px] font-extrabold flex items-center justify-center">1</span>
+                <span class="w-7 h-7 card-pagne bg-white border border-stone-200 text-stone-500 text-[11px] font-bold flex items-center justify-center">2</span>
+                <span class="w-7 h-7 card-pagne bg-white border border-stone-200 text-stone-500 text-[11px] font-bold flex items-center justify-center">3</span>
+                <span class="w-7 h-7 card-pagne bg-white border border-stone-200 text-stone-500 text-[11px] font-bold flex items-center justify-center">…</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Panneau détail -->
+          <div class="space-y-4">
+            <div class="bg-white card-pagne stitch border border-stone-200 p-4">
+              <div class="flex items-center gap-3 mb-3">
+                <div class="w-12 h-12 card-pagne bg-ocre-400 flex items-center justify-center font-display font-extrabold text-ocre-900 text-[15px] rotate-2">AB</div>
+                <div>
+                  <p class="font-display font-extrabold text-[15px] text-stone-900">Aïcha BONOU</p>
+                  <p class="text-[10.5px] text-stone-400">Patient ★ Premium · depuis le 12 mars</p>
+                </div>
+              </div>
+              <div class="nkyinkyim w-full mb-3 opacity-30"></div>
+              <div class="space-y-1.5 text-[11.5px]">
+                <div class="flex justify-between"><span class="text-stone-400">Consultations</span><span class="font-extrabold text-stone-900">12</span></div>
+                <div class="flex justify-between"><span class="text-stone-400">Ordonnances actives</span><span class="font-extrabold text-stone-900">1</span></div>
+                <div class="flex justify-between"><span class="text-stone-400">Paiements cumulés</span><span class="font-extrabold text-stone-900">38 200 F</span></div>
+                <div class="flex justify-between"><span class="text-stone-400">Partage DMP actif</span><span class="font-extrabold text-sante-700">Dr. KASSA → 14/06</span></div>
+                <div class="flex justify-between"><span class="text-stone-400">Lié au wallet diaspora</span><span class="font-extrabold text-ocre-600">Pierre BONOU 🇫🇷</span></div>
+              </div>
+            </div>
+            <div class="bg-white card-pagne border border-stone-200 p-4">
+              <p class="font-display font-extrabold text-[13px] text-stone-900 mb-2.5">Actions admin</p>
+              <div class="space-y-2">
+                <button class="w-full bg-white border-2 border-indigo-600 text-indigo-600 font-display font-extrabold text-[12px] card-pagne py-2.5">Voir le journal d'activité</button>
+                <button class="w-full bg-white border border-stone-200 text-stone-600 font-display font-bold text-[12px] card-pagne py-2.5">Réinitialiser l'accès (OTP)</button>
+                <button class="w-full bg-white border border-sos-500/40 text-sos-600 font-display font-bold text-[12px] card-pagne py-2.5">Suspendre le compte</button>
+              </div>
+              <p class="text-[9.5px] text-stone-400 mt-2.5 leading-snug">⚠ L'admin ne peut PAS lire le contenu médical du DMP — accès chiffré, réservé aux soignants consentis (Loi N°2017-20).</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ╔════════════ VUE 2 — PAIEMENTS FEDAPAY ════════════╗ -->
+<div class="max-w-[1700px] mx-auto mb-14">
+  <div class="mb-5 flex items-center gap-2">
+    <span class="screen-label text-[11px] font-bold bg-indigo-600 text-white rounded-md px-2 py-0.5">DESKTOP · PAIEMENTS</span>
+    <span class="screen-label text-sm font-semibold text-stone-300">Supervision FedaPay — transactions, webhooks, reversements</span>
+  </div>
+  <div class="desktop">
+    <div class="h-[64px] bg-white border-b border-stone-200 px-7 flex items-center justify-between">
+      <div>
+        <h1 class="font-display font-extrabold text-[18px] text-stone-900 leading-tight">Paiements FedaPay — Juin 2026</h1>
+        <p class="text-[11px] text-stone-400">Webhook HMAC vérifié · réconciliation quotidienne 02:30 (cron)</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="px-3 py-2 card-pagne bg-indigo-600 text-white text-[11.5px] font-extrabold">Juin</span>
+        <span class="px-3 py-2 card-pagne bg-white border border-stone-200 text-stone-600 text-[11.5px] font-bold">Trimestre</span>
+        <button class="px-3.5 py-2 card-pagne bg-terre-500 text-white text-[12px] font-extrabold shadow-[0_4px_12px_rgba(194,84,43,.3)]">Rapport comptable</button>
+      </div>
+    </div>
+
+    <div class="p-7 wax-light">
+      <!-- KPI -->
+      <div class="grid grid-cols-4 gap-4 mb-5">
+        <div class="bg-white card-pagne stitch border border-stone-200 p-4">
+          <p class="text-[10px] text-stone-400 font-extrabold uppercase tracking-wide mb-1">Volume encaissé</p>
+          <p class="font-display font-extrabold text-[26px] text-stone-900 leading-none">4,21M <span class="text-[13px] text-stone-400">F</span></p>
+          <p class="text-[10.5px] text-sante-700 font-extrabold mt-1.5">▲ +22% vs mai · 1 240 txn</p>
+        </div>
+        <div class="bg-white card-pagne border border-stone-200 p-4 rotate-[.3deg]">
+          <p class="text-[10px] text-stone-400 font-extrabold uppercase tracking-wide mb-1">Commissions (3%)</p>
+          <p class="font-display font-extrabold text-[26px] text-terre-600 leading-none">126 300 <span class="text-[13px] text-stone-400">F</span></p>
+          <p class="text-[10.5px] text-stone-400 mt-1.5">Revenu plateforme</p>
+        </div>
+        <div class="bg-white card-pagne border border-stone-200 p-4">
+          <p class="text-[10px] text-stone-400 font-extrabold uppercase tracking-wide mb-1">Reversements pros</p>
+          <p class="font-display font-extrabold text-[26px] text-indigo-600 leading-none">3,84M <span class="text-[13px] text-stone-400">F</span></p>
+          <p class="text-[10.5px] text-stone-400 mt-1.5">64 médecins · J+2 MoMo</p>
+        </div>
+        <div class="bg-white card-pagne border-2 border-ocre-400 p-4 shadow-[4px_4px_0_rgba(212,168,67,.2)]">
+          <p class="text-[10px] text-stone-400 font-extrabold uppercase tracking-wide mb-1">Webhooks en échec</p>
+          <p class="font-display font-extrabold text-[26px] text-ocre-500 leading-none">3</p>
+          <p class="text-[10.5px] text-ocre-600 font-extrabold mt-1.5">Retry auto ×5 puis alerte</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-5">
+        <!-- Transactions -->
+        <div class="col-span-2 bg-white card-pagne border border-stone-200 overflow-hidden">
+          <div class="px-5 py-3 border-b border-stone-100 flex items-center justify-between">
+            <h2 class="font-display font-extrabold text-[15px] text-stone-900">Transactions récentes</h2>
+            <div class="flex gap-1.5">
+              <span class="px-2.5 py-1 card-pagne bg-indigo-600 text-white text-[10px] font-extrabold">Toutes</span>
+              <span class="px-2.5 py-1 card-pagne bg-creme text-stone-500 text-[10px] font-bold">MTN</span>
+              <span class="px-2.5 py-1 card-pagne bg-creme text-stone-500 text-[10px] font-bold">Moov</span>
+              <span class="px-2.5 py-1 card-pagne bg-creme text-stone-500 text-[10px] font-bold">Wallet</span>
+              <span class="px-2.5 py-1 card-pagne bg-creme text-stone-500 text-[10px] font-bold">Visa 🌍</span>
+            </div>
+          </div>
+          <table class="w-full">
+            <thead><tr class="bg-creme">
+              <th class="text-left px-5 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase">Txn</th>
+              <th class="text-left px-3 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase">Objet</th>
+              <th class="text-left px-3 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase">Moyen</th>
+              <th class="text-right px-3 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase">Montant</th>
+              <th class="text-left px-5 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase">Statut</th>
+            </tr></thead>
+            <tbody class="divide-y divide-stone-100">
+              <tr>
+                <td class="px-5 py-3"><code class="text-[10.5px] font-mono text-indigo-600">txn_8841</code><p class="text-[9.5px] text-stone-400">10:42</p></td>
+                <td class="px-3 py-3 text-[12px] text-stone-700">Consultation · A. BONOU → Dr. KASSA</td>
+                <td class="px-3 py-3"><span class="px-2 py-0.5 card-pagne text-[9px] font-extrabold text-stone-900" style="background:#FFCC00">MTN MoMo</span></td>
+                <td class="px-3 py-3 text-right font-display font-extrabold text-[13px] text-stone-900">5 000 F</td>
+                <td class="px-5 py-3"><span class="px-2 py-0.5 card-pagne bg-sante-50 text-sante-700 text-[9px] font-extrabold">RÉUSSI ✓</span></td>
+              </tr>
+              <tr style="background:rgba(212,168,67,.07)">
+                <td class="px-5 py-3"><code class="text-[10.5px] font-mono text-indigo-600">txn_8838</code><p class="text-[9.5px] text-stone-400">10:31</p></td>
+                <td class="px-3 py-3 text-[12px] text-stone-700">Pharmacie · ordonnance ORD-…-08134</td>
+                <td class="px-3 py-3"><span class="px-2 py-0.5 card-pagne text-[9px] font-extrabold text-white" style="background:#0066B3">Moov</span></td>
+                <td class="px-3 py-3 text-right font-display font-extrabold text-[13px] text-stone-900">3 400 F</td>
+                <td class="px-5 py-3"><span class="px-2 py-0.5 card-pagne bg-ocre-50 text-ocre-600 text-[9px] font-extrabold">WEBHOOK RETRY 2/5</span></td>
+              </tr>
+              <tr>
+                <td class="px-5 py-3"><code class="text-[10.5px] font-mono text-indigo-600">txn_8835</code><p class="text-[9.5px] text-stone-400">09:58</p></td>
+                <td class="px-3 py-3 text-[12px] text-stone-700">Recharge wallet · P. BONOU 🇫🇷 (50 €)</td>
+                <td class="px-3 py-3"><span class="px-2 py-0.5 card-pagne bg-indigo-50 text-indigo-600 text-[9px] font-extrabold">VISA Intl</span></td>
+                <td class="px-3 py-3 text-right font-display font-extrabold text-[13px] text-sante-700">+32 469 F</td>
+                <td class="px-5 py-3"><span class="px-2 py-0.5 card-pagne bg-sante-50 text-sante-700 text-[9px] font-extrabold">RÉUSSI ✓</span></td>
+              </tr>
+              <tr>
+                <td class="px-5 py-3"><code class="text-[10.5px] font-mono text-indigo-600">txn_8812</code><p class="text-[9.5px] text-stone-400">hier 16:40</p></td>
+                <td class="px-3 py-3 text-[12px] text-stone-700">Remboursement · K. SANTOS (RDV annulé)</td>
+                <td class="px-3 py-3"><span class="px-2 py-0.5 card-pagne text-[9px] font-extrabold text-stone-900" style="background:#FFCC00">MTN MoMo</span></td>
+                <td class="px-3 py-3 text-right font-display font-extrabold text-[13px] text-sos-600">− 5 000 F</td>
+                <td class="px-5 py-3"><span class="px-2 py-0.5 card-pagne bg-indigo-50 text-indigo-600 text-[9px] font-extrabold">REMBOURSÉ</span></td>
+              </tr>
+              <tr>
+                <td class="px-5 py-3"><code class="text-[10.5px] font-mono text-indigo-600">txn_8806</code><p class="text-[9.5px] text-stone-400">hier 14:02</p></td>
+                <td class="px-3 py-3 text-[12px] text-stone-700">Abonnement PRO · Dr. F. DOSSOU</td>
+                <td class="px-3 py-3"><span class="px-2 py-0.5 card-pagne text-[9px] font-extrabold text-white" style="background:#0066B3">Moov</span></td>
+                <td class="px-3 py-3 text-right font-display font-extrabold text-[13px] text-stone-900">15 000 F</td>
+                <td class="px-5 py-3"><span class="px-2 py-0.5 card-pagne bg-sos-50 text-sos-600 text-[9px] font-extrabold">ÉCHEC — solde</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Colonne droite -->
+        <div class="space-y-4">
+          <!-- Répartition moyens -->
+          <div class="bg-white card-pagne stitch border border-stone-200 p-4">
+            <h3 class="font-display font-extrabold text-[14px] text-stone-900 mb-3">Répartition par moyen</h3>
+            <div class="space-y-2.5">
+              <div><div class="flex justify-between text-[11px] mb-1"><span class="font-bold text-stone-700">MTN MoMo</span><span class="text-stone-400">58%</span></div><div class="h-2.5 card-pagne bg-creme-deep"><div class="h-full card-pagne" style="width:58%; background:#D4A843"></div></div></div>
+              <div><div class="flex justify-between text-[11px] mb-1"><span class="font-bold text-stone-700">Moov Money</span><span class="text-stone-400">23%</span></div><div class="h-2.5 card-pagne bg-creme-deep"><div class="h-full card-pagne bg-indigo-500" style="width:23%"></div></div></div>
+              <div><div class="flex justify-between text-[11px] mb-1"><span class="font-bold text-stone-700">Wallet diaspora</span><span class="text-stone-400">13%</span></div><div class="h-2.5 card-pagne bg-creme-deep"><div class="h-full card-pagne bg-terre-500" style="width:13%"></div></div></div>
+              <div><div class="flex justify-between text-[11px] mb-1"><span class="font-bold text-stone-700">Visa/MC International</span><span class="text-stone-400">6%</span></div><div class="h-2.5 card-pagne bg-creme-deep"><div class="h-full card-pagne bg-sante-500" style="width:6%"></div></div></div>
+            </div>
+            <p class="text-[10px] text-stone-400 mt-3 leading-snug">💡 13% du volume vient de la diaspora — argument clé du modèle économique NEXT IMPACT.</p>
+          </div>
+          <!-- Webhooks -->
+          <div class="bg-indigo-900 bogolan-dark card-pagne stitch-light p-4 relative">
+            <div class="absolute top-0 left-0 right-0 kente-bar"></div>
+            <h3 class="font-display font-extrabold text-white text-[14px] mb-2.5 pt-2">Santé webhooks</h3>
+            <div class="space-y-1.5 text-[11.5px]">
+              <div class="flex justify-between"><span class="text-indigo-200">Signature HMAC</span><span class="font-extrabold text-sante-300">✓ vérifiée</span></div>
+              <div class="flex justify-between"><span class="text-indigo-200">Reçus 24h</span><span class="font-extrabold text-white">312</span></div>
+              <div class="flex justify-between"><span class="text-indigo-200">En retry</span><span class="font-extrabold text-ocre-400">3 (max ×5)</span></div>
+              <div class="flex justify-between"><span class="text-indigo-200">File morte (DLQ)</span><span class="font-extrabold text-white">0</span></div>
+              <div class="flex justify-between"><span class="text-indigo-200">Réconciliation cron</span><span class="font-extrabold text-sante-300">02:30 ✓</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ╔════════════ VUE 3 — AUDIT LOGS ════════════╗ -->
+<div class="max-w-[1700px] mx-auto mb-14">
+  <div class="mb-5 flex items-center gap-2">
+    <span class="screen-label text-[11px] font-bold bg-indigo-600 text-white rounded-md px-2 py-0.5">DESKTOP · AUDIT LOGS</span>
+    <span class="screen-label text-sm font-semibold text-stone-300">Registre immuable — conformité Loi N°2017-20 (APDP)</span>
+  </div>
+  <div class="desktop">
+    <div class="h-[64px] bg-white border-b border-stone-200 px-7 flex items-center justify-between">
+      <div>
+        <h1 class="font-display font-extrabold text-[18px] text-stone-900 leading-tight">Audit logs — registre immuable</h1>
+        <p class="text-[11px] text-stone-400">Append-only · hash chaîné · rétention 5 ans · 184 211 entrées</p>
+      </div>
+      <button class="px-3.5 py-2 card-pagne bg-terre-500 text-white text-[12px] font-extrabold shadow-[0_4px_12px_rgba(194,84,43,.3)]">Exporter (CSV chiffré AES-256)</button>
+    </div>
+
+    <div class="p-7 wax-light">
+      <!-- Filtres -->
+      <div class="flex flex-wrap items-center gap-2 mb-5">
+        <span class="px-3 py-2 card-pagne bg-indigo-600 text-white text-[11px] font-extrabold">Tous · 24h</span>
+        <span class="px-3 py-2 card-pagne bg-white border border-stone-200 text-stone-600 text-[11px] font-bold">DMP_ACCESS</span>
+        <span class="px-3 py-2 card-pagne bg-white border border-stone-200 text-stone-600 text-[11px] font-bold">KYC_*</span>
+        <span class="px-3 py-2 card-pagne bg-white border border-stone-200 text-stone-600 text-[11px] font-bold">PAYMENT_*</span>
+        <span class="px-3 py-2 card-pagne bg-white border border-stone-200 text-stone-600 text-[11px] font-bold">USER_*</span>
+        <span class="px-3 py-2 card-pagne bg-white border border-stone-200 text-stone-600 text-[11px] font-bold">AUTH_*</span>
+        <div class="ml-auto flex items-center gap-2 bg-white border border-stone-200 card-pagne px-3.5 py-2 w-72">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#78716C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <span class="text-[12.5px] text-stone-400">Acteur, cible, IP, txn…</span>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-5">
+        <!-- Registre -->
+        <div class="col-span-2 bg-white card-pagne border border-stone-200 divide-y divide-stone-100 overflow-hidden">
+          <div class="px-5 py-3 flex items-start gap-3">
+            <span class="px-2 py-0.5 card-pagne bg-indigo-50 text-indigo-600 text-[8.5px] font-extrabold font-mono mt-0.5 w-28 text-center">DMP_ACCESS</span>
+            <div class="flex-1">
+              <p class="text-[12.5px] text-stone-800">Dr. KASSA → lecture dossier <b>A. BONOU</b> · consentement actif (expire 14/06)</p>
+              <p class="text-[10px] text-stone-400 font-mono">2026-06-10 17:28:51 · IP 41.85.140.x · session consult #8134 · hash a3f1…c9</p>
+            </div>
+            <span class="text-[9.5px] text-stone-300 font-mono mt-1">#184211</span>
+          </div>
+          <div class="px-5 py-3 flex items-start gap-3" style="background:rgba(212,168,67,.06)">
+            <span class="px-2 py-0.5 card-pagne bg-ocre-50 text-ocre-600 text-[8.5px] font-extrabold font-mono mt-0.5 w-28 text-center">DMP_DENIED</span>
+            <div class="flex-1">
+              <p class="text-[12.5px] text-stone-800">Dr. DOSSOU → tentative lecture dossier <b>J. TOSSA</b> · <b class="text-ocre-600">refusé : pas de consentement</b></p>
+              <p class="text-[10px] text-stone-400 font-mono">2026-06-10 17:12:09 · IP 41.85.162.x · demande de partage envoyée au patient · hash 77be…12</p>
+            </div>
+            <span class="text-[9.5px] text-stone-300 font-mono mt-1">#184207</span>
+          </div>
+          <div class="px-5 py-3 flex items-start gap-3">
+            <span class="px-2 py-0.5 card-pagne bg-terre-50 text-terre-600 text-[8.5px] font-extrabold font-mono mt-0.5 w-28 text-center">KYC_APPROVE</span>
+            <div class="flex-1">
+              <p class="text-[12.5px] text-stone-800">admin U. GISLAIN → approbation KYC <b>S. AGBANI</b> (pharmacienne) · checklist 6/6</p>
+              <p class="text-[10px] text-stone-400 font-mono">2026-06-10 17:31:08 · IP 41.85.162.x · badge ✓ attribué · hash 5dd0…8a</p>
+            </div>
+            <span class="text-[9.5px] text-stone-300 font-mono mt-1">#184212</span>
+          </div>
+          <div class="px-5 py-3 flex items-start gap-3" style="background:rgba(214,69,51,.05)">
+            <span class="px-2 py-0.5 card-pagne bg-sos-50 text-sos-600 text-[8.5px] font-extrabold font-mono mt-0.5 w-28 text-center">AUTH_FAIL ×5</span>
+            <div class="flex-1">
+              <p class="text-[12.5px] text-stone-800">5 OTP erronés → compte <b>+229 91 ·· ·· 03</b> verrouillé 30 min · SMS d'alerte envoyé</p>
+              <p class="text-[10px] text-stone-400 font-mono">2026-06-10 16:58:44 · IP 197.234.219.x (VPN ?) · hash 09c4…f1</p>
+            </div>
+            <span class="text-[9.5px] text-stone-300 font-mono mt-1">#184199</span>
+          </div>
+          <div class="px-5 py-3 flex items-start gap-3">
+            <span class="px-2 py-0.5 card-pagne bg-indigo-50 text-indigo-600 text-[8.5px] font-extrabold font-mono mt-0.5 w-28 text-center">DATA_EXPORT</span>
+            <div class="flex-1">
+              <p class="text-[12.5px] text-stone-800"><b>A. BONOU</b> → export de son DMP (FHIR + PDF) · droit de portabilité exercé</p>
+              <p class="text-[10px] text-stone-400 font-mono">2026-06-10 15:21:30 · auto-service patient · hash bb31…77</p>
+            </div>
+            <span class="text-[9.5px] text-stone-300 font-mono mt-1">#184184</span>
+          </div>
+          <div class="px-5 py-3 flex items-start gap-3">
+            <span class="px-2 py-0.5 card-pagne bg-sante-50 text-sante-700 text-[8.5px] font-extrabold font-mono mt-0.5 w-28 text-center">LAB_CRITICAL</span>
+            <div class="flex-1">
+              <p class="text-[12.5px] text-stone-800">BIOLAB → publication Troponine 38 ng/L <b>J. TOSSA</b> · alerte prescripteur push+SMS &lt; 30 s</p>
+              <p class="text-[10px] text-stone-400 font-mono">2026-06-10 15:49:02 · LAB-2026-0291 · accusé Dr. KASSA 15:49:41 · hash 3e0a…d4</p>
+            </div>
+            <span class="text-[9.5px] text-stone-300 font-mono mt-1">#184190</span>
+          </div>
+        </div>
+
+        <!-- Synthèse -->
+        <div class="space-y-4">
+          <div class="bg-white card-pagne stitch border border-stone-200 p-4">
+            <h3 class="font-display font-extrabold text-[14px] text-stone-900 mb-3">Dernières 24h</h3>
+            <div class="grid grid-cols-2 gap-2.5">
+              <div class="bg-creme card-pagne p-2.5 border border-stone-100 rotate-1"><p class="font-display font-extrabold text-[18px] text-indigo-600">1 204</p><p class="text-[9.5px] text-stone-400 font-bold">Accès DMP consentis</p></div>
+              <div class="bg-creme card-pagne p-2.5 border border-stone-100 -rotate-1"><p class="font-display font-extrabold text-[18px] text-ocre-500">7</p><p class="text-[9.5px] text-stone-400 font-bold">Accès refusés</p></div>
+              <div class="bg-creme card-pagne p-2.5 border border-stone-100 -rotate-1"><p class="font-display font-extrabold text-[18px] text-sos-600">12</p><p class="text-[9.5px] text-stone-400 font-bold">AUTH_FAIL</p></div>
+              <div class="bg-creme card-pagne p-2.5 border border-stone-100 rotate-1"><p class="font-display font-extrabold text-[18px] text-sante-700">3</p><p class="text-[9.5px] text-stone-400 font-bold">Exports portabilité</p></div>
+            </div>
+          </div>
+          <div class="bg-indigo-900 bogolan-dark card-pagne stitch-light p-4 relative">
+            <div class="absolute top-0 left-0 right-0 kente-bar"></div>
+            <h3 class="font-display font-extrabold text-white text-[14px] mb-2 pt-2">Garanties d'intégrité</h3>
+            <div class="space-y-1.5 text-[11px] text-indigo-100 leading-relaxed">
+              <p>• Table append-only PostgreSQL — <b class="text-white">aucun UPDATE/DELETE</b> (trigger de blocage)</p>
+              <p>• Hash SHA-256 chaîné entrée N → N-1</p>
+              <p>• Sauvegardé dans le pg_dump nocturne chiffré</p>
+              <p>• Rétention 5 ans · purge anonymisée au-delà</p>
+              <p>• Consultable par l'APDP sur réquisition</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ╔════════════ VUE 4 — ÉDUCATION SANTÉ (CMS) ════════════╗ -->
+<div class="max-w-[1700px] mx-auto mb-14">
+  <div class="mb-5 flex items-center gap-2">
+    <span class="screen-label text-[11px] font-bold bg-indigo-600 text-white rounded-md px-2 py-0.5">DESKTOP · ÉDUCATION SANTÉ</span>
+    <span class="screen-label text-sm font-semibold text-stone-300">CMS contenu éducatif — workflow de validation médicale + 5 langues + audio</span>
+  </div>
+  <div class="desktop">
+    <div class="h-[64px] bg-white border-b border-stone-200 px-7 flex items-center justify-between">
+      <div>
+        <h1 class="font-display font-extrabold text-[18px] text-stone-900 leading-tight">Éducation santé — 48 articles</h1>
+        <p class="text-[11px] text-stone-400">Workflow : Brouillon → Relecture médicale → Traductions → Publié</p>
+      </div>
+      <button class="px-3.5 py-2 card-pagne bg-terre-500 text-white text-[12px] font-extrabold shadow-[0_4px_12px_rgba(194,84,43,.3)]">+ Nouvel article</button>
+    </div>
+
+    <div class="p-7 wax-light">
+      <div class="flex flex-wrap items-center gap-2 mb-5">
+        <span class="px-3 py-2 card-pagne bg-indigo-600 text-white text-[11px] font-extrabold">Tous · 48</span>
+        <span class="px-3 py-2 card-pagne bg-white border border-stone-200 text-stone-600 text-[11px] font-bold">Publiés · 31</span>
+        <span class="px-3 py-2 card-pagne bg-white border border-stone-200 text-stone-600 text-[11px] font-bold">Relecture médicale · 5</span>
+        <span class="px-3 py-2 card-pagne bg-white border border-stone-200 text-stone-600 text-[11px] font-bold">Traductions en cours · 8</span>
+        <span class="px-3 py-2 card-pagne bg-white border border-stone-200 text-stone-600 text-[11px] font-bold">Brouillons · 4</span>
+        <div class="ml-auto flex items-center gap-2">
+          <span class="text-[11px] text-stone-400 font-bold">Catégorie :</span>
+          <span class="px-2.5 py-1.5 card-pagne bg-white border border-stone-200 text-stone-600 text-[11px] font-bold">Toutes ▾</span>
+        </div>
+      </div>
+
+      <div class="bg-white card-pagne border border-stone-200 overflow-hidden mb-5">
+        <table class="w-full">
+          <thead><tr class="bg-creme">
+            <th class="text-left px-5 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase">Article</th>
+            <th class="text-left px-3 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase">Validation médicale</th>
+            <th class="text-left px-3 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase">Langues</th>
+            <th class="text-center px-3 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase">Audio</th>
+            <th class="text-left px-3 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase">Vues</th>
+            <th class="text-left px-5 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase">Statut</th>
+          </tr></thead>
+          <tbody class="divide-y divide-stone-100">
+            <tr>
+              <td class="px-5 py-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 card-pagne bg-sante-900 bogolan-dark flex items-center justify-center rotate-1"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#7CC48F" stroke-width="1.8"><path d="M12 2 4 20h16Z"/><path d="M8 13h8M6 17h12"/></svg></div>
+                  <div><p class="font-bold text-[13px] text-stone-900">Saison des pluies : 5 gestes contre le paludisme</p><p class="text-[10px] text-stone-400">Prévention · 4 min · MàJ 2 juin</p></div>
+                </div>
+              </td>
+              <td class="px-3 py-3"><span class="text-[11.5px] font-bold text-sante-700">✓ Dr. KASSA · 1 juin</span></td>
+              <td class="px-3 py-3"><div class="flex gap-0.5"><span class="px-1 card-pagne bg-sante-50 text-[8px] font-extrabold text-sante-700">FR</span><span class="px-1 card-pagne bg-sante-50 text-[8px] font-extrabold text-sante-700">FON</span><span class="px-1 card-pagne bg-sante-50 text-[8px] font-extrabold text-sante-700">YO</span><span class="px-1 card-pagne bg-sante-50 text-[8px] font-extrabold text-sante-700">BA</span><span class="px-1 card-pagne bg-sante-50 text-[8px] font-extrabold text-sante-700">DE</span></div></td>
+              <td class="px-3 py-3 text-center"><span class="text-[10.5px] font-extrabold text-sante-700">🔊 FON 0:42</span></td>
+              <td class="px-3 py-3 text-[12px] font-bold text-stone-700">4 218</td>
+              <td class="px-5 py-3"><span class="px-2 py-0.5 card-pagne bg-sante-50 text-sante-700 text-[9px] font-extrabold">PUBLIÉ</span></td>
+            </tr>
+            <tr style="background:rgba(212,168,67,.07)">
+              <td class="px-5 py-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 card-pagne bg-ocre-50 border border-ocre-100 flex items-center justify-center -rotate-1"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#B8891A" stroke-width="1.8"><path d="M12 21C7 17 2 13.5 2 9a5.5 5.5 0 0 1 10-3 5.5 5.5 0 0 1 10 3c0 4.5-5 8-10 12Z"/></svg></div>
+                  <div><p class="font-bold text-[13px] text-stone-900">Allaitement exclusif : les 6 premiers mois</p><p class="text-[10px] text-stone-400">Maternité · 5 min · Sage-femme C. HOUNSOU</p></div>
+                </div>
+              </td>
+              <td class="px-3 py-3"><span class="text-[11.5px] font-bold text-ocre-600">⏳ En relecture · Dr. ADJOVI</span></td>
+              <td class="px-3 py-3"><div class="flex gap-0.5"><span class="px-1 card-pagne bg-sante-50 text-[8px] font-extrabold text-sante-700">FR</span><span class="px-1 card-pagne bg-creme-deep text-[8px] font-extrabold text-stone-400">FON</span><span class="px-1 card-pagne bg-creme-deep text-[8px] font-extrabold text-stone-400">YO</span></div></td>
+              <td class="px-3 py-3 text-center"><span class="text-[10px] text-stone-300 font-bold">—</span></td>
+              <td class="px-3 py-3 text-[12px] text-stone-300 font-bold">—</td>
+              <td class="px-5 py-3"><span class="px-2 py-0.5 card-pagne bg-ocre-100 text-ocre-600 text-[9px] font-extrabold">RELECTURE MÉD.</span></td>
+            </tr>
+            <tr>
+              <td class="px-5 py-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 card-pagne bg-indigo-50 flex items-center justify-center rotate-1"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#2B3A67" stroke-width="1.8"><path d="M9 12h6M12 9v6"/><circle cx="12" cy="12" r="9"/></svg></div>
+                  <div><p class="font-bold text-[13px] text-stone-900">Calendrier vaccinal de l'enfant au Bénin</p><p class="text-[10px] text-stone-400">Vaccination · 3 min · MàJ 28 mai</p></div>
+                </div>
+              </td>
+              <td class="px-3 py-3"><span class="text-[11.5px] font-bold text-sante-700">✓ Dr. KASSA · 27 mai</span></td>
+              <td class="px-3 py-3"><div class="flex gap-0.5"><span class="px-1 card-pagne bg-sante-50 text-[8px] font-extrabold text-sante-700">FR</span><span class="px-1 card-pagne bg-sante-50 text-[8px] font-extrabold text-sante-700">FON</span><span class="px-1 card-pagne bg-sante-50 text-[8px] font-extrabold text-sante-700">YO</span><span class="px-1 card-pagne bg-ocre-50 text-[8px] font-extrabold text-ocre-600">BA⏳</span><span class="px-1 card-pagne bg-terre-50 text-[8px] font-extrabold text-terre-600">DE✗</span></div></td>
+              <td class="px-3 py-3 text-center"><span class="text-[10.5px] font-extrabold text-sante-700">🔊 FON 1:05</span></td>
+              <td class="px-3 py-3 text-[12px] font-bold text-stone-700">2 871</td>
+              <td class="px-5 py-3"><span class="px-2 py-0.5 card-pagne bg-indigo-50 text-indigo-600 text-[9px] font-extrabold">PUBLIÉ PARTIEL</span></td>
+            </tr>
+            <tr>
+              <td class="px-5 py-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 card-pagne bg-creme-deep flex items-center justify-center -rotate-1"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#78716C" stroke-width="1.8"><path d="M2 12h3l3-9 4 18 3-9h3"/><circle cx="20" cy="12" r="2"/></svg></div>
+                  <div><p class="font-bold text-[13px] text-stone-900">Diabète : comprendre l'index glycémique du gari</p><p class="text-[10px] text-stone-400">Nutrition · brouillon · V. EWEDJE</p></div>
+                </div>
+              </td>
+              <td class="px-3 py-3"><span class="text-[11.5px] text-stone-300 font-bold">non soumis</span></td>
+              <td class="px-3 py-3"><span class="px-1 card-pagne bg-creme-deep text-[8px] font-extrabold text-stone-400">FR</span></td>
+              <td class="px-3 py-3 text-center"><span class="text-[10px] text-stone-300 font-bold">—</span></td>
+              <td class="px-3 py-3 text-[12px] text-stone-300 font-bold">—</td>
+              <td class="px-5 py-3"><span class="px-2 py-0.5 card-pagne bg-creme-deep text-stone-500 text-[9px] font-extrabold">BROUILLON</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Règles workflow -->
+      <div class="grid grid-cols-3 gap-4">
+        <div class="bg-white card-pagne stitch border border-stone-200 p-4">
+          <p class="font-display font-extrabold text-[13px] text-stone-900 mb-1.5">1 · Validation médicale obligatoire</p>
+          <p class="text-[11px] text-stone-500 leading-relaxed">Aucun article santé n'est publiable sans relecture par un professionnel vérifié (badge ✓). Le validateur est affiché publiquement sur l'article.</p>
+        </div>
+        <div class="bg-white card-pagne border border-stone-200 p-4">
+          <p class="font-display font-extrabold text-[13px] text-stone-900 mb-1.5">2 · Publication par langue</p>
+          <p class="text-[11px] text-stone-500 leading-relaxed">Un article peut être « publié partiel » : visible dans les langues traduites, masqué dans les autres. FR + Fɔ̀ngbè = minimum recommandé.</p>
+        </div>
+        <div class="bg-white card-pagne border border-stone-200 p-4">
+          <p class="font-display font-extrabold text-[13px] text-stone-900 mb-1.5">3 · Audio = portée maximale</p>
+          <p class="text-[11px] text-stone-500 leading-relaxed">Les articles avec audio Fɔ̀ngbè font ×3 de complétion. Priorité d'enregistrement : prévention + maternité.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ CARTE FINALE SUITE ADMIN ════════════ -->
+<div class="max-w-[1700px] mx-auto flex justify-center mb-10">
+  <div class="w-[560px]">
+    <div class="bg-stone-900/70 border border-indigo-500/40 rounded-3xl p-8 relative overflow-hidden">
+      <div class="absolute inset-0 bogolan-dark"></div>
+      <div class="relative z-10">
+        <div class="kente-bar w-full rounded-full mb-6"></div>
+        <h2 class="font-display font-extrabold text-[24px] text-white mb-1">Suite Admin Desktop complète — 7/7 ✓</h2>
+        <p class="text-stone-400 text-[13px] mb-5">Le backoffice couvre désormais toute la sidebar.</p>
+        <div class="grid grid-cols-2 gap-2 text-[12.5px]">
+          <div class="flex items-center gap-2"><span class="text-sante-300 font-extrabold">✓</span><span class="text-stone-300">Tableau de bord <span class="text-stone-500">(Lot 1 v2)</span></span></div>
+          <div class="flex items-center gap-2"><span class="text-sante-300 font-extrabold">✓</span><span class="text-stone-300">KYC Review détaillé <span class="text-stone-500">(Lot 4 v2)</span></span></div>
+          <div class="flex items-center gap-2"><span class="text-sante-300 font-extrabold">✓</span><span class="text-stone-300">Traductions 5 langues <span class="text-stone-500">(Lot 4 v2)</span></span></div>
+          <div class="flex items-center gap-2"><span class="text-terre-300 font-extrabold">✓</span><span class="text-white font-bold">Utilisateurs <span class="text-stone-500 font-normal">(ce lot)</span></span></div>
+          <div class="flex items-center gap-2"><span class="text-terre-300 font-extrabold">✓</span><span class="text-white font-bold">Paiements FedaPay <span class="text-stone-500 font-normal">(ce lot)</span></span></div>
+          <div class="flex items-center gap-2"><span class="text-terre-300 font-extrabold">✓</span><span class="text-white font-bold">Audit logs <span class="text-stone-500 font-normal">(ce lot)</span></span></div>
+          <div class="flex items-center gap-2"><span class="text-terre-300 font-extrabold">✓</span><span class="text-white font-bold">Éducation santé (CMS) <span class="text-stone-500 font-normal">(ce lot)</span></span></div>
+        </div>
+        <div class="nkyinkyim w-full mt-5 mb-4 opacity-60"></div>
+        <p class="text-stone-400 text-[11.5px] leading-relaxed">Livraison totale : <b class="text-white">26 écrans mobiles v2</b> + <b class="text-white">7 vues admin desktop</b> + skill Claude Code <b class="text-white">digisante-design-system</b>. Mettre à jour `references/screens.md` de la skill avec ces 4 vues si besoin.</p>
+        <div class="kente-bar w-full rounded-full mt-5"></div>
+        <p class="text-stone-500 text-[10.5px] mt-4 text-center font-bold">DigiSanté Mobile · « Wax &amp; Terre » · NEXT IMPACT · Bénin 🇧🇯</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

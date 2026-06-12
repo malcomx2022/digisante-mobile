@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DigiSanté Mobile — Design v2 « Wax & Terre » · Lot 1 + Admin Desktop</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        // Vert forêt — santé (réchauffé)
+        sante: {50:'#EFF8F1',100:'#D8EEDD',200:'#AEDcb9',300:'#7CC48F',400:'#47A562',500:'#2E8B4F',600:'#1F7040',700:'#1A5A36',800:'#15462B',900:'#0E3120',950:'#082016'},
+        // Terre cuite — accent artisanal
+        terre: {50:'#FBF1EC',100:'#F5DCD0',200:'#EAB9A1',300:'#DD9270',400:'#CF6F45',500:'#C2542B',600:'#A84421',700:'#86361B',800:'#662A17',900:'#471E11'},
+        // Indigo wax — espace PRO
+        indigo: {50:'#EEF1F8',100:'#D8DEED',200:'#B0BDDB',300:'#8399C4',400:'#5C76A8',500:'#3F578A',600:'#2B3A67',700:'#223055',800:'#1A2440',900:'#121A2E'},
+        // Ocre / kola
+        ocre: {50:'#FBF5E4',100:'#F5E7BE',200:'#EAD088',300:'#DDB75A',400:'#D4A843',500:'#B8891A',600:'#94690FF'.slice(0,7),700:'#6B4E0E'},
+        sos: {50:'#FDF1EF',100:'#F9DCD7',500:'#D64533',600:'#B93A2B',700:'#962F23'},
+        creme: {DEFAULT:'#FAF6F0', deep:'#F3ECE1'},
+        nuit: {DEFAULT:'#211C16', soft:'#2C261E'},
+      },
+      fontFamily: {
+        display: ['"Bricolage Grotesque"','sans-serif'],
+        body: ['"DM Sans"','sans-serif'],
+      }
+    }
+  }
+}
+</script>
+<style>
+  body { background:#16120D; font-family:'DM Sans',sans-serif; }
+  .phone {
+    width:390px; min-height:844px; border-radius:46px;
+    background:#FAF6F0; overflow:hidden; position:relative;
+    box-shadow:0 0 0 10px #2C261E, 0 0 0 12px #47382A, 0 40px 80px -20px rgba(0,0,0,.7);
+    display:flex; flex-direction:column;
+  }
+  .statusbar { height:44px; display:flex; align-items:center; justify-content:space-between; padding:0 28px; font-family:'Bricolage Grotesque'; font-size:13px; font-weight:600; flex-shrink:0; }
+  .notch { position:absolute; top:10px; left:50%; transform:translateX(-50%); width:120px; height:28px; background:#16120D; border-radius:20px; z-index:50; }
+  .homebar { position:absolute; bottom:8px; left:50%; transform:translateX(-50%); width:130px; height:5px; background:rgba(0,0,0,.25); border-radius:99px; z-index:50; }
+  .homebar.light { background:rgba(255,255,255,.4); }
+  .screen-label { font-family:'Bricolage Grotesque'; }
+
+  /* ════ MOTIFS AFRICAINS — 100% SVG inline, zéro image ════ */
+
+  /* Bogolan (mudcloth) clair sur fond sombre */
+  .bogolan-dark {
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='52' height='52'><g fill='none' stroke='%23FFFFFF' stroke-width='1.4' opacity='.09'><path d='M0 13 L8.5 4 L17 13 L25.5 4 L34 13 L42.5 4 L52 13'/><path d='M0 30 L8.5 21 L17 30 L25.5 21 L34 30 L42.5 21 L52 30'/><path d='M4 44 h8 M21 44 h8 M38 44 h8'/></g><g fill='%23FFFFFF' opacity='.10'><rect x='7' y='36' width='3' height='3'/><rect x='24' y='36' width='3' height='3'/><rect x='41' y='36' width='3' height='3'/></g></svg>");
+  }
+  /* Bogolan terre sur fond clair */
+  .bogolan-light {
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='52' height='52'><g fill='none' stroke='%23C2542B' stroke-width='1.4' opacity='.07'><path d='M0 13 L8.5 4 L17 13 L25.5 4 L34 13 L42.5 4 L52 13'/><path d='M0 30 L8.5 21 L17 30 L25.5 21 L34 30 L42.5 21 L52 30'/><path d='M4 44 h8 M21 44 h8 M38 44 h8'/></g></svg>");
+  }
+  /* Cercles wax */
+  .wax-dark {
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='84' height='84'><g fill='none' stroke='%23FFFFFF' opacity='.08' stroke-width='1.3'><circle cx='42' cy='42' r='26'/><circle cx='42' cy='42' r='15'/><circle cx='42' cy='42' r='5'/><circle cx='0' cy='0' r='12'/><circle cx='84' cy='0' r='12'/><circle cx='0' cy='84' r='12'/><circle cx='84' cy='84' r='12'/></g></svg>");
+  }
+  .wax-light {
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='84' height='84'><g fill='none' stroke='%232E8B4F' opacity='.06' stroke-width='1.3'><circle cx='42' cy='42' r='26'/><circle cx='42' cy='42' r='15'/><circle cx='42' cy='42' r='5'/><circle cx='0' cy='0' r='12'/><circle cx='84' cy='0' r='12'/><circle cx='0' cy='84' r='12'/><circle cx='84' cy='84' r='12'/></g></svg>");
+  }
+  /* Nkyinkyim — zigzag tissé pour bandes décoratives */
+  .nkyinkyim {
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='12'><path d='M0 9 L6 3 L12 9 L18 3 L24 9' fill='none' stroke='%23D4A843' stroke-width='2'/></svg>");
+    background-repeat:repeat-x; height:12px;
+  }
+
+  /* Frise kenté — remplace la flag-bar */
+  .kente-bar {
+    height:8px;
+    background:
+      repeating-linear-gradient(90deg,
+        #C2542B 0 16px, #D4A843 16px 30px, #2E8B4F 30px 46px,
+        #211C16 46px 50px, #2B3A67 50px 66px, #D4A843 66px 72px);
+    position:relative;
+  }
+  .kente-bar::after {
+    content:''; position:absolute; inset:0;
+    background:repeating-linear-gradient(90deg, transparent 0 6px, rgba(0,0,0,.18) 6px 8px);
+  }
+
+  /* Carte "pagne" — coin coupé façon tissu */
+  .card-pagne { clip-path:polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%); }
+  /* Couture (stitch) */
+  .stitch { outline:2px dashed rgba(194,84,43,.35); outline-offset:-7px; }
+  .stitch-light { outline:2px dashed rgba(255,255,255,.25); outline-offset:-7px; }
+
+  .pulse-sos { animation:pulseSos 1.8s ease-in-out infinite; }
+  @keyframes pulseSos { 0%,100%{box-shadow:0 0 0 0 rgba(214,69,51,.45)} 50%{box-shadow:0 0 0 26px rgba(214,69,51,0)} }
+
+  /* Desktop frame */
+  .desktop {
+    width:100%; max-width:1500px; border-radius:18px; overflow:hidden;
+    box-shadow:0 0 0 1px #47382A, 0 40px 90px -20px rgba(0,0,0,.7);
+    background:#FAF6F0;
+  }
+</style>
+</head>
+<body class="p-10">
+
+<!-- ════════════ EN-TÊTE ════════════ -->
+<div class="max-w-[1700px] mx-auto mb-10">
+  <div class="flex items-center gap-4 mb-3">
+    <div class="w-12 h-12 rounded-2xl bg-terre-500 flex items-center justify-center card-pagne">
+      <!-- Adinkra Akoma (cœur) -->
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21C7 17 2 13.5 2 9a5.5 5.5 0 0 1 10-3 5.5 5.5 0 0 1 10 3c0 4.5-5 8-10 12Z"/><path d="M12 6v4M10 8h4"/></svg>
+    </div>
+    <div>
+      <h1 class="font-display font-extrabold text-[30px] text-white leading-tight">Design v2 — « Wax &amp; Terre »</h1>
+      <p class="text-stone-400 text-sm">Bogolan · Kenté · Wax · Adinkra — 100% Tailwind + SVG inline (0 image) · Lot 1 redessiné + Admin Desktop</p>
+    </div>
+  </div>
+  <div class="kente-bar w-72 rounded-full"></div>
+</div>
+
+<!-- ════════════ PROPOSITION DESIGN SYSTEM ════════════ -->
+<div class="max-w-[1700px] mx-auto mb-14 grid md:grid-cols-3 gap-5">
+  <!-- Palette -->
+  <div class="bg-stone-900/60 border border-stone-700 rounded-2xl p-5">
+    <h2 class="screen-label font-bold text-white text-[15px] mb-3">1 · Palette « marché de Cotonou »</h2>
+    <div class="space-y-2">
+      <div class="flex items-center gap-2.5"><span class="w-8 h-8 rounded-lg bg-sante-600"></span><div><p class="text-[12px] text-white font-semibold">sante-600 #1F7040</p><p class="text-[10px] text-stone-400">Primaire patient — vert forêt réchauffé</p></div></div>
+      <div class="flex items-center gap-2.5"><span class="w-8 h-8 rounded-lg bg-terre-500"></span><div><p class="text-[12px] text-white font-semibold">terre-500 #C2542B</p><p class="text-[10px] text-stone-400">Accent artisanal — CTA secondaires, motifs</p></div></div>
+      <div class="flex items-center gap-2.5"><span class="w-8 h-8 rounded-lg bg-indigo-600"></span><div><p class="text-[12px] text-white font-semibold">indigo-600 #2B3A67</p><p class="text-[10px] text-stone-400">Espace PRO — indigo wax</p></div></div>
+      <div class="flex items-center gap-2.5"><span class="w-8 h-8 rounded-lg bg-ocre-400"></span><div><p class="text-[12px] text-white font-semibold">ocre-400 #D4A843</p><p class="text-[10px] text-stone-400">Or kola — diaspora, badges</p></div></div>
+      <div class="flex items-center gap-2.5"><span class="w-8 h-8 rounded-lg" style="background:#FAF6F0"></span><div><p class="text-[12px] text-white font-semibold">creme #FAF6F0</p><p class="text-[10px] text-stone-400">Fond chaud (remplace le gris froid)</p></div></div>
+    </div>
+  </div>
+  <!-- Motifs -->
+  <div class="bg-stone-900/60 border border-stone-700 rounded-2xl p-5">
+    <h2 class="screen-label font-bold text-white text-[15px] mb-3">2 · Motifs SVG (data-URI, &lt; 1 Ko chacun)</h2>
+    <div class="space-y-2.5">
+      <div class="h-12 rounded-xl bg-sante-900 bogolan-dark flex items-center px-3"><span class="text-[11px] text-white/80 font-semibold">.bogolan-dark — headers, cartes sombres</span></div>
+      <div class="h-12 rounded-xl bg-creme wax-light border border-stone-200/20 flex items-center px-3"><span class="text-[11px] text-stone-700 font-semibold">.wax-light — fonds de sections claires</span></div>
+      <div class="rounded-xl bg-stone-800 p-3"><div class="nkyinkyim w-full"></div><span class="text-[10px] text-stone-400 mt-1.5 block">.nkyinkyim — séparateur zigzag adinkra</span></div>
+      <div class="kente-bar rounded-full"></div>
+      <span class="text-[10px] text-stone-400 block -mt-1">.kente-bar — frise tissée (remplace la flag-bar)</span>
+    </div>
+  </div>
+  <!-- Signature -->
+  <div class="bg-stone-900/60 border border-stone-700 rounded-2xl p-5">
+    <h2 class="screen-label font-bold text-white text-[15px] mb-3">3 · Signatures « fait main »</h2>
+    <div class="space-y-2.5">
+      <div class="bg-creme card-pagne stitch rounded-xl p-3.5"><p class="text-[11.5px] text-stone-800 font-semibold">.card-pagne + .stitch — coin coupé façon tissu, couture pointillée terre cuite</p></div>
+      <div class="bg-creme rounded-xl p-3.5 flex items-center gap-3">
+        <span class="font-display font-extrabold text-[16px] text-stone-900">Bricolage Grotesque</span>
+        <span class="text-[11px] text-stone-500">titres — chasse irrégulière, caractère éditorial (≠ Sora géométrique)</span>
+      </div>
+      <div class="bg-creme rounded-xl p-3.5">
+        <p class="text-[11.5px] text-stone-800 font-semibold mb-1">Multilingue ancré dans l'UI</p>
+        <p class="text-[10.5px] text-stone-500">Salutations natives (Kú dó gbɛ̀, Ẹ káàbọ̀), pill langue persistante dans chaque header, audio Fɔ̀ngbè signalé.</p>
+      </div>
+      <div class="bg-creme rounded-xl p-3.5">
+        <p class="text-[11.5px] text-stone-800 font-semibold mb-1">Responsive PWA</p>
+        <p class="text-[10.5px] text-stone-500">Mobile-first 390px → tablette (grilles 2 col) → admin desktop ≥1280px avec sidebar. Motifs en background-image CSS : aucun poids réseau.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════ GRILLE ÉCRANS LOT 1 v2 ════════════ -->
+<div class="max-w-[1700px] mx-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-x-10 gap-y-16 justify-items-center mb-20">
+
+<!-- ══════ D-01 v2 — ONBOARDING ══════ -->
+<div>
+  <div class="mb-4 flex items-center gap-2">
+    <span class="screen-label text-[11px] font-bold bg-terre-500 text-white rounded-md px-2 py-0.5">D-01 v2</span>
+    <span class="screen-label text-sm font-semibold text-stone-300">Onboarding — Langues</span>
+  </div>
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="absolute inset-0 bg-gradient-to-b from-sante-950 via-sante-900 to-sante-800"></div>
+    <div class="absolute inset-0 bogolan-dark"></div>
+    <!-- bande kenté haute -->
+    <div class="absolute top-0 left-0 right-0 h-2 kente-bar z-20"></div>
+    <div class="statusbar text-white relative z-10"><span>9:41</span><span class="text-[11px] opacity-70">🇧🇯</span></div>
+    <div class="relative z-10 flex-1 flex flex-col px-7 pb-10">
+      <div class="flex-1 flex flex-col items-center justify-center text-center">
+        <!-- Logo calebasse + cœur -->
+        <div class="w-24 h-24 card-pagne bg-terre-500 stitch-light flex items-center justify-center mb-5 rotate-3">
+          <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#FAF6F0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21C7 17 2 13.5 2 9a5.5 5.5 0 0 1 10-3 5.5 5.5 0 0 1 10 3c0 4.5-5 8-10 12Z"/><path d="M7 10h3l1-2 2 4 1.5-2H17"/></svg>
+        </div>
+        <h1 class="font-display font-extrabold text-[34px] text-white leading-none mb-1">DigiSanté</h1>
+        <div class="nkyinkyim w-28 mx-auto mb-3"></div>
+        <p class="text-sante-200 text-[15px] mb-0.5">Votre santé, dans votre poche.</p>
+        <p class="text-ocre-400 font-display font-semibold text-[13px] mb-8">Kú dó gbɛ̀ · Ẹ káàbọ̀ · Bienvenue</p>
+
+        <div class="w-full space-y-2.5">
+          <button class="w-full flex items-center justify-between bg-creme card-pagne px-5 py-3.5">
+            <span class="font-display font-bold text-[15px] text-stone-900">Français</span>
+            <span class="w-6 h-6 bg-terre-500 card-pagne flex items-center justify-center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          </button>
+          <button class="w-full flex items-center justify-between bg-white/10 border border-white/15 card-pagne px-5 py-3.5">
+            <span class="font-display font-bold text-[15px] text-white">Fɔ̀ngbè <span class="text-sante-300 font-normal text-[12px] ml-1">Fon</span></span>
+          </button>
+          <button class="w-full flex items-center justify-between bg-white/10 border border-white/15 card-pagne px-5 py-3.5">
+            <span class="font-display font-bold text-[15px] text-white">Yorùbá</span>
+          </button>
+          <button class="w-full flex items-center justify-between bg-white/10 border border-white/15 card-pagne px-5 py-3.5">
+            <span class="font-display font-bold text-[15px] text-white">Baatɔnum <span class="text-sante-300 font-normal text-[12px] ml-1">Bariba</span></span>
+          </button>
+          <button class="w-full flex items-center justify-between bg-white/10 border border-white/15 card-pagne px-5 py-3.5">
+            <span class="font-display font-bold text-[15px] text-white">Dendi</span>
+          </button>
+        </div>
+      </div>
+      <button class="w-full bg-terre-500 hover:bg-terre-600 text-white font-display font-bold text-[16px] card-pagne py-4 shadow-[0_10px_28px_rgba(194,84,43,.45)]">Continuer →</button>
+    </div>
+    <div class="homebar light"></div>
+  </div>
+</div>
+
+<!-- ══════ D-02 v2 — OTP ══════ -->
+<div>
+  <div class="mb-4 flex items-center gap-2">
+    <span class="screen-label text-[11px] font-bold bg-terre-500 text-white rounded-md px-2 py-0.5">D-02 v2</span>
+    <span class="screen-label text-sm font-semibold text-stone-300">Connexion — OTP</span>
+  </div>
+  <div class="phone wax-light">
+    <div class="notch"></div>
+    <div class="statusbar text-stone-900"><span>9:41</span><span class="text-[11px] px-2 py-0.5 rounded-full bg-stone-900 text-creme font-bold">FR</span></div>
+    <div class="px-7 pt-2 flex items-center justify-between">
+      <button class="w-10 h-10 card-pagne bg-white border border-stone-200 flex items-center justify-center">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#44403C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+      <div class="nkyinkyim w-20"></div>
+    </div>
+    <div class="flex-1 px-7 pt-7">
+      <div class="w-16 h-16 card-pagne bg-sante-600 stitch-light flex items-center justify-center mb-5 -rotate-2">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FAF6F0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+      </div>
+      <h1 class="font-display font-extrabold text-[27px] text-stone-900 leading-tight mb-2">Vérification du numéro</h1>
+      <p class="text-stone-500 text-[14px] leading-relaxed mb-7">Code à 6 chiffres envoyé par SMS au <span class="font-bold text-stone-800">+229 96 12 34 56</span></p>
+
+      <div class="flex gap-2.5 mb-5">
+        <div class="flex-1 h-[58px] card-pagne bg-white border-2 border-sante-600 flex items-center justify-center font-display font-bold text-[22px] text-stone-900">7</div>
+        <div class="flex-1 h-[58px] card-pagne bg-white border-2 border-sante-600 flex items-center justify-center font-display font-bold text-[22px] text-stone-900">2</div>
+        <div class="flex-1 h-[58px] card-pagne bg-white border-2 border-sante-600 flex items-center justify-center font-display font-bold text-[22px] text-stone-900">9</div>
+        <div class="flex-1 h-[58px] card-pagne bg-white border-2 border-terre-300 flex items-center justify-center"><span class="w-2 h-2 rounded-full bg-terre-500 animate-pulse"></span></div>
+        <div class="flex-1 h-[58px] card-pagne bg-white border border-stone-200"></div>
+        <div class="flex-1 h-[58px] card-pagne bg-white border border-stone-200"></div>
+      </div>
+      <div class="flex items-center justify-between mb-7">
+        <span class="text-[13px] text-stone-400">Expire dans <span class="font-bold text-terre-600">04:32</span></span>
+        <button class="text-[13px] font-bold text-sante-700 underline decoration-dotted underline-offset-4">Renvoyer le code</button>
+      </div>
+      <button class="w-full bg-sante-600 text-white font-display font-bold text-[16px] card-pagne py-4 shadow-[0_10px_24px_rgba(31,112,64,.35)] mb-3">Vérifier</button>
+      <button class="w-full bg-white border border-stone-200 text-stone-700 font-display font-semibold text-[14px] card-pagne py-3.5">📞 Recevoir un appel vocal (Fɔ̀ngbè dispo)</button>
+    </div>
+    <div class="px-7 pb-9">
+      <div class="bg-sante-50 border border-sante-200 card-pagne px-4 py-3 flex gap-2.5">
+        <svg class="flex-shrink-0 mt-0.5" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1F7040" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <p class="text-[11.5px] text-sante-800 leading-snug">Vos données médicales sont chiffrées (AES-256). Personne d'autre que vous ne peut y accéder.</p>
+      </div>
+    </div>
+    <div class="homebar"></div>
+  </div>
+</div>
+
+<!-- ══════ D-03 v2 — DASHBOARD PATIENT ══════ -->
+<div>
+  <div class="mb-4 flex items-center gap-2">
+    <span class="screen-label text-[11px] font-bold bg-terre-500 text-white rounded-md px-2 py-0.5">D-03 v2</span>
+    <span class="screen-label text-sm font-semibold text-stone-300">Accueil Patient</span>
+  </div>
+  <div class="phone">
+    <div class="notch"></div>
+    <!-- Header bogolan -->
+    <div class="bg-sante-900 bogolan-dark relative pb-16">
+      <div class="statusbar text-white relative z-10"><span>9:41</span><span class="text-[11px] px-2 py-0.5 rounded-full bg-white/15 border border-white/20 text-white font-bold">FR ▾</span></div>
+      <div class="relative z-10 px-6 pt-1 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 card-pagne bg-ocre-400 flex items-center justify-center font-display font-extrabold text-sante-950 text-[16px] rotate-2">AB</div>
+          <div>
+            <p class="text-ocre-300 font-display text-[12px]">Kú dó gbɛ̀ 👋</p>
+            <p class="font-display font-extrabold text-white text-[18px] leading-tight">Aïcha BONOU</p>
+          </div>
+        </div>
+        <button class="w-10 h-10 card-pagne bg-white/10 border border-white/15 flex items-center justify-center relative">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+          <span class="absolute -top-1 -right-1 min-w-[18px] h-[18px] card-pagne bg-terre-500 text-white text-[10px] font-bold flex items-center justify-center px-1">3</span>
+        </button>
+      </div>
+      <div class="relative z-10 px-6 mt-2.5">
+        <div class="inline-flex items-center gap-1.5 bg-white/10 border border-white/15 rounded-full px-3 py-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-sante-300"></span>
+          <span class="text-[11px] text-sante-100 font-medium">Synchronisé · il y a 2 min</span>
+        </div>
+      </div>
+      <!-- liseré kenté bas du header -->
+      <div class="absolute bottom-0 left-0 right-0 kente-bar"></div>
+    </div>
+
+    <!-- Carte RDV pagne -->
+    <div class="px-6 -mt-10 relative z-20">
+      <div class="bg-white card-pagne stitch p-4 shadow-[0_14px_36px_-10px_rgba(33,28,22,.25)]">
+        <div class="flex items-center justify-between mb-3">
+          <span class="px-2.5 py-1 card-pagne text-[10px] font-bold bg-indigo-50 text-indigo-600 uppercase tracking-wide">Prochain RDV</span>
+          <span class="text-[11px] text-stone-400">Dans 2 jours</span>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 card-pagne bg-sante-50 border border-sante-200 flex items-center justify-center">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1F7040" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6 6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6 6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></svg>
+          </div>
+          <div class="flex-1">
+            <p class="font-display font-bold text-[15px] text-stone-900">Dr. Honoré KASSA</p>
+            <p class="text-[12.5px] text-stone-500">Cardiologue · Téléconsultation</p>
+          </div>
+        </div>
+        <div class="nkyinkyim w-full my-3 opacity-40"></div>
+        <div class="flex items-center gap-2">
+          <span class="text-[12.5px] text-stone-600 font-medium">📅 Ven. 12 juin · 10h30</span>
+          <button class="ml-auto px-4 py-2 card-pagne bg-sante-600 text-white font-display font-bold text-[12px]">Rejoindre</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions calebasses -->
+    <div class="px-6 mt-5">
+      <div class="grid grid-cols-4 gap-3">
+        <button class="flex flex-col items-center gap-1.5">
+          <div class="w-[62px] h-[62px] card-pagne bg-white border border-stone-200 flex items-center justify-center rotate-1">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1F7040" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M9 12h6M12 9v6"/></svg>
+          </div>
+          <span class="text-[10.5px] font-bold text-stone-700 text-center leading-tight">Mon<br>dossier</span>
+        </button>
+        <button class="flex flex-col items-center gap-1.5">
+          <div class="w-[62px] h-[62px] card-pagne bg-white border border-stone-200 flex items-center justify-center -rotate-1">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2B3A67" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2"/></svg>
+          </div>
+          <span class="text-[10.5px] font-bold text-stone-700 text-center leading-tight">Consulter</span>
+        </button>
+        <button class="flex flex-col items-center gap-1.5">
+          <div class="w-[62px] h-[62px] card-pagne bg-white border border-stone-200 flex items-center justify-center rotate-1">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#B8891A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+          </div>
+          <span class="text-[10.5px] font-bold text-stone-700 text-center leading-tight">Ordonnances</span>
+        </button>
+        <button class="flex flex-col items-center gap-1.5">
+          <div class="w-[62px] h-[62px] card-pagne bg-sos-500 pulse-sos flex items-center justify-center">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/></svg>
+          </div>
+          <span class="text-[10.5px] font-extrabold text-sos-600 text-center leading-tight">SOS</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Rappels -->
+    <div class="px-6 mt-6 flex-1">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-display font-extrabold text-[17px] text-stone-900">Rappels du jour</h2>
+        <button class="text-[12px] font-bold text-terre-600 underline decoration-dotted underline-offset-4">Tout voir</button>
+      </div>
+      <div class="space-y-2.5">
+        <div class="bg-white card-pagne p-3.5 border border-stone-200 flex items-center gap-3">
+          <div class="w-10 h-10 card-pagne bg-ocre-50 border border-ocre-100 flex items-center justify-center">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#B8891A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+          </div>
+          <div class="flex-1">
+            <p class="font-bold text-[13.5px] text-stone-900">Amlodipine 5mg</p>
+            <p class="text-[11.5px] text-stone-400">1 comprimé · avec le repas</p>
+          </div>
+          <p class="font-display font-extrabold text-[13px] text-sante-700">12h30</p>
+        </div>
+        <div class="bg-white card-pagne p-3.5 border border-stone-200 flex items-center gap-3">
+          <div class="w-10 h-10 card-pagne bg-indigo-50 flex items-center justify-center">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2B3A67" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2v6h6M4 22V4a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/></svg>
+          </div>
+          <div class="flex-1">
+            <p class="font-bold text-[13.5px] text-stone-900">Résultats d'analyses prêts</p>
+            <p class="text-[11.5px] text-stone-400">BIOLAB Cotonou</p>
+          </div>
+          <span class="px-2 py-1 card-pagne text-[10px] font-bold bg-terre-50 text-terre-600">Nouveau</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom nav -->
+    <div class="bg-white border-t-2 border-stone-900/10 px-6 pt-3 pb-8 grid grid-cols-5 relative">
+      <div class="absolute top-0 left-0 right-0 nkyinkyim opacity-30 -translate-y-full"></div>
+      <button class="flex flex-col items-center gap-1">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1F7040" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
+        <span class="text-[9.5px] font-extrabold text-sante-700">Accueil</span>
+      </button>
+      <button class="flex flex-col items-center gap-1 opacity-50">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#78716C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect width="8" height="4" x="8" y="2" rx="1"/></svg>
+        <span class="text-[9.5px] font-medium text-stone-500">Dossier</span>
+      </button>
+      <button class="flex flex-col items-center gap-1 -mt-7">
+        <div class="w-14 h-14 card-pagne bg-terre-500 shadow-[0_10px_24px_rgba(194,84,43,.45)] flex items-center justify-center border-4 border-creme rotate-3">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14M12 5v14"/></svg>
+        </div>
+        <span class="text-[9.5px] font-extrabold text-terre-600">RDV</span>
+      </button>
+      <button class="flex flex-col items-center gap-1 opacity-50">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#78716C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2"/></svg>
+        <span class="text-[9.5px] font-medium text-stone-500">Consulter</span>
+      </button>
+      <button class="flex flex-col items-center gap-1 opacity-50">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#78716C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>
+        <span class="text-[9.5px] font-medium text-stone-500">Profil</span>
+      </button>
+    </div>
+    <div class="homebar"></div>
+  </div>
+</div>
+
+<!-- ══════ D-04 v2 — DMP ══════ -->
+<div>
+  <div class="mb-4 flex items-center gap-2">
+    <span class="screen-label text-[11px] font-bold bg-terre-500 text-white rounded-md px-2 py-0.5">D-04 v2</span>
+    <span class="screen-label text-sm font-semibold text-stone-300">Dossier Médical (DMP)</span>
+  </div>
+  <div class="phone wax-light">
+    <div class="notch"></div>
+    <div class="statusbar text-stone-900"><span>9:41</span><span class="text-[11px] px-2 py-0.5 rounded-full bg-stone-900 text-creme font-bold">FR ▾</span></div>
+    <div class="px-6 pt-2 pb-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <button class="w-10 h-10 card-pagne bg-white border border-stone-200 flex items-center justify-center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#44403C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <h1 class="font-display font-extrabold text-[21px] text-stone-900">Mon dossier</h1>
+      </div>
+      <button class="flex items-center gap-1.5 px-3.5 py-2 card-pagne bg-terre-500 text-white font-display font-bold text-[12px] shadow-[0_4px_14px_rgba(194,84,43,.35)]">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3M21 21v.01M12 7v3a2 2 0 0 1-2 2H7M3 12h.01M12 3h.01M12 16v.01M16 12h1M21 12v.01M12 21v-1"/></svg>
+        Partager QR
+      </button>
+    </div>
+
+    <!-- Carte urgence façon pagne tissé -->
+    <div class="px-6 mb-4">
+      <div class="card-pagne bg-sante-900 bogolan-dark p-4 relative stitch-light">
+        <div class="absolute top-0 left-0 right-0 kente-bar"></div>
+        <div class="flex items-center justify-between pt-2">
+          <div>
+            <p class="text-ocre-400 font-display text-[10.5px] uppercase tracking-widest font-bold mb-1">Carte santé d'urgence</p>
+            <p class="font-display font-extrabold text-white text-[17px]">Aïcha BONOU</p>
+            <div class="flex gap-4 mt-2.5">
+              <div><p class="text-sante-300 text-[10px]">Groupe</p><p class="font-display font-extrabold text-ocre-400 text-[16px]">O+</p></div>
+              <div><p class="text-sante-300 text-[10px]">Allergies</p><p class="font-bold text-white text-[12px]">Pénicilline</p></div>
+              <div><p class="text-sante-300 text-[10px]">Né(e)</p><p class="font-bold text-white text-[12px]">14/03/1992</p></div>
+            </div>
+          </div>
+          <div class="w-[72px] h-[72px] bg-creme card-pagne p-1.5 flex-shrink-0 rotate-2">
+            <svg viewBox="0 0 29 29" class="w-full h-full"><path fill="#0E3120" d="M0 0h7v7H0zM2 2h3v3H2zM9 0h2v2H9zM13 0h2v3h-2zM16 1h2v2h-2zM20 0h2v2h-2zM22 0h7v7h-7zM24 2h3v3h-3zM9 4h3v2H9zM18 4h2v3h-2zM10 7h2v2h-2zM14 6h2v3h-2zM0 9h2v2H0zM4 9h3v2H4zM9 9h2v3H9zM13 10h3v2h-3zM18 9h2v2h-2zM22 9h2v3h-2zM26 9h3v2h-3zM2 13h2v2H2zM6 12h2v3H6zM11 13h2v2h-2zM16 13h3v3h-3zM21 12h2v2h-2zM25 13h2v2h-2zM0 16h3v2H0zM5 17h2v2H5zM9 16h2v2H9zM13 17h2v2h-2zM19 17h2v2h-2zM23 16h3v2h-3zM27 17h2v2h-2zM0 22h7v7H0zM2 24h3v3H2zM9 21h3v2H9zM14 20h2v3h-2zM18 21h2v2h-2zM22 20h2v2h-2zM26 21h3v3h-3zM9 25h2v3H9zM13 24h3v2h-3zM17 25h2v2h-2zM21 24h2v3h-2zM25 26h3v2h-3z"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Compteurs -->
+    <div class="px-6 mb-4 grid grid-cols-4 gap-2">
+      <div class="bg-white card-pagne p-2.5 border border-stone-200 text-center rotate-1"><p class="font-display font-extrabold text-[18px] text-sante-700">12</p><p class="text-[9.5px] text-stone-400 font-medium">Consult.</p></div>
+      <div class="bg-white card-pagne p-2.5 border border-stone-200 text-center -rotate-1"><p class="font-display font-extrabold text-[18px] text-indigo-600">5</p><p class="text-[9.5px] text-stone-400 font-medium">Vaccins</p></div>
+      <div class="bg-white card-pagne p-2.5 border border-stone-200 text-center rotate-1"><p class="font-display font-extrabold text-[18px] text-ocre-500">8</p><p class="text-[9.5px] text-stone-400 font-medium">Analyses</p></div>
+      <div class="bg-white card-pagne p-2.5 border border-stone-200 text-center -rotate-1"><p class="font-display font-extrabold text-[18px] text-sos-600">2</p><p class="text-[9.5px] text-stone-400 font-medium">Allergies</p></div>
+    </div>
+
+    <!-- Filtres -->
+    <div class="px-6 mb-3 flex gap-2 overflow-hidden">
+      <span class="px-3.5 py-1.5 card-pagne bg-sante-600 text-white text-[11.5px] font-bold whitespace-nowrap">Tout</span>
+      <span class="px-3.5 py-1.5 card-pagne bg-white border border-stone-200 text-stone-600 text-[11.5px] font-semibold whitespace-nowrap">Consultations</span>
+      <span class="px-3.5 py-1.5 card-pagne bg-white border border-stone-200 text-stone-600 text-[11.5px] font-semibold whitespace-nowrap">Analyses</span>
+      <span class="px-3.5 py-1.5 card-pagne bg-white border border-stone-200 text-stone-600 text-[11.5px] font-semibold whitespace-nowrap">Vaccins</span>
+    </div>
+
+    <!-- Timeline -->
+    <div class="px-6 flex-1 space-y-2.5 pb-4">
+      <div class="bg-white card-pagne p-4 border border-stone-200 relative overflow-hidden">
+        <div class="absolute top-0 left-0 bottom-0 w-1.5 bg-indigo-500"></div>
+        <div class="flex items-start justify-between mb-1.5">
+          <span class="px-2 py-0.5 card-pagne text-[9.5px] font-bold bg-indigo-50 text-indigo-600 uppercase">Analyse</span>
+          <span class="text-[10.5px] text-stone-400">8 juin 2026</span>
+        </div>
+        <p class="font-display font-bold text-[14px] text-stone-900">Bilan lipidique complet</p>
+        <p class="text-[12px] text-stone-500 mt-0.5">BIOLAB Cotonou · Interprété par Dr. KASSA</p>
+        <div class="flex gap-2 mt-2.5">
+          <span class="text-[10.5px] text-sante-700 font-bold">✓ Cholestérol normal</span>
+          <span class="text-[10.5px] text-ocre-500 font-bold">⚠ Triglycérides élevés</span>
+        </div>
+      </div>
+      <div class="bg-white card-pagne p-4 border border-stone-200 relative overflow-hidden">
+        <div class="absolute top-0 left-0 bottom-0 w-1.5 bg-sante-600"></div>
+        <div class="flex items-start justify-between mb-1.5">
+          <span class="px-2 py-0.5 card-pagne text-[9.5px] font-bold bg-sante-50 text-sante-700 uppercase">Consultation</span>
+          <span class="text-[10.5px] text-stone-400">28 mai 2026</span>
+        </div>
+        <p class="font-display font-bold text-[14px] text-stone-900">Suivi hypertension artérielle</p>
+        <p class="text-[12px] text-stone-500 mt-0.5">Dr. KASSA · Téléconsultation · 14,2/8,9</p>
+      </div>
+      <div class="bg-white card-pagne p-4 border border-stone-200 relative overflow-hidden">
+        <div class="absolute top-0 left-0 bottom-0 w-1.5 bg-ocre-400"></div>
+        <div class="flex items-start justify-between mb-1.5">
+          <span class="px-2 py-0.5 card-pagne text-[9.5px] font-bold bg-ocre-50 text-ocre-600 uppercase">Vaccin</span>
+          <span class="text-[10.5px] text-stone-400">12 jan 2026</span>
+        </div>
+        <p class="font-display font-bold text-[14px] text-stone-900">Fièvre jaune — Rappel 10 ans</p>
+        <p class="text-[12px] text-stone-500 mt-0.5">Centre de santé Abomey-Calavi</p>
+      </div>
+    </div>
+    <div class="homebar"></div>
+  </div>
+</div>
+
+<!-- ══════ D-05 v2 — RECHERCHE MÉDECIN ══════ -->
+<div>
+  <div class="mb-4 flex items-center gap-2">
+    <span class="screen-label text-[11px] font-bold bg-terre-500 text-white rounded-md px-2 py-0.5">D-05 v2</span>
+    <span class="screen-label text-sm font-semibold text-stone-300">Recherche Médecin — RDV</span>
+  </div>
+  <div class="phone wax-light">
+    <div class="notch"></div>
+    <div class="statusbar text-stone-900"><span>9:41</span><span class="text-[11px] px-2 py-0.5 rounded-full bg-stone-900 text-creme font-bold">FR ▾</span></div>
+    <div class="px-6 pt-2 pb-3">
+      <h1 class="font-display font-extrabold text-[23px] text-stone-900 mb-1">Trouver un médecin</h1>
+      <div class="nkyinkyim w-24 mb-3 opacity-60"></div>
+      <div class="flex items-center gap-2 bg-white border-2 border-stone-900 card-pagne px-4 py-3 shadow-[4px_4px_0_rgba(33,28,22,.15)]">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <span class="text-[14px] text-stone-400">Spécialité, nom, symptôme…</span>
+        <div class="ml-auto w-8 h-8 card-pagne bg-terre-50 flex items-center justify-center">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#C2542B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M7 12h10M11 18h2"/></svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="px-6 mb-3 flex gap-2 overflow-hidden">
+      <span class="px-3.5 py-1.5 card-pagne bg-sante-600 text-white text-[11.5px] font-bold whitespace-nowrap">Cardiologie</span>
+      <span class="px-3.5 py-1.5 card-pagne bg-white border border-stone-200 text-stone-600 text-[11.5px] font-semibold whitespace-nowrap">Généraliste</span>
+      <span class="px-3.5 py-1.5 card-pagne bg-white border border-stone-200 text-stone-600 text-[11.5px] font-semibold whitespace-nowrap">Pédiatrie</span>
+      <span class="px-3.5 py-1.5 card-pagne bg-white border border-stone-200 text-stone-600 text-[11.5px] font-semibold whitespace-nowrap">Gynéco</span>
+    </div>
+
+    <div class="px-6 flex items-center justify-between mb-2.5">
+      <span class="text-[12px] text-stone-400"><span class="font-extrabold text-stone-800">14 médecins</span> disponibles</span>
+      <button class="text-[12px] font-bold text-terre-600">📍 Près de moi</button>
+    </div>
+
+    <div class="px-6 flex-1 space-y-3 pb-4">
+      <!-- Médecin 1 -->
+      <div class="bg-white card-pagne stitch p-4 border border-stone-200">
+        <div class="flex gap-3.5">
+          <div class="w-[58px] h-[58px] card-pagne bg-sante-900 bogolan-dark flex items-center justify-center font-display font-extrabold text-ocre-400 text-[18px] flex-shrink-0 rotate-2">HK</div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-1.5">
+              <p class="font-display font-bold text-[15px] text-stone-900 truncate">Dr. Honoré KASSA</p>
+              <span class="px-1.5 py-0.5 card-pagne bg-sante-600 text-white text-[8px] font-extrabold">✓ VÉRIFIÉ</span>
+            </div>
+            <p class="text-[12px] text-stone-500">Cardiologue · CNHU Cotonou</p>
+            <div class="flex items-center gap-3 mt-1.5">
+              <span class="text-[11px] font-bold text-ocre-500">★ 4,9 <span class="text-stone-400 font-normal">(127)</span></span>
+              <span class="text-[11px] text-stone-500">🗣 Fon · Français</span>
+            </div>
+          </div>
+        </div>
+        <div class="nkyinkyim w-full my-3 opacity-30"></div>
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-[10px] text-stone-400 uppercase font-bold tracking-wide">Consultation</p>
+            <p class="font-display font-extrabold text-[16px] text-sante-700">5 000 <span class="text-[11px] font-bold text-stone-400">FCFA</span></p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-1 card-pagne text-[10px] font-bold bg-sante-50 text-sante-700">Dispo auj.</span>
+            <button class="px-4 py-2.5 card-pagne bg-terre-500 text-white font-display font-bold text-[12.5px] shadow-[0_4px_14px_rgba(194,84,43,.35)]">Prendre RDV</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Médecin 2 -->
+      <div class="bg-white card-pagne p-4 border border-stone-200">
+        <div class="flex gap-3.5">
+          <div class="w-[58px] h-[58px] card-pagne bg-indigo-700 flex items-center justify-center font-display font-extrabold text-indigo-200 text-[18px] flex-shrink-0 -rotate-2">FD</div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-1.5">
+              <p class="font-display font-bold text-[15px] text-stone-900 truncate">Dr. Fèmi DOSSOU</p>
+              <span class="px-1.5 py-0.5 card-pagne bg-sante-600 text-white text-[8px] font-extrabold">✓ VÉRIFIÉ</span>
+            </div>
+            <p class="text-[12px] text-stone-500">Cardiologue · Clinique Mahouna</p>
+            <div class="flex items-center gap-3 mt-1.5">
+              <span class="text-[11px] font-bold text-ocre-500">★ 4,7 <span class="text-stone-400 font-normal">(89)</span></span>
+              <span class="text-[11px] text-stone-500">🗣 Fon · Yorùbá</span>
+            </div>
+          </div>
+        </div>
+        <div class="nkyinkyim w-full my-3 opacity-30"></div>
+        <div class="flex items-center justify-between">
+          <p class="font-display font-extrabold text-[16px] text-sante-700">4 500 <span class="text-[11px] font-bold text-stone-400">FCFA</span></p>
+          <button class="px-4 py-2.5 card-pagne border-2 border-terre-500 text-terre-600 font-display font-bold text-[12.5px]">Prendre RDV</button>
+        </div>
+      </div>
+
+      <!-- Créneaux -->
+      <div class="bg-sante-50 border border-sante-200 card-pagne p-4">
+        <p class="font-display font-bold text-[13px] text-sante-900 mb-2.5">Créneaux — Dr. KASSA · Ven. 12 juin</p>
+        <div class="grid grid-cols-4 gap-2">
+          <span class="py-2 card-pagne bg-white border border-sante-200 text-center text-[12px] font-bold text-stone-700">09:00</span>
+          <span class="py-2 card-pagne bg-terre-500 text-center text-[12px] font-extrabold text-white shadow-[0_4px_12px_rgba(194,84,43,.4)]">10:30</span>
+          <span class="py-2 card-pagne bg-white border border-sante-200 text-center text-[12px] font-bold text-stone-700">11:00</span>
+          <span class="py-2 card-pagne bg-stone-100 text-center text-[12px] font-semibold text-stone-300 line-through">14:00</span>
+        </div>
+      </div>
+    </div>
+    <div class="homebar"></div>
+  </div>
+</div>
+
+<!-- ══════ D-06 v2 — TÉLÉCONSULTATION ══════ -->
+<div>
+  <div class="mb-4 flex items-center gap-2">
+    <span class="screen-label text-[11px] font-bold bg-terre-500 text-white rounded-md px-2 py-0.5">D-06 v2</span>
+    <span class="screen-label text-sm font-semibold text-stone-300">Téléconsultation vidéo</span>
+  </div>
+  <div class="phone" style="background:#211C16">
+    <div class="notch"></div>
+    <div class="absolute inset-0 bogolan-dark opacity-60"></div>
+    <div class="statusbar text-white relative z-10"><span>9:41</span><span class="text-[11px] px-2 py-0.5 rounded-full bg-white/15 text-white font-bold">FR ▾</span></div>
+    <div class="px-6 pt-1 flex items-center justify-between relative z-10">
+      <div class="flex items-center gap-2">
+        <span class="relative flex h-2.5 w-2.5"><span class="animate-ping absolute h-full w-full rounded-full bg-sante-400 opacity-75"></span><span class="relative rounded-full h-2.5 w-2.5 bg-sante-400"></span></span>
+        <span class="text-white font-display font-bold text-[13px]">En consultation · 12:47</span>
+      </div>
+      <span class="text-[10.5px] text-sante-300 font-bold bg-white/10 rounded-full px-2.5 py-1">HD adaptatif</span>
+    </div>
+
+    <!-- Vidéo -->
+    <div class="mx-5 mt-3 card-pagne overflow-hidden relative z-10 stitch-light" style="height:425px; background:linear-gradient(160deg,#2B3A67 0%,#1A2440 60%,#121A2E 100%)">
+      <div class="absolute inset-0 wax-dark"></div>
+      <div class="absolute inset-0 flex items-end justify-center">
+        <svg width="280" height="320" viewBox="0 0 280 330" fill="none">
+          <ellipse cx="140" cy="118" rx="58" ry="62" fill="#3F578A"/>
+          <path d="M40 330 C40 240 90 215 140 215 C190 215 240 240 240 330 Z" fill="#3F578A"/>
+          <path d="M58 330 C58 252 98 230 140 230 C182 230 222 252 222 330 Z" fill="#FAF6F0"/>
+          <path d="M118 230 L140 268 L162 230" stroke="#C2542B" stroke-width="5" fill="none"/>
+          <circle cx="140" cy="288" r="9" fill="none" stroke="#C2542B" stroke-width="4"/>
+        </svg>
+      </div>
+      <div class="absolute bottom-4 left-4 flex items-center gap-2 bg-black/45 backdrop-blur card-pagne px-3.5 py-2">
+        <div class="w-7 h-7 card-pagne bg-sante-900 flex items-center justify-center font-display font-extrabold text-ocre-400 text-[10px]">HK</div>
+        <div>
+          <p class="text-white font-display font-bold text-[12px] leading-tight">Dr. Honoré KASSA</p>
+          <p class="text-sante-300 text-[9.5px]">Cardiologue · ✓ Vérifié · 🗣 Fon</p>
+        </div>
+      </div>
+      <div class="absolute top-4 right-4 w-[100px] h-[136px] card-pagne overflow-hidden border-2 border-ocre-400/60" style="background:linear-gradient(160deg,#0E3120,#1A5A36)">
+        <div class="absolute inset-0 flex items-end justify-center">
+          <svg width="90" height="100" viewBox="0 0 90 100" fill="none">
+            <circle cx="45" cy="36" r="19" fill="#2E8B4F" opacity=".6"/>
+            <path d="M12 100 C12 72 27 64 45 64 C63 64 78 72 78 100 Z" fill="#2E8B4F" opacity=".6"/>
+          </svg>
+        </div>
+        <span class="absolute bottom-1.5 left-0 right-0 text-center text-[9px] text-white font-bold">Vous</span>
+      </div>
+    </div>
+
+    <!-- Chat -->
+    <div class="mx-5 mt-3 card-pagne px-4 py-3 flex items-center gap-3 relative z-10 border border-white/10" style="background:rgba(255,255,255,.07)">
+      <div class="w-8 h-8 card-pagne bg-sante-900 flex items-center justify-center font-display font-extrabold text-ocre-400 text-[10px] flex-shrink-0">HK</div>
+      <p class="text-[12px] text-stone-300 leading-snug flex-1">Je vous envoie l'ordonnance dans l'application après notre échange. 📋</p>
+      <span class="text-[9.5px] text-stone-500">9:53</span>
+    </div>
+
+    <!-- Contrôles -->
+    <div class="flex-1 flex items-end pb-10 relative z-10">
+      <div class="w-full px-7">
+        <div class="flex items-center justify-between">
+          <button class="w-[54px] h-[54px] card-pagne bg-white/10 border border-white/15 flex items-center justify-center">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19v3M8 23h8M12 15a4 4 0 0 0 4-4V6a4 4 0 1 0-8 0v5a4 4 0 0 0 4 4Z"/></svg>
+          </button>
+          <button class="w-[54px] h-[54px] card-pagne bg-white/10 border border-white/15 flex items-center justify-center">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2"/></svg>
+          </button>
+          <button class="w-[68px] h-[68px] card-pagne bg-sos-500 shadow-[0_10px_28px_rgba(214,69,51,.5)] flex items-center justify-center rotate-3">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(135deg)"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          </button>
+          <button class="w-[54px] h-[54px] card-pagne bg-white/10 border border-white/15 flex items-center justify-center relative">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8a2 2 0 0 1 2 2v5Z"/><path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"/></svg>
+            <span class="absolute -top-0.5 -right-0.5 w-4 h-4 card-pagne bg-ocre-400 text-sante-950 text-[9px] font-extrabold flex items-center justify-center">2</span>
+          </button>
+          <button class="w-[54px] h-[54px] card-pagne bg-white/10 border border-white/15 flex items-center justify-center">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+          </button>
+        </div>
+        <p class="text-center text-[10.5px] text-stone-500 mt-4">Chiffré · Daily.co WebRTC · bascule chat auto si réseau faible</p>
+      </div>
+    </div>
+    <div class="homebar light"></div>
+  </div>
+</div>
+
+<!-- ══════ D-07 v2 — SOS ══════ -->
+<div>
+  <div class="mb-4 flex items-center gap-2">
+    <span class="screen-label text-[11px] font-bold bg-sos-600 text-white rounded-md px-2 py-0.5">D-07 v2</span>
+    <span class="screen-label text-sm font-semibold text-stone-300">SOS — Urgence</span>
+  </div>
+  <div class="phone wax-light">
+    <div class="notch"></div>
+    <div class="statusbar text-stone-900"><span>9:41</span><span class="text-[11px] px-2 py-0.5 rounded-full bg-stone-900 text-creme font-bold">FR ▾</span></div>
+    <div class="px-6 pt-2 flex items-center gap-3">
+      <button class="w-10 h-10 card-pagne bg-white border border-stone-200 flex items-center justify-center">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#44403C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+      <h1 class="font-display font-extrabold text-[21px] text-stone-900">Urgence médicale</h1>
+    </div>
+
+    <div class="flex-1 flex flex-col items-center px-7 pt-7">
+      <p class="text-[13.5px] text-stone-500 text-center mb-7 leading-relaxed">Maintenez le bouton <span class="font-extrabold text-sos-600">3 secondes</span> pour alerter votre contact et partager votre position GPS.</p>
+
+      <!-- Bouton SOS octogonal façon symbole -->
+      <button class="w-52 h-52 pulse-sos flex flex-col items-center justify-center mb-7 bg-gradient-to-br from-sos-500 to-sos-700 border-[5px] border-sos-100" style="clip-path:polygon(30% 0,70% 0,100% 30%,100% 70%,70% 100%,30% 100%,0 70%,0 30%)">
+        <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/></svg>
+        <span class="font-display font-extrabold text-white text-[32px] mt-1 tracking-widest">SOS</span>
+        <span class="text-sos-100 text-[11px] font-bold">Maintenir 3 sec</span>
+      </button>
+
+      <div class="w-full bg-white card-pagne p-4 border border-stone-200 mb-3 flex items-center gap-3">
+        <div class="w-10 h-10 card-pagne bg-sante-50 flex items-center justify-center flex-shrink-0">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1F7040" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+        </div>
+        <div class="flex-1">
+          <p class="font-bold text-[13px] text-stone-900">Position détectée</p>
+          <p class="text-[11.5px] text-stone-400">Fidjrossè, Cotonou · Précision 8 m</p>
+        </div>
+        <span class="relative flex h-2.5 w-2.5"><span class="animate-ping absolute h-full w-full rounded-full bg-sante-400 opacity-75"></span><span class="relative rounded-full h-2.5 w-2.5 bg-sante-500"></span></span>
+      </div>
+
+      <div class="w-full bg-white card-pagne p-4 border border-stone-200 mb-3 flex items-center gap-3">
+        <div class="w-10 h-10 card-pagne bg-ocre-400 flex items-center justify-center font-display font-extrabold text-stone-900 text-[13px] flex-shrink-0 rotate-2">RB</div>
+        <div class="flex-1">
+          <p class="font-bold text-[13px] text-stone-900">Rachelle BONOU <span class="text-stone-400 font-normal">· Sœur</span></p>
+          <p class="text-[11.5px] text-stone-400">+229 97 88 45 12 · SMS auto (Twilio) en Fɔ̀ngbè</p>
+        </div>
+        <button class="text-[11.5px] font-bold text-terre-600 underline decoration-dotted">Modifier</button>
+      </div>
+
+      <div class="w-full grid grid-cols-2 gap-2.5">
+        <button class="bg-sos-50 border border-sos-100 card-pagne p-3.5 flex items-center gap-2.5">
+          <div class="w-9 h-9 card-pagne bg-sos-600 flex items-center justify-center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          </div>
+          <div class="text-left">
+            <p class="font-display font-extrabold text-[16px] text-sos-700 leading-none">112</p>
+            <p class="text-[10px] text-sos-600 font-bold">SAMU Bénin</p>
+          </div>
+        </button>
+        <button class="bg-indigo-50 border border-indigo-100 card-pagne p-3.5 flex items-center gap-2.5">
+          <div class="w-9 h-9 card-pagne bg-indigo-600 flex items-center justify-center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4"/></svg>
+          </div>
+          <div class="text-left">
+            <p class="font-display font-extrabold text-[13px] text-indigo-900 leading-tight">CNHU-HKM</p>
+            <p class="text-[10px] text-indigo-600 font-bold">3,2 km · Ouvert</p>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <div class="px-7 pb-9 pt-4">
+      <button class="w-full bg-sante-900 bogolan-dark card-pagne px-5 py-3.5 flex items-center gap-3 stitch-light">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#D4A843" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3M21 21v.01M12 7v3a2 2 0 0 1-2 2H7M3 12h.01M12 3h.01M12 16v.01M16 12h1M21 12v.01M12 21v-1"/></svg>
+        <div class="text-left flex-1">
+          <p class="font-display font-bold text-white text-[13.5px]">Ma carte d'urgence QR</p>
+          <p class="text-sante-300 text-[10.5px]">Groupe sanguin · allergies · accessible hors connexion</p>
+        </div>
+      </button>
+    </div>
+    <div class="homebar"></div>
+  </div>
+</div>
+
+<!-- ══════ D-08 v2 — ORDONNANCE + PAIEMENT ══════ -->
+<div>
+  <div class="mb-4 flex items-center gap-2">
+    <span class="screen-label text-[11px] font-bold bg-terre-500 text-white rounded-md px-2 py-0.5">D-08 v2</span>
+    <span class="screen-label text-sm font-semibold text-stone-300">Ordonnance + Mobile Money</span>
+  </div>
+  <div class="phone wax-light">
+    <div class="notch"></div>
+    <div class="statusbar text-stone-900"><span>9:41</span><span class="text-[11px] px-2 py-0.5 rounded-full bg-stone-900 text-creme font-bold">FR ▾</span></div>
+    <div class="px-6 pt-2 pb-3 flex items-center gap-3">
+      <button class="w-10 h-10 card-pagne bg-white border border-stone-200 flex items-center justify-center">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#44403C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+      <h1 class="font-display font-extrabold text-[21px] text-stone-900">Ordonnance</h1>
+      <span class="ml-auto px-2.5 py-1 card-pagne text-[10px] font-bold bg-sante-50 text-sante-700 uppercase">Active</span>
+    </div>
+
+    <!-- Ordonnance -->
+    <div class="px-6">
+      <div class="bg-white card-pagne stitch border border-stone-200 overflow-hidden">
+        <div class="bg-sante-900 bogolan-dark px-5 py-3.5 flex items-center justify-between relative">
+          <div class="absolute top-0 left-0 right-0 kente-bar"></div>
+          <div class="pt-1.5">
+            <p class="text-ocre-400 text-[10px] uppercase tracking-widest font-bold">Ordonnance N°</p>
+            <p class="font-display font-extrabold text-white text-[14px]">ORD-2026-08134</p>
+          </div>
+          <div class="w-[56px] h-[56px] bg-creme card-pagne p-1 rotate-2 mt-1.5">
+            <svg viewBox="0 0 29 29" class="w-full h-full"><path fill="#0E3120" d="M0 0h7v7H0zM2 2h3v3H2zM9 0h2v2H9zM13 0h2v3h-2zM20 0h2v2h-2zM22 0h7v7h-7zM24 2h3v3h-3zM9 4h3v2H9zM18 4h2v3h-2zM14 6h2v3h-2zM0 9h2v2H0zM4 9h3v2H4zM9 9h2v3H9zM13 10h3v2h-3zM18 9h2v2h-2zM22 9h2v3h-2zM26 9h3v2h-3zM2 13h2v2H2zM6 12h2v3H6zM11 13h2v2h-2zM16 13h3v3h-3zM21 12h2v2h-2zM25 13h2v2h-2zM0 16h3v2H0zM5 17h2v2H5zM9 16h2v2H9zM13 17h2v2h-2zM19 17h2v2h-2zM23 16h3v2h-3zM0 22h7v7H0zM2 24h3v3H2zM9 21h3v2H9zM14 20h2v3h-2zM18 21h2v2h-2zM26 21h3v3h-3zM13 24h3v2h-3zM21 24h2v3h-2z"/></svg>
+          </div>
+        </div>
+        <div class="px-5 py-4">
+          <div class="flex items-center gap-2.5 mb-3 pb-3 border-b border-dashed border-stone-200">
+            <div class="w-9 h-9 card-pagne bg-sante-900 flex items-center justify-center font-display font-extrabold text-ocre-400 text-[11px]">HK</div>
+            <div>
+              <p class="font-bold text-[13px] text-stone-900">Dr. Honoré KASSA <span class="text-sante-600">✓</span></p>
+              <p class="text-[11px] text-stone-400">N° Ordre 04-B-1187 · 12 juin 2026 · 30 jours</p>
+            </div>
+          </div>
+          <div class="space-y-3">
+            <div class="flex gap-3">
+              <span class="w-1.5 self-stretch bg-ocre-400 card-pagne flex-shrink-0"></span>
+              <div class="flex-1">
+                <div class="flex items-center justify-between">
+                  <p class="font-bold text-[13.5px] text-stone-900">AMLODIPINE 5 mg <span class="text-[10px] text-stone-400 font-normal">(DCI)</span></p>
+                  <span class="px-2 py-0.5 card-pagne text-[9px] font-bold bg-ocre-50 text-ocre-600">En attente</span>
+                </div>
+                <p class="text-[11.5px] text-stone-500">1 cp/jour matin · 30 jours · voie orale</p>
+              </div>
+            </div>
+            <div class="flex gap-3">
+              <span class="w-1.5 self-stretch bg-sante-500 card-pagne flex-shrink-0"></span>
+              <div class="flex-1">
+                <div class="flex items-center justify-between">
+                  <p class="font-bold text-[13.5px] text-stone-900">ATORVASTATINE 20 mg <span class="text-[10px] text-stone-400 font-normal">(DCI)</span></p>
+                  <span class="px-2 py-0.5 card-pagne text-[9px] font-bold bg-sante-50 text-sante-700">Délivré</span>
+                </div>
+                <p class="text-[11.5px] text-stone-500">1 cp/jour soir · Pharmacie Camp Guézo</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Paiement -->
+    <div class="px-6 mt-4 flex-1">
+      <h2 class="font-display font-extrabold text-[15px] text-stone-900 mb-2.5">Payer la consultation — 5 000 FCFA</h2>
+      <div class="space-y-2">
+        <button class="w-full bg-white card-pagne p-3.5 border-2 border-sante-600 flex items-center gap-3 shadow-[4px_4px_0_rgba(31,112,64,.15)]">
+          <div class="w-11 h-11 card-pagne flex items-center justify-center font-display font-extrabold text-[11px]" style="background:#FFCC00"><span style="color:#004F9F">MTN</span></div>
+          <div class="flex-1 text-left">
+            <p class="font-bold text-[13.5px] text-stone-900">MTN Mobile Money</p>
+            <p class="text-[11px] text-stone-400">+229 96 12 •• 56 · Frais 3%</p>
+          </div>
+          <span class="w-6 h-6 card-pagne bg-sante-600 flex items-center justify-center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+        </button>
+        <button class="w-full bg-white card-pagne p-3.5 border border-stone-200 flex items-center gap-3">
+          <div class="w-11 h-11 card-pagne flex items-center justify-center font-display font-extrabold text-[10px] text-white" style="background:#0066B3">Moov</div>
+          <div class="flex-1 text-left">
+            <p class="font-bold text-[13.5px] text-stone-900">Moov Money</p>
+            <p class="text-[11px] text-stone-400">Non lié · Appuyez pour configurer</p>
+          </div>
+        </button>
+        <button class="w-full bg-white card-pagne p-3.5 border border-stone-200 flex items-center gap-3">
+          <div class="w-11 h-11 card-pagne bg-ocre-50 border border-ocre-100 flex items-center justify-center">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#B8891A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
+          </div>
+          <div class="flex-1 text-left">
+            <p class="font-bold text-[13.5px] text-stone-900">Wallet Diaspora</p>
+            <p class="text-[11px] text-stone-400">18 500 F · Rechargé par Tonton Pierre 🇫🇷</p>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <div class="px-6 pb-9 pt-3">
+      <button class="w-full bg-terre-500 text-white font-display font-extrabold text-[15px] card-pagne py-4 shadow-[0_10px_26px_rgba(194,84,43,.4)]">🔒 Payer 5 150 FCFA via FedaPay</button>
+      <p class="text-center text-[10px] text-stone-400 mt-2.5">Paiement sécurisé · confirmation par notification + SMS</p>
+    </div>
+    <div class="homebar"></div>
+  </div>
+</div>
+
+<!-- ══════ Carte direction ══════ -->
+<div class="flex items-center justify-center">
+  <div class="w-[390px]">
+    <div class="bg-stone-900/70 border border-terre-500/40 rounded-3xl p-7 relative overflow-hidden">
+      <div class="absolute inset-0 bogolan-dark"></div>
+      <div class="relative z-10">
+        <div class="kente-bar w-full rounded-full mb-5"></div>
+        <h2 class="font-display font-extrabold text-[22px] text-white mb-2">Ce qui change vs v1</h2>
+        <div class="space-y-2.5 text-[12.5px] text-stone-300">
+          <p>🏺 <b class="text-white">Motifs partout</b> — bogolan sur headers, wax sur fonds, zigzag nkyinkyim en séparateurs</p>
+          <p>✂️ <b class="text-white">Cartes « pagne »</b> — coins coupés + coutures pointillées + légères rotations (rien n'est parfaitement aligné = fait main)</p>
+          <p>🧶 <b class="text-white">Frise kenté</b> tissée remplace la flag-bar plate</p>
+          <p>🔤 <b class="text-white">Bricolage Grotesque</b> — typo éditoriale à chasse irrégulière (≠ Sora géométrique « IA »)</p>
+          <p>🎨 <b class="text-white">Fond crème chaud</b> #FAF6F0 + terre cuite #C2542B en CTA</p>
+          <p>🗣 <b class="text-white">Langue visible partout</b> — pill « FR ▾ » dans chaque statusbar, salutations natives, audio Fɔ̀ngbè</p>
+        </div>
+        <div class="kente-bar w-full rounded-full mt-5"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<!-- ════════════ ADMIN DESKTOP v2 ════════════ -->
+<div class="max-w-[1700px] mx-auto mb-10">
+  <div class="mb-5 flex items-center gap-2">
+    <span class="screen-label text-[11px] font-bold bg-indigo-600 text-white rounded-md px-2 py-0.5">D-24 DESKTOP</span>
+    <span class="screen-label text-sm font-semibold text-stone-300">Backoffice Admin — version desktop ≥ 1280px (sidebar fixe, indigo wax)</span>
+  </div>
+
+  <div class="desktop flex" style="min-height:780px">
+    <!-- SIDEBAR -->
+    <aside class="w-[270px] flex-shrink-0 flex flex-col relative" style="background:linear-gradient(180deg,#1A2440 0%,#121A2E 100%)">
+      <div class="absolute inset-0 bogolan-dark"></div>
+      <div class="relative z-10 p-5">
+        <div class="flex items-center gap-3 mb-1">
+          <div class="w-10 h-10 card-pagne bg-terre-500 flex items-center justify-center rotate-2">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21C7 17 2 13.5 2 9a5.5 5.5 0 0 1 10-3 5.5 5.5 0 0 1 10 3c0 4.5-5 8-10 12Z"/></svg>
+          </div>
+          <div>
+            <p class="font-display font-extrabold text-white text-[16px] leading-tight">DigiSanté</p>
+            <p class="text-[10px] text-indigo-300 font-bold uppercase tracking-widest">Backoffice</p>
+          </div>
+        </div>
+        <div class="kente-bar w-full rounded-full my-4"></div>
+        <!-- Admin card -->
+        <div class="card-pagne stitch-light p-3 mb-5" style="background:rgba(255,255,255,.07)">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 card-pagne bg-ocre-400 flex items-center justify-center font-display font-extrabold text-stone-900 text-[12px]">UG</div>
+            <div>
+              <p class="font-bold text-white text-[12.5px] leading-tight">Ulrich GISLAIN</p>
+              <p class="text-[10px] text-indigo-300">Super Admin</p>
+            </div>
+          </div>
+        </div>
+        <!-- Nav -->
+        <p class="text-[9.5px] text-indigo-400 font-bold uppercase tracking-widest mb-2">Pilotage</p>
+        <nav class="space-y-1 mb-5">
+          <a class="flex items-center gap-3 px-3 py-2.5 card-pagne relative" style="background:rgba(194,84,43,.18)">
+            <span class="absolute left-0 top-1 bottom-1 w-[3px] bg-terre-400 rounded-full"></span>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#DD9270" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+            <span class="text-[13px] font-bold text-white">Tableau de bord</span>
+          </a>
+          <a class="flex items-center gap-3 px-3 py-2.5 text-indigo-200 hover:text-white">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+            <span class="text-[13px] font-medium">Vérifications KYC</span>
+            <span class="ml-auto px-1.5 py-0.5 card-pagne bg-terre-500 text-white text-[9.5px] font-extrabold">7</span>
+          </a>
+          <a class="flex items-center gap-3 px-3 py-2.5 text-indigo-200 hover:text-white">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <span class="text-[13px] font-medium">Utilisateurs</span>
+          </a>
+          <a class="flex items-center gap-3 px-3 py-2.5 text-indigo-200 hover:text-white">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/></svg>
+            <span class="text-[13px] font-medium">Paiements FedaPay</span>
+          </a>
+        </nav>
+        <p class="text-[9.5px] text-indigo-400 font-bold uppercase tracking-widest mb-2">Contenu</p>
+        <nav class="space-y-1">
+          <a class="flex items-center gap-3 px-3 py-2.5 text-indigo-200 hover:text-white">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+            <span class="text-[13px] font-medium">Éducation santé</span>
+          </a>
+          <a class="flex items-center gap-3 px-3 py-2.5 text-indigo-200 hover:text-white">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/></svg>
+            <span class="text-[13px] font-medium">Traductions <span class="text-[10px] text-indigo-400">(5 langues)</span></span>
+          </a>
+          <a class="flex items-center gap-3 px-3 py-2.5 text-indigo-200 hover:text-white">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2v6h6M4 22V4a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/></svg>
+            <span class="text-[13px] font-medium">Audit logs</span>
+          </a>
+        </nav>
+      </div>
+      <div class="relative z-10 mt-auto p-5">
+        <div class="kente-bar w-full rounded-full mb-3"></div>
+        <p class="text-[10px] text-indigo-300">VPS Infomaniak · PostgreSQL 16<br>PM2 ×2 · uptime 99,96%</p>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="flex-1 wax-light">
+      <!-- Topbar -->
+      <div class="h-[64px] bg-white border-b border-stone-200 px-7 flex items-center justify-between">
+        <div>
+          <h1 class="font-display font-extrabold text-[18px] text-stone-900 leading-tight">Tableau de bord</h1>
+          <p class="text-[11px] text-stone-400">Mercredi 10 juin 2026 · Production</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2 bg-creme border border-stone-200 card-pagne px-3 py-1.5">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#78716C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <span class="text-[12px] text-stone-400">Rechercher… <kbd class="text-[9px] bg-stone-200 rounded px-1">⌘K</kbd></span>
+          </div>
+          <span class="px-2.5 py-1.5 card-pagne bg-stone-900 text-creme text-[11px] font-bold">FR ▾</span>
+          <button class="w-9 h-9 card-pagne bg-creme border border-stone-200 flex items-center justify-center relative">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#44403C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+            <span class="absolute -top-1 -right-1 w-4 h-4 card-pagne bg-terre-500 text-white text-[9px] font-bold flex items-center justify-center">5</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="p-7">
+        <!-- KPI -->
+        <div class="grid grid-cols-4 gap-4 mb-6">
+          <div class="bg-white card-pagne stitch p-4 border border-stone-200">
+            <p class="text-[10px] text-stone-400 font-bold uppercase tracking-wide mb-1">Utilisateurs actifs</p>
+            <p class="font-display font-extrabold text-[28px] text-stone-900 leading-none">3 482</p>
+            <p class="text-[10.5px] text-sante-700 font-bold mt-1.5">▲ +214 cette semaine</p>
+          </div>
+          <div class="bg-white card-pagne p-4 border border-stone-200">
+            <p class="text-[10px] text-stone-400 font-bold uppercase tracking-wide mb-1">Consultations / jour</p>
+            <p class="font-display font-extrabold text-[28px] text-stone-900 leading-none">127</p>
+            <p class="text-[10.5px] text-sante-700 font-bold mt-1.5">▲ +9% vs hier</p>
+          </div>
+          <div class="bg-white card-pagne p-4 border border-stone-200">
+            <p class="text-[10px] text-stone-400 font-bold uppercase tracking-wide mb-1">Volume FedaPay · juin</p>
+            <p class="font-display font-extrabold text-[28px] text-terre-600 leading-none">4,2M <span class="text-[13px] text-stone-400">F</span></p>
+            <p class="text-[10.5px] text-stone-400 mt-1.5">1 240 transactions</p>
+          </div>
+          <div class="bg-white card-pagne p-4 border border-stone-200">
+            <p class="text-[10px] text-stone-400 font-bold uppercase tracking-wide mb-1">Langue d'usage #1</p>
+            <p class="font-display font-extrabold text-[28px] text-indigo-600 leading-none">Fɔ̀ngbè</p>
+            <p class="text-[10.5px] text-stone-400 mt-1.5">41% · puis FR 38% · YO 12%</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-4">
+          <!-- File KYC (2 cols) -->
+          <div class="col-span-2 bg-white card-pagne border border-stone-200 overflow-hidden">
+            <div class="px-5 py-3.5 border-b border-stone-100 flex items-center justify-between">
+              <h2 class="font-display font-extrabold text-[15px] text-stone-900">File KYC à examiner</h2>
+              <span class="px-2.5 py-1 card-pagne bg-terre-50 text-terre-600 text-[10.5px] font-extrabold">7 en attente</span>
+            </div>
+            <table class="w-full">
+              <thead>
+                <tr class="bg-creme">
+                  <th class="text-left px-5 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase tracking-wide">Professionnel</th>
+                  <th class="text-left px-3 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase tracking-wide">Type</th>
+                  <th class="text-left px-3 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase tracking-wide">Docs</th>
+                  <th class="text-left px-3 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase tracking-wide">Soumis</th>
+                  <th class="px-5 py-2.5"></th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-stone-100">
+                <tr class="bg-terre-50/40">
+                  <td class="px-5 py-3">
+                    <div class="flex items-center gap-2.5">
+                      <div class="w-8 h-8 card-pagne bg-indigo-600 flex items-center justify-center font-display font-bold text-white text-[10px]">FD</div>
+                      <div><p class="font-bold text-[13px] text-stone-900">Dr. Fèmi DOSSOU</p><p class="text-[10px] text-stone-400">Cotonou · CNOM 04-B-2231</p></div>
+                    </div>
+                  </td>
+                  <td class="px-3 py-3"><span class="px-2 py-0.5 card-pagne bg-indigo-50 text-indigo-600 text-[9.5px] font-bold">Cardiologue</span></td>
+                  <td class="px-3 py-3"><span class="text-[12px] font-bold text-sante-700">6/6 ✓</span></td>
+                  <td class="px-3 py-3 text-[11.5px] text-stone-500">il y a 6h</td>
+                  <td class="px-5 py-3 text-right"><button class="px-3.5 py-1.5 card-pagne bg-indigo-600 text-white text-[11px] font-bold">Examiner</button></td>
+                </tr>
+                <tr>
+                  <td class="px-5 py-3">
+                    <div class="flex items-center gap-2.5">
+                      <div class="w-8 h-8 card-pagne bg-sante-700 flex items-center justify-center font-display font-bold text-white text-[10px]">SA</div>
+                      <div><p class="font-bold text-[13px] text-stone-900">Sylvie AGBANI</p><p class="text-[10px] text-stone-400">Porto-Novo</p></div>
+                    </div>
+                  </td>
+                  <td class="px-3 py-3"><span class="px-2 py-0.5 card-pagne bg-ocre-50 text-ocre-600 text-[9.5px] font-bold">Pharmacienne</span></td>
+                  <td class="px-3 py-3"><span class="text-[12px] font-bold text-sante-700">5/5 ✓</span></td>
+                  <td class="px-3 py-3 text-[11.5px] text-stone-500">hier</td>
+                  <td class="px-5 py-3 text-right"><button class="px-3.5 py-1.5 card-pagne border border-stone-200 text-stone-600 text-[11px] font-bold">Examiner</button></td>
+                </tr>
+                <tr>
+                  <td class="px-5 py-3">
+                    <div class="flex items-center gap-2.5">
+                      <div class="w-8 h-8 card-pagne bg-terre-500 flex items-center justify-center font-display font-bold text-white text-[10px]">BL</div>
+                      <div><p class="font-bold text-[13px] text-stone-900">BIOLAB Parakou</p><p class="text-[10px] text-stone-400">Borgou · agrément 2026</p></div>
+                    </div>
+                  </td>
+                  <td class="px-3 py-3"><span class="px-2 py-0.5 card-pagne bg-terre-50 text-terre-600 text-[9.5px] font-bold">Laboratoire</span></td>
+                  <td class="px-3 py-3"><span class="text-[12px] font-bold text-ocre-500">4/5</span></td>
+                  <td class="px-3 py-3 text-[11.5px] text-stone-500">il y a 2 j</td>
+                  <td class="px-5 py-3 text-right"><button class="px-3.5 py-1.5 card-pagne border border-stone-200 text-stone-600 text-[11px] font-bold">Examiner</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Colonne droite -->
+          <div class="space-y-4">
+            <!-- Santé système -->
+            <div class="bg-sante-900 bogolan-dark card-pagne stitch-light p-4 relative">
+              <div class="absolute top-0 left-0 right-0 kente-bar"></div>
+              <h3 class="font-display font-extrabold text-white text-[14px] mb-3 pt-2">Santé du système</h3>
+              <div class="space-y-2">
+                <div class="flex items-center justify-between"><span class="text-[11.5px] text-sante-200">API Fastify (PM2 ×2)</span><span class="text-[11px] font-bold text-sante-300">● en ligne</span></div>
+                <div class="flex items-center justify-between"><span class="text-[11.5px] text-sante-200">PostgreSQL 16 natif</span><span class="text-[11px] font-bold text-sante-300">● 38/200 conn.</span></div>
+                <div class="flex items-center justify-between"><span class="text-[11.5px] text-sante-200">Redis 7</span><span class="text-[11px] font-bold text-sante-300">● 212 Mo</span></div>
+                <div class="flex items-center justify-between"><span class="text-[11.5px] text-sante-200">Webhooks FedaPay</span><span class="text-[11px] font-bold text-ocre-400">▲ 3 retry</span></div>
+                <div class="flex items-center justify-between"><span class="text-[11.5px] text-sante-200">Backup pg_dump 02:00</span><span class="text-[11px] font-bold text-sante-300">✓ 412 Mo</span></div>
+                <div class="flex items-center justify-between"><span class="text-[11.5px] text-sante-200">SSL Let's Encrypt</span><span class="text-[11px] font-bold text-sante-300">✓ J-32</span></div>
+              </div>
+            </div>
+            <!-- Répartition langues -->
+            <div class="bg-white card-pagne border border-stone-200 p-4">
+              <h3 class="font-display font-extrabold text-stone-900 text-[14px] mb-3">Usage par langue</h3>
+              <div class="space-y-2">
+                <div><div class="flex justify-between text-[11px] mb-1"><span class="font-bold text-stone-700">Fɔ̀ngbè</span><span class="text-stone-400">41%</span></div><div class="h-2 card-pagne bg-stone-100"><div class="h-full card-pagne bg-terre-500" style="width:41%"></div></div></div>
+                <div><div class="flex justify-between text-[11px] mb-1"><span class="font-bold text-stone-700">Français</span><span class="text-stone-400">38%</span></div><div class="h-2 card-pagne bg-stone-100"><div class="h-full card-pagne bg-sante-600" style="width:38%"></div></div></div>
+                <div><div class="flex justify-between text-[11px] mb-1"><span class="font-bold text-stone-700">Yorùbá</span><span class="text-stone-400">12%</span></div><div class="h-2 card-pagne bg-stone-100"><div class="h-full card-pagne bg-indigo-600" style="width:12%"></div></div></div>
+                <div><div class="flex justify-between text-[11px] mb-1"><span class="font-bold text-stone-700">Baatɔnum</span><span class="text-stone-400">6%</span></div><div class="h-2 card-pagne bg-stone-100"><div class="h-full card-pagne bg-ocre-400" style="width:6%"></div></div></div>
+                <div><div class="flex justify-between text-[11px] mb-1"><span class="font-bold text-stone-700">Dendi</span><span class="text-stone-400">3%</span></div><div class="h-2 card-pagne bg-stone-100"><div class="h-full card-pagne bg-stone-400" style="width:3%"></div></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Footer -->
+<div class="max-w-[1700px] mx-auto">
+  <div class="kente-bar w-full rounded-full"></div>
+  <p class="text-stone-500 text-[12px] mt-4 text-center font-medium">DigiSanté Mobile · Design System v2 « Wax &amp; Terre » · 8/26 écrans redessinés + Admin Desktop · NEXT IMPACT · Bénin 🇧🇯</p>
+</div>
+
+</body>
+</html>

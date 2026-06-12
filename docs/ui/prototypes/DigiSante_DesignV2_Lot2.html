@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DigiSanté Mobile — Design v2 « Wax & Terre » · Lot 2</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        sante: {50:'#EFF8F1',100:'#D8EEDD',200:'#AEDCB9',300:'#7CC48F',400:'#47A562',500:'#2E8B4F',600:'#1F7040',700:'#1A5A36',800:'#15462B',900:'#0E3120',950:'#082016'},
+        terre: {50:'#FBF1EC',100:'#F5DCD0',200:'#EAB9A1',300:'#DD9270',400:'#CF6F45',500:'#C2542B',600:'#A84421',700:'#86361B'},
+        indigo: {50:'#EEF1F8',100:'#D8DEED',200:'#B0BDDB',300:'#8399C4',400:'#5C76A8',500:'#3F578A',600:'#2B3A67',700:'#223055',800:'#1A2440',900:'#121A2E'},
+        ocre: {50:'#FBF5E4',100:'#F5E7BE',200:'#EAD088',300:'#DDB75A',400:'#D4A843',500:'#B8891A',600:'#94690F'},
+        sos: {50:'#FDF1EF',100:'#F9DCD7',500:'#D64533',600:'#B93A2B',700:'#962F23'},
+        creme: {DEFAULT:'#FAF6F0', deep:'#F3ECE1'},
+        nuit: {DEFAULT:'#211C16', soft:'#2C261E'},
+      },
+      fontFamily: {
+        display: ['"Bricolage Grotesque"','sans-serif'],
+        body: ['"DM Sans"','sans-serif'],
+      }
+    }
+  }
+}
+</script>
+<style>
+  body { background:#16120D; font-family:'DM Sans',sans-serif; }
+  .phone {
+    width:390px; min-height:844px; border-radius:46px;
+    background:#FAF6F0; overflow:hidden; position:relative;
+    box-shadow:0 0 0 10px #2C261E, 0 0 0 12px #47382A, 0 40px 80px -20px rgba(0,0,0,.7);
+    display:flex; flex-direction:column;
+  }
+  .statusbar { height:44px; display:flex; align-items:center; justify-content:space-between; padding:0 28px; font-family:'Bricolage Grotesque'; font-size:13px; font-weight:600; flex-shrink:0; }
+  .notch { position:absolute; top:10px; left:50%; transform:translateX(-50%); width:120px; height:28px; background:#16120D; border-radius:20px; z-index:50; }
+  .homebar { position:absolute; bottom:8px; left:50%; transform:translateX(-50%); width:130px; height:5px; background:rgba(0,0,0,.25); border-radius:99px; z-index:50; }
+  .homebar.light { background:rgba(255,255,255,.4); }
+  .screen-label { font-family:'Bricolage Grotesque'; }
+
+  .bogolan-dark {
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='52' height='52'><g fill='none' stroke='%23FFFFFF' stroke-width='1.4' opacity='.09'><path d='M0 13 L8.5 4 L17 13 L25.5 4 L34 13 L42.5 4 L52 13'/><path d='M0 30 L8.5 21 L17 30 L25.5 21 L34 30 L42.5 21 L52 30'/><path d='M4 44 h8 M21 44 h8 M38 44 h8'/></g><g fill='%23FFFFFF' opacity='.10'><rect x='7' y='36' width='3' height='3'/><rect x='24' y='36' width='3' height='3'/><rect x='41' y='36' width='3' height='3'/></g></svg>");
+  }
+  .wax-light {
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='84' height='84'><g fill='none' stroke='%232E8B4F' opacity='.06' stroke-width='1.3'><circle cx='42' cy='42' r='26'/><circle cx='42' cy='42' r='15'/><circle cx='42' cy='42' r='5'/><circle cx='0' cy='0' r='12'/><circle cx='84' cy='0' r='12'/><circle cx='0' cy='84' r='12'/><circle cx='84' cy='84' r='12'/></g></svg>");
+  }
+  .wax-ocre {
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='84' height='84'><g fill='none' stroke='%23B8891A' opacity='.08' stroke-width='1.3'><circle cx='42' cy='42' r='26'/><circle cx='42' cy='42' r='15'/><circle cx='42' cy='42' r='5'/><circle cx='0' cy='0' r='12'/><circle cx='84' cy='0' r='12'/><circle cx='0' cy='84' r='12'/><circle cx='84' cy='84' r='12'/></g></svg>");
+  }
+  .nkyinkyim {
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='12'><path d='M0 9 L6 3 L12 9 L18 3 L24 9' fill='none' stroke='%23D4A843' stroke-width='2'/></svg>");
+    background-repeat:repeat-x; height:12px;
+  }
+  .kente-bar {
+    height:8px;
+    background:repeating-linear-gradient(90deg,#C2542B 0 16px,#D4A843 16px 30px,#2E8B4F 30px 46px,#211C16 46px 50px,#2B3A67 50px 66px,#D4A843 66px 72px);
+    position:relative;
+  }
+  .kente-bar::after { content:''; position:absolute; inset:0; background:repeating-linear-gradient(90deg, transparent 0 6px, rgba(0,0,0,.18) 6px 8px); }
+  .card-pagne { clip-path:polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%); }
+  .stitch { outline:2px dashed rgba(194,84,43,.35); outline-offset:-7px; }
+  .stitch-light { outline:2px dashed rgba(255,255,255,.25); outline-offset:-7px; }
+  .toggle-on { width:44px; height:26px; border-radius:99px; background:#1F7040; position:relative; }
+  .toggle-on::after { content:''; position:absolute; right:3px; top:3px; width:20px; height:20px; border-radius:99px; background:#FAF6F0; box-shadow:0 1px 3px rgba(0,0,0,.25); }
+  .toggle-off { width:44px; height:26px; border-radius:99px; background:#D6D0C4; position:relative; }
+  .toggle-off::after { content:''; position:absolute; left:3px; top:3px; width:20px; height:20px; border-radius:99px; background:#FAF6F0; box-shadow:0 1px 3px rgba(0,0,0,.25); }
+</style>
+</head>
+<body class="p-10">
+
+<!-- ════════════ EN-TÊTE ════════════ -->
+<div class="max-w-[1700px] mx-auto mb-10">
+  <div class="flex items-center gap-4 mb-3">
+    <div class="w-12 h-12 card-pagne bg-terre-500 flex items-center justify-center rotate-2">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21C7 17 2 13.5 2 9a5.5 5.5 0 0 1 10-3 5.5 5.5 0 0 1 10 3c0 4.5-5 8-10 12Z"/><path d="M12 6v4M10 8h4"/></svg>
+    </div>
+    <div>
+      <h1 class="font-display font-extrabold text-[30px] text-white leading-tight">Design v2 « Wax &amp; Terre » — Lot 2</h1>
+      <p class="text-stone-400 text-sm">D-09 → D-13 redessinés · Patient Avancé · Bogolan · Kenté · Coutures · Multilingue</p>
+    </div>
+  </div>
+  <div class="kente-bar w-72 rounded-full"></div>
+</div>
+
+<!-- ════════════ GRILLE ════════════ -->
+<div class="max-w-[1700px] mx-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-10 gap-y-16 justify-items-center">
+
+<!-- ══════ D-09 v2 — RAPPELS ══════ -->
+<div>
+  <div class="mb-4 flex items-center gap-2">
+    <span class="screen-label text-[11px] font-bold bg-terre-500 text-white rounded-md px-2 py-0.5">D-09 v2</span>
+    <span class="screen-label text-sm font-semibold text-stone-300">Rappels thérapeutiques</span>
+  </div>
+  <div class="phone wax-light">
+    <div class="notch"></div>
+    <div class="statusbar text-stone-900"><span>9:41</span><span class="text-[11px] px-2 py-0.5 rounded-full bg-stone-900 text-creme font-bold">FR ▾</span></div>
+    <div class="px-6 pt-2 pb-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <button class="w-10 h-10 card-pagne bg-white border border-stone-200 flex items-center justify-center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#44403C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <h1 class="font-display font-extrabold text-[21px] text-stone-900">Mes rappels</h1>
+      </div>
+      <button class="w-10 h-10 card-pagne bg-terre-500 flex items-center justify-center shadow-[0_4px_14px_rgba(194,84,43,.35)] rotate-2">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14M12 5v14"/></svg>
+      </button>
+    </div>
+
+    <!-- Observance — tissage hebdo -->
+    <div class="px-6 mb-4">
+      <div class="card-pagne bg-sante-900 bogolan-dark p-4 stitch-light relative">
+        <div class="absolute top-0 left-0 right-0 kente-bar"></div>
+        <div class="pt-2.5">
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-ocre-400 font-display text-[10.5px] uppercase tracking-widest font-bold">Observance · semaine tissée</p>
+            <span class="font-display font-extrabold text-ocre-400 text-[22px]">92%</span>
+          </div>
+          <!-- bandes façon métier à tisser -->
+          <div class="flex gap-1.5">
+            <div class="flex-1 text-center"><div class="h-12 card-pagne bg-sante-500 mb-1"></div><span class="text-[9px] text-sante-300 font-bold">Lun</span></div>
+            <div class="flex-1 text-center"><div class="h-12 card-pagne bg-sante-500 mb-1"></div><span class="text-[9px] text-sante-300 font-bold">Mar</span></div>
+            <div class="flex-1 text-center"><div class="h-12 card-pagne relative mb-1" style="background:rgba(255,255,255,.12)"><div class="absolute bottom-0 left-0 right-0 h-7 card-pagne bg-ocre-400"></div></div><span class="text-[9px] text-sante-300 font-bold">Mer</span></div>
+            <div class="flex-1 text-center"><div class="h-12 card-pagne bg-sante-500 mb-1"></div><span class="text-[9px] text-sante-300 font-bold">Jeu</span></div>
+            <div class="flex-1 text-center"><div class="h-12 card-pagne bg-sante-500 mb-1"></div><span class="text-[9px] text-sante-300 font-bold">Ven</span></div>
+            <div class="flex-1 text-center"><div class="h-12 card-pagne border-2 border-dashed border-white/40 mb-1 flex items-center justify-center"><span class="w-1.5 h-1.5 rounded-full bg-ocre-400 animate-pulse"></span></div><span class="text-[9px] text-white font-extrabold">Sam</span></div>
+            <div class="flex-1 text-center"><div class="h-12 card-pagne mb-1" style="background:rgba(255,255,255,.08)"></div><span class="text-[9px] text-sante-300 font-bold">Dim</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="px-6 mb-2 flex items-center justify-between">
+      <h2 class="font-display font-extrabold text-[15px] text-stone-900">Aujourd'hui · Sam. 13 juin</h2>
+      <span class="text-[11px] text-stone-400">2 sur 4 pris</span>
+    </div>
+    <div class="px-6 space-y-2.5 flex-1">
+      <!-- Pris -->
+      <div class="bg-white card-pagne p-3.5 border border-stone-200 flex items-center gap-3 opacity-55">
+        <div class="w-11 h-11 card-pagne bg-sante-50 border border-sante-200 flex items-center justify-center flex-shrink-0">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1F7040" stroke-width="2.5" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+        </div>
+        <div class="flex-1">
+          <p class="font-bold text-[13.5px] text-stone-900 line-through">Amlodipine 5 mg</p>
+          <p class="text-[11.5px] text-stone-400">Pris à 7h42 · 1 comprimé</p>
+        </div>
+        <span class="font-display font-bold text-[12px] text-stone-300">07:30</span>
+      </div>
+      <div class="bg-white card-pagne p-3.5 border border-stone-200 flex items-center gap-3 opacity-55">
+        <div class="w-11 h-11 card-pagne bg-sante-50 border border-sante-200 flex items-center justify-center flex-shrink-0">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1F7040" stroke-width="2.5" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+        </div>
+        <div class="flex-1">
+          <p class="font-bold text-[13.5px] text-stone-900 line-through">Metformine 850 mg</p>
+          <p class="text-[11.5px] text-stone-400">Pris à 12h35 · avec le repas</p>
+        </div>
+        <span class="font-display font-bold text-[12px] text-stone-300">12:30</span>
+      </div>
+      <!-- Maintenant — carte pagne terre -->
+      <div class="bg-white card-pagne stitch p-4 border-2 border-terre-500 shadow-[5px_5px_0_rgba(194,84,43,.18)]">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-11 h-11 card-pagne bg-ocre-50 border border-ocre-100 flex items-center justify-center flex-shrink-0 rotate-2">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#B8891A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+          </div>
+          <div class="flex-1">
+            <p class="font-display font-extrabold text-[14.5px] text-stone-900">Atorvastatine 20 mg</p>
+            <p class="text-[11.5px] text-stone-500">1 comprimé · le soir au coucher</p>
+          </div>
+          <div class="text-right">
+            <span class="font-display font-extrabold text-[16px] text-terre-600">19:00</span>
+            <p class="text-[10px] text-terre-500 font-extrabold uppercase">Maintenant</p>
+          </div>
+        </div>
+        <div class="nkyinkyim w-full mb-3 opacity-40"></div>
+        <div class="flex gap-2">
+          <button class="flex-1 bg-sante-600 text-white font-display font-extrabold text-[13px] card-pagne py-2.5 shadow-[0_4px_14px_rgba(31,112,64,.3)]">✓ J'ai pris</button>
+          <button class="px-4 bg-creme-deep text-stone-600 font-display font-bold text-[13px] card-pagne py-2.5">+30 min</button>
+        </div>
+      </div>
+      <!-- À venir -->
+      <div class="bg-white card-pagne p-3.5 border border-stone-200 flex items-center gap-3">
+        <div class="w-11 h-11 card-pagne bg-indigo-50 flex items-center justify-center flex-shrink-0 -rotate-1">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#2B3A67" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        </div>
+        <div class="flex-1">
+          <p class="font-bold text-[13.5px] text-stone-900">Tension artérielle</p>
+          <p class="text-[11.5px] text-stone-400">Mesure du soir · saisir dans le dossier</p>
+        </div>
+        <span class="font-display font-bold text-[12px] text-stone-400">21:00</span>
+      </div>
+
+      <!-- SMS fallback -->
+      <div class="bg-ocre-50 border border-ocre-100 card-pagne px-4 py-3 flex gap-2.5">
+        <svg class="flex-shrink-0 mt-0.5" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#B8891A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8a2 2 0 0 1 2 2v5Z"/></svg>
+        <p class="text-[11px] text-ocre-600 leading-snug">Hors connexion ? Vos rappels critiques arrivent <span class="font-extrabold">par SMS, dans votre langue</span> (Fɔ̀ngbè configuré).</p>
+      </div>
+    </div>
+    <div class="px-6 pb-9 pt-3"></div>
+    <div class="homebar"></div>
+  </div>
+</div>
+
+<!-- ══════ D-10 v2 — CHAT FAIBLE CONNEXION ══════ -->
+<div>
+  <div class="mb-4 flex items-center gap-2">
+    <span class="screen-label text-[11px] font-bold bg-terre-500 text-white rounded-md px-2 py-0.5">D-10 v2</span>
+    <span class="screen-label text-sm font-semibold text-stone-300">Chat consultation — faible connexion</span>
+  </div>
+  <div class="phone wax-light">
+    <div class="notch"></div>
+    <div class="statusbar text-stone-900"><span>9:41</span><span class="text-[11px] px-2 py-0.5 rounded-full bg-stone-900 text-creme font-bold">FR ▾</span></div>
+
+    <!-- Header chat -->
+    <div class="bg-white border-b-2 border-stone-900/10 px-5 py-3 flex items-center gap-3 relative">
+      <button class="w-9 h-9 card-pagne bg-creme border border-stone-200 flex items-center justify-center">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#44403C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+      <div class="w-10 h-10 card-pagne bg-sante-900 bogolan-dark flex items-center justify-center font-display font-extrabold text-ocre-400 text-[12px] relative rotate-2">
+        HK
+        <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-sante-500 border-2 border-white"></span>
+      </div>
+      <div class="flex-1">
+        <p class="font-display font-extrabold text-[14px] text-stone-900 leading-tight">Dr. Honoré KASSA</p>
+        <p class="text-[10.5px] text-sante-700 font-bold">En ligne · 🗣 Fon · Consultation chat</p>
+      </div>
+      <button class="w-9 h-9 card-pagne bg-sante-50 flex items-center justify-center">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#1F7040" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2"/></svg>
+      </button>
+    </div>
+
+    <!-- Bannière mode dégradé -->
+    <div class="bg-ocre-400 px-5 py-2 flex items-center gap-2 relative overflow-hidden">
+      <svg width="13" height="13" viewBox="0 0 16 12" fill="#211C16"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="4.5" y="4.5" width="3" height="7.5" rx="1" opacity=".3"/><rect x="9" y="2" width="3" height="10" rx="1" opacity=".3"/><rect x="13" y="0" width="3" height="12" rx="1" opacity=".3"/></svg>
+      <p class="text-[11px] text-stone-900 font-bold flex-1">Connexion faible — mode chat. La vidéo reprendra automatiquement.</p>
+    </div>
+
+    <!-- Messages -->
+    <div class="flex-1 px-5 py-4 space-y-3 overflow-hidden">
+      <div class="text-center"><span class="text-[10px] text-stone-400 bg-creme-deep card-pagne px-3 py-1 font-bold">Aujourd'hui · 9:45</span></div>
+
+      <div class="flex gap-2.5">
+        <div class="w-8 h-8 card-pagne bg-sante-900 flex items-center justify-center font-display font-extrabold text-ocre-400 text-[9px] flex-shrink-0 mt-1 rotate-2">HK</div>
+        <div class="max-w-[75%]">
+          <div class="bg-white border border-stone-200 card-pagne px-4 py-2.5">
+            <p class="text-[13px] text-stone-800 leading-snug">Kú dó gbɛ̀ Aïcha 🙏 Comment vous sentez-vous depuis notre dernière consultation ?</p>
+          </div>
+          <span class="text-[9.5px] text-stone-400 ml-2">9:45</span>
+        </div>
+      </div>
+
+      <div class="flex justify-end">
+        <div class="max-w-[75%]">
+          <div class="bg-sante-600 card-pagne px-4 py-2.5" style="clip-path:polygon(18px 0,100% 0,100% 100%,0 100%,0 18px)">
+            <p class="text-[13px] text-white leading-snug">Bonjour docteur. Mieux, mais j'ai encore des vertiges le matin au réveil.</p>
+          </div>
+          <div class="flex items-center justify-end gap-1 mr-2">
+            <span class="text-[9.5px] text-stone-400">9:46</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1F7040" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 7 17l-4-4"/><path d="m22 10-7.5 7.5L13 16"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex gap-2.5">
+        <div class="w-8 h-8 card-pagne bg-sante-900 flex items-center justify-center font-display font-extrabold text-ocre-400 text-[9px] flex-shrink-0 mt-1 rotate-2">HK</div>
+        <div class="max-w-[75%]">
+          <div class="bg-white border border-stone-200 card-pagne px-4 py-2.5">
+            <p class="text-[13px] text-stone-800 leading-snug">Pouvez-vous me partager vos 3 dernières mesures de tension ?</p>
+          </div>
+          <span class="text-[9.5px] text-stone-400 ml-2">9:47</span>
+        </div>
+      </div>
+
+      <!-- Partage structuré façon étoffe -->
+      <div class="flex justify-end">
+        <div class="max-w-[82%]">
+          <div class="bg-sante-600 card-pagne p-3 stitch-light" style="clip-path:polygon(18px 0,100% 0,100% 100%,0 100%,0 18px)">
+            <div class="card-pagne p-3 mb-1.5" style="background:rgba(255,255,255,.14)">
+              <div class="flex items-center gap-2 mb-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                <span class="font-display font-extrabold text-white text-[11.5px]">Tension · 3 mesures partagées</span>
+              </div>
+              <div class="grid grid-cols-3 gap-1.5">
+                <div class="card-pagne p-1.5 text-center" style="background:rgba(255,255,255,.15)"><p class="font-display font-extrabold text-white text-[13px]">14,2/8,9</p><p class="text-[8.5px] text-sante-100">11 juin</p></div>
+                <div class="card-pagne p-1.5 text-center" style="background:rgba(255,255,255,.15)"><p class="font-display font-extrabold text-white text-[13px]">13,8/8,5</p><p class="text-[8.5px] text-sante-100">12 juin</p></div>
+                <div class="card-pagne p-1.5 text-center" style="background:rgba(212,168,67,.3)"><p class="font-display font-extrabold text-ocre-200 text-[13px]">15,1/9,2</p><p class="text-[8.5px] text-sante-100">13 juin</p></div>
+              </div>
+            </div>
+            <p class="text-[10px] text-sante-100">📂 Partagé depuis Mon dossier</p>
+          </div>
+          <div class="flex items-center justify-end gap-1 mr-2">
+            <span class="text-[9.5px] text-stone-400">9:49</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1F7040" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 7 17l-4-4"/><path d="m22 10-7.5 7.5L13 16"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- En attente d'envoi -->
+      <div class="flex justify-end">
+        <div class="max-w-[75%]">
+          <div class="card-pagne px-4 py-2.5 border-2 border-dashed border-sante-400" style="background:rgba(46,139,79,.45); clip-path:polygon(18px 0,100% 0,100% 100%,0 100%,0 18px)">
+            <p class="text-[13px] text-white leading-snug">Et les vertiges durent environ 5 minutes après le lever.</p>
+          </div>
+          <div class="flex items-center justify-end gap-1 mr-2">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            <span class="text-[9.5px] text-stone-400 font-bold">En attente d'envoi…</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex gap-2.5">
+        <div class="w-8 h-8 card-pagne bg-sante-900 flex items-center justify-center font-display font-extrabold text-ocre-400 text-[9px] flex-shrink-0 rotate-2">HK</div>
+        <div class="bg-white border border-stone-200 card-pagne px-4 py-3 flex gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-stone-300 animate-bounce"></span>
+          <span class="w-1.5 h-1.5 rounded-full bg-stone-300 animate-bounce" style="animation-delay:.15s"></span>
+          <span class="w-1.5 h-1.5 rounded-full bg-stone-300 animate-bounce" style="animation-delay:.3s"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input -->
+    <div class="bg-white border-t-2 border-stone-900/10 px-5 pt-3 pb-9 relative">
+      <div class="absolute top-0 left-0 right-0 nkyinkyim opacity-25 -translate-y-full"></div>
+      <div class="flex items-center gap-2.5">
+        <button class="w-10 h-10 card-pagne bg-creme border border-stone-200 flex items-center justify-center flex-shrink-0">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#78716C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+        </button>
+        <div class="flex-1 bg-creme border border-stone-200 card-pagne px-4 py-3">
+          <span class="text-[13.5px] text-stone-400">Écrire un message…</span>
+        </div>
+        <button class="w-11 h-11 card-pagne bg-terre-500 flex items-center justify-center flex-shrink-0 shadow-[0_4px_14px_rgba(194,84,43,.35)] rotate-2">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="homebar"></div>
+  </div>
+</div>
+
+<!-- ══════ D-11 v2 — RÉSULTATS LABO ══════ -->
+<div>
+  <div class="mb-4 flex items-center gap-2">
+    <span class="screen-label text-[11px] font-bold bg-terre-500 text-white rounded-md px-2 py-0.5">D-11 v2</span>
+    <span class="screen-label text-sm font-semibold text-stone-300">Résultats laboratoire</span>
+  </div>
+  <div class="phone wax-light">
+    <div class="notch"></div>
+    <div class="statusbar text-stone-900"><span>9:41</span><span class="text-[11px] px-2 py-0.5 rounded-full bg-stone-900 text-creme font-bold">FR ▾</span></div>
+    <div class="px-6 pt-2 pb-3 flex items-center gap-3">
+      <button class="w-10 h-10 card-pagne bg-white border border-stone-200 flex items-center justify-center">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#44403C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+      <div class="flex-1">
+        <h1 class="font-display font-extrabold text-[18px] text-stone-900 leading-tight">Bilan lipidique</h1>
+        <p class="text-[11px] text-stone-400">BIOLAB Cotonou · 8 juin 2026</p>
+      </div>
+      <button class="flex items-center gap-1.5 px-3 py-2 card-pagne border-2 border-sante-600 text-sante-700 font-display font-extrabold text-[11.5px]">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        PDF
+      </button>
+    </div>
+
+    <!-- Interprétation -->
+    <div class="px-6 mb-4">
+      <div class="bg-sante-50 border border-sante-200 card-pagne stitch p-4 flex items-start gap-3">
+        <div class="w-10 h-10 card-pagne bg-sante-900 flex items-center justify-center font-display font-extrabold text-ocre-400 text-[12px] flex-shrink-0 rotate-2">HK</div>
+        <div class="flex-1">
+          <p class="font-display font-bold text-[13px] text-sante-900 mb-0.5">Interprété par Dr. KASSA</p>
+          <p class="text-[11.5px] text-sante-800 leading-snug italic">« Résultats globalement satisfaisants. Surveiller les triglycérides — réduire les fritures. Contrôle dans 3 mois. »</p>
+          <p class="text-[10px] text-sante-600 mt-1.5 font-bold">🔊 Écouter en Fɔ̀ngbè (audio 0:42)</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Valeurs -->
+    <div class="px-6 flex-1 space-y-2.5">
+      <h2 class="font-display font-extrabold text-[14px] text-stone-900">Valeurs mesurées</h2>
+
+      <div class="bg-white card-pagne p-4 border border-stone-200">
+        <div class="flex items-center justify-between mb-2">
+          <p class="font-bold text-[13.5px] text-stone-900">Cholestérol total</p>
+          <span class="px-2 py-0.5 card-pagne text-[9.5px] font-extrabold bg-sante-50 text-sante-700">NORMAL</span>
+        </div>
+        <div class="flex items-end justify-between mb-2">
+          <p class="font-display font-extrabold text-[23px] text-stone-900">1,82 <span class="text-[12px] font-bold text-stone-400">g/L</span></p>
+          <p class="text-[10.5px] text-stone-400">Réf : &lt; 2,00 g/L</p>
+        </div>
+        <div class="h-2.5 card-pagne bg-creme-deep relative overflow-hidden">
+          <div class="absolute inset-y-0 left-0 card-pagne bg-sante-500" style="width:62%"></div>
+          <div class="absolute inset-y-0 w-0.5 bg-stone-300" style="left:78%"></div>
+        </div>
+      </div>
+
+      <!-- Élevé — couture ocre -->
+      <div class="bg-white card-pagne p-4 border-2 border-ocre-400 shadow-[5px_5px_0_rgba(212,168,67,.2)]">
+        <div class="flex items-center justify-between mb-2">
+          <p class="font-bold text-[13.5px] text-stone-900">Triglycérides</p>
+          <span class="px-2 py-0.5 card-pagne text-[9.5px] font-extrabold bg-ocre-50 text-ocre-600">ÉLEVÉ ▲</span>
+        </div>
+        <div class="flex items-end justify-between mb-2">
+          <p class="font-display font-extrabold text-[23px] text-ocre-500">1,94 <span class="text-[12px] font-bold text-stone-400">g/L</span></p>
+          <p class="text-[10.5px] text-stone-400">Réf : &lt; 1,50 g/L</p>
+        </div>
+        <div class="h-2.5 card-pagne bg-creme-deep relative overflow-hidden mb-2">
+          <div class="absolute inset-y-0 left-0 card-pagne bg-ocre-400" style="width:88%"></div>
+          <div class="absolute inset-y-0 w-0.5 bg-stone-300" style="left:68%"></div>
+        </div>
+        <p class="text-[10.5px] text-ocre-600 font-bold">▲ +0,32 vs analyse de janvier</p>
+      </div>
+
+      <div class="bg-white card-pagne p-4 border border-stone-200">
+        <div class="flex items-center justify-between mb-2">
+          <p class="font-bold text-[13.5px] text-stone-900">HDL (bon cholestérol)</p>
+          <span class="px-2 py-0.5 card-pagne text-[9.5px] font-extrabold bg-sante-50 text-sante-700">NORMAL</span>
+        </div>
+        <div class="flex items-end justify-between mb-2">
+          <p class="font-display font-extrabold text-[23px] text-stone-900">0,58 <span class="text-[12px] font-bold text-stone-400">g/L</span></p>
+          <p class="text-[10.5px] text-stone-400">Réf : &gt; 0,40 g/L</p>
+        </div>
+        <div class="h-2.5 card-pagne bg-creme-deep relative overflow-hidden">
+          <div class="absolute inset-y-0 left-0 card-pagne bg-sante-500" style="width:55%"></div>
+        </div>
+      </div>
+
+      <div class="bg-white card-pagne p-4 border border-stone-200">
+        <div class="flex items-center justify-between">
+          <p class="font-bold text-[13.5px] text-stone-900">LDL (mauvais cholestérol)</p>
+          <div class="text-right">
+            <p class="font-display font-extrabold text-[18px] text-stone-900 leading-none">1,05 <span class="text-[11px] font-bold text-stone-400">g/L</span></p>
+            <span class="text-[9px] font-extrabold text-sante-700">NORMAL · réf &lt; 1,60</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="px-6 pb-9 pt-3">
+      <button class="w-full bg-terre-500 text-white font-display font-extrabold text-[14px] card-pagne py-3.5 shadow-[0_10px_24px_rgba(194,84,43,.4)]">Prendre un RDV de contrôle</button>
+    </div>
+    <div class="homebar"></div>
+  </div>
+</div>
+
+<!-- ══════ D-12 v2 — PROFIL & PARAMÈTRES ══════ -->
+<div>
+  <div class="mb-4 flex items-center gap-2">
+    <span class="screen-label text-[11px] font-bold bg-terre-500 text-white rounded-md px-2 py-0.5">D-12 v2</span>
+    <span class="screen-label text-sm font-semibold text-stone-300">Profil & Paramètres</span>
+  </div>
+  <div class="phone wax-light">
+    <div class="notch"></div>
+    <!-- Header bogolan -->
+    <div class="bg-sante-900 bogolan-dark relative pb-14">
+      <div class="statusbar text-white relative z-10"><span>9:41</span><span class="text-[11px] px-2 py-0.5 rounded-full bg-white/15 border border-white/20 text-white font-bold">FR ▾</span></div>
+      <div class="relative z-10 px-6 pt-2 flex items-center gap-4">
+        <div class="w-16 h-16 card-pagne bg-ocre-400 flex items-center justify-center font-display font-extrabold text-stone-900 text-[22px] border-2 border-white/30 rotate-2">AB</div>
+        <div class="flex-1">
+          <p class="font-display font-extrabold text-white text-[20px]">Aïcha BONOU</p>
+          <p class="text-sante-200 text-[12px]">+229 96 12 34 56 · Patient</p>
+          <span class="inline-flex items-center gap-1.5 card-pagne px-2.5 py-0.5 mt-1.5 border border-ocre-400/50" style="background:rgba(212,168,67,.2)">
+            <span class="text-[10px] font-extrabold text-ocre-300">★ Premium · 500 F/mois</span>
+          </span>
+        </div>
+        <button class="w-9 h-9 card-pagne bg-white/10 border border-white/15 flex items-center justify-center">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+        </button>
+      </div>
+      <div class="absolute bottom-0 left-0 right-0 kente-bar"></div>
+    </div>
+
+    <div class="px-6 -mt-8 relative z-20 flex-1 space-y-3 pb-4">
+      <!-- Langue -->
+      <div class="bg-white card-pagne stitch border border-stone-200 divide-y divide-stone-100">
+        <div class="px-4 py-3 flex items-center gap-3">
+          <div class="w-9 h-9 card-pagne bg-sante-50 flex items-center justify-center flex-shrink-0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1F7040" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/></svg>
+          </div>
+          <div class="flex-1">
+            <p class="font-bold text-[13.5px] text-stone-900">Langue de l'application</p>
+            <p class="text-[11px] text-stone-400">Interface + notifications + audio</p>
+          </div>
+        </div>
+        <div class="px-4 py-2.5 flex gap-1.5 overflow-hidden">
+          <span class="px-3 py-1.5 card-pagne bg-sante-600 text-white text-[10.5px] font-extrabold">Français</span>
+          <span class="px-3 py-1.5 card-pagne bg-creme-deep text-stone-500 text-[10.5px] font-bold">Fɔ̀ngbè</span>
+          <span class="px-3 py-1.5 card-pagne bg-creme-deep text-stone-500 text-[10.5px] font-bold">Yorùbá</span>
+          <span class="px-3 py-1.5 card-pagne bg-creme-deep text-stone-500 text-[10.5px] font-bold">Baatɔnum</span>
+          <span class="px-3 py-1.5 card-pagne bg-creme-deep text-stone-500 text-[10.5px] font-bold">Dendi</span>
+        </div>
+      </div>
+
+      <!-- Notifications -->
+      <div class="bg-white card-pagne border border-stone-200 divide-y divide-stone-100">
+        <div class="px-4 py-2.5 flex items-center gap-2">
+          <div class="nkyinkyim w-10 opacity-50"></div>
+          <p class="font-display font-extrabold text-[11px] text-stone-400 uppercase tracking-widest">Notifications</p>
+        </div>
+        <div class="px-4 py-3 flex items-center gap-3">
+          <div class="flex-1"><p class="font-bold text-[13px] text-stone-900">Rappels médicaments</p><p class="text-[10.5px] text-stone-400">Push + SMS si hors ligne</p></div>
+          <div class="toggle-on"></div>
+        </div>
+        <div class="px-4 py-3 flex items-center gap-3">
+          <div class="flex-1"><p class="font-bold text-[13px] text-stone-900">Rappels de rendez-vous</p><p class="text-[10.5px] text-stone-400">24h et 1h avant</p></div>
+          <div class="toggle-on"></div>
+        </div>
+        <div class="px-4 py-3 flex items-center gap-3">
+          <div class="flex-1"><p class="font-bold text-[13px] text-stone-900">Conseils santé hebdo</p><p class="text-[10.5px] text-stone-400">Contenu éducatif multilingue</p></div>
+          <div class="toggle-off"></div>
+        </div>
+      </div>
+
+      <!-- Confidentialité -->
+      <div class="bg-white card-pagne border border-stone-200 divide-y divide-stone-100">
+        <div class="px-4 py-2.5 flex items-center gap-2">
+          <div class="nkyinkyim w-10 opacity-50"></div>
+          <p class="font-display font-extrabold text-[11px] text-stone-400 uppercase tracking-widest">Confidentialité & Sécurité</p>
+        </div>
+        <button class="w-full px-4 py-3 flex items-center gap-3">
+          <div class="w-9 h-9 card-pagne bg-indigo-50 flex items-center justify-center flex-shrink-0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2B3A67" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+          <div class="flex-1 text-left"><p class="font-bold text-[13px] text-stone-900">Code PIN + biométrie</p><p class="text-[10.5px] text-stone-400">Verrouillage de l'application</p></div>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+        <button class="w-full px-4 py-3 flex items-center gap-3">
+          <div class="w-9 h-9 card-pagne bg-sante-50 flex items-center justify-center flex-shrink-0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1F7040" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
+          </div>
+          <div class="flex-1 text-left"><p class="font-bold text-[13px] text-stone-900">Partages actifs du dossier</p><p class="text-[10.5px] text-stone-400">1 accès · Dr. KASSA · expire 14 juin</p></div>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+        <button class="w-full px-4 py-3 flex items-center gap-3">
+          <div class="w-9 h-9 card-pagne bg-ocre-50 flex items-center justify-center flex-shrink-0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B8891A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          </div>
+          <div class="flex-1 text-left"><p class="font-bold text-[13px] text-stone-900">Exporter mes données</p><p class="text-[10.5px] text-stone-400">FHIR / PDF · Droit Loi N°2017-20 (APDP)</p></div>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+      </div>
+
+      <!-- Urgence + déconnexion -->
+      <div class="bg-white card-pagne border border-stone-200 divide-y divide-stone-100">
+        <button class="w-full px-4 py-3 flex items-center gap-3">
+          <div class="w-9 h-9 card-pagne bg-sos-50 flex items-center justify-center flex-shrink-0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B93A2B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21C7 17 2 13.5 2 9a5.5 5.5 0 0 1 10-3 5.5 5.5 0 0 1 10 3c0 4.5-5 8-10 12Z"/></svg>
+          </div>
+          <div class="flex-1 text-left"><p class="font-bold text-[13px] text-stone-900">Contact d'urgence</p><p class="text-[10.5px] text-stone-400">Rachelle BONOU · +229 97 88 45 12</p></div>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#A8A29E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+        <button class="w-full px-4 py-3 flex items-center gap-3">
+          <div class="w-9 h-9 card-pagne bg-creme-deep flex items-center justify-center flex-shrink-0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#78716C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+          </div>
+          <p class="font-bold text-[13px] text-stone-600 flex-1 text-left">Se déconnecter</p>
+        </button>
+      </div>
+      <p class="text-center text-[10px] text-stone-300 pt-1">DigiSanté Mobile v1.0 · Conforme APDP Bénin</p>
+    </div>
+    <div class="homebar"></div>
+  </div>
+</div>
+
+<!-- ══════ D-13 v2 — MODE HORS-LIGNE ══════ -->
+<div>
+  <div class="mb-4 flex items-center gap-2">
+    <span class="screen-label text-[11px] font-bold bg-ocre-500 text-white rounded-md px-2 py-0.5">D-13 v2</span>
+    <span class="screen-label text-sm font-semibold text-stone-300">Mode hors-ligne — Offline-first</span>
+  </div>
+  <div class="phone wax-ocre">
+    <div class="notch"></div>
+    <div class="statusbar text-stone-900"><span>9:41</span>
+      <div class="flex items-center gap-2">
+        <svg width="16" height="13" viewBox="0 0 17 13" fill="none"><path d="M1 1l14 11" stroke="#B93A2B" stroke-width="1.8" stroke-linecap="round"/><g fill="#211C16" opacity=".3"><rect x="0" y="8" width="3" height="5" rx="1"/><rect x="4.5" y="5.5" width="3" height="7.5" rx="1"/><rect x="9" y="3" width="3" height="10" rx="1"/><rect x="13" y="1" width="3" height="12" rx="1"/></g></svg>
+        <span class="text-[11px] px-2 py-0.5 rounded-full bg-stone-900 text-creme font-bold">FR ▾</span>
+      </div>
+    </div>
+
+    <!-- Bannière offline tissée -->
+    <div class="bg-ocre-400 px-6 py-2.5 flex items-center gap-2.5 relative overflow-hidden">
+      <div class="absolute inset-0" style="background:repeating-linear-gradient(90deg,transparent 0 10px,rgba(0,0,0,.05) 10px 12px)"></div>
+      <svg class="relative" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#211C16" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 2 20 20"/><path d="M8.5 16.5a5 5 0 0 1 7 0M2 8.82a15 15 0 0 1 4.17-2.65M10.66 5c4.01-.36 8.14.9 11.34 3.76M16.85 11.25a10 10 0 0 1 2.22 1.68M5 13a10 10 0 0 1 5.24-2.76"/><circle cx="12" cy="20" r="1" fill="#211C16"/></svg>
+      <p class="relative text-[12px] font-extrabold text-stone-900 flex-1">Mode hors-ligne — vos données restent là</p>
+      <span class="relative text-[10px] font-bold text-stone-900/60">14:32</span>
+    </div>
+
+    <div class="px-6 pt-4 pb-3 flex items-center justify-between">
+      <div>
+        <h1 class="font-display font-extrabold text-[21px] text-stone-900">Mon dossier</h1>
+        <p class="text-[11px] text-stone-400">Données locales · Dernière sync : 11h47</p>
+      </div>
+      <div class="w-11 h-11 card-pagne bg-ocre-50 border border-ocre-100 flex items-center justify-center rotate-2">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#B8891A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="animate-spin" style="animation-duration:3s"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+      </div>
+    </div>
+
+    <!-- Dispo offline -->
+    <div class="px-6 mb-3">
+      <div class="bg-white card-pagne stitch border border-stone-200 p-4">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="nkyinkyim w-10 opacity-50"></div>
+          <p class="font-display font-extrabold text-[12px] text-sante-700 uppercase tracking-widest">✓ Disponible hors connexion</p>
+        </div>
+        <div class="grid grid-cols-2 gap-2.5">
+          <div class="bg-sante-50 border border-sante-200 card-pagne p-3 rotate-1">
+            <svg class="mb-1.5" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1F7040" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect width="8" height="4" x="8" y="2" rx="1"/></svg>
+            <p class="font-bold text-[12px] text-stone-900">Dossier médical</p>
+            <p class="text-[10px] text-stone-400">27 enregistrements</p>
+          </div>
+          <div class="bg-sante-50 border border-sante-200 card-pagne p-3 -rotate-1">
+            <svg class="mb-1.5" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1F7040" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+            <p class="font-bold text-[12px] text-stone-900">Ordonnances</p>
+            <p class="text-[10px] text-stone-400">2 actives + QR codes</p>
+          </div>
+          <div class="bg-sante-50 border border-sante-200 card-pagne p-3 -rotate-1">
+            <svg class="mb-1.5" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1F7040" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+            <p class="font-bold text-[12px] text-stone-900">Rappels</p>
+            <p class="text-[10px] text-stone-400">Alarmes locales actives</p>
+          </div>
+          <div class="bg-sante-50 border border-sante-200 card-pagne p-3 rotate-1">
+            <svg class="mb-1.5" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1F7040" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3M21 21v.01"/></svg>
+            <p class="font-bold text-[12px] text-stone-900">Carte urgence QR</p>
+            <p class="text-[10px] text-stone-400">Toujours accessible</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- File de sync -->
+    <div class="px-6 mb-3">
+      <div class="bg-white card-pagne border border-stone-200 p-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <div class="nkyinkyim w-10 opacity-50"></div>
+            <p class="font-display font-extrabold text-[12px] text-stone-400 uppercase tracking-widest">File de synchronisation</p>
+          </div>
+          <span class="px-2 py-0.5 card-pagne bg-ocre-50 text-ocre-600 text-[10px] font-extrabold">3 éléments</span>
+        </div>
+        <div class="space-y-2.5">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 card-pagne bg-ocre-50 border border-ocre-100 flex items-center justify-center flex-shrink-0">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B8891A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            </div>
+            <div class="flex-1">
+              <p class="font-bold text-[12.5px] text-stone-900">Tension : 15,1/9,2</p>
+              <p class="text-[10px] text-stone-400">Saisi à 13h05 · envoi auto au retour réseau</p>
+            </div>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D4A843" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 card-pagne bg-ocre-50 border border-ocre-100 flex items-center justify-center flex-shrink-0">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B8891A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8a2 2 0 0 1 2 2v5Z"/></svg>
+            </div>
+            <div class="flex-1">
+              <p class="font-bold text-[12.5px] text-stone-900">Message au Dr. KASSA</p>
+              <p class="text-[10px] text-stone-400">« Et les vertiges durent environ 5 min… »</p>
+            </div>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D4A843" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 card-pagne bg-ocre-50 border border-ocre-100 flex items-center justify-center flex-shrink-0">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B8891A" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>
+            </div>
+            <div class="flex-1">
+              <p class="font-bold text-[12.5px] text-stone-900">Prise médicament confirmée</p>
+              <p class="text-[10px] text-stone-400">Metformine 12h35</p>
+            </div>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D4A843" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Indispo -->
+    <div class="px-6 flex-1">
+      <div class="card-pagne border-2 border-dashed border-stone-300 p-4" style="background:rgba(243,236,225,.6)">
+        <p class="font-display font-extrabold text-[12px] text-stone-400 uppercase tracking-widest mb-3">Nécessite une connexion</p>
+        <div class="flex gap-3">
+          <div class="flex-1 flex items-center gap-2 opacity-50">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#78716C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2"/></svg>
+            <span class="text-[11.5px] text-stone-500 font-bold">Téléconsultation vidéo</span>
+          </div>
+          <div class="flex-1 flex items-center gap-2 opacity-50">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#78716C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><path d="M2 10h20"/></svg>
+            <span class="text-[11.5px] text-stone-500 font-bold">Paiement FedaPay</span>
+          </div>
+        </div>
+        <div class="nkyinkyim w-full my-3 opacity-30"></div>
+        <div class="flex items-center gap-2">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#B93A2B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/></svg>
+          <p class="text-[11px] text-stone-600"><span class="font-extrabold text-sos-600">SOS reste actif</span> — bascule auto en SMS Twilio, dans votre langue</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom nav -->
+    <div class="bg-white border-t-2 border-stone-900/10 px-6 pt-3 pb-8 grid grid-cols-5 relative">
+      <div class="absolute top-0 left-0 right-0 nkyinkyim opacity-25 -translate-y-full"></div>
+      <button class="flex flex-col items-center gap-1 opacity-50">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#78716C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
+        <span class="text-[9.5px] font-medium text-stone-500">Accueil</span>
+      </button>
+      <button class="flex flex-col items-center gap-1">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1F7040" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect width="8" height="4" x="8" y="2" rx="1"/></svg>
+        <span class="text-[9.5px] font-extrabold text-sante-700">Dossier</span>
+      </button>
+      <button class="flex flex-col items-center gap-1 -mt-7">
+        <div class="w-14 h-14 card-pagne bg-stone-300 flex items-center justify-center border-4 border-creme">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14M12 5v14"/></svg>
+        </div>
+        <span class="text-[9.5px] font-medium text-stone-300">RDV</span>
+      </button>
+      <button class="flex flex-col items-center gap-1 opacity-30">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#78716C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2"/></svg>
+        <span class="text-[9.5px] font-medium text-stone-500">Consulter</span>
+      </button>
+      <button class="flex flex-col items-center gap-1 opacity-50">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#78716C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></svg>
+        <span class="text-[9.5px] font-medium text-stone-500">Profil</span>
+      </button>
+    </div>
+    <div class="homebar"></div>
+  </div>
+</div>
+
+<!-- ══════ Carte progression ══════ -->
+<div class="flex items-center justify-center">
+  <div class="w-[390px]">
+    <div class="bg-stone-900/70 border border-terre-500/40 rounded-3xl p-7 relative overflow-hidden">
+      <div class="absolute inset-0 bogolan-dark"></div>
+      <div class="relative z-10">
+        <div class="kente-bar w-full rounded-full mb-5"></div>
+        <h2 class="font-display font-extrabold text-[22px] text-white mb-1">Refonte v2</h2>
+        <p class="text-stone-400 text-[13px] mb-5">13 / 26 écrans redessinés + Admin Desktop</p>
+        <div class="h-3 rounded-full bg-stone-700 overflow-hidden mb-6">
+          <div class="h-full rounded-full bg-gradient-to-r from-terre-500 via-ocre-400 to-sante-500" style="width:50%"></div>
+        </div>
+        <div class="space-y-2.5">
+          <div class="flex items-center gap-3 card-pagne px-4 py-3 border border-sante-500/40" style="background:rgba(46,139,79,.15)">
+            <span class="font-display font-extrabold text-sante-300 text-[14px]">✓</span>
+            <span class="text-[13px] text-white font-bold flex-1">Lot 1 v2 — Patient Core + Admin Desktop</span>
+          </div>
+          <div class="flex items-center gap-3 card-pagne px-4 py-3 border border-sante-500/40" style="background:rgba(46,139,79,.15)">
+            <span class="font-display font-extrabold text-sante-300 text-[14px]">✓</span>
+            <span class="text-[13px] text-white font-bold flex-1">Lot 2 v2 — Patient Avancé · D-09 → D-13</span>
+          </div>
+          <div class="flex items-center gap-3 card-pagne px-4 py-3 border border-stone-600" style="background:rgba(255,255,255,.05)">
+            <span class="font-display font-extrabold text-indigo-300 text-[14px]">→</span>
+            <span class="text-[13px] text-stone-300 font-medium flex-1">Lot 3 v2 — Médecin PRO (indigo wax)</span>
+          </div>
+          <div class="flex items-center gap-3 card-pagne px-4 py-3 border border-stone-600" style="background:rgba(255,255,255,.05)">
+            <span class="font-display font-extrabold text-ocre-300 text-[14px]">→</span>
+            <span class="text-[13px] text-stone-300 font-medium flex-1">Lot 4 v2 — Diaspora · Pharma · Labo · Admin mobile + desktop</span>
+          </div>
+        </div>
+        <div class="kente-bar w-full rounded-full mt-6"></div>
+        <p class="text-stone-500 text-[10.5px] mt-4 text-center font-bold">DigiSanté Mobile · « Wax &amp; Terre » · NEXT IMPACT · Bénin 🇧🇯</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+</body>
+</html>
