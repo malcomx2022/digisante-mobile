@@ -9,6 +9,9 @@ import Fastify from 'fastify';
 import { env } from '@/lib/env.js';
 import authRoutes from '@/modules/auth/auth.routes.js';
 import healthRoutes from '@/modules/health/health.routes.js';
+import kycRoutes from '@/modules/kyc/kyc.routes.js';
+import professionalsRoutes from '@/modules/professionals/professionals.routes.js';
+import usersRoutes from '@/modules/users/users.routes.js';
 import authenticate from '@/plugins/authenticate.js';
 import errorHandler from '@/plugins/error-handler.js';
 import prismaPlugin from '@/plugins/prisma.js';
@@ -51,6 +54,9 @@ export async function buildServer() {
   // ── Modules métier (préfixe /api/v1) ──
   await app.register(healthRoutes, { prefix: '/api/v1' });
   await app.register(authRoutes, { prefix: '/api/v1/auth' });
+  await app.register(usersRoutes, { prefix: '/api/v1/users' });
+  await app.register(professionalsRoutes, { prefix: '/api/v1/professionals' });
+  await app.register(kycRoutes, { prefix: '/api/v1/kyc' });
 
   return app;
 }
