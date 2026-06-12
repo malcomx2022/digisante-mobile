@@ -1,7 +1,16 @@
 // ─────────────────────────────────────────────────────────────
-// DigiSanté Mobile — schéma Prisma (SQUELETTE)
-// Remplacer par tes 26 modèles + 28 enums existants.
-// Cible : PostgreSQL 16 natif (dev local via docker, prod = VPS natif).
+// DigiSanté Mobile — schéma Prisma complet
+// 26 modèles + 28 enums (cf. DocTech §5) + 1 table d'audit immuable (§4).
+// Cible : PostgreSQL 16 natif (dev local docker, prod VPS Infomaniak).
+//
+// Décisions (arbitrées) :
+//   - Lang  : FR · EN · FON · BARIBA · DENDI            (source : DocTech)
+//   - Role  : PATIENT · MEDECIN · PHARMACIE · LABORATOIRE · DIASPORA · ADMIN (FR)
+//   - AuditLog (§4) ajouté en plus des 26 modèles : trail immuable append-only,
+//     hash SHA-256 chaîné (triggers anti UPDATE/DELETE posés dans la migration).
+//
+// Conformité APDP (§4) : champs santé chiffrés (encryptedData/encryptedUrl),
+// accès DMP par partage consenti (shareToken/shareExpiry), audit immuable.
 // ─────────────────────────────────────────────────────────────
 
 generator client {
@@ -13,10 +22,11 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ── Exemple minimal pour que `migrate dev` fonctionne au 1er démarrage ──
-// (à supprimer une fois tes vrais modèles importés)
+// ══════════════════════════════════════════════════════════════
+//  ENUMS (28)
+// ══════════════════════════════════════════════════════════════
 
-enum UserRole {
+enum Role {
   PATIENT
   MEDECIN
   PHARMACIE
@@ -25,41 +35,753 @@ enum UserRole {
   ADMIN
 }
 
-enum Language {
+enum UserStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+  PENDING_KYC
+}
+
+enum Lang {
   FR
+  EN
   FON
-  YO
-  BAATONUM
+  BARIBA
   DENDI
 }
 
+enum AppointmentType {
+  PHYSICAL
+  TELECONSULTATION
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+enum ConsultationMode {
+  VIDEO
+  AUDIO
+  CHAT
+}
+
+enum ConsultationStatus {
+  WAITING
+  ACTIVE
+  COMPLETED
+  FAILED
+}
+
+enum MedicalRecordType {
+  VITAL_SIGNS
+  DIAGNOSIS
+  VACCINATION
+  ALLERGY
+  LAB_RESULT
+  PRESCRIPTION
+  IMAGING
+  SURGERY
+  CHRONIC_DISEASE
+  OTHER
+}
+
+enum PrescriptionStatus {
+  ACTIVE
+  PARTIALLY_DISPENSED
+  FULLY_DISPENSED
+  EXPIRED
+  CANCELLED
+}
+
+enum PrescriptionItemStatus {
+  PENDING
+  DISPENSED
+  PARTIALLY_DISPENSED
+  UNAVAILABLE
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  MTN_MOMO
+  MOOV_MONEY
+  WAVE
+  ORANGE_MONEY
+  VISA_MC
+  WALLET
+}
+
+enum PaymentType {
+  CONSULTATION
+  SUBSCRIPTION
+  WALLET_TOPUP
+  LAB_TEST
+  PHARMACY
+}
+
+enum NotificationType {
+  APPOINTMENT_REMINDER
+  CONSULTATION_START
+  PRESCRIPTION_READY
+  LAB_RESULT
+  SOS_ALERT
+  PAYMENT_CONFIRMED
+  SYSTEM
+}
+
+enum NotificationChannel {
+  PUSH_FCM
+  SMS_TWILIO
+  EMAIL
+  IN_APP
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+  READ
+}
+
+enum SosStatus {
+  ACTIVE
+  RESOLVED
+  FALSE_ALARM
+}
+
+enum KycStatus {
+  NOT_SUBMITTED
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  NEEDS_REVISION
+}
+
+enum KycDocumentType {
+  NATIONAL_ID
+  MEDICAL_DEGREE
+  ORDER_LICENSE
+  PRACTICE_LICENSE
+  PROFESSIONAL_PHOTO
+  MALPRACTICE_INSURANCE
+}
+
+enum ReferralStatus {
+  PENDING
+  ACCEPTED
+  COMPLETED
+  CANCELLED
+}
+
+enum LabOrderStatus {
+  PENDING
+  SAMPLE_COLLECTED
+  PROCESSING
+  COMPLETED
+  CANCELLED
+}
+
+enum InsuranceCoverageStatus {
+  ACTIVE
+  EXPIRED
+  SUSPENDED
+}
+
+enum WalletTransactionType {
+  TOPUP
+  DEBIT
+  REFUND
+  TRANSFER
+}
+
+enum SubscriptionPlan {
+  FREE
+  STARTER
+  PRO
+  CLINIC
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  PENDING
+}
+
+enum ContentCategory {
+  PREVENTION
+  NUTRITION
+  MATERNITY
+  VACCINATION
+  CHRONIC
+  MENTAL_HEALTH
+  EMERGENCY
+  OTHER
+}
+
+enum AdminAction {
+  KYC_APPROVE
+  KYC_REJECT
+  USER_SUSPEND
+  USER_ACTIVATE
+  CONFIG_UPDATE
+  CONTENT_MODERATE
+}
+
+enum ShareType {
+  QR_CODE
+  LINK
+  TEMPORARY_ACCESS
+}
+
+// ══════════════════════════════════════════════════════════════
+//  MODÈLES (26 + AuditLog)
+// ══════════════════════════════════════════════════════════════
+
+// 1 — User : compte (auth phone/OTP, JWT). Pivot de tous les espaces.
 model User {
+  id           String     @id @default(cuid())
+  phone        String     @unique
+  email        String?    @unique
+  role         Role       @default(PATIENT)
+  status       UserStatus @default(PENDING_VERIFICATION)
+  lang         Lang       @default(FR)
+  fcmToken     String?
+  passwordHash String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  profile        Profile?
+  doctor         Doctor?
+  patient        Patient?
+  wallet         Wallet?
+  payments       Payment[]
+  notifications  Notification[]
+  kycSubmissions KycSubmission[]
+  kycReviews     KycReview[]     @relation("KycReviewer")
+  adminAuditLogs AdminAuditLog[] @relation("AdminAuditLogs")
+
+  @@index([role])
+  @@index([status])
+  @@index([lang])
+  @@map("users")
+}
+
+// 2 — Profile : informations civiles (1:1 User).
+model Profile {
+  id               String    @id @default(cuid())
+  userId           String    @unique
+  firstName        String
+  lastName         String
+  dateOfBirth      DateTime?
+  gender           String?
+  address          String?
+  emergencyContact String?
+  avatarUrl        String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+// 3 — Doctor : praticien (espace PRO indigo). Abonnement PRO/CLINIC.
+model Doctor {
+  id                 String             @id @default(cuid())
+  userId             String             @unique
+  speciality         String
+  licenseNumber      String             @unique
+  verifiedAt         DateTime?
+  slotDuration       Int                @default(30)
+  consultFee         Decimal            @db.Decimal(12, 2)
+  bio                String?
+  subscriptionPlan   SubscriptionPlan   @default(FREE)
+  subscriptionStatus SubscriptionStatus @default(ACTIVE)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  user                  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointments          Appointment[]
+  prescriptions         Prescription[]
+  labOrders             LabOrder[]
+  labResultsInterpreted LabResult[]    @relation("LabResultInterpreter")
+  referralsFrom         Referral[]     @relation("ReferralFrom")
+  referralsTo           Referral[]     @relation("ReferralTo")
+
+  @@index([speciality])
+  @@map("doctors")
+}
+
+// 4 — Patient : dossier patient (espace Patient vert).
+model Patient {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  bloodGroup      String?
+  allergies       String[]
+  chronicDiseases String[]
+  insuranceNumber String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  medicalRecords    MedicalRecord[]
+  appointments      Appointment[]
+  prescriptions     Prescription[]
+  sosAlerts         Sos[]
+  referrals         Referral[]
+  labOrders         LabOrder[]
+  patientInsurances PatientInsurance[]
+
+  @@map("patients")
+}
+
+// 5 — Appointment : rendez-vous (physique ou téléconsultation).
+model Appointment {
+  id           String            @id @default(cuid())
+  patientId    String
+  doctorId     String
+  type         AppointmentType
+  status       AppointmentStatus @default(PENDING)
+  scheduledAt  DateTime
+  cancelReason String?
+  triage       Json?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  patient      Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor       Doctor        @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  consultation Consultation?
+  payment      Payment?
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([status])
+  @@index([scheduledAt])
+  @@map("appointments")
+}
+
+// 6 — Consultation : session de téléconsultation (Daily.co) ou suivi.
+model Consultation {
+  id            String             @id @default(cuid())
+  appointmentId String             @unique
+  mode          ConsultationMode
+  status        ConsultationStatus @default(WAITING)
+  dailyRoomName String?
+  dailyRoomUrl  String?
+  startedAt     DateTime?
+  endedAt       DateTime?
+  notes         String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  appointment   Appointment    @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  prescriptions Prescription[]
+
+  @@map("consultations")
+}
+
+// 7 — MedicalRecord : entrée du DMP. data chiffrée, partage consenti (§4).
+model MedicalRecord {
+  id            String            @id @default(cuid())
+  patientId     String
+  type          MedicalRecordType
+  title         String
+  data          Json?
+  encryptedData String?
+  shareToken    String?           @unique
+  shareType     ShareType?
+  shareExpiry   DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  patient   Patient    @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  documents Document[]
+
+  @@index([patientId])
+  @@index([type])
+  @@map("medical_records")
+}
+
+// 8 — Document : pièce jointe chiffrée d'une entrée DMP.
+model Document {
+  id              String   @id @default(cuid())
+  medicalRecordId String
+  filename        String
+  mimeType        String
+  size            Int
+  encryptedUrl    String
+  checksum        String
+  createdAt       DateTime @default(now())
+
+  medicalRecord MedicalRecord @relation(fields: [medicalRecordId], references: [id], onDelete: Cascade)
+
+  @@index([medicalRecordId])
+  @@map("documents")
+}
+
+// 9 — Prescription : ordonnance (QR code, validité).
+model Prescription {
+  id             String             @id @default(cuid())
+  doctorId       String
+  patientId      String
+  consultationId String?
+  status         PrescriptionStatus @default(ACTIVE)
+  qrCode         String?            @unique
+  validUntil     DateTime
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  doctor       Doctor             @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient      Patient            @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  consultation Consultation?      @relation(fields: [consultationId], references: [id])
+  items        PrescriptionItem[]
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([status])
+  @@map("prescriptions")
+}
+
+// 10 — PrescriptionItem : ligne de médicament d'une ordonnance.
+model PrescriptionItem {
+  id             String                 @id @default(cuid())
+  prescriptionId String
+  medicationName String
+  dosage         String
+  frequency      String
+  duration       String
+  status         PrescriptionItemStatus @default(PENDING)
+  createdAt      DateTime               @default(now())
+
+  prescription Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+
+  @@index([prescriptionId])
+  @@map("prescription_items")
+}
+
+// 11 — Payment : paiement FedaPay (Mobile Money / wallet diaspora).
+model Payment {
+  id            String        @id @default(cuid())
+  userId        String
+  appointmentId String?       @unique
+  type          PaymentType
+  method        PaymentMethod
+  amount        Decimal       @db.Decimal(12, 2)
+  currency      String        @default("XOF")
+  status        PaymentStatus @default(PENDING)
+  fedapayId     String?       @unique
+  receiptUrl    String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointment Appointment? @relation(fields: [appointmentId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@map("payments")
+}
+
+// 12 — Notification : multicanal (FCM / SMS Twilio / email / in-app).
+model Notification {
+  id          String              @id @default(cuid())
+  recipientId String
+  type        NotificationType
+  channel     NotificationChannel
+  title       String
+  body        String
+  status      NotificationStatus  @default(PENDING)
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  readAt      DateTime?
+  createdAt   DateTime            @default(now())
+
+  recipient User @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId])
+  @@index([status])
+  @@map("notifications")
+}
+
+// 13 — Sos : alerte urgence géolocalisée.
+model Sos {
+  id              String    @id @default(cuid())
+  patientId       String
+  latitude        Float
+  longitude       Float
+  status          SosStatus @default(ACTIVE)
+  resolvedAt      DateTime?
+  contactNotified Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([status])
+  @@map("sos_alerts")
+}
+
+// 14 — KycSubmission : dossier de vérification professionnelle.
+model KycSubmission {
+  id              String    @id @default(cuid())
+  userId          String
+  status          KycStatus @default(NOT_SUBMITTED)
+  submittedAt     DateTime?
+  reviewedAt      DateTime?
+  rejectionReason String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents KycDocument[]
+  reviews   KycReview[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("kyc_submissions")
+}
+
+// 15 — KycDocument : pièce justificative d'un dossier KYC.
+model KycDocument {
+  id           String          @id @default(cuid())
+  submissionId String
+  type         KycDocumentType
+  fileUrl      String
+  verified     Boolean         @default(false)
+  verifiedAt   DateTime?
+  createdAt    DateTime        @default(now())
+
+  submission KycSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@index([submissionId])
+  @@map("kyc_documents")
+}
+
+// 16 — KycReview : décision de revue KYC (par un admin/reviewer).
+model KycReview {
+  id           String    @id @default(cuid())
+  submissionId String
+  reviewerId   String
+  decision     KycStatus
+  notes        String?
+  checklist    Json?
+  createdAt    DateTime  @default(now())
+
+  submission KycSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  reviewer   User          @relation("KycReviewer", fields: [reviewerId], references: [id])
+
+  @@index([submissionId])
+  @@map("kyc_reviews")
+}
+
+// 17 — Referral : orientation patient d'un médecin vers un autre.
+model Referral {
+  id           String         @id @default(cuid())
+  fromDoctorId String
+  toDoctorId   String
+  patientId    String
+  reason       String
+  status       ReferralStatus @default(PENDING)
+  notes        String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  fromDoctor Doctor  @relation("ReferralFrom", fields: [fromDoctorId], references: [id])
+  toDoctor   Doctor  @relation("ReferralTo", fields: [toDoctorId], references: [id])
+  patient    Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([status])
+  @@map("referrals")
+}
+
+// 18 — LabOrder : demande d'analyse de laboratoire.
+model LabOrder {
+  id             String         @id @default(cuid())
+  prescribedById String
+  patientId      String
+  labId          String?
+  testType       String
+  status         LabOrderStatus @default(PENDING)
+  scheduledAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  prescribedBy Doctor     @relation(fields: [prescribedById], references: [id])
+  patient      Patient    @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  lab          Lab?       @relation(fields: [labId], references: [id])
+  result       LabResult?
+
+  @@index([patientId])
+  @@index([labId])
+  @@index([status])
+  @@map("lab_orders")
+}
+
+// 19 — Lab : laboratoire d'analyses (annuaire géolocalisé).
+model Lab {
+  id              String   @id @default(cuid())
+  name            String
+  address         String
+  phone           String
+  servicesOffered String[]
+  geolat          Float?
+  geolong         Float?
+  createdAt       DateTime @default(now())
+
+  labOrders LabOrder[]
+
+  @@map("labs")
+}
+
+// 20 — LabResult : résultat d'analyse (interprété par un médecin).
+model LabResult {
+  id              String    @id @default(cuid())
+  labOrderId      String    @unique
+  values          Json
+  reportUrl       String?
+  interpretedAt   DateTime?
+  interpretedById String?
+  createdAt       DateTime  @default(now())
+
+  labOrder      LabOrder @relation(fields: [labOrderId], references: [id], onDelete: Cascade)
+  interpretedBy Doctor?  @relation("LabResultInterpreter", fields: [interpretedById], references: [id])
+
+  @@map("lab_results")
+}
+
+// 21 — Insurance : organisme d'assurance santé.
+model Insurance {
+  id            String   @id @default(cuid())
+  name          String
+  code          String   @unique
+  apiEndpoint   String?
+  coverageTypes String[]
+  createdAt     DateTime @default(now())
+
+  patientInsurances PatientInsurance[]
+
+  @@map("insurances")
+}
+
+// 22 — PatientInsurance : couverture d'un patient (lien N:N enrichi).
+model PatientInsurance {
+  id           String                  @id @default(cuid())
+  patientId    String
+  insuranceId  String
+  memberNumber String
+  status       InsuranceCoverageStatus @default(ACTIVE)
+  expiresAt    DateTime?
+  coverageData Json?
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+
+  patient   Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  insurance Insurance @relation(fields: [insuranceId], references: [id], onDelete: Cascade)
+
+  @@unique([patientId, insuranceId])
+  @@map("patient_insurances")
+}
+
+// 23 — Wallet : portefeuille (solde, recharges diaspora).
+model Wallet {
   id        String   @id @default(cuid())
-  phone     String   @unique
-  fullName  String
-  role      UserRole @default(PATIENT)
-  language  Language @default(FR)
-  isActive  Boolean  @default(true)
+  userId    String   @unique
+  balance   Decimal  @default(0) @db.Decimal(14, 2)
+  currency  String   @default("XOF")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([role])
-  @@index([language])
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
+
+  @@map("wallets")
 }
 
-// ── Audit trail immuable (append-only) — cf. CLAUDE.md §3 ──
-// Le trigger anti UPDATE/DELETE est posé via une migration SQL manuelle.
+// 24 — WalletTransaction : mouvement de portefeuille.
+model WalletTransaction {
+  id          String                @id @default(cuid())
+  walletId    String
+  type        WalletTransactionType
+  amount      Decimal               @db.Decimal(14, 2)
+  reference   String?
+  description String?
+  createdAt   DateTime              @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+  @@map("wallet_transactions")
+}
+
+// 25 — HealthContent : contenu d'éducation à la santé (multilingue).
+model HealthContent {
+  id           String          @id @default(cuid())
+  title        String
+  body         String
+  category     ContentCategory
+  tags         String[]
+  translations Json?
+  isPublished  Boolean         @default(false)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([category])
+  @@index([isPublished])
+  @@map("health_contents")
+}
+
+// 26 — AdminAuditLog : journal des actions d'administration (immuable, §4).
+model AdminAuditLog {
+  id            String      @id @default(cuid())
+  adminId       String
+  action        AdminAction
+  targetType    String?
+  targetId      String?
+  details       Json?
+  previousState Json?
+  newState      Json?
+  ipAddress     String?
+  createdAt     DateTime    @default(now())
+
+  admin User @relation("AdminAuditLogs", fields: [adminId], references: [id])
+
+  @@index([adminId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("admin_audit_logs")
+}
+
+// (+1) AuditLog — trail immuable transverse (§4) : DMP_ACCESS, KYC_*, PAYMENT_*,
+// AUTH_FAIL, DATA_EXPORT, LAB_CRITICAL, USER_SUSPEND… Hash SHA-256 chaîné.
+// Triggers anti UPDATE/DELETE posés dans la migration (append-only).
 model AuditLog {
   id        String   @id @default(cuid())
-  action    String   // DMP_ACCESS, KYC_APPROVE, PAYMENT_REFUND, AUTH_FAIL…
+  action    String
   actorId   String?
   targetId  String?
   ip        String?
   meta      Json?
   prevHash  String?
-  hash      String
+  hash      String   @unique
   createdAt DateTime @default(now())
 
   @@index([action])
+  @@index([actorId])
   @@index([createdAt])
+  @@map("audit_logs")
 }
