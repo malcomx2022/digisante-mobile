@@ -17,6 +17,10 @@ const schema = z.object({
   TWILIO_ACCOUNT_SID: z.string().optional(),
   TWILIO_AUTH_TOKEN: z.string().optional(),
   TWILIO_FROM_NUMBER: z.string().optional(),
+
+  // ── Daily.co (téléconsultation WebRTC) — optionnel : stub si absent ──
+  DAILY_API_KEY: z.string().optional(),
+  DAILY_DOMAIN: z.string().optional(),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -31,3 +35,6 @@ export const env = parsed.data;
 export const isTwilioConfigured = Boolean(
   env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_FROM_NUMBER,
 );
+
+/** Vrai si Daily.co est configuré (sinon les salles/jetons sont des stubs). */
+export const isDailyConfigured = Boolean(env.DAILY_API_KEY && env.DAILY_DOMAIN);

@@ -1,0 +1,117 @@
+// Tests d'intégration RDV + téléconsultation (via app.inject). Si DB+Redis (CI).
+import type { FastifyInstance } from 'fastify';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
+const PHONES = ['+22994000001', '+22994000002'];
+const TOMORROW = new Date(Date.now() + 24 * 3600_000);
+
+describe.skipIf(!HAS_INFRA)('RDV & téléconsultation (intégration)', () => {
+  let app: FastifyInstance;
+  let patientToken: string;
+  let doctorToken: string;
+  let patientUserId: string;
+  let doctorId: string;
+  let patientId: string;
+
+  const auth = (t: string) => ({ authorization: `Bearer ${t}` });
+
+  const cleanup = async () => {
+    await app.prisma.payment.deleteMany({ where: { user: { phone: { in: PHONES } } } });
+    await app.prisma.user.deleteMany({ where: { phone: { in: PHONES } } });
+  };
+
+  beforeAll(async () => {
+    const { buildServer } = await import('@/server.js');
+    app = await buildServer();
+    await app.ready();
+    await cleanup();
+
+    const patient = await app.prisma.user.create({
+      data: { phone: PHONES[0], role: 'PATIENT', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Koffi', lastName: 'D' } }, patient: { create: {} } },
+      include: { patient: true },
+    });
+    const doctor = await app.prisma.user.create({
+      data: { phone: PHONES[1], role: 'MEDECIN', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Awa', lastName: 'K' } }, doctor: { create: { speciality: 'Généraliste', licenseNumber: 'BJ-MED-7001', consultFee: 3000, slotDuration: 30, verifiedAt: new Date() } } },
+      include: { doctor: true },
+    });
+    patientUserId = patient.id;
+    patientId = patient.patient!.id;
+    doctorId = doctor.doctor!.id;
+    patientToken = app.jwt.sign({ sub: patient.id, role: 'PATIENT' }, { expiresIn: '15m' });
+    doctorToken = app.jwt.sign({ sub: doctor.id, role: 'MEDECIN' }, { expiresIn: '15m' });
+  });
+
+  afterAll(async () => {
+    if (!app) return;
+    await cleanup();
+    await app.close();
+  });
+
+  it('réservation → confirmation → téléconsultation → bascule → clôture', async () => {
+    const book = await app.inject({
+      method: 'POST',
+      url: '/api/v1/appointments',
+      headers: auth(patientToken),
+      payload: { doctorId, type: 'TELECONSULTATION', scheduledAt: TOMORROW.toISOString() },
+    });
+    expect(book.statusCode).toBe(201);
+    const apptId = book.json().id as string;
+
+    // Conflit : même créneau, même médecin.
+    const clash = await app.inject({
+      method: 'POST',
+      url: '/api/v1/appointments',
+      headers: auth(patientToken),
+      payload: { doctorId, type: 'TELECONSULTATION', scheduledAt: TOMORROW.toISOString() },
+    });
+    expect(clash.statusCode).toBe(409);
+
+    const confirm = await app.inject({ method: 'POST', url: `/api/v1/appointments/${apptId}/confirm`, headers: auth(doctorToken) });
+    expect(confirm.statusCode).toBe(200);
+    expect(confirm.json().status).toBe('CONFIRMED');
+
+    const startC = await app.inject({ method: 'POST', url: '/api/v1/consultations', headers: auth(doctorToken), payload: { appointmentId: apptId } });
+    expect(startC.statusCode).toBe(201);
+    expect(startC.json().roomUrl).toContain('daily.co');
+    const consultId = startC.json().consultation.id as string;
+
+    const join = await app.inject({ method: 'POST', url: `/api/v1/consultations/${consultId}/join`, headers: auth(patientToken) });
+    expect(join.statusCode).toBe(200);
+    expect(join.json().token).toBeTruthy();
+
+    const down = await app.inject({ method: 'POST', url: `/api/v1/consultations/${consultId}/downgrade`, headers: auth(patientToken) });
+    expect(down.json().mode).toBe('AUDIO');
+
+    const end = await app.inject({ method: 'POST', url: `/api/v1/consultations/${consultId}/end`, headers: auth(doctorToken), payload: { notes: 'RAS' } });
+    expect(end.statusCode).toBe(200);
+    expect(end.json().status).toBe('COMPLETED');
+  });
+
+  it('RBAC : un médecin ne peut pas réserver (403)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/appointments',
+      headers: auth(doctorToken),
+      payload: { doctorId, type: 'PHYSICAL', scheduledAt: TOMORROW.toISOString() },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('annulation par le médecin d’un RDV payé → audit PAYMENT_REFUND', async () => {
+    const at = new Date(Date.now() + 48 * 3600_000);
+    const appt = await app.prisma.appointment.create({
+      data: { patientId, doctorId, type: 'PHYSICAL', status: 'CONFIRMED', scheduledAt: at },
+    });
+    await app.prisma.payment.create({
+      data: { userId: patientUserId, appointmentId: appt.id, type: 'CONSULTATION', method: 'MTN_MOMO', amount: 3000, status: 'COMPLETED' },
+    });
+
+    const before = await app.prisma.auditLog.count({ where: { action: 'PAYMENT_REFUND' } });
+    const cancel = await app.inject({ method: 'POST', url: `/api/v1/appointments/${appt.id}/cancel`, headers: auth(doctorToken), payload: { reason: 'Indisponible' } });
+    expect(cancel.statusCode).toBe(200);
+    expect(cancel.json().status).toBe('CANCELLED');
+    const after = await app.prisma.auditLog.count({ where: { action: 'PAYMENT_REFUND' } });
+    expect(after).toBe(before + 1);
+  });
+});
