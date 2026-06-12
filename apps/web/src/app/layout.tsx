@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 
+import { LocaleProvider } from '@/i18n/LocaleProvider';
 import { fontBody, fontDisplay } from '@/lib/fonts';
 import './globals.css';
 
@@ -18,7 +19,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr" className={`${fontDisplay.variable} ${fontBody.variable}`}>
-      <body>{children}</body>
+      <body>
+        <LocaleProvider>{children}</LocaleProvider>
+      </body>
     </html>
   );
 }
