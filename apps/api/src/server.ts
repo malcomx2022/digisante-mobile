@@ -1,27 +1,40 @@
-import Fastify from 'fastify';
+import { pathToFileURL } from 'node:url';
+
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
-import rateLimit from '@fastify/rate-limit';
 import jwt from '@fastify/jwt';
+import rateLimit from '@fastify/rate-limit';
+import Fastify from 'fastify';
 
 import { env } from '@/lib/env.js';
+import healthRoutes from '@/modules/health/health.routes.js';
+import errorHandler from '@/plugins/error-handler.js';
 import prismaPlugin from '@/plugins/prisma.js';
 import redisPlugin from '@/plugins/redis.js';
-
-import healthRoutes from '@/modules/health/health.routes.js';
+import requestContext from '@/plugins/request-context.js';
 // import authRoutes from '@/modules/auth/auth.routes.js';
-// import patientRoutes from '@/modules/patient/patient.routes.js';
-// import consultationRoutes from '@/modules/consultation/consultation.routes.js';
-// import paymentRoutes from '@/modules/payment/payment.routes.js';
-// … enregistrer ici les 20 modules existants
+// … enregistrer ici les 20 modules métier (préfixe /api/v1)
+
+let reqCounter = 0;
 
 export async function buildServer() {
   const app = Fastify({
     logger:
       env.NODE_ENV === 'development'
         ? { transport: { target: 'pino-pretty' } }
-        : true,
+        : env.NODE_ENV === 'test'
+          ? false
+          : true,
+    // Honore un x-request-id entrant (corrélation), sinon identifiant incrémental.
+    genReqId: (req) => {
+      const incoming = req.headers['x-request-id'];
+      return typeof incoming === 'string' && incoming.length > 0 ? incoming : `req-${++reqCounter}`;
+    },
   });
+
+  // ── Gestion d'erreurs + hooks transverses (avant tout le reste) ──
+  await app.register(errorHandler);
+  await app.register(requestContext);
 
   // ── Sécurité de base ──
   await app.register(helmet);
@@ -36,9 +49,6 @@ export async function buildServer() {
   // ── Modules métier (préfixe /api/v1) ──
   await app.register(healthRoutes, { prefix: '/api/v1' });
   // await app.register(authRoutes, { prefix: '/api/v1/auth' });
-  // await app.register(patientRoutes, { prefix: '/api/v1/patients' });
-  // await app.register(consultationRoutes, { prefix: '/api/v1/consultations' });
-  // await app.register(paymentRoutes, { prefix: '/api/v1/payments' });
 
   return app;
 }
@@ -54,7 +64,9 @@ async function start() {
   }
 }
 
-// Démarrage uniquement si lancé directement (pas en import de test)
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Démarrage uniquement si lancé directement (pas en import de test).
+// Comparaison cross-platform (Windows/Linux) via pathToFileURL.
+const entry = process.argv[1] ? pathToFileURL(process.argv[1]).href : '';
+if (import.meta.url === entry) {
   start();
 }
