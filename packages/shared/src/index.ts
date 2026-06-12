@@ -1,13 +1,6 @@
-// Types, enums et schémas zod partagés entre web et api.
-export const LANGUAGES = ['FR', 'FON', 'YO', 'BAATONUM', 'DENDI'] as const;
-export type Language = (typeof LANGUAGES)[number];
-
-export const USER_ROLES = [
-  'PATIENT',
-  'MEDECIN',
-  'PHARMACIE',
-  'LABORATOIRE',
-  'DIASPORA',
-  'ADMIN',
-] as const;
-export type UserRole = (typeof USER_ROLES)[number];
+// ─────────────────────────────────────────────────────────────
+// @digisante/shared — types, enums, schémas zod et i18n partagés web ⇄ api.
+// ─────────────────────────────────────────────────────────────
+export * from './enums.js';
+export * from './schemas.js';
+export * from './i18n.js';
