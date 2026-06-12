@@ -7,10 +7,12 @@ import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
 
 import { env } from '@/lib/env.js';
+import adminRoutes from '@/modules/admin/admin.routes.js';
 import appointmentsRoutes from '@/modules/appointments/appointments.routes.js';
 import authRoutes from '@/modules/auth/auth.routes.js';
 import consultationsRoutes from '@/modules/consultations/consultations.routes.js';
 import dmpRoutes from '@/modules/dmp/dmp.routes.js';
+import educationRoutes from '@/modules/education/education.routes.js';
 import healthRoutes from '@/modules/health/health.routes.js';
 import kycRoutes from '@/modules/kyc/kyc.routes.js';
 import laboratoryRoutes from '@/modules/laboratory/laboratory.routes.js';
@@ -19,6 +21,7 @@ import prescriptionsRoutes from '@/modules/prescriptions/prescriptions.routes.js
 import professionalsRoutes from '@/modules/professionals/professionals.routes.js';
 import referralsRoutes from '@/modules/referrals/referrals.routes.js';
 import remindersRoutes from '@/modules/reminders/reminders.routes.js';
+import translationsRoutes from '@/modules/translations/translations.routes.js';
 import usersRoutes from '@/modules/users/users.routes.js';
 import authenticate from '@/plugins/authenticate.js';
 import errorHandler from '@/plugins/error-handler.js';
@@ -73,6 +76,9 @@ export async function buildServer() {
   await app.register(remindersRoutes, { prefix: '/api/v1/reminders' });
   await app.register(pharmacyRoutes, { prefix: '/api/v1/pharmacy' });
   await app.register(laboratoryRoutes, { prefix: '/api/v1/lab' });
+  await app.register(educationRoutes, { prefix: '/api/v1/education' });
+  await app.register(translationsRoutes, { prefix: '/api/v1/translations' });
+  await app.register(adminRoutes, { prefix: '/api/v1/admin' });
 
   return app;
 }
