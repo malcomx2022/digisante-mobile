@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 
+import { BookingModal, type BookingDoctor } from '@/components/patient/BookingModal';
 import { PatientHeader } from '@/components/patient/PatientHeader';
 import { Badge, Button, CardPagne } from '@/components/ui';
 import { Empty, ErrorState, Loading } from '@/components/ui/States';
@@ -25,6 +26,7 @@ interface Paginated {
 export default function DoctorsPage() {
   const { t } = useLocale();
   const [q, setQ] = useState('');
+  const [booking, setBooking] = useState<BookingDoctor | null>(null);
   const { data, loading, error } = useApi<Paginated>(() => get(`/professionals?pageSize=20${q ? `&q=${encodeURIComponent(q)}` : ''}`), [q]);
   const doctors = data?.data ?? [];
 
@@ -63,7 +65,18 @@ export default function DoctorsPage() {
                     <span className="font-display font-bold text-sante-700 text-[13px]">
                       {Number(d.consultFee).toLocaleString('fr-FR')} {t('common.fcfa')}
                     </span>
-                    <Button variant="sante" className="text-[13px] px-3 py-1.5">
+                    <Button
+                      variant="sante"
+                      className="text-[13px] px-3 py-1.5"
+                      onClick={() =>
+                        setBooking({
+                          id: d.id,
+                          speciality: d.speciality,
+                          consultFee: d.consultFee,
+                          profile: d.profile,
+                        })
+                      }
+                    >
                       {t('doctors.book')}
                     </Button>
                   </div>
@@ -73,6 +86,8 @@ export default function DoctorsPage() {
           ))}
         </div>
       </main>
+
+      {booking && <BookingModal doctor={booking} onClose={() => setBooking(null)} />}
     </>
   );
 }

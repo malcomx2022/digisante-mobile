@@ -42,6 +42,12 @@ interface RegisterInput {
   lang: Lang;
   firstName: string;
   lastName: string;
+  // Champs spécifiques par rôle (validés en amont par registerSchema).
+  speciality?: string;
+  licenseNumber?: string;
+  consultFee?: number;
+  establishmentName?: string;
+  address?: string;
 }
 
 const otpKey = (phone: string) => `otp:${phone}`;
@@ -110,24 +116,94 @@ async function generateAndSendOtp(
   return code;
 }
 
-/** Inscription par téléphone : crée le compte (PENDING_VERIFICATION) puis envoie un OTP. */
+/**
+ * Inscription par téléphone : crée le compte (PENDING_VERIFICATION), son
+ * Profile ET l'enregistrement de rôle correspondant (Patient/Doctor/Pharmacy/
+ * Lab/Wallet) dans UNE transaction, puis envoie un OTP.
+ *
+ * Sans cette création de rôle, DMP/SOS/wallet/RDV/consultations/KYC/annuaire
+ * seraient cassés pour tout compte créé via l'API (cf. bug racine).
+ */
 export async function register(app: FastifyInstance, input: RegisterInput) {
   try {
-    const user = await app.prisma.user.create({
-      data: {
-        phone: input.phone,
-        email: input.email,
-        role: input.role,
-        lang: input.lang,
-        status: 'PENDING_VERIFICATION',
-        profile: { create: { firstName: input.firstName, lastName: input.lastName } },
-      },
-      select: { id: true, phone: true, email: true, role: true, status: true, lang: true },
+    const user = await app.prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          phone: input.phone,
+          email: input.email,
+          role: input.role,
+          lang: input.lang,
+          status: 'PENDING_VERIFICATION',
+          profile: { create: { firstName: input.firstName, lastName: input.lastName } },
+        },
+        select: { id: true, phone: true, email: true, role: true, status: true, lang: true },
+      });
+
+      switch (input.role) {
+        case 'PATIENT':
+          // Dossier patient (DMP/SOS/RDV) + portefeuille (paiements).
+          await tx.patient.create({ data: { userId: created.id } });
+          await tx.wallet.create({ data: { userId: created.id, balance: 0, currency: 'XOF' } });
+          break;
+
+        case 'DIASPORA':
+          // Diaspora : portefeuille uniquement (recharges, wallet).
+          await tx.wallet.create({ data: { userId: created.id, balance: 0, currency: 'XOF' } });
+          break;
+
+        case 'MEDECIN':
+          // La vérification (verifiedAt) se fera plus tard via le KYC.
+          await tx.doctor.create({
+            data: {
+              userId: created.id,
+              speciality: input.speciality!,
+              licenseNumber: input.licenseNumber!,
+              consultFee: new Prisma.Decimal(input.consultFee ?? 0),
+              verifiedAt: null,
+            },
+          });
+          break;
+
+        case 'PHARMACIE':
+          await tx.pharmacy.create({
+            data: {
+              userId: created.id,
+              name: input.establishmentName!,
+              address: input.address ?? '',
+              phone: input.phone,
+            },
+          });
+          break;
+
+        case 'LABORATOIRE':
+          await tx.lab.create({
+            data: {
+              userId: created.id,
+              name: input.establishmentName!,
+              address: input.address ?? '',
+              phone: input.phone,
+            },
+          });
+          break;
+
+        default:
+          // ADMIN et rôles inattendus sont rejetés en amont (registerSchema).
+          break;
+      }
+
+      return created;
     });
+
     const code = await generateAndSendOtp(app, user, 'SMS');
     return { user: publicUser(user), otp: otpResponse('SMS', code) };
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      // target indique le ou les champs en conflit (unique).
+      const target = err.meta?.target;
+      const fields = Array.isArray(target) ? target.join(',') : String(target ?? '');
+      if (fields.includes('licenseNumber')) {
+        throw conflict("Ce numéro d'ordre / de licence est déjà utilisé");
+      }
       throw conflict('Un compte existe déjà pour ce numéro ou cet e-mail');
     }
     throw err;
@@ -206,4 +282,22 @@ export async function refresh(app: FastifyInstance, refreshToken: string) {
 
   await app.redis.del(refreshKey(payload.jti)); // rotation : l'ancien est révoqué
   return issueTokens(app, payload.sub, payload.role);
+}
+
+/**
+ * Déconnexion : révoque le refresh token en supprimant sa clé `refresh:<jti>`
+ * de l'allowlist Redis. Idempotent (aucune erreur si déjà absent/expiré) :
+ * un token invalide est simplement ignoré côté révocation.
+ */
+export async function logout(app: FastifyInstance, refreshToken: string): Promise<void> {
+  let payload: { sub?: string; typ?: string; jti?: string };
+  try {
+    payload = app.jwt.verify(refreshToken);
+  } catch {
+    // Token illisible/expiré : rien à révoquer, on reste idempotent.
+    return;
+  }
+  if (payload.typ === 'refresh' && payload.jti) {
+    await app.redis.del(refreshKey(payload.jti));
+  }
 }

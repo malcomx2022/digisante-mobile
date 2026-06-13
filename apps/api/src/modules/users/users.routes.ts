@@ -9,6 +9,10 @@ import { z } from 'zod';
 import { notFound } from '@/lib/errors.js';
 import { zParse } from '@/lib/validation.js';
 
+const deviceSchema = z.object({
+  fcmToken: z.string().trim().min(1).max(512),
+});
+
 const updateMeSchema = z.object({
   firstName: z.string().trim().min(1).max(80).optional(),
   lastName: z.string().trim().min(1).max(80).optional(),
@@ -52,6 +56,18 @@ export default async function usersRoutes(app: FastifyInstance) {
           : {}),
       },
       select: { id: true, phone: true, email: true, role: true, status: true, lang: true, ...meInclude },
+    });
+    return updated;
+  });
+
+  // Enregistrement du token push FCM de l'appareil courant.
+  // Sans cet endpoint, aucune notification push ne peut être délivrée.
+  app.post('/me/device', { preHandler: [app.authenticate] }, async (request) => {
+    const { fcmToken } = zParse(deviceSchema, request.body);
+    const updated = await app.prisma.user.update({
+      where: { id: request.user.sub },
+      data: { fcmToken },
+      select: { id: true, role: true, fcmToken: true },
     });
     return updated;
   });

@@ -1,8 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 
 import { Badge, KenteBar, LangSwitcher, StatusBar } from '@/components/ui';
+import { HeaderLogout } from '@/components/auth/HeaderLogout';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { post } from '@/lib/api/client';
 
@@ -43,10 +45,15 @@ export default function PharmaciePage() {
 
   return (
     <div className="flex-1 bg-nuit bogolan-dark text-white flex flex-col">
-      <StatusBar dark right={<LangSwitcher dark />} />
-      <div className="px-6 pt-2 pb-4">
-        <h1 className="font-display font-extrabold text-2xl">{t('pharmacie.title')}</h1>
-        <p className="text-[12px] text-white/60">{t('pharmacie.scan')}</p>
+      <StatusBar dark right={<div className="flex items-center gap-2"><LangSwitcher dark /><HeaderLogout /></div>} />
+      <div className="px-6 pt-2 pb-4 flex items-start justify-between gap-2">
+        <div>
+          <h1 className="font-display font-extrabold text-2xl">{t('pharmacie.title')}</h1>
+          <p className="text-[12px] text-white/60">{t('pharmacie.scan')}</p>
+        </div>
+        <Link href="/pharmacie/profile" className="card-pagne bg-white/15 border border-white/20 px-3 py-1.5 text-[12px] font-display font-bold">
+          {t('profile.title')}
+        </Link>
       </div>
 
       <div className="px-6 flex-1 space-y-4">

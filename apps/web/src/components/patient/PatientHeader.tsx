@@ -1,12 +1,13 @@
 'use client';
 
 import { KenteBar, LangSwitcher, StatusBar } from '@/components/ui';
+import { HeaderLogout } from '@/components/auth/HeaderLogout';
 
 /** En-tête sombre commun des écrans patient (bogolan sante-900 + kenté). */
 export function PatientHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <header className="bg-sante-900 bogolan-dark relative pb-14 text-white">
-      <StatusBar dark right={<LangSwitcher dark />} />
+      <StatusBar dark right={<div className="flex items-center gap-2"><LangSwitcher dark /><HeaderLogout /></div>} />
       <div className="px-6 pt-2">
         {subtitle && <p className="text-[12px] text-white/70">{subtitle}</p>}
         <h1 className="font-display font-extrabold text-2xl">{title}</h1>

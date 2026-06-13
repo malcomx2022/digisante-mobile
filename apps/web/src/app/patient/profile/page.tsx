@@ -1,8 +1,9 @@
 'use client';
 
 import { useAuth } from '@/auth/AuthProvider';
+import { LogoutButton } from '@/components/auth/LogoutButton';
 import { PatientHeader } from '@/components/patient/PatientHeader';
-import { Button, CardPagne, Nkyinkyim } from '@/components/ui';
+import { CardPagne, Nkyinkyim } from '@/components/ui';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { LANGUAGE_LIST, type Lang } from '@digisante/shared';
 import { get } from '@/lib/api/client';
@@ -11,7 +12,7 @@ import { cn } from '@/lib/cn';
 // D-12 — Profil & paramètres (langue, export FHIR, déconnexion).
 export default function ProfilePage() {
   const { t, lang, setLang } = useLocale();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
 
   async function exportFhir() {
     try {
@@ -56,9 +57,7 @@ export default function ProfilePage() {
           <p className="text-[11px] text-stone-400 mt-1">Portabilité — Loi N°2017-20 (APDP)</p>
         </CardPagne>
 
-        <Button variant="outline" full onClick={logout}>
-          {t('profile.logout')}
-        </Button>
+        <LogoutButton variant="outline" />
       </main>
     </>
   );

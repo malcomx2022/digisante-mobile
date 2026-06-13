@@ -2,10 +2,9 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import type { Lang, Role } from '@digisante/shared';
-
 import { setAccessToken } from '@/lib/api/client';
-import { authApi, type AuthUser, type OtpInfo } from '@/lib/api/auth';
+import { authApi, type AuthUser, type OtpInfo, type RegisterBody } from '@/lib/api/auth';
+import { registerPushDevice } from './push';
 import { tokenStore } from './storage';
 
 type Status = 'loading' | 'authed' | 'anon';
@@ -13,10 +12,10 @@ type Status = 'loading' | 'authed' | 'anon';
 interface AuthContextValue {
   status: Status;
   user: AuthUser | null;
-  register: (b: { phone: string; firstName: string; lastName: string; role: Role; lang: Lang; email?: string }) => Promise<OtpInfo>;
+  register: (b: RegisterBody) => Promise<OtpInfo>;
   requestOtp: (phone: string, channel?: 'SMS' | 'VOICE') => Promise<OtpInfo>;
   verifyOtp: (phone: string, code: string) => Promise<AuthUser>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -76,10 +75,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAccessToken(res.accessToken);
     setUser(res.user);
     setStatus('authed');
+    // Enregistrement du token push après connexion (best-effort, non bloquant).
+    void registerPushDevice();
     return res.user;
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback<AuthContextValue['logout']>(async () => {
+    // 1) Révocation serveur du refresh token (best-effort — on ignore l'échec).
+    const { refresh } = tokenStore.get();
+    if (refresh) {
+      try {
+        await authApi.logout({ refreshToken: refresh });
+      } catch {
+        /* hors-ligne ou token déjà révoqué : on purge quand même localement */
+      }
+    }
+    // 2) Purge locale + redirection (assurée par la garde Protected → /onboarding).
     tokenStore.clear();
     setAccessToken(null);
     setUser(null);

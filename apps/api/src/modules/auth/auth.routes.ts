@@ -36,6 +36,13 @@ export default async function authRoutes(app: FastifyInstance) {
     return authService.refresh(app, refreshToken);
   });
 
+  // Déconnexion → révoque le refresh token (Redis). PROTÉGÉ (JWT d'accès).
+  app.post('/logout', { preHandler: app.authenticate }, async (request, reply) => {
+    const { refreshToken } = zParse(refreshTokenSchema, request.body);
+    await authService.logout(app, refreshToken);
+    return reply.code(204).send();
+  });
+
   // Profil de l'utilisateur courant. PROTÉGÉ (JWT d'accès).
   app.get('/me', { preHandler: app.authenticate }, async (request) => {
     const me = await app.prisma.user.findUnique({
