@@ -3,13 +3,20 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import type { Role } from '@digisante/shared';
+
 import { Button, KenteBar, StatusBar } from '@/components/ui';
 import { useAuth } from '@/auth/AuthProvider';
 import { spaceFor } from '@/auth/spaces';
+import { type RegisterBody } from '@/lib/api/auth';
+import { ApiRequestError } from '@/lib/api/client';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { cn } from '@/lib/cn';
 
-// D-02 — Connexion / inscription par téléphone + OTP.
+// Rôles ouverts à l'auto-inscription (ADMIN exclu — seed uniquement, CLAUDE.md §4).
+const SELF_REGISTER_ROLES: Role[] = ['PATIENT', 'MEDECIN', 'PHARMACIE', 'LABORATOIRE', 'DIASPORA'];
+
+// D-02 — Connexion / inscription par téléphone + OTP (multi-rôles).
 export default function LoginPage() {
   const { lang, t } = useLocale();
   const { register, requestOtp, verifyOtp } = useAuth();
@@ -17,26 +24,76 @@ export default function LoginPage() {
 
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [step, setStep] = useState<'phone' | 'code'>('phone');
+  const [role, setRole] = useState<Role>('PATIENT');
   const [phone, setPhone] = useState('+229');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  // Champs médecin
+  const [speciality, setSpeciality] = useState('');
+  const [licenseNumber, setLicenseNumber] = useState('');
+  const [consultFee, setConsultFee] = useState('');
+  // Champs pharmacie / laboratoire
+  const [establishmentName, setEstablishmentName] = useState('');
+  const [address, setAddress] = useState('');
+
   const [code, setCode] = useState('');
   const [hint, setHint] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const isDoctor = role === 'MEDECIN';
+  const isEstablishment = role === 'PHARMACIE' || role === 'LABORATOIRE';
+
+  /** Construit le corps d'inscription selon le rôle sélectionné. */
+  function buildBody(): RegisterBody {
+    const body: RegisterBody = { phone, role, lang, firstName, lastName };
+    if (email.trim()) body.email = email.trim();
+    if (isDoctor) {
+      body.speciality = speciality.trim();
+      body.licenseNumber = licenseNumber.trim();
+      const fee = Number(consultFee);
+      if (consultFee.trim() && Number.isFinite(fee) && fee >= 0) body.consultFee = fee;
+    }
+    if (isEstablishment) {
+      body.establishmentName = establishmentName.trim();
+      if (address.trim()) body.address = address.trim();
+    }
+    return body;
+  }
+
+  /** Validation locale minimale avant l'appel réseau (UX claire). */
+  function localError(): string | null {
+    if (mode !== 'register') return null;
+    if (!firstName.trim() || !lastName.trim()) return t('auth.err_name_required');
+    if (isDoctor && (!speciality.trim() || !licenseNumber.trim())) return t('auth.err_doctor_required');
+    if (isEstablishment && !establishmentName.trim()) return t('auth.err_establishment_required');
+    return null;
+  }
+
+  /** Traduit une erreur API (409/422) en message i18n clair. */
+  function apiErrorMessage(err: unknown): string {
+    if (err instanceof ApiRequestError) {
+      if (err.status === 409) return t('auth.err_conflict');
+      if (err.status === 422) return t('auth.err_validation');
+    }
+    return t('auth.error');
+  }
+
   async function sendCode() {
+    const le = localError();
+    if (le) {
+      setError(le);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      const otp =
-        mode === 'register'
-          ? await register({ phone, firstName, lastName, role: 'PATIENT', lang })
-          : await requestOtp(phone);
+      const otp = mode === 'register' ? await register(buildBody()) : await requestOtp(phone);
       setHint(otp.devCode ? `${t('auth.code_sent')} (dev: ${otp.devCode})` : t('auth.code_sent'));
       setStep('code');
-    } catch {
-      setError(t('auth.error'));
+    } catch (err) {
+      setError(apiErrorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -48,8 +105,8 @@ export default function LoginPage() {
     try {
       const user = await verifyOtp(phone, code);
       router.replace(spaceFor(user.role));
-    } catch {
-      setError(t('auth.error'));
+    } catch (err) {
+      setError(apiErrorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -73,10 +130,50 @@ export default function LoginPage() {
             {step === 'phone' ? (
               <>
                 {mode === 'register' && (
-                  <div className="flex gap-2">
-                    <input className={inputCls} placeholder={t('auth.firstname')} value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-                    <input className={inputCls} placeholder={t('auth.lastname')} value={lastName} onChange={(e) => setLastName(e.target.value)} />
-                  </div>
+                  <>
+                    {/* Sélecteur de rôle (pas d'ADMIN) */}
+                    <div>
+                      <p className="font-display font-extrabold text-[12px] text-stone-600 mb-1.5">{t('auth.role')}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {SELF_REGISTER_ROLES.map((r) => (
+                          <button
+                            key={r}
+                            type="button"
+                            onClick={() => setRole(r)}
+                            className={cn(
+                              'card-pagne px-3 py-1.5 text-[12px] font-display font-bold',
+                              r === role ? 'bg-sante-600 text-white' : 'bg-creme-deep text-stone-600',
+                            )}
+                          >
+                            {t(`role.${r}`)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <input className={inputCls} placeholder={t('auth.firstname')} value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+                      <input className={inputCls} placeholder={t('auth.lastname')} value={lastName} onChange={(e) => setLastName(e.target.value)} />
+                    </div>
+                    <input className={inputCls} inputMode="email" placeholder={t('auth.email_optional')} value={email} onChange={(e) => setEmail(e.target.value)} />
+
+                    {/* Champs médecin */}
+                    {isDoctor && (
+                      <>
+                        <input className={inputCls} placeholder={t('auth.speciality')} value={speciality} onChange={(e) => setSpeciality(e.target.value)} />
+                        <input className={inputCls} placeholder={t('auth.license_number')} value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} />
+                        <input className={inputCls} inputMode="numeric" placeholder={t('auth.consult_fee')} value={consultFee} onChange={(e) => setConsultFee(e.target.value.replace(/\D/g, ''))} />
+                      </>
+                    )}
+
+                    {/* Champs établissement (pharmacie / labo) */}
+                    {isEstablishment && (
+                      <>
+                        <input className={inputCls} placeholder={t('auth.establishment_name')} value={establishmentName} onChange={(e) => setEstablishmentName(e.target.value)} />
+                        <input className={inputCls} placeholder={t('auth.address_optional')} value={address} onChange={(e) => setAddress(e.target.value)} />
+                      </>
+                    )}
+                  </>
                 )}
                 <input className={inputCls} inputMode="tel" placeholder={t('auth.phone')} value={phone} onChange={(e) => setPhone(e.target.value)} />
                 <Button variant="sante" full onClick={sendCode} disabled={busy}>
@@ -84,7 +181,10 @@ export default function LoginPage() {
                 </Button>
                 <button
                   type="button"
-                  onClick={() => setMode((m) => (m === 'login' ? 'register' : 'login'))}
+                  onClick={() => {
+                    setMode((m) => (m === 'login' ? 'register' : 'login'));
+                    setError(null);
+                  }}
                   className="w-full text-center text-[13px] text-sante-700 underline decoration-dotted underline-offset-4"
                 >
                   {mode === 'login' ? t('auth.new_account') : t('auth.have_account')}

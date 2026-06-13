@@ -1,5 +1,8 @@
 'use client';
 
+import { useState } from 'react';
+
+import { DmpShareDialog } from '@/components/patient/DmpShareDialog';
 import { PatientHeader } from '@/components/patient/PatientHeader';
 import { CardPagne } from '@/components/ui';
 import { Empty, ErrorState, Loading } from '@/components/ui/States';
@@ -25,6 +28,7 @@ const BAR: Record<string, string> = {
 // D-04 — Dossier médical (DMP).
 export default function DmpPage() {
   const { t } = useLocale();
+  const [sharing, setSharing] = useState<DmpRecord | null>(null);
   const { data, loading, error } = useApi<DmpRecord[]>(() => get('/dmp/records'), []);
 
   async function exportFhir() {
@@ -70,10 +74,19 @@ export default function DmpPage() {
                   {r.type} · {new Date(r.createdAt).toLocaleDateString('fr-FR', { dateStyle: 'medium' })}
                 </p>
               </div>
+              <button
+                type="button"
+                onClick={() => setSharing(r)}
+                className="self-center shrink-0 card-pagne bg-sante-50 text-sante-700 font-display font-extrabold text-[11px] px-3 py-1.5"
+              >
+                {t('dmp.share')}
+              </button>
             </CardPagne>
           ))}
         </div>
       </main>
+
+      {sharing && <DmpShareDialog recordId={sharing.id} recordTitle={sharing.title} onClose={() => setSharing(null)} />}
     </>
   );
 }

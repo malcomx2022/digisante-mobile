@@ -8,6 +8,7 @@ import type { FastifyInstance } from 'fastify';
 import { forbidden } from '@/lib/errors.js';
 import { requireRole } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
+import { triggerSos } from './sos.service.js';
 
 export default async function sosRoutes(app: FastifyInstance) {
   const patient = { preHandler: [app.authenticate, requireRole('PATIENT')] };
@@ -21,8 +22,11 @@ export default async function sosRoutes(app: FastifyInstance) {
   // Déclenche une alerte SOS géolocalisée (en ligne).
   app.post('/', patient, async (request, reply) => {
     const { latitude, longitude } = zParse(geoPointSchema, request.body);
-    const alert = await app.prisma.sos.create({
-      data: { patientId: await patientId(request.user.sub), latitude, longitude, status: 'ACTIVE' },
+    // La logique (création + alerte SMS/notification/audit) vit dans le service.
+    const alert = await triggerSos(app, {
+      patientId: await patientId(request.user.sub),
+      latitude,
+      longitude,
     });
     return reply.code(201).send(alert);
   });

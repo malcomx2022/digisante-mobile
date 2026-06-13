@@ -3,9 +3,10 @@
 import { useState } from 'react';
 
 import { PatientHeader } from '@/components/patient/PatientHeader';
+import { Empty } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
-import { useOnline } from '@/lib/offline/online';
 import { cn } from '@/lib/cn';
+import { useOnline } from '@/lib/offline/online';
 
 interface Msg {
   id: number;
@@ -15,15 +16,19 @@ interface Msg {
 }
 
 // D-10 — Chat faible connexion (bulles patient coin inversé, file d'attente offline).
+// NOTE : aucun module de messagerie n'est exposé par l'API (pas d'endpoint chat).
+// L'état est donc local ; les messages saisis hors-ligne sont marqués « en attente »
+// (même sémantique que la file offline du client API) en attendant un backend dédié.
 export default function ChatPage() {
   const { t } = useLocale();
   const online = useOnline();
-  const [messages, setMessages] = useState<Msg[]>([{ id: 1, from: 'doctor', text: 'Kú dó gbɛ̀ 👋 Comment allez-vous ?' }]);
+  const [messages, setMessages] = useState<Msg[]>([]);
   const [text, setText] = useState('');
 
   function send() {
-    if (!text.trim()) return;
-    setMessages((m) => [...m, { id: Date.now(), from: 'me', text, pending: !online }]);
+    const value = text.trim();
+    if (!value) return;
+    setMessages((m) => [...m, { id: Date.now(), from: 'me', text: value, pending: !online }]);
     setText('');
   }
 
@@ -32,6 +37,7 @@ export default function ChatPage() {
       <PatientHeader title={t('chat.title')} />
       <main className="px-4 -mt-8 relative z-20 flex-1 flex flex-col pb-4">
         <div className="flex-1 space-y-2 py-2">
+          {messages.length === 0 && <Empty label={t('chat.empty')} />}
           {messages.map((m) => (
             <div key={m.id} className={cn('max-w-[78%]', m.from === 'me' ? 'ml-auto' : 'mr-auto')}>
               <div

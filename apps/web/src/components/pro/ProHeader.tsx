@@ -1,12 +1,14 @@
 'use client';
 
 import { Badge, KenteBar, LangSwitcher, StatusBar } from '@/components/ui';
+import { HeaderLogout } from '@/components/auth/HeaderLogout';
+import { HeaderProfileLink } from '@/components/auth/HeaderProfileLink';
 
 /** En-tête sombre de l'espace Médecin PRO (bogolan indigo-900 + badge PRO). */
-export function ProHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+export function ProHeader({ title, subtitle, profileHref = '/pro/profile' }: { title: string; subtitle?: string; profileHref?: string }) {
   return (
     <header className="bg-indigo-900 bogolan-dark relative pb-14 text-white">
-      <StatusBar dark right={<LangSwitcher dark />} />
+      <StatusBar dark right={<div className="flex items-center gap-2"><LangSwitcher dark />{profileHref && <HeaderProfileLink href={profileHref} />}<HeaderLogout /></div>} />
       <div className="px-6 pt-2 flex items-center gap-2">
         <div className="flex-1">
           {subtitle && <p className="text-[12px] text-white/70">{subtitle}</p>}

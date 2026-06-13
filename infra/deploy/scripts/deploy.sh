@@ -38,5 +38,29 @@ log "Rechargement PM2 (zero-downtime)…"
 pm2 startOrReload "$APP_DIR/ecosystem.config.cjs" --update-env
 pm2 save
 
+# ── Healthcheck readiness (DB + Redis) après reload ──────────────────────
+# /api/v1/ready renvoie 200 si Prisma et Redis répondent, 503 sinon.
+API_PORT="${API_PORT:-3001}"
+READY_URL="http://127.0.0.1:${API_PORT}/api/v1/ready"
+log "Healthcheck ${READY_URL} (10 tentatives)…"
+healthy=0
+for i in $(seq 1 10); do
+  if curl -fsS "$READY_URL" >/dev/null 2>&1; then
+    healthy=1
+    log "API prête (tentative ${i}) ✓"
+    break
+  fi
+  log "API pas encore prête (tentative ${i}/10), nouvelle tentative dans 3s…"
+  sleep 3
+done
+
+if [ "$healthy" -ne 1 ]; then
+  log "ERREUR : l'API ne répond pas sur ${READY_URL} après le déploiement."
+  log "Le code précédent reste actif sous PM2 (pas de rollback git automatique)."
+  log "Inspecter : pm2 logs digisante --lines 100"
+  pm2 status
+  exit 1
+fi
+
 log "Déploiement terminé ✓"
 pm2 status

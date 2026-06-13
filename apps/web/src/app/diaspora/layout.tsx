@@ -7,7 +7,7 @@ const NAV: NavItem[] = [
   { labelKey: 'nav.home', icon: 'home', href: '/diaspora' },
   { labelKey: 'wallet.title', icon: 'file', href: '/diaspora/wallet' },
   { labelKey: 'diaspora.family', icon: 'user', href: '/diaspora' },
-  { labelKey: 'nav.profil', icon: 'search', href: '/diaspora' },
+  { labelKey: 'nav.profil', icon: 'user', href: '/diaspora/profile' },
 ];
 
 export default function DiasporaLayout({ children }: { children: React.ReactNode }) {

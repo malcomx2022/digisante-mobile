@@ -18,6 +18,9 @@ const schema = z.object({
   TWILIO_AUTH_TOKEN: z.string().optional(),
   TWILIO_FROM_NUMBER: z.string().optional(),
 
+  // ── Numéro de secours public (SAMU/urgences) prévenu lors d'un SOS — optionnel ──
+  SOS_PUBLIC_NUMBER: z.string().optional(),
+
   // ── Daily.co (téléconsultation WebRTC) — optionnel : stub si absent ──
   DAILY_API_KEY: z.string().optional(),
   DAILY_DOMAIN: z.string().optional(),
@@ -41,7 +44,29 @@ const schema = z.object({
 
   // ── Resend (emails transactionnels) — optionnel : stub si absent ──
   RESEND_API_KEY: z.string().optional(),
-});
+  RESEND_FROM_EMAIL: z.string().optional(),
+})
+  // ── Durcissement production (CLAUDE.md §4) ──
+  // En prod, refuser de démarrer sans chiffrement des données de santé ni JWT solide.
+  // En dev/test : aucune exigence supplémentaire (comportement inchangé).
+  .superRefine((val, ctx) => {
+    if (val.NODE_ENV !== 'production') return;
+    if (!val.HEALTH_ENCRYPTION_KEY || val.HEALTH_ENCRYPTION_KEY.length < 32) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['HEALTH_ENCRYPTION_KEY'],
+        message:
+          'HEALTH_ENCRYPTION_KEY est obligatoire en production (≥ 32 caractères) — chiffrement AES-256 des données de santé.',
+      });
+    }
+    if (val.JWT_SECRET.length < 32) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['JWT_SECRET'],
+        message: 'JWT_SECRET doit faire ≥ 32 caractères en production.',
+      });
+    }
+  });
 
 const parsed = schema.safeParse(process.env);
 if (!parsed.success) {

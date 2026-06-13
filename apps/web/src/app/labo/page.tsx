@@ -45,7 +45,7 @@ export default function LaboPage() {
 
   return (
     <>
-      <SpaceHeader title={t('labo.title')} subtitle={t('labo.result')} headerClass="bg-ocre-900" />
+      <SpaceHeader title={t('labo.title')} subtitle={t('labo.result')} headerClass="bg-ocre-900" profileHref="/labo/profile" />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
         <input className={`${inputCls} w-full`} placeholder={t('labo.order')} value={orderId} onChange={(e) => setOrderId(e.target.value)} />
 

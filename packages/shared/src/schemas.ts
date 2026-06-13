@@ -64,14 +64,64 @@ export type GeoPoint = z.infer<typeof geoPointSchema>;
 
 // ── Authentification (P2.2) ──
 
-export const registerSchema = z.object({
-  phone: phoneSchema,
-  email: emailSchema.optional(),
-  role: roleSchema.default('PATIENT'),
-  lang: langSchema.default('FR'),
-  firstName: z.string().trim().min(1).max(80),
-  lastName: z.string().trim().min(1).max(80),
-});
+export const registerSchema = z
+  .object({
+    phone: phoneSchema,
+    email: emailSchema.optional(),
+    role: roleSchema.default('PATIENT'),
+    lang: langSchema.default('FR'),
+    firstName: z.string().trim().min(1).max(80),
+    lastName: z.string().trim().min(1).max(80),
+    // ── Champs spécifiques par rôle (optionnels à la racine, rendus
+    //    obligatoires selon le rôle via superRefine ci-dessous). ──
+    /** Spécialité du médecin (obligatoire si role MEDECIN). */
+    speciality: z.string().trim().min(1).max(120).optional(),
+    /** Numéro d'ordre / de licence (obligatoire si role MEDECIN). */
+    licenseNumber: z.string().trim().min(1).max(120).optional(),
+    /** Tarif de consultation en XOF (médecin) — défaut 0 côté service. */
+    consultFee: z.number().min(0).optional(),
+    /** Raison sociale de l'établissement (obligatoire si PHARMACIE/LABORATOIRE). */
+    establishmentName: z.string().trim().min(1).max(160).optional(),
+    /** Adresse de l'établissement (optionnelle). */
+    address: z.string().trim().max(255).optional(),
+  })
+  .superRefine((data, ctx) => {
+    // L'admin ne se crée jamais par auto-inscription (seed uniquement, CLAUDE.md §4).
+    if (data.role === 'ADMIN') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['role'],
+        message: "Le rôle ADMIN ne peut pas être créé par auto-inscription",
+      });
+    }
+    // Médecin : spécialité + numéro d'ordre obligatoires.
+    if (data.role === 'MEDECIN') {
+      if (!data.speciality) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['speciality'],
+          message: 'La spécialité est obligatoire pour un médecin',
+        });
+      }
+      if (!data.licenseNumber) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['licenseNumber'],
+          message: "Le numéro d'ordre est obligatoire pour un médecin",
+        });
+      }
+    }
+    // Pharmacie / Laboratoire : raison sociale obligatoire.
+    if (data.role === 'PHARMACIE' || data.role === 'LABORATOIRE') {
+      if (!data.establishmentName) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['establishmentName'],
+          message: "Le nom de l'établissement est obligatoire",
+        });
+      }
+    }
+  });
 export type RegisterInput = z.infer<typeof registerSchema>;
 
 export const requestOtpSchema = z.object({

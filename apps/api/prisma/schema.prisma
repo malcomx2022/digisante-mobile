@@ -267,6 +267,8 @@ model User {
   profile        Profile?
   doctor         Doctor?
   patient        Patient?
+  pharmacy       Pharmacy?
+  lab            Lab?
   wallet         Wallet?
   payments       Payment[]
   notifications  Notification[]
@@ -634,8 +636,10 @@ model LabOrder {
 }
 
 // 19 — Lab : laboratoire d'analyses (annuaire géolocalisé).
+// userId optionnel : un labo d'annuaire peut exister sans compte rattaché.
 model Lab {
   id              String   @id @default(cuid())
+  userId          String?  @unique
   name            String
   address         String
   phone           String
@@ -644,9 +648,29 @@ model Lab {
   geolong         Float?
   createdAt       DateTime @default(now())
 
+  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
   labOrders LabOrder[]
 
   @@map("labs")
+}
+
+// 19bis — Pharmacy : officine (annuaire géolocalisé), rattachée à un compte.
+model Pharmacy {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  name            String
+  address         String
+  phone           String
+  licenseNumber   String?
+  geolat          Float?
+  geolong         Float?
+  servicesOffered String[] @default([])
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("pharmacies")
 }
 
 // 20 — LabResult : résultat d'analyse (interprété par un médecin).

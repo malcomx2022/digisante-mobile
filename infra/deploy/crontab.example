@@ -12,6 +12,14 @@
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
+# Jeton de service interne (= env RECONCILE_TOKEN de l'API) pour /dispatch.
+# Renseigner la même valeur que dans le .env de l'API.
+RECONCILE_TOKEN=changeme
+
+# Dispatch des notifications dues (rappels, SOS, labo…) — toutes les 2 minutes.
+# Appelle l'endpoint interne protégé par le jeton de service (x-service-token).
+*/2 * * * * curl -fsS -X POST -H "x-service-token: ${RECONCILE_TOKEN}" http://127.0.0.1:3001/api/v1/notifications/dispatch >> /var/log/digisante/notify_dispatch.log 2>&1
+
 # Sauvegarde PostgreSQL chiffrée — tous les jours à 02:00
 0 2 * * * /var/www/digisante-mobile/infra/deploy/scripts/pg_dump_encrypted.sh >> /var/log/digisante/pg_dump.log 2>&1
 

@@ -48,7 +48,7 @@ export default function AdminMetrics() {
 
   return (
     <>
-      <SpaceHeader title={t('admin.metrics')} headerClass="bg-indigo-950" />
+      <SpaceHeader title={t('admin.metrics')} headerClass="bg-indigo-950" profileHref="/admin/profile" />
       <main className="px-6 -mt-10 relative z-20 space-y-5 pb-6">
         {m.loading && <Loading label={t('common.loading')} />}
         <div className="grid grid-cols-2 gap-3">
