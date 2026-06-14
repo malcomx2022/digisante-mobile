@@ -44,3 +44,7 @@ export const tooManyRequests = (message = 'Trop de requêtes') =>
 
 export const internal = (message = 'Erreur interne du serveur') =>
   new AppError('INTERNAL_ERROR', message, 500);
+
+/** Échec d'un service externe en amont (ex. prestataire de paiement). */
+export const badGateway = (message = 'Service externe indisponible') =>
+  new AppError('BAD_GATEWAY', message, 502);

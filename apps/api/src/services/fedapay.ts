@@ -9,6 +9,13 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { FastifyBaseLogger } from 'fastify';
 
 import { env, isFedapayConfigured } from '@/lib/env.js';
+import { badGateway, isAppError } from '@/lib/errors.js';
+
+const FEDAPAY_BASE = 'https://api.fedapay.com/v1';
+
+function fedapayHeaders(): Record<string, string> {
+  return { Authorization: `Bearer ${env.FEDAPAY_SECRET_KEY ?? ''}`, 'Content-Type': 'application/json' };
+}
 
 /** Commission plateforme : 3 % (CLAUDE.md / DocTech). */
 export const COMMISSION_RATE = 0.03;
@@ -65,19 +72,84 @@ export interface FedapayTransaction {
   paymentUrl: string;
 }
 
-/** Crée une transaction FedaPay (stub si non configuré). */
+/**
+ * Crée une transaction FedaPay et son lien de paiement.
+ * STUB si non configuré (dev/CI). Sinon : POST /v1/transactions puis
+ * POST /v1/transactions/{id}/token (API HTTP v1). Lève BAD_GATEWAY en cas
+ * d'échec amont (ne crée pas de paiement local avec un lien factice).
+ */
 export async function createTransaction(opts: {
   amount: number;
   method: string;
   description: string;
   log: FastifyBaseLogger;
 }): Promise<FedapayTransaction> {
-  const fedapayId = `fdp_${randomBytes(12).toString('hex')}`;
   if (!isFedapayConfigured) {
+    const fedapayId = `fdp_${randomBytes(12).toString('hex')}`;
     opts.log.warn({ amount: opts.amount, method: opts.method }, '[STUB FedaPay] transaction simulée');
     return { fedapayId, paymentUrl: `https://stub.fedapay.com/checkout/${fedapayId}` };
   }
-  // TODO : POST https://api.fedapay.com/v1/transactions + génération du token de paiement.
-  void env.FEDAPAY_SECRET_KEY;
-  return { fedapayId, paymentUrl: `https://checkout.fedapay.com/${fedapayId}` };
+
+  try {
+    // 1) Création de la transaction (montant en XOF entier).
+    const txRes = await fetch(`${FEDAPAY_BASE}/transactions`, {
+      method: 'POST',
+      headers: fedapayHeaders(),
+      body: JSON.stringify({ description: opts.description, amount: opts.amount, currency: { iso: 'XOF' } }),
+    });
+    if (!txRes.ok) {
+      const detail = await txRes.text().catch(() => '');
+      opts.log.error({ status: txRes.status, detail }, '[FedaPay] création transaction en échec');
+      throw badGateway('Échec de la création de la transaction de paiement');
+    }
+    const txJson = (await txRes.json()) as { 'v1/transaction'?: { id?: number | string }; id?: number | string };
+    const id = txJson['v1/transaction']?.id ?? txJson.id;
+    if (!id) throw badGateway('Réponse FedaPay inattendue (transaction sans id)');
+
+    // 2) Génération du token → URL de paiement hébergée.
+    const tokRes = await fetch(`${FEDAPAY_BASE}/transactions/${id}/token`, {
+      method: 'POST',
+      headers: fedapayHeaders(),
+    });
+    if (!tokRes.ok) {
+      const detail = await tokRes.text().catch(() => '');
+      opts.log.error({ status: tokRes.status, detail }, '[FedaPay] génération token en échec');
+      throw badGateway('Échec de génération du lien de paiement');
+    }
+    const tokJson = (await tokRes.json()) as { url?: string };
+    if (!tokJson.url) throw badGateway('Réponse FedaPay inattendue (token sans url)');
+
+    opts.log.info({ fedapayId: id, amount: opts.amount }, 'transaction FedaPay créée');
+    return { fedapayId: String(id), paymentUrl: tokJson.url };
+  } catch (err) {
+    if (isAppError(err)) throw err;
+    opts.log.error({ err }, '[FedaPay] erreur réseau création transaction');
+    throw badGateway('Service de paiement indisponible');
+  }
+}
+
+/**
+ * Lit le statut d'une transaction FedaPay (réconciliation). Renvoie le statut
+ * brut (à mapper) ou null si non configuré / introuvable / erreur (jamais throw,
+ * la réconciliation ne doit pas casser).
+ */
+export async function getTransactionStatus(
+  fedapayId: string,
+  log: FastifyBaseLogger,
+): Promise<string | null> {
+  if (!isFedapayConfigured) return null;
+  try {
+    const res = await fetch(`${FEDAPAY_BASE}/transactions/${encodeURIComponent(fedapayId)}`, {
+      headers: { Authorization: `Bearer ${env.FEDAPAY_SECRET_KEY ?? ''}` },
+    });
+    if (!res.ok) {
+      log.error({ status: res.status, fedapayId }, '[FedaPay] lecture transaction en échec');
+      return null;
+    }
+    const json = (await res.json()) as { 'v1/transaction'?: { status?: string }; status?: string };
+    return json['v1/transaction']?.status ?? json.status ?? null;
+  } catch (err) {
+    log.error({ err, fedapayId }, '[FedaPay] erreur réseau lecture transaction');
+    return null;
+  }
 }

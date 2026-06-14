@@ -1,8 +1,19 @@
 import { createHmac } from 'node:crypto';
 
+import type { FastifyBaseLogger } from 'fastify';
 import { describe, expect, it } from 'vitest';
 
-import { computeCommission, convertEurToXof, mapFedapayStatus, verifyWebhookSignature } from './fedapay.js';
+import {
+  computeCommission,
+  convertEurToXof,
+  createTransaction,
+  getTransactionStatus,
+  mapFedapayStatus,
+  verifyWebhookSignature,
+} from './fedapay.js';
+
+// Logger minimal (les tests tournent sans FedaPay configuré → branche stub).
+const log = { info() {}, warn() {}, error() {} } as unknown as FastifyBaseLogger;
 
 describe('computeCommission (3 %)', () => {
   it('calcule commission et net', () => {
@@ -46,5 +57,17 @@ describe('verifyWebhookSignature (HMAC-SHA256)', () => {
   it('rejette un corps falsifié', () => {
     const tampered = JSON.stringify({ fedapayId: 'fdp_1', status: 'approved', amount: 999999 });
     expect(verifyWebhookSignature(tampered, sig, secret)).toBe(false);
+  });
+});
+
+describe('createTransaction / getTransactionStatus (gating, FedaPay non configuré)', () => {
+  it('createTransaction renvoie une transaction stub si non configuré', async () => {
+    const tx = await createTransaction({ amount: 5000, method: 'MTN_MOMO', description: 'Consultation', log });
+    expect(tx.fedapayId).toMatch(/^fdp_/);
+    expect(tx.paymentUrl).toContain('stub.fedapay.com');
+  });
+
+  it('getTransactionStatus renvoie null si non configuré (pas d’appel réseau)', async () => {
+    expect(await getTransactionStatus('fdp_anything', log)).toBeNull();
   });
 });
