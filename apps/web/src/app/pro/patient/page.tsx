@@ -1,22 +1,14 @@
 'use client';
 
-import { Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 import { ProHeader } from '@/components/pro/ProHeader';
 import { Badge, Button, CardPagne, Nkyinkyim } from '@/components/ui';
 import { Empty, Loading } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
-import { get } from '@/lib/api/client';
+import { dmpApi, type DmpRecord } from '@/lib/api/dmp';
 import { useApi } from '@/lib/api/useApi';
-
-interface DmpRecord {
-  id: string;
-  type: string;
-  title: string;
-  data?: unknown;
-  createdAt: string;
-}
 
 const BAR: Record<string, string> = {
   LAB_RESULT: 'bg-indigo-500',
@@ -27,31 +19,63 @@ const BAR: Record<string, string> = {
 };
 
 // D-16 — Vue 360° patient (espace MÉDECIN PRO). L'accès au DMP passe par un
-// partage consenti actif (CLAUDE.md §4). Le patientId est fourni en query
-// (?patientId=...), typiquement après scan du QR de partage du patient.
-// AUCUNE donnée médicale n'est codée en dur : tout vient de l'API, sous consentement.
+// partage consenti actif (CLAUDE.md §4) : le médecin présente le jeton du patient
+// dans l'en-tête x-share-token. patientId + token sont fournis par le lien/QR de
+// partage (/pro/patient?patientId=...&token=...). AUCUNE donnée codée en dur.
 function Patient360Inner() {
   const { t } = useLocale();
+  const router = useRouter();
   const params = useSearchParams();
   const patientId = params.get('patientId');
 
+  const [token, setToken] = useState(params.get('token') ?? '');
+  const [linkInput, setLinkInput] = useState('');
+  const [tokenInput, setTokenInput] = useState('');
+  const [parseError, setParseError] = useState<string | null>(null);
+
   const { data, loading, error } = useApi<DmpRecord[]>(
-    () => (patientId ? get(`/dmp/records?patientId=${encodeURIComponent(patientId)}`) : Promise.resolve([])),
-    [patientId],
+    () => (patientId && token ? dmpApi.recordsForPatient(patientId, token) : Promise.resolve([])),
+    [patientId, token],
   );
 
-  // Pas de patient sélectionné → invite à demander/scanner le partage consenti.
+  /** Ouvre un partage à partir du lien collé (contient patientId + token). */
+  function openFromLink() {
+    setParseError(null);
+    const raw = linkInput.trim();
+    if (!raw) return;
+    try {
+      const url = new URL(raw, window.location.origin);
+      const pid = url.searchParams.get('patientId');
+      const tok = url.searchParams.get('token');
+      if (pid && tok) {
+        router.push(`/pro/patient?patientId=${encodeURIComponent(pid)}&token=${encodeURIComponent(tok)}`);
+        return;
+      }
+    } catch {
+      /* lien non parsable → message ci-dessous */
+    }
+    setParseError(t('pro.invalid_link'));
+  }
+
+  // ── Aucun patient : invite à scanner/coller le lien de partage ──
   if (!patientId) {
     return (
       <>
         <ProHeader title={t('pro.patient360')} />
         <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
-          <CardPagne stitch="indigo" className="p-5 text-center">
-            <p className="font-display font-extrabold text-[15px] text-stone-800">{t('pro.no_patient_title')}</p>
-            <p className="text-[13px] text-stone-500 mt-2">{t('pro.no_patient_desc')}</p>
+          <CardPagne stitch="indigo" className="p-5">
+            <p className="font-display font-extrabold text-[15px] text-stone-800 text-center">{t('pro.no_patient_title')}</p>
+            <p className="text-[13px] text-stone-500 mt-2 text-center">{t('pro.no_patient_desc')}</p>
             <Nkyinkyim className="my-4" />
-            <Button variant="indigo" full>
-              {t('pro.scan_share')}
+            <input
+              value={linkInput}
+              onChange={(e) => setLinkInput(e.target.value)}
+              placeholder={t('pro.paste_link')}
+              className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[13px] focus:outline-none focus:border-indigo-600"
+            />
+            {parseError && <p className="text-sos-600 font-bold text-[12px] mt-2">{parseError}</p>}
+            <Button variant="indigo" full className="mt-3" onClick={openFromLink}>
+              {t('pro.open_share')}
             </Button>
           </CardPagne>
           <ConsentNote />
@@ -60,33 +84,50 @@ function Patient360Inner() {
     );
   }
 
-  // 403 → partage absent/expiré : on affiche l'état « accès non autorisé ».
-  const isForbidden = error?.toLowerCase().includes('consent') || error?.toLowerCase().includes('partage') || error?.toLowerCase().includes('403');
+  // 403 → partage absent/expiré.
+  const isForbidden =
+    error?.toLowerCase().includes('consent') ||
+    error?.toLowerCase().includes('partage') ||
+    error?.toLowerCase().includes('403');
 
   return (
     <>
       <ProHeader title={t('pro.patient360')} subtitle={patientId} />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
-        {loading && <Loading label={t('common.loading')} />}
-
-        {!loading && error && (
-          <CardPagne stitch="indigo" className="p-5 text-center">
-            <p className="font-display font-extrabold text-[14px] text-stone-800">
-              {isForbidden ? t('pro.access_denied_title') : t('common.empty')}
+        {/* Partage requis (pas de jeton) OU refusé (jeton invalide/expiré) → saisie du jeton. */}
+        {(!token || (!loading && error && isForbidden)) && (
+          <CardPagne stitch="indigo" className="p-5">
+            <p className="font-display font-extrabold text-[14px] text-stone-800 text-center">
+              {token ? t('pro.access_denied_title') : t('pro.need_token_title')}
             </p>
-            <p className="text-[13px] text-stone-500 mt-2">
-              {isForbidden ? t('pro.access_denied_desc') : t('pro.load_error')}
+            <p className="text-[13px] text-stone-500 mt-2 text-center">
+              {token ? t('pro.access_denied_desc') : t('pro.need_token_desc')}
             </p>
             <Nkyinkyim className="my-4" />
-            <Button variant="indigo" full>
-              {t('pro.request_share')}
+            <input
+              value={tokenInput}
+              onChange={(e) => setTokenInput(e.target.value)}
+              placeholder={t('pro.paste_token')}
+              className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[13px] font-mono focus:outline-none focus:border-indigo-600"
+            />
+            <Button variant="indigo" full className="mt-3" onClick={() => tokenInput.trim() && setToken(tokenInput.trim())}>
+              {t('pro.apply_token')}
             </Button>
           </CardPagne>
         )}
 
-        {!loading && !error && (data?.length ?? 0) === 0 && <Empty label={t('pro.empty_dmp')} />}
+        {token && loading && <Loading label={t('common.loading')} />}
 
-        {!loading && !error && (data?.length ?? 0) > 0 && (
+        {token && !loading && error && !isForbidden && (
+          <CardPagne stitch="indigo" className="p-5 text-center">
+            <p className="font-display font-extrabold text-[14px] text-stone-800">{t('common.empty')}</p>
+            <p className="text-[13px] text-stone-500 mt-2">{t('pro.load_error')}</p>
+          </CardPagne>
+        )}
+
+        {token && !loading && !error && (data?.length ?? 0) === 0 && <Empty label={t('pro.empty_dmp')} />}
+
+        {token && !loading && !error && (data?.length ?? 0) > 0 && (
           <CardPagne stitch="indigo" className="p-4">
             <p className="font-display font-extrabold text-[13px] text-stone-700">{t('pro.dmp_records')}</p>
             <Nkyinkyim className="my-3" />

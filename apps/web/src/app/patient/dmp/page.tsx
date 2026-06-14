@@ -8,6 +8,7 @@ import { CardPagne } from '@/components/ui';
 import { Empty, ErrorState, Loading } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get } from '@/lib/api/client';
+import { usersApi, type MeFull } from '@/lib/api/users';
 import { useApi } from '@/lib/api/useApi';
 
 interface DmpRecord {
@@ -30,6 +31,7 @@ export default function DmpPage() {
   const { t } = useLocale();
   const [sharing, setSharing] = useState<DmpRecord | null>(null);
   const { data, loading, error } = useApi<DmpRecord[]>(() => get('/dmp/records'), []);
+  const { data: me } = useApi<MeFull>(() => usersApi.me(), []);
 
   async function exportFhir() {
     try {
@@ -86,7 +88,14 @@ export default function DmpPage() {
         </div>
       </main>
 
-      {sharing && <DmpShareDialog recordId={sharing.id} recordTitle={sharing.title} onClose={() => setSharing(null)} />}
+      {sharing && (
+        <DmpShareDialog
+          recordId={sharing.id}
+          recordTitle={sharing.title}
+          patientId={me?.patient?.id}
+          onClose={() => setSharing(null)}
+        />
+      )}
     </>
   );
 }
