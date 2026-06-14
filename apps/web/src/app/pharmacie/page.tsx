@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 import { Badge, KenteBar, LangSwitcher, StatusBar } from '@/components/ui';
+import { QrScanner } from '@/components/ui/QrScanner';
 import { HeaderLogout } from '@/components/auth/HeaderLogout';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { post } from '@/lib/api/client';
@@ -22,13 +23,14 @@ export default function PharmaciePage() {
   const [result, setResult] = useState<ScanResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dispensed, setDispensed] = useState(false);
+  const [scanning, setScanning] = useState(false);
 
-  async function scan() {
+  async function scan(code: string = qr) {
     setError(null);
     setResult(null);
     setDispensed(false);
     try {
-      const r = (await post('/pharmacy/scan', { qrCode: qr })) as ScanResult;
+      const r = (await post('/pharmacy/scan', { qrCode: code })) as ScanResult;
       setResult(r);
     } catch {
       setError(t('pharmacie.invalid'));
@@ -57,11 +59,16 @@ export default function PharmaciePage() {
       </div>
 
       <div className="px-6 flex-1 space-y-4">
-        {/* Viseur */}
-        <div className="relative wax-dark card-pagne stitch-light border-2 border-ocre-400 h-44 grid place-items-center overflow-hidden">
+        {/* Viseur — toucher pour scanner à la caméra */}
+        <button
+          type="button"
+          onClick={() => setScanning(true)}
+          aria-label={t('scan.title')}
+          className="relative w-full wax-dark card-pagne stitch-light border-2 border-ocre-400 h-44 grid place-items-center overflow-hidden"
+        >
           <div className="absolute left-0 right-0 h-0.5 bg-ocre-400 scan-line" />
-          <span className="text-white/40 text-sm">QR</span>
-        </div>
+          <span className="text-white/60 text-[13px] font-display font-bold">📷 {t('scan.tap')}</span>
+        </button>
 
         <input
           value={qr}
@@ -69,7 +76,7 @@ export default function PharmaciePage() {
           placeholder={t('pharmacie.qr')}
           className="w-full bg-white/10 border border-white/20 card-pagne px-3 py-2 text-white text-[13px] focus:outline-none"
         />
-        <button type="button" onClick={scan} className="w-full bg-ocre-400 text-stone-900 font-display font-extrabold card-pagne py-3" disabled={qr.length < 16}>
+        <button type="button" onClick={() => scan()} className="w-full bg-ocre-400 text-stone-900 font-display font-extrabold card-pagne py-3" disabled={qr.length < 16}>
           {t('pharmacie.verify')}
         </button>
 
@@ -102,6 +109,17 @@ export default function PharmaciePage() {
           </div>
         )}
       </div>
+
+      {scanning && (
+        <QrScanner
+          onResult={(v) => {
+            setScanning(false);
+            setQr(v);
+            void scan(v);
+          }}
+          onClose={() => setScanning(false)}
+        />
+      )}
     </div>
   );
 }

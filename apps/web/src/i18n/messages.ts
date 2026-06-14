@@ -255,6 +255,13 @@ const fr: Messages = {
   'pro.paste_token': 'Jeton de partage',
   'pro.apply_token': 'Accéder au dossier',
   'pro.message_patient': 'Message au patient',
+  'scan.title': 'Scanner un QR code',
+  'scan.tap': 'Toucher pour scanner',
+  'scan.hint': 'Centrez le QR code dans le cadre',
+  'scan.or_paste': 'ou collez le lien',
+  'scan.unsupported': 'Scan non supporté sur ce navigateur — saisissez le code manuellement.',
+  'scan.denied': 'Accès caméra refusé.',
+  'scan.fallback': 'Fermez et saisissez le code manuellement.',
 };
 
 const en: Messages = {
@@ -443,6 +450,13 @@ const en: Messages = {
   'pro.paste_token': 'Share token',
   'pro.apply_token': 'Access record',
   'pro.message_patient': 'Message patient',
+  'scan.title': 'Scan a QR code',
+  'scan.tap': 'Tap to scan',
+  'scan.hint': 'Center the QR code in the frame',
+  'scan.or_paste': 'or paste the link',
+  'scan.unsupported': 'Scanning not supported on this browser — enter the code manually.',
+  'scan.denied': 'Camera access denied.',
+  'scan.fallback': 'Close and enter the code manually.',
 };
 
 // Fɔ̀ngbè — salutation native (cf. design system) + clés critiques (auth/profil) ;

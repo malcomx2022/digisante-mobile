@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 import { ProHeader } from '@/components/pro/ProHeader';
 import { Badge, Button, CardPagne, Nkyinkyim } from '@/components/ui';
+import { QrScanner } from '@/components/ui/QrScanner';
 import { Empty, Loading } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { dmpApi, type DmpRecord } from '@/lib/api/dmp';
@@ -33,19 +34,20 @@ function Patient360Inner() {
   const [linkInput, setLinkInput] = useState('');
   const [tokenInput, setTokenInput] = useState('');
   const [parseError, setParseError] = useState<string | null>(null);
+  const [scanning, setScanning] = useState(false);
 
   const { data, loading, error } = useApi<DmpRecord[]>(
     () => (patientId && token ? dmpApi.recordsForPatient(patientId, token) : Promise.resolve([])),
     [patientId, token],
   );
 
-  /** Ouvre un partage à partir du lien collé (contient patientId + token). */
-  function openFromLink() {
+  /** Traite un lien de partage (collé OU scanné) contenant patientId + token. */
+  function handleSharePayload(raw: string) {
     setParseError(null);
-    const raw = linkInput.trim();
-    if (!raw) return;
+    const value = raw.trim();
+    if (!value) return;
     try {
-      const url = new URL(raw, window.location.origin);
+      const url = new URL(value, window.location.origin);
       const pid = url.searchParams.get('patientId');
       const tok = url.searchParams.get('token');
       if (pid && tok) {
@@ -68,6 +70,10 @@ function Patient360Inner() {
             <p className="font-display font-extrabold text-[15px] text-stone-800 text-center">{t('pro.no_patient_title')}</p>
             <p className="text-[13px] text-stone-500 mt-2 text-center">{t('pro.no_patient_desc')}</p>
             <Nkyinkyim className="my-4" />
+            <Button variant="indigo" full onClick={() => setScanning(true)}>
+              📷 {t('pro.scan_share')}
+            </Button>
+            <p className="text-[12px] text-stone-400 my-3 text-center">{t('scan.or_paste')}</p>
             <input
               value={linkInput}
               onChange={(e) => setLinkInput(e.target.value)}
@@ -75,12 +81,22 @@ function Patient360Inner() {
               className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[13px] focus:outline-none focus:border-indigo-600"
             />
             {parseError && <p className="text-sos-600 font-bold text-[12px] mt-2">{parseError}</p>}
-            <Button variant="indigo" full className="mt-3" onClick={openFromLink}>
+            <Button variant="indigo" full className="mt-3" onClick={() => handleSharePayload(linkInput)}>
               {t('pro.open_share')}
             </Button>
           </CardPagne>
           <ConsentNote />
         </main>
+        {scanning && (
+          <QrScanner
+            title={t('pro.scan_share')}
+            onResult={(v) => {
+              setScanning(false);
+              handleSharePayload(v);
+            }}
+            onClose={() => setScanning(false)}
+          />
+        )}
       </>
     );
   }
