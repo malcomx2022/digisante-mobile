@@ -273,9 +273,10 @@ model User {
   payments       Payment[]
   notifications  Notification[]
   kycSubmissions KycSubmission[]
-  kycReviews     KycReview[]     @relation("KycReviewer")
-  adminAuditLogs AdminAuditLog[] @relation("AdminAuditLogs")
-  chatMessages   ChatMessage[]   @relation("ChatSender")
+  kycReviews       KycReview[]     @relation("KycReviewer")
+  adminAuditLogs   AdminAuditLog[] @relation("AdminAuditLogs")
+  chatMessages     ChatMessage[]   @relation("ChatSender")
+  consentsReceived Consent[]       @relation("ConsentGrantee")
 
   @@index([role])
   @@index([status])
@@ -351,6 +352,7 @@ model Patient {
   labOrders         LabOrder[]
   patientInsurances PatientInsurance[]
   chatThreads       ChatThread[]
+  consents          Consent[]
 
   @@map("patients")
 }
@@ -855,4 +857,28 @@ model ChatMessage {
   @@index([threadId])
   @@index([createdAt])
   @@map("chat_messages")
+}
+
+// (+4) Consent — consentement DMP par SOIGNANT (§4). Lie un patient à un soignant
+// bénéficiaire (grantee), avec expiration. Réclamé à la présentation d'un token de
+// partage ; la révocation est persistante (un soignant révoqué ne peut pas
+// re-réclamer via l'ancien token). Un seul consentement par couple (patient, soignant).
+model Consent {
+  id         String    @id @default(cuid())
+  patientId  String
+  granteeId  String // User.id du soignant bénéficiaire
+  scope      String    @default("DMP")
+  grantedVia String? // origine du consentement (ex. token de partage)
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  grantee User    @relation("ConsentGrantee", fields: [granteeId], references: [id], onDelete: Cascade)
+
+  @@unique([patientId, granteeId])
+  @@index([patientId])
+  @@index([granteeId])
+  @@map("consents")
 }

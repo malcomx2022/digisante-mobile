@@ -8,6 +8,7 @@ import { CardPagne } from '@/components/ui';
 import { Empty, ErrorState, Loading } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get } from '@/lib/api/client';
+import { dmpApi, type DmpConsent } from '@/lib/api/dmp';
 import { usersApi, type MeFull } from '@/lib/api/users';
 import { useApi } from '@/lib/api/useApi';
 
@@ -30,8 +31,19 @@ const BAR: Record<string, string> = {
 export default function DmpPage() {
   const { t } = useLocale();
   const [sharing, setSharing] = useState<DmpRecord | null>(null);
+  const [revokeTick, setRevokeTick] = useState(0);
   const { data, loading, error } = useApi<DmpRecord[]>(() => get('/dmp/records'), []);
   const { data: me } = useApi<MeFull>(() => usersApi.me(), []);
+  const { data: consents } = useApi<DmpConsent[]>(() => dmpApi.listConsents(), [revokeTick]);
+
+  async function revoke(granteeId: string) {
+    try {
+      await dmpApi.revokeConsent(granteeId);
+      setRevokeTick((n) => n + 1);
+    } catch {
+      /* révocation best-effort : silencieux */
+    }
+  }
 
   async function exportFhir() {
     try {
@@ -61,6 +73,38 @@ export default function DmpPage() {
             {t('dmp.export')}
           </button>
         </CardPagne>
+
+        {(consents?.length ?? 0) > 0 && (
+          <CardPagne className="p-4">
+            <p className="font-display font-extrabold text-[13px] text-stone-700">{t('dmp.access_section_title')}</p>
+            <div className="mt-2 space-y-2">
+              {(consents ?? []).map((c) => (
+                <div key={c.granteeId} className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-display font-bold text-[13px] text-stone-800 truncate">
+                      {c.name}
+                      {c.speciality ? ` · ${c.speciality}` : ''}
+                    </p>
+                    <p className="text-[11px] text-stone-400">
+                      {c.active
+                        ? t('dmp.share_expires', { date: new Date(c.expiresAt).toLocaleDateString('fr-FR', { dateStyle: 'medium' }) })
+                        : t('dmp.revoked_label')}
+                    </p>
+                  </div>
+                  {c.active && (
+                    <button
+                      type="button"
+                      onClick={() => revoke(c.granteeId)}
+                      className="shrink-0 card-pagne bg-sos-50 text-sos-700 font-display font-extrabold text-[11px] px-3 py-1.5"
+                    >
+                      {t('dmp.revoke')}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardPagne>
+        )}
 
         {loading && <Loading label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
