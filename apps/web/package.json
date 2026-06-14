@@ -12,6 +12,7 @@
   "dependencies": {
     "@digisante/shared": "workspace:*",
     "firebase": "^12.14.0",
+    "jsqr": "^1.4.0",
     "next": "^14.2.13",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
