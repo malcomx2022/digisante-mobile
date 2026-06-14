@@ -18,6 +18,8 @@
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
+    "i18n:check": "node scripts/i18n/check-coverage.mjs",
+    "i18n:export": "node scripts/i18n/check-coverage.mjs --export",
     "services:up": "docker compose -f infra/docker-compose.dev.yml up -d",
     "services:down": "docker compose -f infra/docker-compose.dev.yml down",
     "db:migrate": "pnpm --filter @digisante/api prisma migrate dev",

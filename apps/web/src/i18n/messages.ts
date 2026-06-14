@@ -1,8 +1,14 @@
 // ─────────────────────────────────────────────────────────────
 // Messages i18n — 5 langues (FR·EN·FON·BARIBA·DENDI, alignées sur l'enum Lang
 // du backend). Clés plates `namespace.key`. AUCUNE chaîne d'UI en dur ailleurs.
-// FR est la langue de repli ; FON/BARIBA/DENDI seront complétées par les
-// traducteurs (gouvernance + double validation des clés critiques, cf. backend).
+// FR = source de vérité ; repli automatique : langue → FR → clé brute.
+//
+// FR et EN sont COMPLETS. FON/BARIBA/DENDI sont partiels et complétés par des
+// TRADUCTEURS HUMAINS (langues peu dotées) ; les clés critiques (sos./labo./
+// payments.) exigent une DOUBLE VALIDATION (CLAUDE.md §6) — ne pas y mettre de
+// traduction automatique non vérifiée.
+//   Couverture / export :  pnpm i18n:check  |  pnpm i18n:export
+//   Workflow & CSV à remplir :  docs/i18n/README.md
 // ─────────────────────────────────────────────────────────────
 import type { Lang } from '@digisante/shared';
 
@@ -461,6 +467,68 @@ const en: Messages = {
   'scan.unsupported': 'Scanning not supported on this browser — enter the code manually.',
   'scan.denied': 'Camera access denied.',
   'scan.fallback': 'Close and enter the code manually.',
+  // Complétude EN (parité avec FR — cf. scripts/i18n/check-coverage.mjs).
+  'sos.locating': 'Locating…',
+  'sos.sent': 'Alert sent to emergency services',
+  'sos.samu': 'SAMU 112',
+  'teleconsult.waiting': 'Waiting for the doctor…',
+  'teleconsult.low_network': 'Weak network: automatic switch to chat',
+  'reminders.snooze': '+30 min',
+  'chat.pending': 'Sending…',
+  'chat.placeholder': 'Your message…',
+  'results.audio': '🔊 Listen in Fɔ̀ngbè',
+  'results.critical': 'Critical value',
+  'profile.export': 'Export my record (FHIR)',
+  'offline.available': 'Available offline',
+  'offline.needs_network': 'Requires a connection',
+  'offline.sos_active': 'SOS stays active — SMS in your language',
+  'pro.dashboard': 'Dashboard',
+  'pro.agenda': 'Agenda',
+  'pro.patients': 'Patients',
+  'pro.patient360': '360° patient view',
+  'pro.kyc': 'Pro KYC',
+  'pro.prescribe': 'New prescription',
+  'pro.stats': 'Statistics & revenue',
+  'pro.queue': 'Today’s queue',
+  'pro.live': 'In progress',
+  'pro.confirm': 'Confirm',
+  'pro.triage': 'Triage',
+  'pro.allergy_alert': 'Allergy alert',
+  'pro.add_med': 'Add a medication (INN)',
+  'pro.sign': 'Sign (License No.)',
+  'pro.revenue': 'Monthly revenue',
+  'pro.commission': 'Platform commission 3%',
+  'pro.plan': 'Subscription',
+  'pro.kyc_status': 'Verification status',
+  'pro.kyc_submit': 'Submit application',
+  'pro.kyc_add_doc': 'Add a document',
+  'diaspora.title': 'Diaspora',
+  'diaspora.family': 'My family',
+  'diaspora.notify': 'Remote payment',
+  'wallet.balance': 'Balance',
+  'wallet.topup_eur': 'Amount in €',
+  'wallet.converted': '= {xof} FCFA',
+  'wallet.history': 'History',
+  'pharmacie.qr': 'Paste the QR / code',
+  'pharmacie.authentic': 'Authentic prescription ✓',
+  'pharmacie.invalid': 'Invalid or unknown QR',
+  'pharmacie.generic': 'Generic',
+  'labo.order': 'Request No. (orderId)',
+  'labo.result': 'Result entry',
+  'labo.add_value': 'Add a value',
+  'labo.critical': 'CRITICAL VALUE — prescriber alerted',
+  'admin.kyc_queue': 'KYC queue',
+  'admin.approve': 'Approve',
+  'admin.reject': 'Reject',
+  'admin.kpi_users': 'Users',
+  'admin.kpi_consult': 'Consultations',
+  'admin.kpi_revenue': 'FedaPay volume',
+  'admin.kpi_uptime': 'Uptime',
+  'admin.kpi_kyc': 'Pending KYC',
+  'admin.no_medical': 'Admins never read DMP medical content.',
+  'edu.submit_review': 'Submit for review',
+  'edu.title_ph': 'Article title',
+  'edu.body_ph': 'Content…',
 };
 
 // Fɔ̀ngbè — salutation native (cf. design system) + clés critiques (auth/profil) ;

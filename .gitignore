@@ -37,3 +37,6 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# i18n — exports régénérables (pnpm i18n:export)
+docs/i18n/todo.*.csv
