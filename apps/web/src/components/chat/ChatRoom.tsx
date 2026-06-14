@@ -8,6 +8,7 @@ import { useLocale } from '@/i18n/LocaleProvider';
 import { cn } from '@/lib/cn';
 import { chatApi, type ChatMessage, type ChatThread } from '@/lib/api/chat';
 import { useOnline } from '@/lib/offline/online';
+import { openChatSocket } from '@/lib/realtime/chatSocket';
 
 type Theme = 'patient' | 'pro';
 
@@ -30,7 +31,9 @@ interface LocalMessage extends ChatMessage {
   pending?: boolean;
 }
 
-const POLL_MS = 5000;
+// Le temps réel passe par WebSocket ; ce polling n'est qu'un filet de sécurité lent
+// (réseaux/proxies bloquant le WS, reconnexion en cours).
+const POLL_MS = 25000;
 
 /**
  * Salle de messagerie réutilisable (patient et médecin).
@@ -50,6 +53,7 @@ export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpar
   const [booting, setBooting] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const selectedIdRef = useRef<string | null>(null);
 
   const refreshThreads = useCallback(async () => {
     try {
@@ -58,6 +62,23 @@ export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpar
       /* le rafraîchissement silencieux ne doit pas casser la conversation */
     }
   }, []);
+
+  /** Charge les messages d'un fil (garde anti-course : ignore si le fil a changé). */
+  const loadMessages = useCallback(
+    async (threadId: string, markRead: boolean) => {
+      try {
+        const msgs = await chatApi.listMessages(threadId);
+        if (selectedIdRef.current !== threadId) return;
+        setMessages(msgs);
+        if (markRead) chatApi.markRead(threadId).then(refreshThreads).catch(() => {});
+      } catch (e) {
+        if (selectedIdRef.current === threadId) {
+          setError(e instanceof Error ? e.message : t('auth.error'));
+        }
+      }
+    },
+    [refreshThreads, t],
+  );
 
   // Chargement initial + ouverture automatique d'un fil depuis l'URL.
   useEffect(() => {
@@ -89,33 +110,26 @@ export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpar
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Chargement + polling des messages du fil sélectionné.
+  // Sélection d'un fil : chargement initial + filet de sécurité lent.
   useEffect(() => {
+    selectedIdRef.current = selectedId;
     if (!selectedId) return;
-    let active = true;
-    const load = async (markRead: boolean) => {
-      try {
-        const msgs = await chatApi.listMessages(selectedId);
-        if (!active) return;
-        setMessages(msgs);
-        if (markRead) {
-          chatApi.markRead(selectedId).then(refreshThreads).catch(() => {});
-        }
-      } catch (e) {
-        if (active) setError(e instanceof Error ? e.message : t('auth.error'));
-      }
-    };
-    void load(true);
+    void loadMessages(selectedId, true);
     const iv = setInterval(() => {
-      void load(false);
+      void loadMessages(selectedId, false);
       void refreshThreads();
     }, POLL_MS);
-    return () => {
-      active = false;
-      clearInterval(iv);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId]);
+    return () => clearInterval(iv);
+  }, [selectedId, loadMessages, refreshThreads]);
+
+  // Temps réel : un push WS déclenche un re-fetch ciblé (contenu déchiffré via REST).
+  useEffect(() => {
+    const stop = openChatSocket((event) => {
+      void refreshThreads();
+      if (event.threadId === selectedIdRef.current) void loadMessages(event.threadId, true);
+    });
+    return stop;
+  }, [loadMessages, refreshThreads]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -137,8 +151,7 @@ export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpar
     try {
       const res = await chatApi.sendMessage(selectedId, value);
       if (res && typeof res === 'object' && 'queued' in res) return; // hors-ligne : reste « en attente »
-      const msgs = await chatApi.listMessages(selectedId);
-      setMessages(msgs);
+      void loadMessages(selectedId, false);
       void refreshThreads();
     } catch (e) {
       setError(e instanceof Error ? e.message : t('auth.error'));

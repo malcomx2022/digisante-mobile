@@ -25,6 +25,10 @@ let accessToken: string | null = null;
 export function setAccessToken(token: string | null): void {
   accessToken = token;
 }
+/** Lecture du jeton d'accès courant (ex. authentification du WebSocket temps réel). */
+export function getAccessToken(): string | null {
+  return accessToken;
+}
 
 function headers(extra?: HeadersInit): HeadersInit {
   return {
