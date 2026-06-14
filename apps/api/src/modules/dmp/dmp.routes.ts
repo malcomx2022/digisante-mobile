@@ -59,6 +59,17 @@ export default async function dmpRoutes(app: FastifyInstance) {
     return dmp.revokeShare(app, request.user.sub, id);
   });
 
+  // Consentement par soignant : le patient liste qui a accès à son dossier.
+  app.get('/consents', authed, async (request) => {
+    return dmp.listConsents(app, request.user.sub);
+  });
+
+  // Le patient révoque l'accès d'un soignant précis (révocation persistante).
+  app.delete('/consents/:granteeId', authed, async (request) => {
+    const { granteeId } = zParse(z.object({ granteeId: z.string().cuid() }), request.params);
+    return dmp.revokeConsent(app, request.user.sub, granteeId, request.ip);
+  });
+
   // Portabilité : export FHIR (Bundle JSON).
   app.get('/export', authed, async (request) => {
     const q = zParse(exportSchema, request.query);

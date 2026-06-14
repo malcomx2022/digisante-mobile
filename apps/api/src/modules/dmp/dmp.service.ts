@@ -119,6 +119,66 @@ export async function shareRecord(
   return { shareToken, shareType: input.shareType, expiresAt: shareExpiry };
 }
 
+/** Résout le Patient.id du propriétaire courant (ou lève). */
+async function ownPatientId(app: FastifyInstance, patientUserId: string): Promise<string> {
+  const own = await app.prisma.patient.findUnique({ where: { userId: patientUserId }, select: { id: true } });
+  if (!own) throw forbidden('Profil patient requis');
+  return own.id;
+}
+
+/** Liste les soignants disposant (ou ayant disposé) d'un consentement sur le dossier du patient. */
+export async function listConsents(app: FastifyInstance, patientUserId: string) {
+  const patientId = await ownPatientId(app, patientUserId);
+  const now = new Date();
+  const consents = await app.prisma.consent.findMany({
+    where: { patientId },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      granteeId: true,
+      expiresAt: true,
+      revokedAt: true,
+      createdAt: true,
+      grantee: {
+        select: {
+          role: true,
+          profile: { select: { firstName: true, lastName: true } },
+          doctor: { select: { speciality: true } },
+        },
+      },
+    },
+  });
+  return consents.map((c) => ({
+    granteeId: c.granteeId,
+    name: c.grantee.profile ? `${c.grantee.profile.firstName} ${c.grantee.profile.lastName}`.trim() : '—',
+    role: c.grantee.role,
+    speciality: c.grantee.doctor?.speciality ?? null,
+    expiresAt: c.expiresAt,
+    grantedAt: c.createdAt,
+    active: !c.revokedAt && c.expiresAt > now,
+    revokedAt: c.revokedAt,
+  }));
+}
+
+/** Révoque le consentement d'un soignant précis (révocation persistante). */
+export async function revokeConsent(
+  app: FastifyInstance,
+  patientUserId: string,
+  granteeId: string,
+  ip?: string | null,
+) {
+  const patientId = await ownPatientId(app, patientUserId);
+  const consent = await app.prisma.consent.findUnique({
+    where: { patientId_granteeId: { patientId, granteeId } },
+    select: { id: true, revokedAt: true },
+  });
+  if (!consent) throw notFound('Consentement introuvable');
+  if (!consent.revokedAt) {
+    await app.prisma.consent.update({ where: { id: consent.id }, data: { revokedAt: new Date() } });
+    await writeAudit(app.prisma, { action: 'DMP_CONSENT_REVOKE', actorId: patientUserId, targetId: granteeId, ip });
+  }
+  return { revoked: true };
+}
+
 /** Révoque un partage (patient propriétaire). */
 export async function revokeShare(app: FastifyInstance, patientUserId: string, recordId: string) {
   const record = await app.prisma.medicalRecord.findUnique({ where: { id: recordId }, select: { patient: { select: { userId: true } } } });
