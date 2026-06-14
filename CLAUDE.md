@@ -13,7 +13,9 @@ Porteur : **SEGLA E. Ulrich Gislain** (full-stack, 10+ ans). Collaboratrice : **
 
 **Mission** : répondre aux défis sanitaires béninois — infrastructure médicale limitée, dossiers perdus, connectivité rurale faible — par une plateforme **offline-first**, **multilingue** (FR, Fɔ̀ngbè, Yorùbá, Baatɔnum, Dendi), avec téléconsultation, DMP patient, ordonnances QR, SOS, et paiements Mobile Money + wallet diaspora.
 
-**État** : codebase feature-complete (Sprint 7) — 129 fichiers, ~25 900 lignes, 112 endpoints / 20 modules + 4 intégrations, 26 pages frontend, 26 modèles Prisma, 28 enums. Phase actuelle : **déploiement production VPS Infomaniak**.
+**État** : codebase feature-complete — ~195 fichiers TS/TSX, **84 endpoints** (dont 1 canal WebSocket temps réel) / **22 modules** + 4 intégrations, **35 pages frontend**, **31 modèles Prisma**, 28 enums. Phase actuelle : **déploiement production VPS Infomaniak**.
+
+**Ajouts récents (juin 2026)** : inscription multi-rôles + création des profils de rôle à l'inscription (patient/médecin/pharmacie/labo/diaspora) ; déconnexion universelle ; module **Chat** patient↔médecin (corps chiffré au repos) **temps réel par WebSocket** (fan-out Redis pub/sub) ; **consentement DMP par soignant** (modèle `Consent`, réclamation via token de partage, révocation persistante) ; **scan caméra du QR** (partage DMP + ordonnances, via `BarcodeDetector`) ; **push FCM réel** (serveur HTTP v1 + token web navigateur).
 
 ---
 
@@ -24,7 +26,8 @@ Porteur : **SEGLA E. Ulrich Gislain** (full-stack, 10+ ans). Collaboratrice : **
 | Frontend | **Next.js 14** (App Router) + Tailwind CSS — PWA, service worker |
 | Backend | **Fastify** (Node.js) — clustering PM2 ×2 |
 | ORM / DB | **Prisma** + **PostgreSQL 16 natif** |
-| Cache / files | **Redis** |
+| Cache / files | **Redis** (cache, OTP, allowlist refresh, **pub/sub temps réel chat**) |
+| Temps réel | **WebSocket** (`@fastify/websocket`) — chat ; fan-out inter-workers via Redis pub/sub |
 | Téléconsultation | **Daily.co** (WebRTC) |
 | Paiements | **FedaPay** — MTN MoMo, Moov, Wave, cartes intl. (wallet diaspora) |
 | Push | **Firebase FCM** |
@@ -51,8 +54,8 @@ Ces décisions sont définitives. Ne **jamais** les remettre en question, ne jam
 
 À respecter dans **chaque** ligne de code générée :
 
-- **Consentement** : tout accès soignant au DMP passe par un partage consenti avec date d'expiration ; accès refusé = journalisé (`DMP_DENIED`).
-- **Audit trail immuable** : table append-only (trigger anti UPDATE/DELETE), hash SHA-256 chaîné, rétention 5 ans. Tout événement sensible est journalisé : `DMP_ACCESS`, `KYC_*`, `PAYMENT_*`, `AUTH_FAIL`, `DATA_EXPORT`, `LAB_CRITICAL`, `USER_SUSPEND`.
+- **Consentement par soignant** : l'accès soignant au DMP passe par un **consentement nominatif** (modèle `Consent` : couple patient↔soignant, avec date d'expiration), réclamé à la présentation d'un token de partage puis valable sans token. **Révocation persistante** (un soignant révoqué ne peut pas re-réclamer via l'ancien token) ; le patient liste/révoque ses consentements. Accès refusé = journalisé (`DMP_DENIED`).
+- **Audit trail immuable** : table append-only (trigger anti UPDATE/DELETE), hash SHA-256 chaîné, rétention 5 ans. Tout événement sensible est journalisé : `DMP_ACCESS`, `DMP_DENIED`, `DMP_CONSENT_GRANT`, `DMP_CONSENT_REVOKE`, `KYC_*`, `PAYMENT_*`, `AUTH_FAIL`, `AUTH_LOCKOUT`, `DATA_EXPORT`, `LAB_CRITICAL`, `SOS_ALERT`, `USER_SUSPEND`.
 - **Cloisonnement admin** : l'admin ne peut JAMAIS lire le contenu médical du DMP (chiffré, soignants consentis uniquement).
 - **Portabilité** : export FHIR/PDF en libre-service patient.
 - **Chiffrement** : données de santé chiffrées au repos (AES-256) et en transit (TLS) ; secrets dans `.env` jamais commités ; OTP verrouillage 30 min après 5 échecs.
@@ -120,6 +123,11 @@ Les scripts shell complets sont dans la Documentation technique v2 (`DocTech_Dig
 - **Daily.co** : prévoir la bascule auto téléconsultation → chat (D-10) quand la bande passante chute.
 - **Twilio Bénin** : sender ID alphanumérique non garanti chez tous les opérateurs — fallback numéro long.
 - **FedaPay webhooks** : idempotence obligatoire (un même événement peut arriver plusieurs fois) ; vérifier HMAC avant tout traitement.
+- **WebSocket (chat)** : auth par token JWT en **query** (`?token=`) — les navigateurs ne posent pas d'en-tête `Authorization` sur un WS. En cluster PM2 ×2, **fan-out obligatoire via Redis pub/sub** (un socket peut être sur l'autre worker). Nginx : relayer l'upgrade (`Upgrade`/`Connection`) + `proxy_read_timeout` long sur `/api/v1/chat/ws`. L'événement WS ne transporte que `{ threadId }` ; le contenu (chiffré) est re-fetché via REST.
+- **Firebase FCM** : envoi serveur en **HTTP v1** sans `firebase-admin` (JWT compte de service signé via `node:crypto`, OAuth2 mis en cache). `FIREBASE_PRIVATE_KEY` contient des `\n` littéraux → reconvertir au démarrage. Sur token rejeté (`UNREGISTERED`/`INVALID_ARGUMENT`), purger `user.fcmToken`. Côté web : SDK `firebase` en import dynamique + SW `firebase-messaging-sw.js` (config publique passée en query), gated sur `NEXT_PUBLIC_FIREBASE_*`.
+- **Scan QR** : via l'API native `BarcodeDetector` (Chrome/Android — audience principale). **Absente sur iOS Safari** → repli sur la saisie manuelle (toujours prévoir le champ texte de secours).
+- **Inscription** : `auth.register` DOIT créer l'enregistrement de rôle en transaction (Patient+Wallet / Doctor / Pharmacy / Lab / Wallet diaspora) — sinon DMP/SOS/wallet/RDV/KYC cassés pour le compte. ADMIN interdit à l'auto-inscription.
+- **Consentement DMP** : la **révocation est persistante** (`Consent.revokedAt`) — ne pas la « ré-octroyer » silencieusement lors d'une nouvelle réclamation par token, sinon la révocation serait vaine tant que le token reste valide.
 
 ---
 
@@ -135,4 +143,4 @@ Les scripts shell complets sont dans la Documentation technique v2 (`DocTech_Dig
 
 ---
 
-*Dernière mise à jour : 10 juin 2026 — v1.0. Maintenir ce fichier à jour à chaque décision structurante (section 3) ou nouveau piège (section 8).*
+*Dernière mise à jour : 14 juin 2026 — v1.1 (chat temps réel, FCM réel, consentement DMP par soignant, scan QR, inscription multi-rôles). Maintenir ce fichier à jour à chaque décision structurante (section 3) ou nouveau piège (section 8).*
