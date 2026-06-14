@@ -26,10 +26,13 @@ const TTL_OPTIONS: { hours: number; key: string }[] = [
 export function DmpShareDialog({
   recordId,
   recordTitle,
+  patientId,
   onClose,
 }: {
   recordId: string;
   recordTitle: string;
+  /** Id du patient propriétaire — encodé dans le lien profond pour le soignant. */
+  patientId?: string;
   onClose: () => void;
 }) {
   const { t } = useLocale();
@@ -75,8 +78,15 @@ export function DmpShareDialog({
     }
   }
 
-  // Lien de partage : route soignant présentant le token (en-tête x-share-token).
-  const shareLink = result ? `${typeof window !== 'undefined' ? window.location.origin : ''}/share/${result.shareToken}` : '';
+  // Lien de partage : lien profond vers la vue soignant (patientId + token).
+  // Le médecin l'ouvre (scan QR ou collage) → la vue pro présente x-share-token.
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const shareLink =
+    result && patientId
+      ? `${origin}/pro/patient?patientId=${encodeURIComponent(patientId)}&token=${encodeURIComponent(result.shareToken)}`
+      : result
+        ? `${origin}/pro/patient?token=${encodeURIComponent(result.shareToken)}`
+        : '';
   // QR sans dépendance : data-URI via service public (rendu gracieux si hors-ligne → token texte affiché).
   const qrSrc = result
     ? `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(shareLink)}`

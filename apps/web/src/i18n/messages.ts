@@ -247,6 +247,13 @@ const fr: Messages = {
   'pro.access_section': 'Accès au dossier',
   'pro.access_note':
     'Accès soumis à un partage consenti non expiré (DMP_ACCESS journalisé). L’administration ne peut jamais lire le contenu médical — conformité APDP (Loi N°2017-20).',
+  'pro.paste_link': 'Coller le lien de partage du patient',
+  'pro.open_share': 'Ouvrir le dossier partagé',
+  'pro.invalid_link': 'Lien de partage invalide',
+  'pro.need_token_title': 'Jeton de partage requis',
+  'pro.need_token_desc': 'Saisissez le jeton de partage fourni par le patient.',
+  'pro.paste_token': 'Jeton de partage',
+  'pro.apply_token': 'Accéder au dossier',
 };
 
 const en: Messages = {
@@ -427,6 +434,13 @@ const en: Messages = {
   'pro.access_section': 'Record access',
   'pro.access_note':
     'Access requires a non-expired consented share (DMP_ACCESS logged). Administration can never read medical content — APDP compliance (Law No. 2017-20).',
+  'pro.paste_link': "Paste the patient's share link",
+  'pro.open_share': 'Open shared record',
+  'pro.invalid_link': 'Invalid share link',
+  'pro.need_token_title': 'Share token required',
+  'pro.need_token_desc': 'Enter the share token provided by the patient.',
+  'pro.paste_token': 'Share token',
+  'pro.apply_token': 'Access record',
 };
 
 // Fɔ̀ngbè — salutation native (cf. design system) + clés critiques (auth/profil) ;

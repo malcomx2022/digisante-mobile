@@ -43,14 +43,23 @@ async function parse<T>(res: Response): Promise<T> {
   return data as T;
 }
 
-/** GET typé avec un retry léger (réseau instable 2G/3G). */
-export async function get<T>(path: string, retries = 1): Promise<T> {
+export interface GetOptions {
+  /** Nombre de tentatives en cas d'échec réseau (défaut 1). */
+  retries?: number;
+  /** En-têtes additionnels pour CETTE requête (ex. x-share-token DMP). */
+  headers?: Record<string, string>;
+}
+
+/** GET typé avec un retry léger (réseau instable 2G/3G) et en-têtes par requête. */
+export async function get<T>(path: string, opts: number | GetOptions = {}): Promise<T> {
+  const { retries = 1, headers: extra } =
+    typeof opts === 'number' ? { retries: opts, headers: undefined } : opts;
   try {
-    const res = await fetch(`${BASE}${PREFIX}${path}`, { headers: headers(), credentials: 'include' });
+    const res = await fetch(`${BASE}${PREFIX}${path}`, { headers: headers(extra), credentials: 'include' });
     return await parse<T>(res);
   } catch (err) {
     if (retries > 0 && !(err instanceof ApiRequestError)) {
-      return get<T>(path, retries - 1);
+      return get<T>(path, { retries: retries - 1, headers: extra });
     }
     throw err;
   }
