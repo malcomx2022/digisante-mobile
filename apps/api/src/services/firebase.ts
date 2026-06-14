@@ -1,18 +1,128 @@
 // ─────────────────────────────────────────────────────────────
-// Service Firebase Cloud Messaging (FCM) — notifications push.
-// STUB si Firebase non configuré.
+// Firebase Cloud Messaging (FCM) — notifications push, API HTTP v1.
+// Sans dépendance externe : JWT du compte de service signé via node:crypto,
+// jeton OAuth2 mis en cache, envoi via fetch. STUB si Firebase non configuré.
 // ─────────────────────────────────────────────────────────────
+import { createSign } from 'node:crypto';
+
 import type { FastifyBaseLogger } from 'fastify';
 
-import { isFirebaseConfigured } from '@/lib/env.js';
+import { env, isFirebaseConfigured } from '@/lib/env.js';
 
-/** Envoie une notification push à un token d'appareil (stub si non configuré). */
+const OAUTH_TOKEN_URI = 'https://oauth2.googleapis.com/token';
+const FCM_SCOPE = 'https://www.googleapis.com/auth/firebase.messaging';
+const fcmEndpoint = (projectId: string) =>
+  `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
+
+/** Les clés privées en variable d'env contiennent souvent des "\n" littéraux. */
+export function normalizePrivateKey(raw: string): string {
+  return raw.includes('\\n') ? raw.replace(/\\n/g, '\n') : raw;
+}
+
+export interface FcmMessage {
+  message: {
+    token: string;
+    notification: { title: string; body: string };
+    android: { priority: 'high' };
+    data?: Record<string, string>;
+  };
+}
+
+/** Construit le corps d'un message FCM HTTP v1 (fonction pure, testable). */
+export function buildFcmMessage(
+  token: string,
+  title: string,
+  body: string,
+  data?: Record<string, string>,
+): FcmMessage {
+  return {
+    message: {
+      token,
+      notification: { title, body },
+      android: { priority: 'high' },
+      ...(data ? { data } : {}),
+    },
+  };
+}
+
+/**
+ * Un token invalide / non enregistré (appareil désinstallé, token périmé) doit
+ * être purgé côté serveur. Décision PURE à partir du statut HTTP / code FCM.
+ */
+export function classifyFcmError(status: number, fcmStatus?: string): { invalidToken: boolean } {
+  if (status === 404) return { invalidToken: true }; // UNREGISTERED
+  if (status === 403 && fcmStatus === 'SENDER_ID_MISMATCH') return { invalidToken: true };
+  if (status === 400 && fcmStatus === 'INVALID_ARGUMENT') return { invalidToken: true };
+  return { invalidToken: false };
+}
+
+function base64url(input: string): string {
+  return Buffer.from(input).toString('base64url');
+}
+
+// Jeton OAuth2 mis en cache (module) : ~1 h, réutilisé entre les envois.
+let cachedToken: { value: string; expiresAt: number } | null = null;
+
+/** Obtient un access token OAuth2 pour FCM (JWT service-account signé RS256). */
+async function getAccessToken(log: FastifyBaseLogger): Promise<string | null> {
+  const clientEmail = env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = env.FIREBASE_PRIVATE_KEY;
+  if (!clientEmail || !privateKey) return null;
+
+  const now = Date.now();
+  if (cachedToken && cachedToken.expiresAt > now + 60_000) return cachedToken.value;
+
+  const iat = Math.floor(now / 1000);
+  const header = base64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  const claims = base64url(
+    JSON.stringify({ iss: clientEmail, scope: FCM_SCOPE, aud: OAUTH_TOKEN_URI, iat, exp: iat + 3600 }),
+  );
+  const signingInput = `${header}.${claims}`;
+
+  let assertion: string;
+  try {
+    const signature = createSign('RSA-SHA256').update(signingInput).sign(normalizePrivateKey(privateKey), 'base64url');
+    assertion = `${signingInput}.${signature}`;
+  } catch (err) {
+    log.error({ err }, '[FCM] signature JWT impossible (clé privée invalide ?)');
+    return null;
+  }
+
+  try {
+    const res = await fetch(OAUTH_TOKEN_URI, {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        assertion,
+      }),
+    });
+    if (!res.ok) {
+      log.error({ status: res.status }, '[FCM] échec d’obtention du jeton OAuth2');
+      return null;
+    }
+    const json = (await res.json()) as { access_token?: string; expires_in?: number };
+    if (!json.access_token) return null;
+    cachedToken = { value: json.access_token, expiresAt: now + (json.expires_in ?? 3600) * 1000 };
+    return cachedToken.value;
+  } catch (err) {
+    log.error({ err }, '[FCM] erreur réseau OAuth2');
+    return null;
+  }
+}
+
+/**
+ * Envoie une notification push à un token d'appareil (FCM HTTP v1).
+ * Ne lève jamais (le dispatch ne doit pas casser). `invalidToken` signale au
+ * caller de purger le token côté utilisateur.
+ */
 export async function sendPush(opts: {
   token: string | null;
   title: string;
   body: string;
   log: FastifyBaseLogger;
-}): Promise<{ delivered: boolean; stub: boolean }> {
+  data?: Record<string, string>;
+}): Promise<{ delivered: boolean; stub: boolean; invalidToken?: boolean }> {
   if (!opts.token) {
     opts.log.warn('[FCM] aucun token d’appareil — push ignoré');
     return { delivered: false, stub: true };
@@ -22,19 +132,26 @@ export async function sendPush(opts: {
     return { delivered: false, stub: true };
   }
 
-  // ── POINT D'INTÉGRATION FCM (à brancher) ──────────────────────────────
-  // La dépendance `firebase-admin` n'est volontairement PAS ajoutée ici
-  // (cf. consigne : ne pas modifier les dépendances). Deux options à l'install :
-  //   1) firebase-admin :  admin.messaging().send({ token, notification: {title, body} })
-  //   2) FCM HTTP v1 (sans lib) : POST https://fcm.googleapis.com/v1/projects/
-  //      <FIREBASE_PROJECT_ID>/messages:send avec un Bearer OAuth2 obtenu en
-  //      signant un JWT (FIREBASE_CLIENT_EMAIL / FIREBASE_PRIVATE_KEY) sur le
-  //      scope https://www.googleapis.com/auth/firebase.messaging.
-  // Tant que ce n'est pas branché, on log et on signale « non livré » sans throw,
-  // pour ne jamais casser le dispatch des notifications.
-  opts.log.warn(
-    { title: opts.title },
-    '[FCM] configuré mais transport non branché (firebase-admin absent) — push non envoyé',
-  );
-  return { delivered: false, stub: false };
+  const projectId = env.FIREBASE_PROJECT_ID;
+  if (!projectId) return { delivered: false, stub: true };
+
+  const accessToken = await getAccessToken(opts.log);
+  if (!accessToken) return { delivered: false, stub: false };
+
+  try {
+    const res = await fetch(fcmEndpoint(projectId), {
+      method: 'POST',
+      headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify(buildFcmMessage(opts.token, opts.title, opts.body, opts.data)),
+    });
+    if (res.ok) return { delivered: true, stub: false };
+
+    const json = (await res.json().catch(() => ({}))) as { error?: { status?: string } };
+    const { invalidToken } = classifyFcmError(res.status, json.error?.status);
+    opts.log.warn({ status: res.status, fcm: json.error?.status }, '[FCM] envoi non abouti');
+    return { delivered: false, stub: false, invalidToken };
+  } catch (err) {
+    opts.log.error({ err }, '[FCM] erreur réseau lors de l’envoi push');
+    return { delivered: false, stub: false };
+  }
 }

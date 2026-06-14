@@ -16,15 +16,22 @@ import { sortByPriority } from './notifications.priority.js';
 /** Envoie une notification via son canal, dans la langue du destinataire. */
 async function deliver(
   app: FastifyInstance,
-  n: { id: string; type: NotificationType; channel: string; title: string; body: string; recipient: { phone: string; email: string | null; fcmToken: string | null; lang: Lang } },
+  n: { id: string; recipientId: string; type: NotificationType; channel: string; title: string; body: string; recipient: { phone: string; email: string | null; fcmToken: string | null; lang: Lang } },
 ) {
   const content = localize(n.type, n.recipient.lang, { title: n.title, body: n.body });
 
   let delivered = false;
   switch (n.channel) {
-    case 'PUSH_FCM':
-      ({ delivered } = await sendPush({ token: n.recipient.fcmToken, title: content.title, body: content.body, log: app.log }));
+    case 'PUSH_FCM': {
+      const push = await sendPush({ token: n.recipient.fcmToken, title: content.title, body: content.body, log: app.log });
+      delivered = push.delivered;
+      // Token périmé / appareil désinstallé : on le purge pour ne plus réessayer.
+      if (push.invalidToken) {
+        await app.prisma.user.update({ where: { id: n.recipientId }, data: { fcmToken: null } }).catch(() => {});
+        app.log.warn({ userId: n.recipientId }, '[FCM] token d’appareil invalide retiré');
+      }
       break;
+    }
     case 'SMS_TWILIO':
       ({ delivered } = await sendSms({ to: n.recipient.phone, body: `${content.title} — ${content.body}`, lang: n.recipient.lang, log: app.log }));
       break;
