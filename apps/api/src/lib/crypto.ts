@@ -54,3 +54,22 @@ export function openMedicalData(record: { data: unknown; encryptedData: string |
   }
   return record.data ?? null;
 }
+
+/**
+ * Prépare le stockage d'un texte sensible (ex. message de chat patient↔médecin) :
+ * chiffré si une clé est configurée, sinon en clair (dev). Renvoie le couple
+ * { plain, encrypted } à écrire (body / encryptedBody).
+ */
+export function sealSensitiveText(text: string): { plain: string | null; encrypted: string | null } {
+  if (KEY) return { plain: null, encrypted: encryptWithKey(KEY, text) };
+  return { plain: text, encrypted: null };
+}
+
+/** Lit un texte sensible : déchiffre si nécessaire, sinon renvoie le clair. */
+export function openSensitiveText(record: { plain: string | null; encrypted: string | null }): string {
+  if (record.encrypted) {
+    if (!KEY) throw new Error('HEALTH_ENCRYPTION_KEY requise pour déchiffrer ce message');
+    return decryptWithKey(KEY, record.encrypted) as string;
+  }
+  return record.plain ?? '';
+}
