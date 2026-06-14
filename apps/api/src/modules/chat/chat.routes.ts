@@ -3,6 +3,7 @@
 // Réservé aux rôles PATIENT et MEDECIN ; accès aux fils contrôlé par participant.
 // ─────────────────────────────────────────────────────────────
 import type { FastifyInstance } from 'fastify';
+import type { WebSocket } from 'ws';
 import { z } from 'zod';
 
 import { requireRole } from '@/lib/rbac.js';
@@ -19,6 +20,25 @@ const listMessagesQuery = z.object({
 
 export default async function chatRoutes(app: FastifyInstance) {
   const participantOnly = { preHandler: [app.authenticate, requireRole('PATIENT', 'MEDECIN')] };
+
+  // Canal temps réel : le client ouvre /api/v1/chat/ws?token=<access JWT>.
+  // (Les navigateurs ne peuvent pas poser d'en-tête Authorization sur un WebSocket.)
+  // Auth manuelle ici ; le socket reçoit ensuite des événements { type:'chat', threadId }.
+  app.get('/ws', { websocket: true }, (socket: WebSocket, request) => {
+    const token = (request.query as { token?: string }).token;
+    let userId: string;
+    try {
+      const payload = app.jwt.verify(token ?? '') as { sub: string; typ?: string };
+      if (payload.typ === 'refresh' || !payload.sub) throw new Error('jeton d’accès attendu');
+      userId = payload.sub;
+    } catch {
+      socket.close(1008, 'unauthorized');
+      return;
+    }
+    app.chatHub.add(userId, socket);
+    socket.on('close', () => app.chatHub.remove(userId, socket));
+    socket.on('error', () => app.chatHub.remove(userId, socket));
+  });
 
   // Mes conversations (avec non-lus).
   app.get('/threads', participantOnly, async (request) => {

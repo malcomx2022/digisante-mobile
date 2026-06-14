@@ -8,6 +8,7 @@ import type { FastifyInstance } from 'fastify';
 
 import { openSensitiveText, sealSensitiveText } from '@/lib/crypto.js';
 import { forbidden, notFound } from '@/lib/errors.js';
+import { CHAT_CHANNEL, type ChatEvent } from '@/plugins/realtime.js';
 
 interface Actor {
   sub: string;
@@ -207,6 +208,10 @@ export async function sendMessage(app: FastifyInstance, actor: Actor, threadId: 
     }),
     app.prisma.chatThread.update({ where: { id: threadId }, data: { lastMessageAt: now } }),
   ]);
+
+  // Diffusion temps réel aux deux participants (fan-out inter-workers via Redis).
+  const event: ChatEvent = { threadId, recipients: [thread.patient.userId, thread.doctor.userId] };
+  await app.redis.publish(CHAT_CHANNEL, JSON.stringify(event));
 
   return {
     id: message.id,

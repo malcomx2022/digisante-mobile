@@ -32,6 +32,7 @@ import walletRoutes from '@/modules/wallet/wallet.routes.js';
 import authenticate from '@/plugins/authenticate.js';
 import errorHandler from '@/plugins/error-handler.js';
 import prismaPlugin from '@/plugins/prisma.js';
+import realtime from '@/plugins/realtime.js';
 import redisPlugin from '@/plugins/redis.js';
 import requestContext from '@/plugins/request-context.js';
 // … enregistrer ici les autres modules métier (préfixe /api/v1)
@@ -67,6 +68,8 @@ export async function buildServer() {
   // ── Infrastructure (décorateurs app.prisma / app.redis) ──
   await app.register(prismaPlugin);
   await app.register(redisPlugin);
+  // Temps réel (WebSocket + fan-out Redis) — avant les routes qui l'utilisent.
+  await app.register(realtime);
 
   // ── Modules métier (préfixe /api/v1) ──
   await app.register(healthRoutes, { prefix: '/api/v1' });
