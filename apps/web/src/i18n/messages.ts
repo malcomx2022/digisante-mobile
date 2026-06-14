@@ -254,6 +254,7 @@ const fr: Messages = {
   'pro.need_token_desc': 'Saisissez le jeton de partage fourni par le patient.',
   'pro.paste_token': 'Jeton de partage',
   'pro.apply_token': 'Accéder au dossier',
+  'pro.message_patient': 'Message au patient',
 };
 
 const en: Messages = {
@@ -441,6 +442,7 @@ const en: Messages = {
   'pro.need_token_desc': 'Enter the share token provided by the patient.',
   'pro.paste_token': 'Share token',
   'pro.apply_token': 'Access record',
+  'pro.message_patient': 'Message patient',
 };
 
 // Fɔ̀ngbè — salutation native (cf. design system) + clés critiques (auth/profil) ;

@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import { ProHeader } from '@/components/pro/ProHeader';
@@ -94,6 +95,14 @@ function Patient360Inner() {
     <>
       <ProHeader title={t('pro.patient360')} subtitle={patientId} />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
+        {/* La messagerie ne dépend pas du partage DMP : joignable dès qu'on a le patient. */}
+        <Link
+          href={`/pro/messages?patient=${encodeURIComponent(patientId)}`}
+          className="flex items-center justify-center gap-2 bg-indigo-600 text-white card-pagne px-4 py-2.5 font-display font-bold text-[14px]"
+        >
+          <span aria-hidden>💬</span> {t('pro.message_patient')}
+        </Link>
+
         {/* Partage requis (pas de jeton) OU refusé (jeton invalide/expiré) → saisie du jeton. */}
         {(!token || (!loading && error && isForbidden)) && (
           <CardPagne stitch="indigo" className="p-5">
