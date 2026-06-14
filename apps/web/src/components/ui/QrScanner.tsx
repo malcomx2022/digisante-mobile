@@ -5,8 +5,9 @@ import { useEffect, useRef, useState } from 'react';
 import { CardPagne } from '@/components/ui';
 import { useLocale } from '@/i18n/LocaleProvider';
 
-// API native BarcodeDetector (Chrome/Android — audience principale). Absente sur
-// iOS Safari → repli sur la saisie manuelle (déjà présente sur les écrans appelants).
+// Décodage : API native BarcodeDetector (Chrome/Android — audience principale) ;
+// repli jsQR (décodeur pur-JS, import dynamique) sur iOS Safari où BarcodeDetector
+// est absent. Repli ultime sur la saisie manuelle si aucune caméra n'est accessible.
 interface DetectedBarcode {
   rawValue: string;
 }
@@ -19,6 +20,30 @@ function getDetectorCtor(): BarcodeDetectorCtor | null {
   if (typeof window === 'undefined') return null;
   const w = window as unknown as { BarcodeDetector?: BarcodeDetectorCtor };
   return w.BarcodeDetector ?? null;
+}
+
+/** Fabrique un décodeur par frame : BarcodeDetector si dispo, sinon jsQR (iOS). */
+async function makeFrameDecoder(video: HTMLVideoElement): Promise<() => Promise<string | null>> {
+  const Ctor = getDetectorCtor();
+  if (Ctor) {
+    const detector = new Ctor({ formats: ['qr_code'] });
+    return async () => {
+      const codes = await detector.detect(video);
+      return codes.find((c) => c.rawValue)?.rawValue ?? null;
+    };
+  }
+  // Repli iOS : décodage jsQR sur le pixel-buffer d'un canvas hors écran.
+  const jsQR = (await import('jsqr')).default;
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  return async () => {
+    if (!ctx || !video.videoWidth) return null;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    return jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' })?.data ?? null;
+  };
 }
 
 /**
@@ -39,8 +64,7 @@ export function QrScanner({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const Ctor = getDetectorCtor();
-    if (!Ctor || !navigator.mediaDevices?.getUserMedia) {
+    if (!navigator.mediaDevices?.getUserMedia) {
       setError(t('scan.unsupported'));
       return;
     }
@@ -48,23 +72,6 @@ export function QrScanner({
     let stream: MediaStream | null = null;
     let stopped = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const detector = new Ctor({ formats: ['qr_code'] });
-
-    const tick = async () => {
-      if (stopped || !videoRef.current) return;
-      try {
-        const codes = await detector.detect(videoRef.current);
-        const hit = codes.find((c) => c.rawValue);
-        if (hit) {
-          stopped = true;
-          onResult(hit.rawValue);
-          return;
-        }
-      } catch {
-        /* image illisible sur cette frame : on réessaie */
-      }
-      timer = setTimeout(tick, 300);
-    };
 
     (async () => {
       try {
@@ -77,7 +84,23 @@ export function QrScanner({
         if (!video) return;
         video.srcObject = stream;
         await video.play();
-        timer = setTimeout(tick, 300);
+
+        const decode = await makeFrameDecoder(video);
+        const tick = async () => {
+          if (stopped) return;
+          try {
+            const value = await decode();
+            if (value) {
+              stopped = true;
+              onResult(value);
+              return;
+            }
+          } catch {
+            /* image illisible sur cette frame : on réessaie */
+          }
+          timer = setTimeout(tick, 250);
+        };
+        timer = setTimeout(tick, 250);
       } catch {
         setError(t('scan.denied'));
       }
