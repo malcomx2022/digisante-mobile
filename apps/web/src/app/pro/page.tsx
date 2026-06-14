@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 
 import { ProHeader } from '@/components/pro/ProHeader';
@@ -54,6 +55,13 @@ export default function ProDashboard() {
             </div>
           ))}
         </CardPagne>
+
+        <Link
+          href="/pro/messages"
+          className="flex items-center gap-2 bg-white card-pagne border border-stone-200 px-4 py-3 font-display font-bold text-[14px] text-indigo-700"
+        >
+          <span aria-hidden>💬</span> {t('chat.title')}
+        </Link>
 
         <h2 className="font-display font-extrabold text-[14px] text-stone-700">{t('pro.queue')}</h2>
         {loading && <Loading label={t('common.loading')} />}

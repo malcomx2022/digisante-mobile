@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 
 import { BookingModal, type BookingDoctor } from '@/components/patient/BookingModal';
@@ -65,20 +66,28 @@ export default function DoctorsPage() {
                     <span className="font-display font-bold text-sante-700 text-[13px]">
                       {Number(d.consultFee).toLocaleString('fr-FR')} {t('common.fcfa')}
                     </span>
-                    <Button
-                      variant="sante"
-                      className="text-[13px] px-3 py-1.5"
-                      onClick={() =>
-                        setBooking({
-                          id: d.id,
-                          speciality: d.speciality,
-                          consultFee: d.consultFee,
-                          profile: d.profile,
-                        })
-                      }
-                    >
-                      {t('doctors.book')}
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/patient/chat?doctor=${d.id}`}
+                        className="text-[13px] px-3 py-1.5 border border-sante-600 text-sante-700 card-pagne font-display font-bold"
+                      >
+                        {t('chat.message')}
+                      </Link>
+                      <Button
+                        variant="sante"
+                        className="text-[13px] px-3 py-1.5"
+                        onClick={() =>
+                          setBooking({
+                            id: d.id,
+                            speciality: d.speciality,
+                            consultFee: d.consultFee,
+                            profile: d.profile,
+                          })
+                        }
+                      >
+                        {t('doctors.book')}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>

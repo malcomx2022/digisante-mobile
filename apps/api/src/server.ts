@@ -10,6 +10,7 @@ import { env } from '@/lib/env.js';
 import adminRoutes from '@/modules/admin/admin.routes.js';
 import appointmentsRoutes from '@/modules/appointments/appointments.routes.js';
 import authRoutes from '@/modules/auth/auth.routes.js';
+import chatRoutes from '@/modules/chat/chat.routes.js';
 import consultationsRoutes from '@/modules/consultations/consultations.routes.js';
 import dmpRoutes from '@/modules/dmp/dmp.routes.js';
 import educationRoutes from '@/modules/education/education.routes.js';
@@ -75,6 +76,7 @@ export async function buildServer() {
   await app.register(kycRoutes, { prefix: '/api/v1/kyc' });
   await app.register(appointmentsRoutes, { prefix: '/api/v1/appointments' });
   await app.register(consultationsRoutes, { prefix: '/api/v1/consultations' });
+  await app.register(chatRoutes, { prefix: '/api/v1/chat' });
   await app.register(referralsRoutes, { prefix: '/api/v1/referrals' });
   await app.register(dmpRoutes, { prefix: '/api/v1/dmp' });
   await app.register(prescriptionsRoutes, { prefix: '/api/v1/prescriptions' });

@@ -275,6 +275,7 @@ model User {
   kycSubmissions KycSubmission[]
   kycReviews     KycReview[]     @relation("KycReviewer")
   adminAuditLogs AdminAuditLog[] @relation("AdminAuditLogs")
+  chatMessages   ChatMessage[]   @relation("ChatSender")
 
   @@index([role])
   @@index([status])
@@ -324,6 +325,7 @@ model Doctor {
   labResultsInterpreted LabResult[]    @relation("LabResultInterpreter")
   referralsFrom         Referral[]     @relation("ReferralFrom")
   referralsTo           Referral[]     @relation("ReferralTo")
+  chatThreads           ChatThread[]
 
   @@index([speciality])
   @@map("doctors")
@@ -348,6 +350,7 @@ model Patient {
   referrals         Referral[]
   labOrders         LabOrder[]
   patientInsurances PatientInsurance[]
+  chatThreads       ChatThread[]
 
   @@map("patients")
 }
@@ -812,4 +815,44 @@ model AuditLog {
   @@index([actorId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// (+2) ChatThread — fil de messagerie patient ↔ médecin (D-10, bascule téléconsult).
+// Un seul fil par couple (patient, médecin). Le contenu des messages est chiffré
+// au repos (§4 : potentiellement des données de santé).
+model ChatThread {
+  id            String    @id @default(cuid())
+  patientId     String
+  doctorId      String
+  lastMessageAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  patient  Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor   Doctor        @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@unique([patientId, doctorId])
+  @@index([patientId])
+  @@index([doctorId])
+  @@map("chat_threads")
+}
+
+// (+3) ChatMessage — message d'un fil. Corps chiffré (encryptedBody) en prod,
+// clair (body) en dev sans clé. sender = User (patient ou médecin).
+model ChatMessage {
+  id            String    @id @default(cuid())
+  threadId      String
+  senderId      String
+  body          String?
+  encryptedBody String?
+  readAt        DateTime?
+  createdAt     DateTime  @default(now())
+
+  thread ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender User       @relation("ChatSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([threadId])
+  @@index([createdAt])
+  @@map("chat_messages")
 }
