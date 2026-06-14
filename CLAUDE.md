@@ -128,6 +128,7 @@ Les scripts shell complets sont dans la Documentation technique v2 (`DocTech_Dig
 - **Scan QR** : via l'API native `BarcodeDetector` (Chrome/Android — audience principale). **Absente sur iOS Safari** → repli sur la saisie manuelle (toujours prévoir le champ texte de secours).
 - **Inscription** : `auth.register` DOIT créer l'enregistrement de rôle en transaction (Patient+Wallet / Doctor / Pharmacy / Lab / Wallet diaspora) — sinon DMP/SOS/wallet/RDV/KYC cassés pour le compte. ADMIN interdit à l'auto-inscription.
 - **Consentement DMP** : la **révocation est persistante** (`Consent.revokedAt`) — ne pas la « ré-octroyer » silencieusement lors d'une nouvelle réclamation par token, sinon la révocation serait vaine tant que le token reste valide.
+- **CNOM / Ordre des médecins (KYC)** : **aucune API publique de vérification n'existe** au Bénin (ONMB `ordremedecinsbenin.bj` = espace membre authentifié, pas d'annuaire/endpoint public — investigué juin 2026). La vérification soignant repose **par conception** sur l'heuristique de format (`kyc.cnom.ts`) **+ la revue manuelle des pièces** (workflow KYC) — ce n'est PAS un stub en attente d'API. Le format `BJ-XXX-#####` est une hypothèse à confirmer auprès de l'ONMB. ⚠️ L'ancien domaine `ordremedecinsbenin.org` est **compromis** (redirige vers un site tiers) : ne jamais le référencer.
 
 ---
 
