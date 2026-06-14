@@ -15,6 +15,9 @@ export default defineConfig({
   test: {
     // Les tests d'intégration partagent la DB/Redis : pas de parallélisme entre fichiers.
     fileParallelism: false,
+    // Purge le Redis de test au démarrage du run → isolation inter-runs (pas de
+    // verrou OTP résiduel d'un run précédent). Cf. vitest.global-setup.ts.
+    globalSetup: './vitest.global-setup.ts',
     // Chaque fichier d'intégration démarre un serveur complet (Prisma + Redis) dans
     // beforeAll : marge confortable pour éviter les timeouts de hook sous charge.
     testTimeout: 30_000,
