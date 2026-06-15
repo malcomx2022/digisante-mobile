@@ -11,6 +11,16 @@ export interface DmpRecord {
   createdAt: string;
 }
 
+/** Auto-mesure (constantes) saisie par le patient. */
+export interface VitalReading {
+  systolic?: number;
+  diastolic?: number;
+  pulse?: number;
+  glucose?: number;
+  weight?: number;
+  measuredAt?: string;
+}
+
 /** Consentement accordé à un soignant précis (vue patient). */
 export interface DmpConsent {
   granteeId: string;
@@ -43,6 +53,13 @@ export const dmpApi = {
     get<DmpRecord[]>(`/dmp/records?patientId=${encodeURIComponent(patientId)}`, {
       headers: { 'x-share-token': shareToken },
     }),
+
+  /** Mes auto-mesures (constantes) — entrées DMP de type VITAL_SIGNS, plus récentes d'abord. */
+  vitals: () => get<DmpRecord[]>('/dmp/records').then((rs) => rs.filter((r) => r.type === 'VITAL_SIGNS')),
+
+  /** Enregistre une auto-mesure dans le DMP (chiffrée au repos côté serveur). */
+  addVital: (reading: VitalReading) =>
+    post<DmpRecord>('/dmp/records', { type: 'VITAL_SIGNS', title: 'Auto-mesure', data: reading }).then(online),
 
   /** Soignants disposant (ou ayant disposé) d'un consentement sur mon dossier. */
   listConsents: () => get<DmpConsent[]>('/dmp/consents'),
