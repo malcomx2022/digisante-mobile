@@ -24,6 +24,7 @@ const idParams = z.object({ id: z.string().cuid() });
 
 export default async function laboratoryRoutes(app: FastifyInstance) {
   const authed = { preHandler: [app.authenticate] };
+  const labOnly = { preHandler: [app.authenticate, requireRole('LABORATOIRE')] };
 
   // Prescription d'une analyse (médecin).
   app.post('/orders', { preHandler: [app.authenticate, requireRole('MEDECIN')] }, async (request, reply) => {
@@ -32,11 +33,29 @@ export default async function laboratoryRoutes(app: FastifyInstance) {
     return reply.code(201).send(order);
   });
 
-  // Mes demandes d'analyse.
+  // Mes demandes d'analyse (médecin : prescrites ; patient : siennes ; labo : prises en charge).
   app.get('/orders', authed, async (request) => lab.listOrders(app, request.user));
 
+  // Pool des demandes en attente, anonymisées (labo). §4 : pas d'identité patient.
+  app.get('/orders/available', labOnly, async (request) => lab.listAvailable(app, request.user.sub));
+
+  // File des demandes prises en charge par ce labo.
+  app.get('/orders/incoming', labOnly, async (request) => lab.listIncoming(app, request.user.sub));
+
+  // Prise en charge d'une demande du pool (labo).
+  app.post('/orders/:id/claim', labOnly, async (request) => {
+    const { id } = zParse(idParams, request.params);
+    return lab.claimOrder(app, request.user.sub, id, request.ip);
+  });
+
+  // Avance le statut d'une demande prise en charge (labo).
+  app.post('/orders/:id/advance', labOnly, async (request) => {
+    const { id } = zParse(idParams, request.params);
+    return lab.advanceStatus(app, request.user.sub, id);
+  });
+
   // Saisie d'un résultat (laboratoire) — détecte les valeurs critiques.
-  app.post('/orders/:id/result', { preHandler: [app.authenticate, requireRole('LABORATOIRE')] }, async (request, reply) => {
+  app.post('/orders/:id/result', labOnly, async (request, reply) => {
     const { id } = zParse(idParams, request.params);
     const input = zParse(resultSchema, request.body);
     const out = await lab.submitResult(app, request.user.sub, id, input, request.ip);
