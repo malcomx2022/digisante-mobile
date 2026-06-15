@@ -58,6 +58,19 @@ export default async function kycRoutes(app: FastifyInstance) {
     return kyc.listQueue(app, { status: q.status, page: q.page, pageSize: q.pageSize });
   });
 
+  // Détail d'un dossier (pièces justificatives + aperçu CNOM) pour la revue.
+  app.get('/submissions/:id', admin, async (request) => {
+    const { id } = zParse(idParams, request.params);
+    return kyc.getSubmissionForReview(app, id);
+  });
+
+  // Coche/décoche une pièce comme vérifiée (checklist).
+  app.post('/documents/:id/verify', admin, async (request) => {
+    const { id } = zParse(idParams, request.params);
+    const { verified } = zParse(z.object({ verified: z.boolean() }), request.body);
+    return kyc.setDocumentVerified(app, id, verified);
+  });
+
   app.post('/submissions/:id/review', admin, async (request) => {
     const { id } = zParse(idParams, request.params);
     const input = zParse(reviewSchema, request.body);

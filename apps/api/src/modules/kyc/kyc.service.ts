@@ -101,6 +101,35 @@ export async function listQueue(
   return paginate(items, total, params.page, params.pageSize);
 }
 
+/** Détail d'un dossier pour la revue admin : pièces justificatives + aperçu CNOM
+ *  (heuristique de format) pour les médecins. Identité/pièces uniquement — §4 :
+ *  l'admin ne touche jamais au contenu médical du DMP. */
+export async function getSubmissionForReview(app: FastifyInstance, submissionId: string) {
+  const submission = await app.prisma.kycSubmission.findUnique({
+    where: { id: submissionId },
+    include: {
+      user: { select: { id: true, phone: true, role: true, profile: { select: { firstName: true, lastName: true } }, doctor: { select: { licenseNumber: true } } } },
+      documents: { select: { id: true, type: true, fileUrl: true, verified: true }, orderBy: { createdAt: 'asc' } },
+      reviews: { select: { decision: true, notes: true, createdAt: true }, orderBy: { createdAt: 'desc' } },
+    },
+  });
+  if (!submission) throw notFound('Dossier KYC introuvable');
+
+  const cnom = submission.user.doctor ? await verifyOrderNumber(submission.user.doctor.licenseNumber) : null;
+  return { ...submission, cnom };
+}
+
+/** Coche/décoche une pièce justificative comme vérifiée (matérialise la checklist). */
+export async function setDocumentVerified(app: FastifyInstance, documentId: string, verified: boolean) {
+  const doc = await app.prisma.kycDocument.findUnique({ where: { id: documentId }, select: { id: true } });
+  if (!doc) throw notFound('Pièce justificative introuvable');
+  return app.prisma.kycDocument.update({
+    where: { id: documentId },
+    data: { verified, verifiedAt: verified ? new Date() : null },
+    select: { id: true, verified: true, verifiedAt: true },
+  });
+}
+
 interface ReviewInput {
   decision: 'APPROVED' | 'REJECTED' | 'NEEDS_REVISION';
   notes?: string;

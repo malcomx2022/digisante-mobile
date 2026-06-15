@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 
 import { Badge, Button, CardPagne } from '@/components/ui';
@@ -61,9 +62,14 @@ export default function AdminMetrics() {
         </div>
 
         <div>
-          <h2 className="font-display font-extrabold text-[14px] text-stone-700 mb-2">
-            {t('admin.kyc_queue')} {m.data?.kyc.pendingReview ? `(${m.data.kyc.pendingReview})` : ''}
-          </h2>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="font-display font-extrabold text-[14px] text-stone-700">
+              {t('admin.kyc_queue')} {m.data?.kyc.pendingReview ? `(${m.data.kyc.pendingReview})` : ''}
+            </h2>
+            <Link href="/admin/kyc" className="text-[12px] text-indigo-700 font-display font-bold">
+              {t('adminkyc.review')} →
+            </Link>
+          </div>
           {queue.loading && <Loading label={t('common.loading')} />}
           <div className="space-y-3">
             {(queue.data?.data ?? []).map((k) => (
