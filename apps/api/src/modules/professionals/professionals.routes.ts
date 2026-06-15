@@ -11,12 +11,18 @@ import { forbidden, notFound } from '@/lib/errors.js';
 import { paginate } from '@/lib/http.js';
 import { requireRole } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
+import * as reviews from './professionals.reviews.js';
 
 const updateProSchema = z.object({
   speciality: z.string().trim().min(2).max(120).optional(),
   slotDuration: z.number().int().min(5).max(120).optional(),
   consultFee: z.number().nonnegative().optional(),
   bio: z.string().max(2000).optional(),
+});
+
+const reviewSchema = z.object({
+  rating: z.number().int().min(1).max(5),
+  comment: z.string().trim().max(1000).optional(),
 });
 
 const listSchema = paginationSchema.extend({
@@ -58,7 +64,15 @@ export default async function professionalsRoutes(app: FastifyInstance) {
       }),
       app.prisma.doctor.count({ where }),
     ]);
-    const data = items.map((d) => ({ id: d.id, speciality: d.speciality, consultFee: d.consultFee, isVerified: true, profile: d.user.profile }));
+    const ratings = await reviews.ratingByDoctor(app, items.map((d) => d.id));
+    const data = items.map((d) => ({
+      id: d.id,
+      speciality: d.speciality,
+      consultFee: d.consultFee,
+      isVerified: true,
+      profile: d.user.profile,
+      rating: ratings.get(d.id) ?? { average: null, count: 0 },
+    }));
     return paginate(data, total, q.page, q.pageSize);
   });
 
@@ -79,12 +93,36 @@ export default async function professionalsRoutes(app: FastifyInstance) {
     if (!doctor) throw notFound('Professionnel introuvable');
 
     const { verifiedAt, user, ...rest } = doctor;
+    const { summary } = await reviews.listReviews(app, id);
+
+    // Le patient peut-il noter ce médecin ? (RDV terminé)
+    let canReview = false;
+    if (request.user.role === 'PATIENT') {
+      const patient = await app.prisma.patient.findUnique({ where: { userId: request.user.sub }, select: { id: true } });
+      if (patient) canReview = await reviews.canReview(app, patient.id, id);
+    }
+
     return {
       ...rest,
       isVerified: verifiedAt !== null, // badge « vérifié » → consultations payantes débloquées
       profile: user.profile,
       lang: user.lang,
+      rating: summary,
+      canReview,
     };
+  });
+
+  // Avis d'un médecin (liste + résumé).
+  app.get('/:id/reviews', { preHandler: [app.authenticate] }, async (request) => {
+    const { id } = zParse(idParams, request.params);
+    return reviews.listReviews(app, id);
+  });
+
+  // Noter un médecin (patient ayant eu une consultation terminée).
+  app.post('/:id/reviews', { preHandler: [app.authenticate, requireRole('PATIENT')] }, async (request, reply) => {
+    const { id } = zParse(idParams, request.params);
+    const input = zParse(reviewSchema, request.body);
+    return reply.code(201).send(await reviews.upsertReview(app, request.user.sub, id, input));
   });
 
   // Mise à jour de sa propre fiche professionnelle (MEDECIN).
