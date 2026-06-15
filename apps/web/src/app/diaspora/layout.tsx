@@ -6,7 +6,7 @@ import { BottomNav, type NavItem } from '@/components/ui/BottomNav';
 const NAV: NavItem[] = [
   { labelKey: 'nav.home', icon: 'home', href: '/diaspora' },
   { labelKey: 'wallet.title', icon: 'file', href: '/diaspora/wallet' },
-  { labelKey: 'diaspora.family', icon: 'user', href: '/diaspora' },
+  { labelKey: 'diaspora.family', icon: 'user', href: '/diaspora/beneficiaries' },
   { labelKey: 'nav.profil', icon: 'user', href: '/diaspora/profile' },
 ];
 

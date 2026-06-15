@@ -277,6 +277,7 @@ model User {
   adminAuditLogs   AdminAuditLog[] @relation("AdminAuditLogs")
   chatMessages     ChatMessage[]   @relation("ChatSender")
   consentsReceived Consent[]       @relation("ConsentGrantee")
+  beneficiaries    Beneficiary[]
 
   @@index([role])
   @@index([status])
@@ -965,4 +966,25 @@ model DoctorReview {
   @@unique([doctorId, patientId])
   @@index([doctorId])
   @@map("doctor_reviews")
+}
+
+// (+8) Beneficiary — proche au Bénin géré par un membre de la DIASPORA.
+// Carnet de proches (contact + langues parlées) qui sert de socle aux parcours
+// diaspora (rappels, paiement de soins pour un proche). ⚠️ Modèle au-dessus de la
+// logique de paiement GELÉE (§5) : aucune écriture ici ne touche FedaPay/wallet.
+model Beneficiary {
+  id              String   @id @default(cuid())
+  ownerId         String // User.id du membre de la diaspora
+  name            String
+  relationship    String? // ex. « Mère », « Frère »
+  phone           String?
+  languagesSpoken String[] @default([])
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+  @@map("beneficiaries")
 }
