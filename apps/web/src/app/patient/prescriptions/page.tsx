@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { PatientHeader } from '@/components/patient/PatientHeader';
 import { Badge, CardPagne, KenteBar } from '@/components/ui';
+import { QrImage } from '@/components/ui/QrImage';
 import { Empty, ErrorState, Loading } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get, post } from '@/lib/api/client';
@@ -66,7 +67,11 @@ export default function PrescriptionsPage() {
                     {t('prescriptions.valid_until', { date: new Date(p.validUntil).toLocaleDateString('fr-FR') })}
                   </p>
                 </div>
-                <div className="w-12 h-12 bg-creme card-pagne rotate-2 grid place-items-center text-[8px] text-stone-700">QR</div>
+                {p.qrCode ? (
+                  <QrImage value={p.qrCode} size={56} alt={t('prescriptions.qr_alt')} className="bg-creme card-pagne rotate-2 p-1" />
+                ) : (
+                  <div className="w-14 h-14 bg-creme card-pagne rotate-2 grid place-items-center text-[8px] text-stone-700">QR</div>
+                )}
               </div>
               <KenteBar className="absolute bottom-0 left-0 right-0" />
             </div>

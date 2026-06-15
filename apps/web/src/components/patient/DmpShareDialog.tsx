@@ -3,6 +3,7 @@
 import { useState } from 'react';
 
 import { Button, CardPagne } from '@/components/ui';
+import { QrImage } from '@/components/ui/QrImage';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { del, post } from '@/lib/api/client';
 import { cn } from '@/lib/cn';
@@ -87,10 +88,6 @@ export function DmpShareDialog({
       : result
         ? `${origin}/pro/patient?token=${encodeURIComponent(result.shareToken)}`
         : '';
-  // QR sans dépendance : data-URI via service public (rendu gracieux si hors-ligne → token texte affiché).
-  const qrSrc = result
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(shareLink)}`
-    : '';
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-nuit/60 px-4 py-6" role="dialog" aria-modal="true">
@@ -110,13 +107,11 @@ export function DmpShareDialog({
         {result ? (
           <div className="text-center">
             <p className="text-[12px] text-stone-500 mb-3">{t('dmp.share_ready')}</p>
-            {qrSrc && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={qrSrc}
+            {shareLink && (
+              <QrImage
+                value={shareLink}
+                size={180}
                 alt={t('dmp.share_qr_alt')}
-                width={180}
-                height={180}
                 className="mx-auto card-pagne border border-stone-200 bg-white p-2 rotate-1"
               />
             )}
