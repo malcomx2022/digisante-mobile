@@ -458,10 +458,11 @@ model Prescription {
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
 
-  doctor       Doctor             @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-  patient      Patient            @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  consultation Consultation?      @relation(fields: [consultationId], references: [id])
-  items        PrescriptionItem[]
+  doctor        Doctor             @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient       Patient            @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  consultation  Consultation?      @relation(fields: [consultationId], references: [id])
+  items         PrescriptionItem[]
+  dispensations Dispensation[]
 
   @@index([patientId])
   @@index([doctorId])
@@ -680,9 +681,27 @@ model Pharmacy {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dispensations Dispensation[]
 
   @@map("pharmacies")
+}
+
+// 21bis — Dispensation : trace d'une délivrance par une pharmacie (journal local,
+// historique privacy-safe). La pharmacie ne voit que ses propres délivrances.
+model Dispensation {
+  id             String             @id @default(cuid())
+  prescriptionId String
+  pharmacyId     String
+  status         PrescriptionStatus
+  lines          Json // [{ medicationName, status }]
+  dispensedAt    DateTime           @default(now())
+
+  prescription Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  pharmacy     Pharmacy     @relation(fields: [pharmacyId], references: [id], onDelete: Cascade)
+
+  @@index([pharmacyId, dispensedAt])
+  @@map("dispensations")
 }
 
 // 20 — LabResult : résultat d'analyse (interprété par un médecin).

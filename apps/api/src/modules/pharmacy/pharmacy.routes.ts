@@ -32,6 +32,13 @@ export default async function pharmacyRoutes(app: FastifyInstance) {
   app.post('/prescriptions/:id/dispense', pharmacist, async (request) => {
     const { id } = zParse(idParams, request.params);
     const { items } = zParse(dispenseSchema, request.body);
-    return pharmacy.dispense(app, id, items);
+    const pharmacyId = await pharmacy.pharmacyIdOf(app, request.user.sub);
+    return pharmacy.dispense(app, pharmacyId, id, items);
+  });
+
+  // Journal des délivrances de la pharmacie courante (historique privacy-safe).
+  app.get('/dispensations', pharmacist, async (request) => {
+    const pharmacyId = await pharmacy.pharmacyIdOf(app, request.user.sub);
+    return pharmacy.listDispensations(app, pharmacyId);
   });
 }

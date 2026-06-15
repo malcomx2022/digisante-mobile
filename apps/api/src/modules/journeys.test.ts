@@ -39,7 +39,7 @@ describe.skipIf(!HAS_INFRA)('Parcours de bout en bout (intégration)', () => {
     const doctor = await app.prisma.user.create({
       data: { phone: PHONES[1], role: 'MEDECIN', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Awa', lastName: 'K' } }, doctor: { create: { speciality: 'G', licenseNumber: 'BJ-MED-2001', consultFee: 5000, verifiedAt: new Date() } } },
     });
-    const pharma = await app.prisma.user.create({ data: { phone: PHONES[2], role: 'PHARMACIE', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Ph', lastName: 'X' } } } });
+    const pharma = await app.prisma.user.create({ data: { phone: PHONES[2], role: 'PHARMACIE', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Ph', lastName: 'X' } }, pharmacy: { create: { name: 'Pharmacie Test', address: 'Cotonou', phone: PHONES[2] } } } });
 
     patientId = patient.patient!.id;
     patientUserId = patient.id;

@@ -32,7 +32,7 @@ describe.skipIf(!HAS_INFRA)('Pharmacie & Laboratoire (intégration)', () => {
     const doctor = await app.prisma.user.create({
       data: { phone: PHONES[1], role: 'MEDECIN', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Awa', lastName: 'K' } }, doctor: { create: { speciality: 'Bio', licenseNumber: 'BJ-MED-5001', consultFee: 3000, verifiedAt: new Date() } } },
     });
-    const pharma = await app.prisma.user.create({ data: { phone: PHONES[2], role: 'PHARMACIE', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Pharma', lastName: 'X' } } } });
+    const pharma = await app.prisma.user.create({ data: { phone: PHONES[2], role: 'PHARMACIE', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Pharma', lastName: 'X' } }, pharmacy: { create: { name: 'Pharmacie Centrale', address: 'Cotonou', phone: PHONES[2] } } } });
     const labTech = await app.prisma.user.create({ data: { phone: PHONES[3], role: 'LABORATOIRE', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Labo', lastName: 'Y' } } } });
 
     patientId = patient.patient!.id;
@@ -76,6 +76,55 @@ describe.skipIf(!HAS_INFRA)('Pharmacie & Laboratoire (intégration)', () => {
     });
     expect(dispense.statusCode).toBe(200);
     expect(dispense.json().status).toBe('FULLY_DISPENSED');
+
+    // Journal de dispensation : la délivrance est tracée pour CETTE pharmacie.
+    const journal = await app.inject({ method: 'GET', url: '/api/v1/pharmacy/dispensations', headers: auth(pharmacistToken) });
+    expect(journal.statusCode).toBe(200);
+    const entries = journal.json();
+    expect(entries.length).toBeGreaterThanOrEqual(1);
+    expect(entries[0].status).toBe('FULLY_DISPENSED');
+    expect(entries[0].patient.firstName).toBe('Koffi');
+  });
+
+  it('Pharmacie : délivrance granulaire (un servi, un indisponible) → PARTIALLY_DISPENSED', async () => {
+    const validUntil = new Date(Date.now() + 30 * 24 * 3600_000).toISOString();
+    const presc = await app.inject({
+      method: 'POST',
+      url: '/api/v1/prescriptions',
+      headers: auth(doctorToken),
+      payload: {
+        patientId,
+        validUntil,
+        items: [
+          { medicationName: 'Amoxicilline', dosage: '500mg', frequency: '2x/j', duration: '7j' },
+          { medicationName: 'Ibuprofène', dosage: '400mg', frequency: '3x/j', duration: '3j' },
+        ],
+      },
+    });
+    const prescId = presc.json().id as string;
+    const [a, b] = presc.json().items as { id: string }[];
+
+    const dispense = await app.inject({
+      method: 'POST',
+      url: `/api/v1/pharmacy/prescriptions/${prescId}/dispense`,
+      headers: auth(pharmacistToken),
+      payload: { items: [{ itemId: a.id, status: 'DISPENSED' }, { itemId: b.id, status: 'UNAVAILABLE' }] },
+    });
+    expect(dispense.statusCode).toBe(200);
+    expect(dispense.json().status).toBe('PARTIALLY_DISPENSED');
+
+    const journal = await app.inject({ method: 'GET', url: '/api/v1/pharmacy/dispensations', headers: auth(pharmacistToken) });
+    const latest = journal.json()[0];
+    expect(latest.status).toBe('PARTIALLY_DISPENSED');
+    expect(latest.lines).toHaveLength(2);
+  });
+
+  it('Pharmacie : un compte sans profil pharmacie ne peut pas délivrer (403)', async () => {
+    const orphan = await app.prisma.user.create({ data: { phone: PHONES[3].replace('4', '9'), role: 'PHARMACIE', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'No', lastName: 'Shop' } } } });
+    const orphanToken = app.jwt.sign({ sub: orphan.id, role: 'PHARMACIE' }, { expiresIn: '15m' });
+    const res = await app.inject({ method: 'GET', url: '/api/v1/pharmacy/dispensations', headers: auth(orphanToken) });
+    expect(res.statusCode).toBe(403);
+    await app.prisma.user.delete({ where: { id: orphan.id } });
   });
 
   it('Laboratoire : résultat avec valeur critique → LAB_CRITICAL', async () => {
