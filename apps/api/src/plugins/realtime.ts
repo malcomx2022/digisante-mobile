@@ -39,6 +39,9 @@ export default fp(async (app: FastifyInstance) => {
 
   // Registre LOCAL au worker : userId → sockets ouverts.
   const clients = new Map<string, Set<WebSocket>>();
+  // Vivacité par socket (heartbeat ping/pong) : true si un pong a été reçu depuis
+  // le dernier ping. Un socket non répondant est fermé au cycle suivant.
+  const alive = new WeakMap<WebSocket, boolean>();
 
   const hub: ChatHub = {
     add(userId, socket) {
@@ -48,6 +51,8 @@ export default fp(async (app: FastifyInstance) => {
         clients.set(userId, set);
       }
       set.add(socket);
+      alive.set(socket, true);
+      socket.on('pong', () => alive.set(socket, true));
     },
     remove(userId, socket) {
       const set = clients.get(userId);
@@ -57,6 +62,30 @@ export default fp(async (app: FastifyInstance) => {
     },
   };
   app.decorate('chatHub', hub);
+
+  // Heartbeat : ping périodique → termine les connexions mortes (TCP coupé
+  // silencieusement, proxy idle). Les navigateurs répondent au ping au niveau
+  // protocole (pas de code client). unref() : n'empêche pas l'arrêt du process.
+  const HEARTBEAT_MS = 30_000;
+  const heartbeat = setInterval(() => {
+    for (const [userId, set] of clients) {
+      for (const socket of set) {
+        if (alive.get(socket) === false) {
+          socket.terminate();
+          set.delete(socket);
+          if (set.size === 0) clients.delete(userId);
+          continue;
+        }
+        alive.set(socket, false);
+        try {
+          socket.ping();
+        } catch {
+          /* socket déjà fermé : nettoyé au cycle suivant */
+        }
+      }
+    }
+  }, HEARTBEAT_MS);
+  heartbeat.unref();
 
   // Abonné Redis dédié (une connexion distincte de app.redis, requis pour SUBSCRIBE).
   const subscriber = new Redis(env.REDIS_URL);
@@ -79,6 +108,7 @@ export default fp(async (app: FastifyInstance) => {
   });
 
   app.addHook('onClose', async () => {
+    clearInterval(heartbeat);
     await subscriber.quit();
   });
 });
