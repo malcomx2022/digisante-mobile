@@ -16,6 +16,7 @@ import consultationsRoutes from '@/modules/consultations/consultations.routes.js
 import dmpRoutes from '@/modules/dmp/dmp.routes.js';
 import educationRoutes from '@/modules/education/education.routes.js';
 import healthRoutes from '@/modules/health/health.routes.js';
+import insuranceRoutes from '@/modules/insurance/insurance.routes.js';
 import kycRoutes from '@/modules/kyc/kyc.routes.js';
 import laboratoryRoutes from '@/modules/laboratory/laboratory.routes.js';
 import notificationsRoutes from '@/modules/notifications/notifications.routes.js';
@@ -86,6 +87,7 @@ export async function buildServer() {
   await app.register(prescriptionsRoutes, { prefix: '/api/v1/prescriptions' });
   await app.register(remindersRoutes, { prefix: '/api/v1/reminders' });
   await app.register(adherenceRoutes, { prefix: '/api/v1/adherence' });
+  await app.register(insuranceRoutes, { prefix: '/api/v1/insurance' });
   await app.register(pharmacyRoutes, { prefix: '/api/v1/pharmacy' });
   await app.register(laboratoryRoutes, { prefix: '/api/v1/lab' });
   await app.register(educationRoutes, { prefix: '/api/v1/education' });

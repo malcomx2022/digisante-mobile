@@ -66,7 +66,25 @@ async function main() {
     },
   });
 
-  console.log('🌱 Seed terminé (admin + médecin démo + patient démo)');
+  // Référentiel des assureurs santé au Bénin (catalogue de couverture patient).
+  // ARCH/AMU : régime public d'assurance maladie ; CNSS : sécurité sociale ;
+  // mutuelles et assureurs privés courants. Données publiques, non médicales.
+  const insurers = [
+    { name: 'ARCH — Assurance Maladie (AMU)', code: 'ARCH-AMU', coverageTypes: ['CONSULTATION', 'PHARMACIE', 'HOSPITALISATION', 'LABORATOIRE', 'MATERNITE'] },
+    { name: 'CNSS — Caisse Nationale de Sécurité Sociale', code: 'CNSS', coverageTypes: ['CONSULTATION', 'HOSPITALISATION', 'MATERNITE'] },
+    { name: 'Mutuelle de Sécurité Sociale (MSS)', code: 'MSS', coverageTypes: ['CONSULTATION', 'PHARMACIE', 'LABORATOIRE'] },
+    { name: 'NSIA Assurances Bénin', code: 'NSIA', coverageTypes: ['CONSULTATION', 'PHARMACIE', 'HOSPITALISATION', 'LABORATOIRE'] },
+    { name: 'Africaine des Assurances', code: 'AAB', coverageTypes: ['CONSULTATION', 'PHARMACIE', 'HOSPITALISATION'] },
+  ];
+  for (const ins of insurers) {
+    await prisma.insurance.upsert({
+      where: { code: ins.code },
+      update: { name: ins.name, coverageTypes: ins.coverageTypes },
+      create: ins,
+    });
+  }
+
+  console.log(`🌱 Seed terminé (admin + médecin démo + patient démo + ${insurers.length} assureurs)`);
 }
 
 main()
