@@ -2,10 +2,12 @@
 
 import Link from 'next/link';
 
-import { Button, CardPagne } from '@/components/ui';
+import { CardPagne } from '@/components/ui';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
+import { Empty } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get } from '@/lib/api/client';
+import { beneficiariesApi, type Beneficiary } from '@/lib/api/beneficiaries';
 import { useApi } from '@/lib/api/useApi';
 
 interface Wallet {
@@ -13,15 +15,11 @@ interface Wallet {
   currency: string;
 }
 
-const FAMILY = [
-  { name: 'Aïcha', lang: '🗣 Fon' },
-  { name: 'Koffi', lang: '🗣 Baatɔnum' },
-];
-
-// D-20 — Dashboard diaspora (wallet + famille).
+// D-20 — Dashboard diaspora (wallet + proches réels).
 export default function DiasporaDashboard() {
   const { t } = useLocale();
   const { data } = useApi<Wallet>(() => get('/wallet'), []);
+  const { data: family } = useApi<Beneficiary[]>(() => beneficiariesApi.list(), []);
 
   return (
     <>
@@ -37,19 +35,31 @@ export default function DiasporaDashboard() {
           </Link>
         </CardPagne>
 
-        <h2 className="font-display font-extrabold text-[14px] text-stone-700">{t('diaspora.family')}</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="font-display font-extrabold text-[14px] text-stone-700">{t('diaspora.family')}</h2>
+          <Link href="/diaspora/beneficiaries" className="text-[12px] text-ocre-700 font-display font-bold">
+            {t('beneficiaries.manage')} →
+          </Link>
+        </div>
         <div className="space-y-3">
-          {FAMILY.map((f, i) => (
-            <CardPagne key={f.name} className={`p-4 flex items-center justify-between ${i % 2 ? '-rotate-1' : 'rotate-1'}`}>
+          {(family ?? []).slice(0, 4).map((f, i) => (
+            <CardPagne key={f.id} className={`p-4 flex items-center justify-between ${i % 2 ? '-rotate-1' : 'rotate-1'}`}>
               <div>
                 <p className="font-display font-bold text-[14px]">{f.name}</p>
-                <p className="text-[12px] text-stone-400">{f.lang}</p>
+                <p className="text-[12px] text-stone-400">
+                  {f.relationship ?? ''}{f.languagesSpoken.length > 0 ? ` · 🗣 ${f.languagesSpoken.join(' · ')}` : ''}
+                </p>
               </div>
-              <Button variant="ocre" className="text-[12px] px-3 py-1.5">
-                {t('diaspora.notify')}
-              </Button>
+              <Link href="/diaspora/wallet" className="bg-ocre-400 text-stone-900 font-display font-bold card-pagne px-3 py-1.5 text-[12px]">
+                {t('beneficiaries.send_money')}
+              </Link>
             </CardPagne>
           ))}
+          {(family?.length ?? 0) === 0 && (
+            <Link href="/diaspora/beneficiaries" className="block">
+              <Empty label={t('beneficiaries.empty_cta')} />
+            </Link>
+          )}
         </div>
       </main>
     </>

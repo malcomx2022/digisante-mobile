@@ -11,6 +11,7 @@ import adherenceRoutes from '@/modules/adherence/adherence.routes.js';
 import adminRoutes from '@/modules/admin/admin.routes.js';
 import appointmentsRoutes from '@/modules/appointments/appointments.routes.js';
 import authRoutes from '@/modules/auth/auth.routes.js';
+import beneficiariesRoutes from '@/modules/beneficiaries/beneficiaries.routes.js';
 import chatRoutes from '@/modules/chat/chat.routes.js';
 import consultationsRoutes from '@/modules/consultations/consultations.routes.js';
 import dmpRoutes from '@/modules/dmp/dmp.routes.js';
@@ -95,6 +96,7 @@ export async function buildServer() {
   await app.register(adminRoutes, { prefix: '/api/v1/admin' });
   await app.register(paymentsRoutes, { prefix: '/api/v1/payments' });
   await app.register(walletRoutes, { prefix: '/api/v1/wallet' });
+  await app.register(beneficiariesRoutes, { prefix: '/api/v1/beneficiaries' });
   await app.register(subscriptionsRoutes, { prefix: '/api/v1/subscriptions' });
   await app.register(notificationsRoutes, { prefix: '/api/v1/notifications' });
   await app.register(sosRoutes, { prefix: '/api/v1/sos' });
