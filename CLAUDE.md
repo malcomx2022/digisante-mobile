@@ -13,11 +13,11 @@ Porteur : **SEGLA E. Ulrich Gislain** (full-stack, 10+ ans). Collaboratrice : **
 
 **Mission** : répondre aux défis sanitaires béninois — infrastructure médicale limitée, dossiers perdus, connectivité rurale faible — par une plateforme **offline-first**, **multilingue** (FR, Fɔ̀ngbè, Yorùbá, Baatɔnum, Dendi), avec téléconsultation, DMP patient, ordonnances QR, SOS, et paiements Mobile Money + wallet diaspora.
 
-**État** : codebase feature-complete — **96 endpoints** (dont 1 canal WebSocket temps réel) / **23 modules** + 5 intégrations, **42 pages frontend** (dont 18 espace patient), **34 modèles Prisma**, 28 enums, 10 migrations. Phase actuelle : **déploiement production VPS Infomaniak**.
+**État** : codebase feature-complete — **100 endpoints** (dont 1 canal WebSocket temps réel) / **24 modules** + 5 intégrations, **43 pages frontend** (dont 19 espace patient), **34 modèles Prisma**, 28 enums, 10 migrations. Phase actuelle : **déploiement production VPS Infomaniak**.
 
 **Ajouts récents (juin 2026)** :
 - *Plateforme* : inscription multi-rôles + création des profils de rôle à l'inscription ; déconnexion universelle ; module **Chat** patient↔médecin (chiffré au repos) **temps réel WebSocket** (fan-out Redis pub/sub, heartbeat) ; **consentement DMP par soignant** (`Consent`, réclamation par token, révocation persistante + **ré-octroi**) ; **scan caméra QR** (`BarcodeDetector` + repli **jsQR** iOS) ; **push FCM réel** (HTTP v1 serveur + token web) ; **paiements FedaPay réels** (init + réconciliation, §5 levé de façon encadrée) ; QR générés **localement** (offline/confidentialité) ; install **PWA** + toast de mise à jour ; i18n EN complet + outillage de parité (`pnpm i18n:check`).
-- *Espace patient* : **fiche médicale d'urgence**, **auto-mesures** (constantes), **centre de notifications**, **conseils santé** (+ lecture vocale), **observance médicamenteuse** (prises, streak, % + **rappels horaires**), **gestion des RDV** (+ rappels), **annuaire enrichi** (filtre par langue parlée, fiche médecin, **avis & notes**).
+- *Espace patient* : **fiche médicale d'urgence**, **auto-mesures** (constantes), **centre de notifications**, **conseils santé** (+ lecture vocale), **observance médicamenteuse** (prises, streak, % + **rappels horaires**), **gestion des RDV** (+ rappels), **annuaire enrichi** (filtre par langue parlée, fiche médecin, **avis & notes**), **couverture d'assurance santé** (catalogue ARCH/AMU, CNSS, mutuelles ; déclaration + statut, modèles `Insurance`/`PatientInsurance` activés).
 - *Modèles ajoutés* : `Pharmacy`, `ChatThread`, `ChatMessage`, `Consent`, `MedicationIntake`, `MedicationReminder`, `DoctorReview`.
 
 ---
@@ -150,4 +150,4 @@ Les scripts shell complets sont dans la Documentation technique v2 (`DocTech_Dig
 
 ---
 
-*Dernière mise à jour : 15 juin 2026 — v1.2 (FedaPay réel encadré, observance + rappels horaires, gestion RDV + rappels, annuaire enrichi + avis médecins, fiche d'urgence, auto-mesures, notifications, conseils santé + lecture vocale, QR local, PWA install, isolation Redis des tests). Maintenir ce fichier à jour à chaque décision structurante (section 3) ou nouveau piège (section 8).*
+*Dernière mise à jour : 15 juin 2026 — v1.3 (vague 7 : couverture d'assurance santé patient — modèles `Insurance`/`PatientInsurance` activés, catalogue assureurs béninois ; cumul v1.2 : FedaPay réel encadré, observance + rappels horaires, gestion RDV + rappels, annuaire enrichi + avis médecins, fiche d'urgence, auto-mesures, notifications, conseils santé + lecture vocale, QR local, PWA install, isolation Redis des tests). Maintenir ce fichier à jour à chaque décision structurante (section 3) ou nouveau piège (section 8).*
