@@ -7,20 +7,17 @@ import { Badge, KenteBar, LangSwitcher, StatusBar } from '@/components/ui';
 import { QrScanner } from '@/components/ui/QrScanner';
 import { HeaderLogout } from '@/components/auth/HeaderLogout';
 import { useLocale } from '@/i18n/LocaleProvider';
-import { post } from '@/lib/api/client';
+import { pharmacyApi, type LineStatus, type ScanResult } from '@/lib/api/pharmacy';
+import { cn } from '@/lib/cn';
 
-interface ScanResult {
-  authentic: boolean;
-  id: string;
-  expired: boolean;
-  items: { id: string; medicationName: string; status: string; genericSuggestion: string | null }[];
-}
+const STATUSES: LineStatus[] = ['DISPENSED', 'PARTIALLY_DISPENSED', 'UNAVAILABLE'];
 
-// D-22 — Pharmacie : scan QR + vérification + délivrance (thème nuit).
+// D-22 — Pharmacie : scan QR + vérification + délivrance granulaire (thème nuit).
 export default function PharmaciePage() {
   const { t } = useLocale();
   const [qr, setQr] = useState('');
   const [result, setResult] = useState<ScanResult | null>(null);
+  const [lineStatus, setLineStatus] = useState<Record<string, LineStatus>>({});
   const [error, setError] = useState<string | null>(null);
   const [dispensed, setDispensed] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -30,8 +27,10 @@ export default function PharmaciePage() {
     setResult(null);
     setDispensed(false);
     try {
-      const r = (await post('/pharmacy/scan', { qrCode: code })) as ScanResult;
+      const r = await pharmacyApi.scan(code);
       setResult(r);
+      // Par défaut chaque ligne est marquée « délivrée » ; le pharmacien ajuste.
+      setLineStatus(Object.fromEntries(r.items.map((it) => [it.id, 'DISPENSED' as LineStatus])));
     } catch {
       setError(t('pharmacie.invalid'));
     }
@@ -39,10 +38,15 @@ export default function PharmaciePage() {
 
   async function dispense() {
     if (!result) return;
-    await post(`/pharmacy/prescriptions/${result.id}/dispense`, {
-      items: result.items.map((it) => ({ itemId: it.id, status: 'DISPENSED' as const })),
-    }).catch(() => {});
-    setDispensed(true);
+    try {
+      await pharmacyApi.dispense(
+        result.id,
+        result.items.map((it) => ({ itemId: it.id, status: lineStatus[it.id] ?? 'DISPENSED' })),
+      );
+      setDispensed(true);
+    } catch {
+      setError(t('pharmacie.invalid'));
+    }
   }
 
   return (
@@ -53,9 +57,14 @@ export default function PharmaciePage() {
           <h1 className="font-display font-extrabold text-2xl">{t('pharmacie.title')}</h1>
           <p className="text-[12px] text-white/60">{t('pharmacie.scan')}</p>
         </div>
-        <Link href="/pharmacie/profile" className="card-pagne bg-white/15 border border-white/20 px-3 py-1.5 text-[12px] font-display font-bold">
-          {t('profile.title')}
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/pharmacie/history" className="card-pagne bg-white/15 border border-white/20 px-3 py-1.5 text-[12px] font-display font-bold">
+            {t('pharmacie.history')}
+          </Link>
+          <Link href="/pharmacie/profile" className="card-pagne bg-white/15 border border-white/20 px-3 py-1.5 text-[12px] font-display font-bold">
+            {t('profile.title')}
+          </Link>
+        </div>
       </div>
 
       <div className="px-6 flex-1 space-y-4">
@@ -86,22 +95,43 @@ export default function PharmaciePage() {
           <div className="bg-creme text-nuit card-pagne relative overflow-hidden">
             <div className="bg-sante-900 bogolan-dark text-white p-3 relative">
               <p className="font-display font-extrabold">{result.authentic ? t('pharmacie.authentic') : 'Signature douteuse'}</p>
+              {result.patient && <p className="text-[12px] text-white/70">{result.patient.firstName} {result.patient.lastName}</p>}
               <KenteBar className="absolute bottom-0 left-0 right-0" />
             </div>
-            <div className="p-4 space-y-2">
+            <div className="p-4 space-y-3">
               {result.items.map((it) => (
-                <div key={it.id} className="border-b border-dashed border-stone-200 py-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="font-display font-bold text-[14px]">{it.medicationName}</span>
-                    <Badge variant={it.status === 'DISPENSED' ? 'normal' : 'eleve'}>{it.status}</Badge>
-                  </div>
+                <div key={it.id} className="border-b border-dashed border-stone-200 pb-2.5">
+                  <span className="font-display font-bold text-[14px]">{it.medicationName}</span>
                   {it.genericSuggestion && <p className="text-[12px] text-ocre-600">↳ {t('pharmacie.generic')} : {it.genericSuggestion}</p>}
+                  {/* Choix du statut de délivrance par ligne (rupture de stock, partiel…) */}
+                  {!dispensed && (
+                    <div className="flex gap-1.5 mt-1.5">
+                      {STATUSES.map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setLineStatus((m) => ({ ...m, [it.id]: s }))}
+                          className={cn(
+                            'card-pagne px-2 py-1 text-[11px] font-display font-bold border',
+                            (lineStatus[it.id] ?? 'DISPENSED') === s ? 'bg-sante-600 text-white border-stone-900' : 'bg-white text-stone-500 border-stone-200',
+                          )}
+                        >
+                          {t(`pharmacie.line.${s}`)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {dispensed && (
+                    <Badge variant={(lineStatus[it.id] ?? 'DISPENSED') === 'DISPENSED' ? 'normal' : 'eleve'} className="mt-1">
+                      {t(`pharmacie.line.${lineStatus[it.id] ?? 'DISPENSED'}`)}
+                    </Badge>
+                  )}
                 </div>
               ))}
               {dispensed ? (
-                <p className="text-sante-700 font-display font-bold text-center">✓ Délivré</p>
+                <p className="text-sante-700 font-display font-bold text-center">✓ {t('pharmacie.dispensed_ok')}</p>
               ) : (
-                <button type="button" onClick={dispense} className="w-full bg-sante-600 text-white font-display font-extrabold card-pagne py-2.5 mt-2" disabled={result.expired}>
+                <button type="button" onClick={dispense} className="w-full bg-sante-600 text-white font-display font-extrabold card-pagne py-2.5 mt-1" disabled={result.expired}>
                   {t('pharmacie.dispense')}
                 </button>
               )}

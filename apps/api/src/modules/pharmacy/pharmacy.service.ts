@@ -5,10 +5,17 @@
 import type { PrescriptionItemStatus } from '@digisante/shared';
 import type { FastifyInstance } from 'fastify';
 
-import { badRequest, notFound } from '@/lib/errors.js';
+import { badRequest, forbidden, notFound } from '@/lib/errors.js';
 import { verifySignature } from '@/modules/prescriptions/prescriptions.service.js';
 import { suggestGeneric } from './generics.js';
 import { computeDispenseStatus } from './pharmacy.rules.js';
+
+/** Résout l'id de la pharmacie liée à l'utilisateur courant (rôle PHARMACIE). */
+export async function pharmacyIdOf(app: FastifyInstance, userId: string): Promise<string> {
+  const p = await app.prisma.pharmacy.findUnique({ where: { userId }, select: { id: true } });
+  if (!p) throw forbidden('Profil pharmacie requis');
+  return p.id;
+}
 
 /** Scanne un QR d'ordonnance : vérifie l'authenticité et renvoie le contenu. */
 export async function scan(app: FastifyInstance, qrCode: string) {
@@ -48,17 +55,27 @@ interface DispenseLine {
   status: Extract<PrescriptionItemStatus, 'DISPENSED' | 'PARTIALLY_DISPENSED' | 'UNAVAILABLE'>;
 }
 
-/** Délivrance (partielle/totale) : met à jour les lignes + le statut global, notifie. */
-export async function dispense(app: FastifyInstance, prescriptionId: string, lines: DispenseLine[]) {
+/** Délivrance (partielle/totale) : met à jour les lignes + le statut global,
+ *  consigne la dispensation (journal de la pharmacie) puis notifie. */
+export async function dispense(
+  app: FastifyInstance,
+  pharmacyId: string,
+  prescriptionId: string,
+  lines: DispenseLine[],
+) {
   const presc = await app.prisma.prescription.findUnique({
     where: { id: prescriptionId },
-    include: { items: { select: { id: true } }, patient: { select: { userId: true } }, doctor: { select: { userId: true } } },
+    include: {
+      items: { select: { id: true, medicationName: true } },
+      patient: { select: { userId: true } },
+      doctor: { select: { userId: true } },
+    },
   });
   if (!presc) throw notFound('Ordonnance introuvable');
   if (presc.validUntil.getTime() < Date.now()) throw badRequest('Ordonnance expirée');
 
-  const validIds = new Set(presc.items.map((i) => i.id));
-  if (!lines.every((l) => validIds.has(l.itemId))) {
+  const byId = new Map(presc.items.map((i) => [i.id, i.medicationName]));
+  if (!lines.every((l) => byId.has(l.itemId))) {
     throw badRequest('Une ligne ne correspond pas à cette ordonnance');
   }
 
@@ -75,6 +92,12 @@ export async function dispense(app: FastifyInstance, prescriptionId: string, lin
   const status = computeDispenseStatus(items.map((i) => i.status));
   await app.prisma.prescription.update({ where: { id: prescriptionId }, data: { status } });
 
+  // Journal de dispensation (privacy-safe : rattaché à cette pharmacie uniquement).
+  const snapshot = lines.map((l) => ({ medicationName: byId.get(l.itemId), status: l.status }));
+  await app.prisma.dispensation.create({
+    data: { prescriptionId, pharmacyId, status, lines: snapshot },
+  });
+
   // Notifie patient + médecin (envoi réel multicanal en P4.2).
   await app.prisma.notification.createMany({
     data: [presc.patient.userId, presc.doctor.userId].map((recipientId) => ({
@@ -88,4 +111,31 @@ export async function dispense(app: FastifyInstance, prescriptionId: string, lin
   });
 
   return { prescriptionId, status };
+}
+
+/** Journal des délivrances effectuées par la pharmacie courante (les siennes uniquement). */
+export async function listDispensations(app: FastifyInstance, pharmacyId: string) {
+  const rows = await app.prisma.dispensation.findMany({
+    where: { pharmacyId },
+    select: {
+      id: true,
+      status: true,
+      lines: true,
+      dispensedAt: true,
+      prescription: {
+        select: {
+          patient: { select: { user: { select: { profile: { select: { firstName: true, lastName: true } } } } } },
+        },
+      },
+    },
+    orderBy: { dispensedAt: 'desc' },
+    take: 50,
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    status: r.status,
+    lines: r.lines,
+    dispensedAt: r.dispensedAt,
+    patient: r.prescription.patient.user.profile,
+  }));
 }
