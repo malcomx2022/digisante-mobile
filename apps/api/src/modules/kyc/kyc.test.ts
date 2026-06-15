@@ -105,4 +105,34 @@ describe.skipIf(!HAS_INFRA)('KYC (intégration)', () => {
     const audits = await app.prisma.auditLog.count({ where: { action: 'KYC_APPROVE' } });
     expect(audits).toBeGreaterThanOrEqual(1);
   });
+
+  it('revue enrichie : détail des pièces + aperçu CNOM + coche de vérification', async () => {
+    // Nouveau dossier (le précédent est APPROVED) avec deux pièces, puis soumission.
+    await app.inject({ method: 'POST', url: '/api/v1/kyc', headers: auth(caregiverToken) });
+    await app.inject({ method: 'POST', url: '/api/v1/kyc/documents', headers: auth(caregiverToken), payload: { type: 'NATIONAL_ID', fileUrl: 'https://files.example.bj/cni.pdf' } });
+    await app.inject({ method: 'POST', url: '/api/v1/kyc/documents', headers: auth(caregiverToken), payload: { type: 'ORDER_LICENSE', fileUrl: 'https://files.example.bj/ordre.pdf' } });
+    const submit = await app.inject({ method: 'POST', url: '/api/v1/kyc/submit', headers: auth(caregiverToken) });
+    const submissionId = submit.json().id as string;
+
+    // Détail admin : pièces visibles + aperçu CNOM (format plausible) + non vérifiées.
+    const detail = await app.inject({ method: 'GET', url: `/api/v1/kyc/submissions/${submissionId}`, headers: auth(adminToken) });
+    expect(detail.statusCode).toBe(200);
+    const body = detail.json();
+    expect(body.documents).toHaveLength(2);
+    expect(body.cnom.verified).toBe(true);
+    expect(body.documents.every((d: { verified: boolean }) => d.verified === false)).toBe(true);
+    const docId = body.documents[0].id as string;
+
+    // RBAC : un patient ne voit pas le détail.
+    const denied = await app.inject({ method: 'GET', url: `/api/v1/kyc/submissions/${submissionId}`, headers: auth(patientToken) });
+    expect(denied.statusCode).toBe(403);
+
+    // Coche d'une pièce comme vérifiée.
+    const verify = await app.inject({ method: 'POST', url: `/api/v1/kyc/documents/${docId}/verify`, headers: auth(adminToken), payload: { verified: true } });
+    expect(verify.statusCode).toBe(200);
+    expect(verify.json().verified).toBe(true);
+
+    const detail2 = await app.inject({ method: 'GET', url: `/api/v1/kyc/submissions/${submissionId}`, headers: auth(adminToken) });
+    expect(detail2.json().documents.find((d: { id: string }) => d.id === docId).verified).toBe(true);
+  });
 });
