@@ -13,12 +13,20 @@ Porteur : **SEGLA E. Ulrich Gislain** (full-stack, 10+ ans). Collaboratrice : **
 
 **Mission** : répondre aux défis sanitaires béninois — infrastructure médicale limitée, dossiers perdus, connectivité rurale faible — par une plateforme **offline-first**, **multilingue** (FR, Fɔ̀ngbè, Yorùbá, Baatɔnum, Dendi), avec téléconsultation, DMP patient, ordonnances QR, SOS, et paiements Mobile Money + wallet diaspora.
 
-**État** : codebase feature-complete — **100 endpoints** (dont 1 canal WebSocket temps réel) / **24 modules** + 5 intégrations, **43 pages frontend** (dont 19 espace patient), **34 modèles Prisma**, 28 enums, 10 migrations. Phase actuelle : **déploiement production VPS Infomaniak**.
+**État** : codebase feature-complete — **101 endpoints** (dont 1 canal WebSocket temps réel) / **24 modules** + 5 intégrations, **44 pages frontend** (dont 19 espace patient), **35 modèles Prisma**, 28 enums, 11 migrations. Phase actuelle : **déploiement production VPS Infomaniak** + **extension de l'optimisation aux profils non-patient** (cf. feuille de route ci-dessous).
 
 **Ajouts récents (juin 2026)** :
 - *Plateforme* : inscription multi-rôles + création des profils de rôle à l'inscription ; déconnexion universelle ; module **Chat** patient↔médecin (chiffré au repos) **temps réel WebSocket** (fan-out Redis pub/sub, heartbeat) ; **consentement DMP par soignant** (`Consent`, réclamation par token, révocation persistante + **ré-octroi**) ; **scan caméra QR** (`BarcodeDetector` + repli **jsQR** iOS) ; **push FCM réel** (HTTP v1 serveur + token web) ; **paiements FedaPay réels** (init + réconciliation, §5 levé de façon encadrée) ; QR générés **localement** (offline/confidentialité) ; install **PWA** + toast de mise à jour ; i18n EN complet + outillage de parité (`pnpm i18n:check`).
 - *Espace patient* : **fiche médicale d'urgence**, **auto-mesures** (constantes), **centre de notifications**, **conseils santé** (+ lecture vocale), **observance médicamenteuse** (prises, streak, % + **rappels horaires**), **gestion des RDV** (+ rappels), **annuaire enrichi** (filtre par langue parlée, fiche médecin, **avis & notes**), **couverture d'assurance santé** (catalogue ARCH/AMU, CNSS, mutuelles ; déclaration + statut, modèles `Insurance`/`PatientInsurance` activés).
-- *Modèles ajoutés* : `Pharmacy`, `ChatThread`, `ChatMessage`, `Consent`, `MedicationIntake`, `MedicationReminder`, `DoctorReview`.
+- *Espace pharmacie* : **délivrance granulaire par ligne** (délivré / partiel / indisponible) en réutilisant l'API existante, **journal de dispensation** privacy-safe (modèle `Dispensation`, la pharmacie ne voit que ses propres délivrances).
+- *Modèles ajoutés* : `Pharmacy`, `ChatThread`, `ChatMessage`, `Consent`, `MedicationIntake`, `MedicationReminder`, `DoctorReview`, `Insurance`/`PatientInsurance` (activés), `Dispensation`.
+
+**Feuille de route — extension de l'optimisation aux profils non-patient** (même démarche que les 8 vagues patient : 1 vague = 1 gap #1 par profil, réutilisant modèles/endpoints existants, privacy by design §4) :
+- ✅ **Vague 8 — Pharmacie** : délivrance granulaire + journal de dispensation (`Dispensation`). *(livré)*
+- ⬜ **Vague 9 — Laboratoire** (2 pages → enrichir) : **inbox des demandes d'analyse** assignées au labo (`LabOrder` filtré par `labId`/`Lab.userId`, statuts PENDING→SAMPLE_COLLECTED→PROCESSING→COMPLETED) + transitions + notif patient « résultat prêt ». Privacy : un labo ne voit que **ses** commandes.
+- ⬜ **Vague 10 — Médecin** : **réception & interprétation des résultats de labo** (boucle prescrire→résultat ; `LabResult.interpretedById`/`interpretedAt` dormants) + historique des consultations.
+- ⬜ **Vague 11 — Admin** : **file KYC enrichie** (affichage des pièces `KycDocument` + checklist de revue déjà acceptée par `/kyc/submissions/:id/review`) ; respecte le cloisonnement §4 (identité, pas de DMP).
+- ⬜ **Vague 12 — Diaspora** : **gestion des bénéficiaires/proches** (nouveau modèle `Beneficiary`) — socle pour payer/abonner un proche. ⚠️ **hors zone gelée paiement §5** (écrans en lecture/au-dessus uniquement).
 
 ---
 
@@ -135,6 +143,7 @@ Les scripts shell complets sont dans la Documentation technique v2 (`DocTech_Dig
 - **Inscription** : `auth.register` DOIT créer l'enregistrement de rôle en transaction (Patient+Wallet / Doctor / Pharmacy / Lab / Wallet diaspora) — sinon DMP/SOS/wallet/RDV/KYC cassés pour le compte. ADMIN interdit à l'auto-inscription.
 - **Consentement DMP** : la **révocation est persistante** (`Consent.revokedAt`) — ne pas la « ré-octroyer » silencieusement lors d'une nouvelle réclamation par token, sinon la révocation serait vaine tant que le token reste valide.
 - **CNOM / Ordre des médecins (KYC)** : **aucune API publique de vérification n'existe** au Bénin (ONMB `ordremedecinsbenin.bj` = espace membre authentifié, pas d'annuaire/endpoint public — investigué juin 2026). La vérification soignant repose **par conception** sur l'heuristique de format (`kyc.cnom.ts`) **+ la revue manuelle des pièces** (workflow KYC) — ce n'est PAS un stub en attente d'API. Le format `BJ-XXX-#####` est une hypothèse à confirmer auprès de l'ONMB. ⚠️ L'ancien domaine `ordremedecinsbenin.org` est **compromis** (redirige vers un site tiers) : ne jamais le référencer.
+- **Profils métier (pharmacie/labo/diaspora) ⇒ profil de rôle requis** : les routes qui résolvent l'entité du compte (`pharmacyIdOf` → `Pharmacy`, idem labo/diaspora) renvoient **403** si l'enregistrement de rôle n'existe pas. En prod il est créé à l'inscription (`auth.register`, cf. piège dédié) ; **dans les tests/fixtures, créer explicitement le profil** (`pharmacy: { create: … }`) sinon 403. Confidentialité §4 : un acteur métier ne voit **que ses propres** données (la pharmacie ne liste que **ses** délivrances `Dispensation` — pas de file globale des ordonnances de tous les patients). Même principe à appliquer aux vagues 9-12 (labo : ses commandes `LabOrder` via `labId` ; diaspora : ses bénéficiaires).
 
 ---
 
@@ -150,4 +159,4 @@ Les scripts shell complets sont dans la Documentation technique v2 (`DocTech_Dig
 
 ---
 
-*Dernière mise à jour : 15 juin 2026 — v1.3 (vague 7 : couverture d'assurance santé patient — modèles `Insurance`/`PatientInsurance` activés, catalogue assureurs béninois ; cumul v1.2 : FedaPay réel encadré, observance + rappels horaires, gestion RDV + rappels, annuaire enrichi + avis médecins, fiche d'urgence, auto-mesures, notifications, conseils santé + lecture vocale, QR local, PWA install, isolation Redis des tests). Maintenir ce fichier à jour à chaque décision structurante (section 3) ou nouveau piège (section 8).*
+*Dernière mise à jour : 15 juin 2026 — v1.4 (vague 8 : pharmacie — délivrance granulaire + journal de dispensation `Dispensation`, privacy-safe ; ouverture de l'extension aux profils non-patient, feuille de route vagues 9-12 en §1 ; cumul v1.3 : assurance santé patient `Insurance`/`PatientInsurance` ; v1.2 : FedaPay réel encadré, observance + rappels, RDV, annuaire + avis, fiche d'urgence, auto-mesures, notifications, conseils + lecture vocale, QR local, PWA, isolation Redis des tests). Maintenir ce fichier à jour à chaque décision structurante (section 3) ou nouveau piège (section 8).*
