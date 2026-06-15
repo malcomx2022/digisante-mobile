@@ -123,4 +123,27 @@ describe.skipIf(!HAS_INFRA)('Consentement DMP par soignant (intégration)', () =
     expect(entry.active).toBe(false);
     expect(entry.revokedAt).toBeTruthy();
   });
+
+  it('le patient peut RÉ-AUTORISER un soignant révoqué (re-octroi délibéré)', async () => {
+    // Pré-condition : doctor1 est révoqué (test précédent) → accès refusé.
+    const denied = await app.inject({ method: 'GET', url: `/api/v1/dmp/records?patientId=${patientId}`, headers: auth(doctor1Token) });
+    expect(denied.statusCode).toBe(403);
+
+    // Le patient ré-autorise explicitement.
+    const regrant = await app.inject({
+      method: 'POST', url: `/api/v1/dmp/consents/${doctor1Id}/regrant`,
+      headers: auth(patientToken), payload: { ttlHours: 48 },
+    });
+    expect(regrant.statusCode).toBe(200);
+
+    // L'accès est restauré (sans token).
+    const granted = await app.inject({ method: 'GET', url: `/api/v1/dmp/records?patientId=${patientId}`, headers: auth(doctor1Token) });
+    expect(granted.statusCode).toBe(200);
+
+    // La liste le remarque actif à nouveau.
+    const consents = await app.inject({ method: 'GET', url: '/api/v1/dmp/consents', headers: auth(patientToken) });
+    const entry = consents.json().find((c: { granteeId: string }) => c.granteeId === doctor1Id);
+    expect(entry.active).toBe(true);
+    expect(entry.revokedAt).toBeNull();
+  });
 });

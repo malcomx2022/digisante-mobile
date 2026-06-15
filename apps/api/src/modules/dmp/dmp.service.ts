@@ -179,6 +179,40 @@ export async function revokeConsent(
   return { revoked: true };
 }
 
+/**
+ * Ré-autorise un soignant précédemment révoqué (action DÉLIBÉRÉE du patient) :
+ * lève la révocation persistante et fixe une nouvelle expiration. Distinct de la
+ * réclamation par token (laquelle reste bloquée après révocation, par sécurité).
+ */
+export async function regrantConsent(
+  app: FastifyInstance,
+  patientUserId: string,
+  granteeId: string,
+  ttlHours: number,
+  ip?: string | null,
+) {
+  const patientId = await ownPatientId(app, patientUserId);
+  const consent = await app.prisma.consent.findUnique({
+    where: { patientId_granteeId: { patientId, granteeId } },
+    select: { id: true },
+  });
+  if (!consent) throw notFound('Consentement introuvable');
+
+  const expiresAt = new Date(Date.now() + ttlHours * 3600_000);
+  await app.prisma.consent.update({
+    where: { id: consent.id },
+    data: { revokedAt: null, expiresAt, grantedVia: 'regrant' },
+  });
+  await writeAudit(app.prisma, {
+    action: 'DMP_CONSENT_GRANT',
+    actorId: patientUserId,
+    targetId: granteeId,
+    ip,
+    meta: { via: 'regrant', ttlHours },
+  });
+  return { granteeId, expiresAt };
+}
+
 /** Révoque un partage (patient propriétaire). */
 export async function revokeShare(app: FastifyInstance, patientUserId: string, recordId: string) {
   const record = await app.prisma.medicalRecord.findUnique({ where: { id: recordId }, select: { patient: { select: { userId: true } } } });

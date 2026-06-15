@@ -70,6 +70,13 @@ export default async function dmpRoutes(app: FastifyInstance) {
     return dmp.revokeConsent(app, request.user.sub, granteeId, request.ip);
   });
 
+  // Le patient ré-autorise un soignant précédemment révoqué (action délibérée).
+  app.post('/consents/:granteeId/regrant', authed, async (request) => {
+    const { granteeId } = zParse(z.object({ granteeId: z.string().cuid() }), request.params);
+    const { ttlHours } = zParse(z.object({ ttlHours: z.number().int().min(1).max(720).default(72) }), request.body ?? {});
+    return dmp.regrantConsent(app, request.user.sub, granteeId, ttlHours, request.ip);
+  });
+
   // Portabilité : export FHIR (Bundle JSON).
   app.get('/export', authed, async (request) => {
     const q = zParse(exportSchema, request.query);
