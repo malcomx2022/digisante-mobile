@@ -2,7 +2,7 @@
 // Routes Professionnels (préfixe /api/v1/professionals).
 // Fiche publique (badge « vérifié ») + édition de sa fiche par le médecin.
 // ─────────────────────────────────────────────────────────────
-import { paginationSchema } from '@digisante/shared';
+import { langSchema, paginationSchema } from '@digisante/shared';
 import type { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -22,6 +22,7 @@ const updateProSchema = z.object({
 const listSchema = paginationSchema.extend({
   speciality: z.string().trim().min(1).optional(),
   q: z.string().trim().min(1).optional(),
+  lang: langSchema.optional(), // langue parlée par le médecin (barrière linguistique, §4/§5)
 });
 
 const idParams = z.object({ id: z.string().cuid() });
@@ -30,18 +31,18 @@ export default async function professionalsRoutes(app: FastifyInstance) {
   // Annuaire des professionnels VÉRIFIÉS (D-05), paginé + filtres.
   app.get('/', { preHandler: [app.authenticate] }, async (request) => {
     const q = zParse(listSchema, request.query);
-    const where: Prisma.DoctorWhereInput = {
-      verifiedAt: { not: null },
-      ...(q.speciality ? { speciality: { contains: q.speciality, mode: 'insensitive' } } : {}),
-      ...(q.q
-        ? {
-            OR: [
-              { speciality: { contains: q.q, mode: 'insensitive' } },
-              { user: { profile: { OR: [{ firstName: { contains: q.q, mode: 'insensitive' } }, { lastName: { contains: q.q, mode: 'insensitive' } }] } } },
-            ],
-          }
-        : {}),
-    };
+    const and: Prisma.DoctorWhereInput[] = [{ verifiedAt: { not: null } }];
+    if (q.speciality) and.push({ speciality: { contains: q.speciality, mode: 'insensitive' } });
+    if (q.lang) and.push({ user: { profile: { spokenLangs: { has: q.lang } } } });
+    if (q.q) {
+      and.push({
+        OR: [
+          { speciality: { contains: q.q, mode: 'insensitive' } },
+          { user: { profile: { OR: [{ firstName: { contains: q.q, mode: 'insensitive' } }, { lastName: { contains: q.q, mode: 'insensitive' } }] } } },
+        ],
+      });
+    }
+    const where: Prisma.DoctorWhereInput = { AND: and };
     const [items, total] = await Promise.all([
       app.prisma.doctor.findMany({
         where,
