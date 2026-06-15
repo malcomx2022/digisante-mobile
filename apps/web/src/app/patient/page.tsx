@@ -32,6 +32,7 @@ export default function PatientDashboard() {
     { key: 'reminders.title', href: '/patient/reminders', rotate: '-rotate-2', bg: 'bg-sante-50 text-sante-700' },
     { key: 'results.title', href: '/patient/results', rotate: 'rotate-1', bg: 'bg-indigo-50 text-indigo-700' },
     { key: 'teleconsult.title', href: '/patient/teleconsult', rotate: '-rotate-1', bg: 'bg-ocre-50 text-ocre-600' },
+    { key: 'notifications.title', href: '/patient/notifications', rotate: 'rotate-2', bg: 'bg-sante-50 text-sante-700' },
   ];
 
   return (
