@@ -8,8 +8,11 @@ import { NOTIFICATION_CHANNELS, NOTIFICATION_TYPES } from '@digisante/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
-import { forbidden } from '@/lib/errors.js';
+import { env } from '@/lib/env.js';
+import { forbidden, unauthorized } from '@/lib/errors.js';
+import { requireRole } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
+import * as med from './reminders.medication.js';
 
 const createSchema = z.object({
   recipientId: z.string().cuid().optional(), // par défaut : soi-même
@@ -20,8 +23,16 @@ const createSchema = z.object({
   scheduledAt: z.coerce.date(),
 });
 
+const addMedSchema = z.object({
+  medicationName: z.string().trim().min(1).max(200),
+  time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Heure « HH:mm » attendue'),
+  itemId: z.string().cuid().optional(),
+});
+const idParams = z.object({ id: z.string().cuid() });
+
 export default async function remindersRoutes(app: FastifyInstance) {
   const authed = { preHandler: [app.authenticate] };
+  const patientOnly = { preHandler: [app.authenticate, requireRole('PATIENT')] };
 
   // Programmer un rappel. Pour un autre destinataire : réservé aux médecins.
   app.post('/', authed, async (request, reply) => {
@@ -50,5 +61,27 @@ export default async function remindersRoutes(app: FastifyInstance) {
       where: { recipientId: request.user.sub, scheduledAt: { not: null } },
       orderBy: { scheduledAt: 'asc' },
     });
+  });
+
+  // ── Rappels horaires RÉCURRENTS d'observance (patient) ──
+  app.get('/medication', patientOnly, async (request) => med.listMedicationReminders(app, request.user.sub));
+
+  app.post('/medication', patientOnly, async (request, reply) => {
+    const input = zParse(addMedSchema, request.body);
+    return reply.code(201).send(await med.addMedicationReminder(app, request.user.sub, input));
+  });
+
+  app.delete('/medication/:id', patientOnly, async (request) => {
+    const { id } = zParse(idParams, request.params);
+    return med.removeMedicationReminder(app, request.user.sub, id);
+  });
+
+  // Générateur des rappels dus du jour (cron interne) — jeton de service requis.
+  app.post('/generate', async (request) => {
+    const token = request.headers['x-service-token'];
+    if (!env.RECONCILE_TOKEN || token !== env.RECONCILE_TOKEN) {
+      throw unauthorized('Jeton de service invalide');
+    }
+    return med.generateDueReminders(app);
   });
 }
