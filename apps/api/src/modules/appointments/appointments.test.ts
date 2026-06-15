@@ -22,6 +22,7 @@ describe.skipIf(!HAS_INFRA)('RDV & téléconsultation (intégration)', () => {
   };
 
   beforeAll(async () => {
+    process.env.RECONCILE_TOKEN = 'appt_reminder_test_token';
     const { buildServer } = await import('@/server.js');
     app = await buildServer();
     await app.ready();
@@ -113,5 +114,35 @@ describe.skipIf(!HAS_INFRA)('RDV & téléconsultation (intégration)', () => {
     expect(cancel.json().status).toBe('CANCELLED');
     const after = await app.prisma.auditLog.count({ where: { action: 'PAYMENT_REFUND' } });
     expect(after).toBe(before + 1);
+  });
+
+  it('liste patient enrichie (nom médecin) + rappel de RDV (générateur idempotent) + annulation patient', async () => {
+    const at = new Date(Date.now() + 3 * 3600_000); // dans 3 h → éligible au rappel (< 24 h)
+    const book = await app.inject({
+      method: 'POST', url: '/api/v1/appointments', headers: auth(patientToken),
+      payload: { doctorId, type: 'PHYSICAL', scheduledAt: at.toISOString() },
+    });
+    const apptId = book.json().id as string;
+    await app.inject({ method: 'POST', url: `/api/v1/appointments/${apptId}/confirm`, headers: auth(doctorToken) });
+
+    // Liste enrichie : nom du médecin + spécialité.
+    const list = await app.inject({ method: 'GET', url: '/api/v1/appointments', headers: auth(patientToken) });
+    const appt = list.json().find((a: { id: string }) => a.id === apptId);
+    expect(appt.doctorName).toContain('Awa');
+    expect(appt.speciality).toBe('Généraliste');
+
+    // Générateur de rappels + idempotence.
+    const gen1 = await app.inject({ method: 'POST', url: '/api/v1/appointments/reminders/generate', headers: { 'x-service-token': 'appt_reminder_test_token' } });
+    expect(gen1.json().generated).toBeGreaterThanOrEqual(1);
+    const gen2 = await app.inject({ method: 'POST', url: '/api/v1/appointments/reminders/generate', headers: { 'x-service-token': 'appt_reminder_test_token' } });
+    expect(gen2.json().generated).toBe(0);
+
+    // Jeton requis.
+    const noToken = await app.inject({ method: 'POST', url: '/api/v1/appointments/reminders/generate' });
+    expect(noToken.statusCode).toBe(401);
+
+    // Annulation par le patient.
+    const cancel = await app.inject({ method: 'POST', url: `/api/v1/appointments/${apptId}/cancel`, headers: auth(patientToken), payload: { reason: 'Empêchement' } });
+    expect(cancel.json().status).toBe('CANCELLED');
   });
 });

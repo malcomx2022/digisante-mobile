@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 import { useAuth } from '@/auth/AuthProvider';
 import { PatientHeader } from '@/components/patient/PatientHeader';
-import { Badge, Button, CardPagne, Nkyinkyim } from '@/components/ui';
+import { Badge, CardPagne, Nkyinkyim } from '@/components/ui';
 import { Loading } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get } from '@/lib/api/client';
@@ -28,6 +28,7 @@ export default function PatientDashboard() {
   const quick = [
     { key: 'patient.quick.dmp', href: '/patient/dmp', rotate: 'rotate-1', bg: 'bg-sante-50 text-sante-700' },
     { key: 'patient.quick.doctors', href: '/patient/doctors', rotate: '-rotate-1', bg: 'bg-indigo-50 text-indigo-700' },
+    { key: 'appt.title', href: '/patient/appointments', rotate: 'rotate-1', bg: 'bg-indigo-50 text-indigo-700' },
     { key: 'patient.quick.prescriptions', href: '/patient/prescriptions', rotate: 'rotate-2', bg: 'bg-ocre-50 text-ocre-600' },
     { key: 'adherence.title', href: '/patient/adherence', rotate: 'rotate-1', bg: 'bg-sante-50 text-sante-700' },
     { key: 'reminders.title', href: '/patient/reminders', rotate: '-rotate-2', bg: 'bg-sante-50 text-sante-700' },
@@ -56,9 +57,12 @@ export default function PatientDashboard() {
                 {new Date(next.scheduledAt).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
                 {next.type === 'TELECONSULTATION' ? ' · Téléconsultation' : ''}
               </p>
-              <Button variant="sante" full className="mt-4">
-                {t('home.join')}
-              </Button>
+              <Link
+                href="/patient/appointments"
+                className="mt-4 block w-full text-center bg-sante-600 text-white font-display font-extrabold card-pagne py-3"
+              >
+                {t('home.details')}
+              </Link>
             </>
           ) : (
             <p className="text-sm text-stone-400">{t('patient.no_appointment')}</p>

@@ -3,12 +3,15 @@
 // L'annulation par le médecin signale un remboursement (audit PAYMENT_REFUND) ;
 // la logique de remboursement réelle est branchée en Phase 4 (module payments gelé).
 // ─────────────────────────────────────────────────────────────
-import type { AppointmentType } from '@digisante/shared';
+import type { AppointmentType, Lang } from '@digisante/shared';
 import type { FastifyInstance } from 'fastify';
 
 import { writeAudit } from '@/lib/audit.js';
 import { badRequest, conflict, forbidden, notFound } from '@/lib/errors.js';
 import { isFuture, overlaps } from './appointments.rules.js';
+
+const fullName = (p: { firstName: string; lastName: string } | null | undefined) =>
+  p ? `${p.firstName} ${p.lastName}`.trim() : '—';
 
 /** Résout l'id Patient à partir de l'id User (ou lève). */
 async function patientIdOf(app: FastifyInstance, userId: string): Promise<string> {
@@ -79,12 +82,68 @@ export async function listMine(
       : { patientId: await patientIdOf(app, user.sub) };
   if (filters.status) Object.assign(where, { status: filters.status });
 
-  return app.prisma.appointment.findMany({
+  const rows = await app.prisma.appointment.findMany({
     where,
     orderBy: { scheduledAt: 'desc' },
     skip: (filters.page - 1) * filters.pageSize,
     take: filters.pageSize,
+    include: {
+      doctor: { select: { speciality: true, user: { select: { profile: { select: { firstName: true, lastName: true } } } } } },
+      patient: { select: { user: { select: { profile: { select: { firstName: true, lastName: true } } } } } },
+      consultation: { select: { id: true, status: true } },
+    },
   });
+
+  // DTO enrichi : nom du correspondant (médecin pour le patient, patient pour le médecin).
+  return rows.map((a) => ({
+    id: a.id,
+    type: a.type,
+    status: a.status,
+    scheduledAt: a.scheduledAt,
+    doctorName: `Dr ${fullName(a.doctor.user.profile)}`,
+    speciality: a.doctor.speciality,
+    patientName: fullName(a.patient.user.profile),
+    consultationId: a.consultation?.id ?? null,
+    consultationStatus: a.consultation?.status ?? null,
+  }));
+}
+
+/** Texte du rappel de RDV dans la langue du destinataire (repli FR). */
+function appointmentReminderText(lang: Lang, whenLabel: string): { title: string; body: string } {
+  if (lang === 'EN') return { title: 'Appointment reminder', body: `You have an appointment on ${whenLabel}` };
+  return { title: 'Rappel de rendez-vous', body: `Vous avez un rendez-vous le ${whenLabel}` };
+}
+
+/**
+ * Génère les rappels de RDV (cron) : pour chaque RDV CONFIRMÉ dans les 24 h à
+ * venir sans rappel déjà envoyé, crée une Notification (langue du patient) et
+ * marque reminderSentAt. Idempotent.
+ */
+export async function generateReminders(app: FastifyInstance) {
+  const now = new Date();
+  const horizon = new Date(now.getTime() + 24 * 3600_000);
+
+  const upcoming = await app.prisma.appointment.findMany({
+    where: { status: 'CONFIRMED', reminderSentAt: null, scheduledAt: { gt: now, lte: horizon } },
+    include: { patient: { select: { user: { select: { id: true, lang: true } } } } },
+  });
+
+  let generated = 0;
+  for (const a of upcoming) {
+    const lang = a.patient.user.lang;
+    const whenLabel = a.scheduledAt.toLocaleString(lang === 'EN' ? 'en-GB' : 'fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
+    const { title, body } = appointmentReminderText(lang, whenLabel);
+    await app.prisma.$transaction([
+      app.prisma.notification.create({
+        data: { recipientId: a.patient.user.id, type: 'APPOINTMENT_REMINDER', channel: 'IN_APP', title, body, status: 'PENDING', scheduledAt: now },
+      }),
+      app.prisma.appointment.update({ where: { id: a.id }, data: { reminderSentAt: now } }),
+    ]);
+    generated += 1;
+  }
+
+  app.log.info({ job: 'appointment-reminders', generated }, 'génération des rappels de RDV dus');
+  return { generated };
 }
 
 /** Charge un RDV en vérifiant que l'utilisateur en est un participant. */
