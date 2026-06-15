@@ -327,6 +327,7 @@ model Doctor {
   referralsFrom         Referral[]     @relation("ReferralFrom")
   referralsTo           Referral[]     @relation("ReferralTo")
   chatThreads           ChatThread[]
+  reviews               DoctorReview[]
 
   @@index([speciality])
   @@map("doctors")
@@ -355,6 +356,7 @@ model Patient {
   consents           Consent[]
   medicationIntakes  MedicationIntake[]
   medicationReminders MedicationReminder[]
+  reviews            DoctorReview[]
 
   @@map("patients")
 }
@@ -924,4 +926,23 @@ model MedicationReminder {
 
   @@index([patientId])
   @@map("medication_reminders")
+}
+
+// (+7) DoctorReview — avis/note d'un patient sur un médecin (1 par couple).
+// Éligibilité : un RDV terminé entre le patient et le médecin (anti-faux avis).
+model DoctorReview {
+  id        String   @id @default(cuid())
+  doctorId  String
+  patientId String
+  rating    Int // 1..5
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  doctor  Doctor  @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorId, patientId])
+  @@index([doctorId])
+  @@map("doctor_reviews")
 }

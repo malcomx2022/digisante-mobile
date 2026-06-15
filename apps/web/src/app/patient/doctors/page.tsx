@@ -75,6 +75,9 @@ export default function DoctorsPage() {
                   {d.profile?.spokenLangs?.length ? (
                     <p className="text-[12px] text-stone-400 mt-0.5">🗣 {d.profile.spokenLangs.join(' · ')}</p>
                   ) : null}
+                  {d.rating.average != null && (
+                    <p className="text-[12px] text-ocre-600 font-bold mt-0.5">★ {d.rating.average} ({d.rating.count})</p>
+                  )}
                   <div className="flex items-center justify-between mt-2">
                     <span className="font-display font-bold text-sante-700 text-[13px]">
                       {Number(d.consultFee).toLocaleString('fr-FR')} {t('common.fcfa')}
