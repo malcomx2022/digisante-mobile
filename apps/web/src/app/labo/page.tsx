@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { Suspense, useState } from 'react';
 
 import { Button, CardPagne } from '@/components/ui';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
@@ -18,8 +20,17 @@ interface SubmitResult {
 
 // D-23 — Laboratoire : saisie de résultat + détection de valeur critique.
 export default function LaboPage() {
+  return (
+    <Suspense fallback={null}>
+      <LaboResult />
+    </Suspense>
+  );
+}
+
+function LaboResult() {
   const { t } = useLocale();
-  const [orderId, setOrderId] = useState('');
+  const params = useSearchParams();
+  const [orderId, setOrderId] = useState(params.get('order') ?? '');
   const [rows, setRows] = useState<ValueRow[]>([{ key: 'troponine', value: '' }]);
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +58,9 @@ export default function LaboPage() {
     <>
       <SpaceHeader title={t('labo.title')} subtitle={t('labo.result')} headerClass="bg-ocre-900" profileHref="/labo/profile" />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
+        <Link href="/labo/orders" className="block w-full text-center bg-ocre-400 text-stone-900 font-display font-extrabold card-pagne py-3">
+          📥 {t('labo.orders_title')}
+        </Link>
         <input className={`${inputCls} w-full`} placeholder={t('labo.order')} value={orderId} onChange={(e) => setOrderId(e.target.value)} />
 
         <CardPagne className="p-4 space-y-2">
