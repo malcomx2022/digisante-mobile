@@ -3,6 +3,23 @@ import type { Lang, Role } from '@digisante/shared';
 
 import { get, patch } from './client';
 
+/** Fiche médicale d'urgence du patient (vitale pour le SOS). */
+export interface MedicalInfo {
+  bloodGroup: string | null;
+  allergies: string[];
+  chronicDiseases: string[];
+  insuranceNumber: string | null;
+  emergencyContact: string | null;
+}
+
+export interface UpdateMedicalBody {
+  bloodGroup?: string;
+  allergies?: string[];
+  chronicDiseases?: string[];
+  insuranceNumber?: string;
+  emergencyContact?: string;
+}
+
 export interface UserProfile {
   firstName: string;
   lastName: string;
@@ -50,4 +67,6 @@ function online<T>(result: T | { queued: true }): T {
 export const usersApi = {
   me: () => get<MeFull>('/users/me'),
   update: (body: UpdateMeBody) => patch<MeFull>('/users/me', body).then(online),
+  medical: () => get<MedicalInfo>('/users/me/medical'),
+  updateMedical: (body: UpdateMedicalBody) => patch<MedicalInfo>('/users/me/medical', body).then(online),
 };
