@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { PatientHeader } from '@/components/patient/PatientHeader';
 import { Badge, CardPagne } from '@/components/ui';
@@ -9,6 +9,7 @@ import { useLocale } from '@/i18n/LocaleProvider';
 import { educationApi, type HealthContent } from '@/lib/api/education';
 import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
+import { speak, speechSupported, stopSpeaking } from '@/lib/speech';
 
 const CATEGORIES = ['PREVENTION', 'NUTRITION', 'MATERNITY', 'VACCINATION', 'CHRONIC', 'MENTAL_HEALTH', 'EMERGENCY', 'OTHER'];
 
@@ -19,11 +20,29 @@ export default function EducationPage() {
   const [category, setCategory] = useState<string | null>(null);
   const { data, loading, error } = useApi<HealthContent[]>(() => educationApi.list(category ?? undefined), [category]);
 
+  // Lecture à voix haute (accessibilité). `supported` calculé côté client (anti-SSR).
+  const [supported, setSupported] = useState(false);
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
+  useEffect(() => {
+    setSupported(speechSupported());
+    return () => stopSpeaking();
+  }, []);
+
   const items = data ?? [];
   const localized = (c: HealthContent) => {
     const tr = c.translations?.[lang];
     return { title: tr?.title || c.title, body: tr?.body || c.body };
   };
+
+  function toggleSpeak(id: string, title: string, body: string) {
+    if (speakingId === id) {
+      stopSpeaking();
+      setSpeakingId(null);
+      return;
+    }
+    speak(`${title}. ${body}`, lang, () => setSpeakingId(null));
+    setSpeakingId(id);
+  }
 
   return (
     <>
@@ -64,6 +83,15 @@ export default function EducationPage() {
               </div>
               <p className="text-[13px] text-stone-600 mt-2 whitespace-pre-line">{body}</p>
               {c.tags?.length ? <p className="text-[11px] text-stone-400 mt-2">{c.tags.map((x) => `#${x}`).join(' ')}</p> : null}
+              {supported && (
+                <button
+                  type="button"
+                  onClick={() => toggleSpeak(c.id, title, body)}
+                  className="mt-3 card-pagne bg-sante-50 text-sante-700 font-display font-bold text-[12px] px-3 py-1.5"
+                >
+                  {speakingId === c.id ? `⏹ ${t('education.stop')}` : `🔊 ${t('education.listen')}`}
+                </button>
+              )}
             </CardPagne>
           );
         })}
