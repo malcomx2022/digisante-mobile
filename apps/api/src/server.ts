@@ -7,6 +7,7 @@ import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
 
 import { env } from '@/lib/env.js';
+import adherenceRoutes from '@/modules/adherence/adherence.routes.js';
 import adminRoutes from '@/modules/admin/admin.routes.js';
 import appointmentsRoutes from '@/modules/appointments/appointments.routes.js';
 import authRoutes from '@/modules/auth/auth.routes.js';
@@ -84,6 +85,7 @@ export async function buildServer() {
   await app.register(dmpRoutes, { prefix: '/api/v1/dmp' });
   await app.register(prescriptionsRoutes, { prefix: '/api/v1/prescriptions' });
   await app.register(remindersRoutes, { prefix: '/api/v1/reminders' });
+  await app.register(adherenceRoutes, { prefix: '/api/v1/adherence' });
   await app.register(pharmacyRoutes, { prefix: '/api/v1/pharmacy' });
   await app.register(laboratoryRoutes, { prefix: '/api/v1/lab' });
   await app.register(educationRoutes, { prefix: '/api/v1/education' });

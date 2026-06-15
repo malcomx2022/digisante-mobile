@@ -353,6 +353,7 @@ model Patient {
   patientInsurances PatientInsurance[]
   chatThreads       ChatThread[]
   consents          Consent[]
+  medicationIntakes MedicationIntake[]
 
   @@map("patients")
 }
@@ -475,7 +476,8 @@ model PrescriptionItem {
   status         PrescriptionItemStatus @default(PENDING)
   createdAt      DateTime               @default(now())
 
-  prescription Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  prescription Prescription       @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  intakes      MedicationIntake[]
 
   @@index([prescriptionId])
   @@map("prescription_items")
@@ -881,4 +883,23 @@ model Consent {
   @@index([patientId])
   @@index([granteeId])
   @@map("consents")
+}
+
+// (+5) MedicationIntake — journal d'observance : une prise déclarée par le patient
+// (« j'ai pris »). Permet le suivi (streak, % d'observance) des traitements
+// chroniques. Reliée au PrescriptionItem si la prise vient d'une ordonnance.
+model MedicationIntake {
+  id             String   @id @default(cuid())
+  patientId      String
+  itemId         String? // PrescriptionItem (optionnel : prise hors ordonnance possible)
+  medicationName String
+  takenAt        DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  patient Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  item    PrescriptionItem? @relation(fields: [itemId], references: [id], onDelete: SetNull)
+
+  @@index([patientId])
+  @@index([takenAt])
+  @@map("medication_intakes")
 }
