@@ -1,7 +1,7 @@
 // Dossier médical partagé (DMP). L'accès soignant à un dossier patient passe par
 // un partage consenti PAR SOIGNANT (§4) : réclamé via le jeton `x-share-token`,
 // puis géré (liste/révocation) côté patient.
-import { del, get } from './client';
+import { del, get, post } from './client';
 
 export interface DmpRecord {
   id: string;
@@ -50,4 +50,8 @@ export const dmpApi = {
   /** Révoque l'accès d'un soignant précis (révocation persistante). */
   revokeConsent: (granteeId: string) =>
     del<{ revoked: boolean }>(`/dmp/consents/${granteeId}`).then(online),
+
+  /** Ré-autorise un soignant précédemment révoqué (action délibérée du patient). */
+  regrantConsent: (granteeId: string, ttlHours = 72) =>
+    post<{ granteeId: string; expiresAt: string }>(`/dmp/consents/${granteeId}/regrant`, { ttlHours }).then(online),
 };

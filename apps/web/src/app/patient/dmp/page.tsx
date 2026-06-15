@@ -45,6 +45,15 @@ export default function DmpPage() {
     }
   }
 
+  async function regrant(granteeId: string) {
+    try {
+      await dmpApi.regrantConsent(granteeId);
+      setRevokeTick((n) => n + 1);
+    } catch {
+      /* ré-autorisation best-effort : silencieux */
+    }
+  }
+
   async function exportFhir() {
     try {
       const bundle = await get<unknown>('/dmp/export');
@@ -91,13 +100,21 @@ export default function DmpPage() {
                         : t('dmp.revoked_label')}
                     </p>
                   </div>
-                  {c.active && (
+                  {c.active ? (
                     <button
                       type="button"
                       onClick={() => revoke(c.granteeId)}
                       className="shrink-0 card-pagne bg-sos-50 text-sos-700 font-display font-extrabold text-[11px] px-3 py-1.5"
                     >
                       {t('dmp.revoke')}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => regrant(c.granteeId)}
+                      className="shrink-0 card-pagne bg-sante-50 text-sante-700 font-display font-extrabold text-[11px] px-3 py-1.5"
+                    >
+                      {t('dmp.regrant')}
                     </button>
                   )}
                 </div>
