@@ -710,6 +710,7 @@ model LabResult {
   labOrderId      String    @unique
   values          Json
   reportUrl       String?
+  interpretation  String?
   interpretedAt   DateTime?
   interpretedById String?
   createdAt       DateTime  @default(now())

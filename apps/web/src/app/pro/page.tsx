@@ -56,12 +56,20 @@ export default function ProDashboard() {
           ))}
         </CardPagne>
 
-        <Link
-          href="/pro/messages"
-          className="flex items-center gap-2 bg-white card-pagne border border-stone-200 px-4 py-3 font-display font-bold text-[14px] text-indigo-700"
-        >
-          <span aria-hidden>💬</span> {t('chat.title')}
-        </Link>
+        <div className="grid grid-cols-2 gap-3">
+          <Link
+            href="/pro/messages"
+            className="flex items-center gap-2 bg-white card-pagne border border-stone-200 px-4 py-3 font-display font-bold text-[13px] text-indigo-700"
+          >
+            <span aria-hidden>💬</span> {t('chat.title')}
+          </Link>
+          <Link
+            href="/pro/results"
+            className="flex items-center gap-2 bg-white card-pagne border border-stone-200 px-4 py-3 font-display font-bold text-[13px] text-indigo-700"
+          >
+            <span aria-hidden>🧪</span> {t('proresults.title')}
+          </Link>
+        </div>
 
         <h2 className="font-display font-extrabold text-[14px] text-stone-700">{t('pro.queue')}</h2>
         {loading && <Loading label={t('common.loading')} />}

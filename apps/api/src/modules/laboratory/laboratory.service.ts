@@ -189,6 +189,78 @@ export async function claimOrder(app: FastifyInstance, labUserId: string, orderI
   return updated;
 }
 
+async function doctorIdOf(app: FastifyInstance, userId: string): Promise<string> {
+  const d = await app.prisma.doctor.findUnique({ where: { userId }, select: { id: true } });
+  if (!d) throw forbidden('Profil médecin requis');
+  return d.id;
+}
+
+/** Résultats des analyses prescrites par ce médecin (boucle prescrire → résultat).
+ *  Recalcule les valeurs critiques pour l'affichage + statut d'interprétation. */
+export async function listResultsForDoctor(app: FastifyInstance, doctorUserId: string) {
+  const doctorId = await doctorIdOf(app, doctorUserId);
+  const orders = await app.prisma.labOrder.findMany({
+    where: { prescribedById: doctorId, result: { isNot: null } },
+    select: {
+      id: true,
+      testType: true,
+      createdAt: true,
+      patient: { select: { user: { select: { profile: { select: { firstName: true, lastName: true } } } } } },
+      result: { select: { values: true, reportUrl: true, interpretation: true, interpretedAt: true, createdAt: true } },
+    },
+    orderBy: { updatedAt: 'desc' },
+    take: 50,
+  });
+  return orders.map((o) => ({
+    id: o.id,
+    testType: o.testType,
+    patient: o.patient.user.profile,
+    values: o.result!.values,
+    reportUrl: o.result!.reportUrl,
+    critical: detectCriticalValues(o.result!.values as Record<string, unknown>),
+    interpretation: o.result!.interpretation,
+    interpretedAt: o.result!.interpretedAt,
+    resultAt: o.result!.createdAt,
+  }));
+}
+
+/** Interprétation d'un résultat par le médecin prescripteur (signe + note). */
+export async function interpretResult(
+  app: FastifyInstance,
+  doctorUserId: string,
+  orderId: string,
+  interpretation: string,
+) {
+  const doctorId = await doctorIdOf(app, doctorUserId);
+  const order = await app.prisma.labOrder.findUnique({
+    where: { id: orderId },
+    include: { result: { select: { id: true } }, patient: { select: { userId: true } } },
+  });
+  if (!order) throw notFound('Demande d’analyse introuvable');
+  if (order.prescribedById !== doctorId) throw forbidden('Analyse non prescrite par ce médecin');
+  if (!order.result) throw badRequest('Aucun résultat à interpréter');
+
+  const updated = await app.prisma.labResult.update({
+    where: { id: order.result.id },
+    data: { interpretation, interpretedById: doctorId, interpretedAt: new Date() },
+    select: { id: true, interpretation: true, interpretedAt: true },
+  });
+
+  // Notifie le patient que son médecin a interprété le résultat.
+  await app.prisma.notification.create({
+    data: {
+      recipientId: order.patient.userId,
+      type: 'LAB_RESULT',
+      channel: 'IN_APP',
+      title: 'Résultat interprété',
+      body: 'Votre médecin a commenté votre résultat d’analyse.',
+      status: 'PENDING',
+    },
+  });
+
+  return updated;
+}
+
 const NEXT_STATUS: Record<string, 'PROCESSING'> = { SAMPLE_COLLECTED: 'PROCESSING' };
 
 /** Avance le statut d'une demande prise en charge (SAMPLE_COLLECTED → PROCESSING). */
