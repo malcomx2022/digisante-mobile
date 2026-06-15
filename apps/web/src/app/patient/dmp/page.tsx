@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 
 import { DmpShareDialog } from '@/components/patient/DmpShareDialog';
@@ -73,6 +74,13 @@ export default function DmpPage() {
     <>
       <PatientHeader title={t('dmp.title')} />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
+        <Link
+          href="/patient/vitals"
+          className="flex items-center gap-2 bg-white card-pagne border border-stone-200 px-4 py-3 font-display font-bold text-[14px] text-sante-700"
+        >
+          <span aria-hidden>📈</span> {t('vitals.title')}
+        </Link>
+
         <CardPagne className="p-4">
           <button
             type="button"
