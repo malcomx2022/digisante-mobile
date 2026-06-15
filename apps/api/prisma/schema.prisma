@@ -351,9 +351,10 @@ model Patient {
   referrals         Referral[]
   labOrders         LabOrder[]
   patientInsurances PatientInsurance[]
-  chatThreads       ChatThread[]
-  consents          Consent[]
-  medicationIntakes MedicationIntake[]
+  chatThreads        ChatThread[]
+  consents           Consent[]
+  medicationIntakes  MedicationIntake[]
+  medicationReminders MedicationReminder[]
 
   @@map("patients")
 }
@@ -476,8 +477,9 @@ model PrescriptionItem {
   status         PrescriptionItemStatus @default(PENDING)
   createdAt      DateTime               @default(now())
 
-  prescription Prescription       @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  prescription Prescription         @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
   intakes      MedicationIntake[]
+  reminders    MedicationReminder[]
 
   @@index([prescriptionId])
   @@map("prescription_items")
@@ -902,4 +904,23 @@ model MedicationIntake {
   @@index([patientId])
   @@index([takenAt])
   @@map("medication_intakes")
+}
+
+// (+6) MedicationReminder — rappel horaire RÉCURRENT d'un traitement (ex. 08:00).
+// Un générateur (cron) matérialise les rappels dus du jour en Notification (PENDING)
+// que le dispatch envoie. `lastGeneratedOn` assure l'idempotence (1 fois/jour).
+model MedicationReminder {
+  id              String    @id @default(cuid())
+  patientId       String
+  itemId          String? // PrescriptionItem (optionnel)
+  medicationName  String
+  time            String // "HH:mm" (heure locale du serveur)
+  lastGeneratedOn DateTime?
+  createdAt       DateTime  @default(now())
+
+  patient Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  item    PrescriptionItem? @relation(fields: [itemId], references: [id], onDelete: SetNull)
+
+  @@index([patientId])
+  @@map("medication_reminders")
 }
