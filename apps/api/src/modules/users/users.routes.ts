@@ -6,11 +6,21 @@ import { langSchema } from '@digisante/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
-import { notFound } from '@/lib/errors.js';
+import { forbidden, notFound } from '@/lib/errors.js';
+import { requireRole } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
 
 const deviceSchema = z.object({
   fcmToken: z.string().trim().min(1).max(512),
+});
+
+// Fiche médicale d'urgence (vitale en cas de SOS) — données du patient.
+const medicalSchema = z.object({
+  bloodGroup: z.enum(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']).optional(),
+  allergies: z.array(z.string().trim().min(1).max(80)).max(50).optional(),
+  chronicDiseases: z.array(z.string().trim().min(1).max(80)).max(50).optional(),
+  insuranceNumber: z.string().trim().max(60).optional(),
+  emergencyContact: z.string().trim().max(80).optional(),
 });
 
 const updateMeSchema = z.object({
@@ -70,5 +80,48 @@ export default async function usersRoutes(app: FastifyInstance) {
       select: { id: true, role: true, fcmToken: true },
     });
     return updated;
+  });
+
+  const patientOnly = { preHandler: [app.authenticate, requireRole('PATIENT')] };
+
+  // Fiche médicale d'urgence du patient (groupe sanguin, allergies, maladies
+  // chroniques, n° assurance + contact d'urgence). Vitale pour le SOS.
+  app.get('/me/medical', patientOnly, async (request) => {
+    const me = await app.prisma.user.findUnique({
+      where: { id: request.user.sub },
+      select: {
+        patient: { select: { bloodGroup: true, allergies: true, chronicDiseases: true, insuranceNumber: true } },
+        profile: { select: { emergencyContact: true } },
+      },
+    });
+    if (!me?.patient) throw forbidden('Profil patient requis');
+    return { ...me.patient, emergencyContact: me.profile?.emergencyContact ?? null };
+  });
+
+  // Mise à jour de la fiche médicale d'urgence (patient propriétaire).
+  app.patch('/me/medical', patientOnly, async (request) => {
+    const input = zParse(medicalSchema, request.body);
+    const { emergencyContact, ...patientFields } = input;
+    const patient = await app.prisma.patient.findUnique({
+      where: { userId: request.user.sub },
+      select: { id: true },
+    });
+    if (!patient) throw forbidden('Profil patient requis');
+
+    if (Object.keys(patientFields).length > 0) {
+      await app.prisma.patient.update({ where: { id: patient.id }, data: patientFields });
+    }
+    if (emergencyContact !== undefined) {
+      await app.prisma.profile.update({ where: { userId: request.user.sub }, data: { emergencyContact } });
+    }
+
+    const me = await app.prisma.user.findUnique({
+      where: { id: request.user.sub },
+      select: {
+        patient: { select: { bloodGroup: true, allergies: true, chronicDiseases: true, insuranceNumber: true } },
+        profile: { select: { emergencyContact: true } },
+      },
+    });
+    return { ...me!.patient, emergencyContact: me?.profile?.emergencyContact ?? null };
   });
 }

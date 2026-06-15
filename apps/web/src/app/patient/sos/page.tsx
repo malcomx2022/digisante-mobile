@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 
 import { PatientHeader } from '@/components/patient/PatientHeader';
@@ -60,6 +61,11 @@ export default function SosPage() {
         <a href={buildSosSmsLink(coords ?? {})} className="block w-full text-center bg-sos-600 text-white font-display font-extrabold card-pagne py-3">
           {t('sos.sms')}
         </a>
+
+        {/* Fiche d'urgence : groupe sanguin, allergies, contact — visible par les secours */}
+        <Link href="/patient/emergency" className="block w-full text-center bg-white card-pagne border border-stone-300 text-stone-800 font-display font-extrabold py-3">
+          🩸 {t('sos.emergency_card')}
+        </Link>
 
         <CardPagne className="p-4">
           <p className="font-display font-extrabold text-[13px] text-stone-700 mb-2">{t('sos.numbers')}</p>
