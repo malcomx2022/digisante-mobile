@@ -21,10 +21,12 @@ const resultSchema = z.object({
 });
 
 const idParams = z.object({ id: z.string().cuid() });
+const interpretSchema = z.object({ interpretation: z.string().trim().min(1).max(2000) });
 
 export default async function laboratoryRoutes(app: FastifyInstance) {
   const authed = { preHandler: [app.authenticate] };
   const labOnly = { preHandler: [app.authenticate, requireRole('LABORATOIRE')] };
+  const doctorOnly = { preHandler: [app.authenticate, requireRole('MEDECIN')] };
 
   // Prescription d'une analyse (médecin).
   app.post('/orders', { preHandler: [app.authenticate, requireRole('MEDECIN')] }, async (request, reply) => {
@@ -35,6 +37,16 @@ export default async function laboratoryRoutes(app: FastifyInstance) {
 
   // Mes demandes d'analyse (médecin : prescrites ; patient : siennes ; labo : prises en charge).
   app.get('/orders', authed, async (request) => lab.listOrders(app, request.user));
+
+  // Résultats des analyses prescrites par ce médecin (boucle prescrire → résultat).
+  app.get('/results', doctorOnly, async (request) => lab.listResultsForDoctor(app, request.user.sub));
+
+  // Interprétation d'un résultat par le médecin prescripteur.
+  app.post('/orders/:id/interpret', doctorOnly, async (request) => {
+    const { id } = zParse(idParams, request.params);
+    const { interpretation } = zParse(interpretSchema, request.body);
+    return lab.interpretResult(app, request.user.sub, id, interpretation);
+  });
 
   // Pool des demandes en attente, anonymisées (labo). §4 : pas d'identité patient.
   app.get('/orders/available', labOnly, async (request) => lab.listAvailable(app, request.user.sub));
