@@ -8,28 +8,20 @@ import { PatientHeader } from '@/components/patient/PatientHeader';
 import { Badge, Button, CardPagne } from '@/components/ui';
 import { Empty, ErrorState, Loading } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
-import { get } from '@/lib/api/client';
+import { professionalsApi, type DoctorListItem } from '@/lib/api/professionals';
 import { useApi } from '@/lib/api/useApi';
+import { cn } from '@/lib/cn';
 
-interface Doctor {
-  id: string;
-  speciality: string;
-  consultFee: string | number;
-  isVerified: boolean;
-  profile: { firstName: string; lastName: string; spokenLangs: string[] } | null;
-}
-interface Paginated {
-  data: Doctor[];
-  total: number;
-}
+const LANGS = ['FR', 'EN', 'FON', 'BARIBA', 'DENDI'];
 
-// D-05 — Recherche de médecin (annuaire vérifié).
+// D-05 — Recherche de médecin (annuaire vérifié) : recherche texte + filtre langue.
 export default function DoctorsPage() {
   const { t } = useLocale();
   const [q, setQ] = useState('');
+  const [lang, setLang] = useState<string | null>(null);
   const [booking, setBooking] = useState<BookingDoctor | null>(null);
-  const { data, loading, error } = useApi<Paginated>(() => get(`/professionals?pageSize=20${q ? `&q=${encodeURIComponent(q)}` : ''}`), [q]);
-  const doctors = data?.data ?? [];
+  const { data, loading, error } = useApi(() => professionalsApi.list({ q: q || undefined, lang: lang ?? undefined }), [q, lang]);
+  const doctors: DoctorListItem[] = data?.data ?? [];
 
   return (
     <>
@@ -42,6 +34,27 @@ export default function DoctorsPage() {
           className="w-full bg-white card-pagne border-2 border-stone-900 px-4 py-3 font-body text-[15px] shadow-[4px_4px_0_rgba(33,28,22,.15)] focus:outline-none"
         />
 
+        {/* Filtre par langue parlée (barrière linguistique) */}
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+          <button
+            type="button"
+            onClick={() => setLang(null)}
+            className={cn('shrink-0 card-pagne px-3 py-1.5 text-[12px] font-display font-bold', lang === null ? 'bg-sante-600 text-white' : 'bg-creme-deep text-stone-600')}
+          >
+            🗣 {t('doctors.all_langs')}
+          </button>
+          {LANGS.map((l) => (
+            <button
+              key={l}
+              type="button"
+              onClick={() => setLang(l === lang ? null : l)}
+              className={cn('shrink-0 card-pagne px-3 py-1.5 text-[12px] font-display font-bold', l === lang ? 'bg-sante-600 text-white' : 'bg-creme-deep text-stone-600')}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+
         {loading && <Loading label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && doctors.length === 0 && <Empty label={t('common.empty')} />}
@@ -52,12 +65,12 @@ export default function DoctorsPage() {
               <div className="flex items-start gap-3">
                 <div className="w-12 h-12 card-pagne bg-sante-900 bogolan-dark rotate-2 shrink-0" />
                 <div className="flex-1">
-                  <div className="flex items-center gap-2">
+                  <Link href={`/patient/doctors/${d.id}`} className="flex items-center gap-2">
                     <p className="font-display font-extrabold text-[14px] text-stone-800">
                       Dr {d.profile?.firstName} {d.profile?.lastName}
                     </p>
                     {d.isVerified && <Badge variant="normal">✓ {t('doctors.verified')}</Badge>}
-                  </div>
+                  </Link>
                   <p className="text-[13px] text-stone-500">{d.speciality}</p>
                   {d.profile?.spokenLangs?.length ? (
                     <p className="text-[12px] text-stone-400 mt-0.5">🗣 {d.profile.spokenLangs.join(' · ')}</p>
@@ -77,12 +90,7 @@ export default function DoctorsPage() {
                         variant="sante"
                         className="text-[13px] px-3 py-1.5"
                         onClick={() =>
-                          setBooking({
-                            id: d.id,
-                            speciality: d.speciality,
-                            consultFee: d.consultFee,
-                            profile: d.profile,
-                          })
+                          setBooking({ id: d.id, speciality: d.speciality, consultFee: d.consultFee, profile: d.profile })
                         }
                       >
                         {t('doctors.book')}
