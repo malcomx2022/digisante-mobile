@@ -366,11 +366,12 @@ model Appointment {
   doctorId     String
   type         AppointmentType
   status       AppointmentStatus @default(PENDING)
-  scheduledAt  DateTime
-  cancelReason String?
-  triage       Json?
-  createdAt    DateTime          @default(now())
-  updatedAt    DateTime          @updatedAt
+  scheduledAt    DateTime
+  cancelReason   String?
+  triage         Json?
+  reminderSentAt DateTime? // rappel de RDV généré (idempotence du générateur)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
   patient      Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
   doctor       Doctor        @relation(fields: [doctorId], references: [id], onDelete: Cascade)

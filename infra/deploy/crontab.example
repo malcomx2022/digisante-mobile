@@ -20,6 +20,10 @@ RECONCILE_TOKEN=changeme
 # Toutes les 5 minutes (idempotent par jour). À exécuter AVANT le dispatch.
 */5 * * * * curl -fsS -X POST -H "x-service-token: ${RECONCILE_TOKEN}" http://127.0.0.1:3001/api/v1/reminders/generate >> /var/log/digisante/med_reminders.log 2>&1
 
+# Génération des rappels de RDV (RDV confirmés dans les 24 h) → Notifications.
+# Toutes les 15 minutes (idempotent par RDV via reminderSentAt).
+*/15 * * * * curl -fsS -X POST -H "x-service-token: ${RECONCILE_TOKEN}" http://127.0.0.1:3001/api/v1/appointments/reminders/generate >> /var/log/digisante/appt_reminders.log 2>&1
+
 # Dispatch des notifications dues (rappels, SOS, labo…) — toutes les 2 minutes.
 # Appelle l'endpoint interne protégé par le jeton de service (x-service-token).
 */2 * * * * curl -fsS -X POST -H "x-service-token: ${RECONCILE_TOKEN}" http://127.0.0.1:3001/api/v1/notifications/dispatch >> /var/log/digisante/notify_dispatch.log 2>&1
