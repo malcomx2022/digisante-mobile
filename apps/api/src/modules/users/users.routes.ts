@@ -2,7 +2,7 @@
 // Routes Utilisateurs (préfixe /api/v1/users) — profil de l'utilisateur courant.
 // Langues parlées (spokenLangs) éditables ici (🗣 fiche personne, CLAUDE.md §5).
 // ─────────────────────────────────────────────────────────────
-import { langSchema } from '@digisante/shared';
+import { langSchema, normalizeBeninPhone } from '@digisante/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
@@ -56,6 +56,11 @@ export default async function usersRoutes(app: FastifyInstance) {
   app.patch('/me', { preHandler: [app.authenticate] }, async (request) => {
     const input = zParse(updateMeSchema, request.body);
     const { lang, ...profileFields } = input;
+    // Réforme ARCEP 2024 : canonicaliser le contact d'urgence (les numéros
+    // diaspora sont laissés intacts par le helper).
+    if (profileFields.emergencyContact !== undefined) {
+      profileFields.emergencyContact = normalizeBeninPhone(profileFields.emergencyContact);
+    }
 
     const updated = await app.prisma.user.update({
       where: { id: request.user.sub },
@@ -112,7 +117,11 @@ export default async function usersRoutes(app: FastifyInstance) {
       await app.prisma.patient.update({ where: { id: patient.id }, data: patientFields });
     }
     if (emergencyContact !== undefined) {
-      await app.prisma.profile.update({ where: { userId: request.user.sub }, data: { emergencyContact } });
+      // Réforme ARCEP 2024 : canonicaliser (numéros diaspora laissés intacts).
+      await app.prisma.profile.update({
+        where: { userId: request.user.sub },
+        data: { emergencyContact: normalizeBeninPhone(emergencyContact) },
+      });
     }
 
     const me = await app.prisma.user.findUnique({

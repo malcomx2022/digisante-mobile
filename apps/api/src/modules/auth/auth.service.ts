@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────────────────────
 import { randomUUID } from 'node:crypto';
 
-import type { Lang, Role } from '@digisante/shared';
+import { normalizeBeninPhone, type Lang, type Role } from '@digisante/shared';
 import { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
@@ -125,11 +125,15 @@ async function generateAndSendOtp(
  * seraient cassés pour tout compte créé via l'API (cf. bug racine).
  */
 export async function register(app: FastifyInstance, input: RegisterInput) {
+  // Réforme ARCEP 2024 : canonicaliser le numéro (8 → 10 chiffres) AVANT
+  // persistance pour que User.phone (et Pharmacy/Lab.phone) reste canonique.
+  // Les numéros diaspora (autre indicatif) sont laissés intacts par le helper.
+  const phone = normalizeBeninPhone(input.phone);
   try {
     const user = await app.prisma.$transaction(async (tx) => {
       const created = await tx.user.create({
         data: {
-          phone: input.phone,
+          phone,
           email: input.email,
           role: input.role,
           lang: input.lang,
@@ -170,7 +174,7 @@ export async function register(app: FastifyInstance, input: RegisterInput) {
               userId: created.id,
               name: input.establishmentName!,
               address: input.address ?? '',
-              phone: input.phone,
+              phone,
             },
           });
           break;
@@ -181,7 +185,7 @@ export async function register(app: FastifyInstance, input: RegisterInput) {
               userId: created.id,
               name: input.establishmentName!,
               address: input.address ?? '',
-              phone: input.phone,
+              phone,
             },
           });
           break;
@@ -215,9 +219,11 @@ export async function requestOtp(
   app: FastifyInstance,
   input: { phone: string; channel: OtpChannel },
 ) {
-  await ensureNotLocked(app, input.phone);
+  // Réforme ARCEP 2024 : aligner sur la clé canonique stockée (cf. register).
+  const phone = normalizeBeninPhone(input.phone);
+  await ensureNotLocked(app, phone);
   const user = await app.prisma.user.findUnique({
-    where: { phone: input.phone },
+    where: { phone },
     select: { phone: true, lang: true },
   });
   if (!user) throw notFound('Aucun compte associé à ce numéro');
@@ -231,29 +237,31 @@ export async function verifyOtp(
   input: { phone: string; code: string },
   ip: string,
 ) {
-  await ensureNotLocked(app, input.phone);
+  // Réforme ARCEP 2024 : même clé canonique que register/requestOtp (lookup + hashOtp).
+  const phone = normalizeBeninPhone(input.phone);
+  await ensureNotLocked(app, phone);
 
-  const stored = await app.redis.get(otpKey(input.phone));
+  const stored = await app.redis.get(otpKey(phone));
   if (!stored) throw badRequest('Code expiré ou inexistant. Demandez un nouveau code.');
 
-  if (!safeEqualHex(stored, hashOtp(input.phone, input.code))) {
-    const attempts = await app.redis.incr(attemptsKey(input.phone));
-    await app.redis.expire(attemptsKey(input.phone), OTP_LOCK_SECONDS);
-    await writeAudit(app.prisma, { action: 'AUTH_FAIL', ip, meta: { phone: input.phone, attempts } });
+  if (!safeEqualHex(stored, hashOtp(phone, input.code))) {
+    const attempts = await app.redis.incr(attemptsKey(phone));
+    await app.redis.expire(attemptsKey(phone), OTP_LOCK_SECONDS);
+    await writeAudit(app.prisma, { action: 'AUTH_FAIL', ip, meta: { phone, attempts } });
 
     if (attempts >= OTP_MAX_ATTEMPTS) {
-      await app.redis.set(lockKey(input.phone), '1', 'EX', OTP_LOCK_SECONDS);
-      await app.redis.del(otpKey(input.phone));
-      await writeAudit(app.prisma, { action: 'AUTH_LOCKOUT', ip, meta: { phone: input.phone } });
+      await app.redis.set(lockKey(phone), '1', 'EX', OTP_LOCK_SECONDS);
+      await app.redis.del(otpKey(phone));
+      await writeAudit(app.prisma, { action: 'AUTH_LOCKOUT', ip, meta: { phone } });
       throw tooManyRequests("Trop d'échecs. Compte verrouillé 30 minutes.");
     }
     throw unauthorized(`Code invalide (${OTP_MAX_ATTEMPTS - attempts} tentative(s) restante(s))`);
   }
 
-  await app.redis.del(otpKey(input.phone), attemptsKey(input.phone));
+  await app.redis.del(otpKey(phone), attemptsKey(phone));
 
   const user = await app.prisma.user.findUnique({
-    where: { phone: input.phone },
+    where: { phone },
     select: { id: true, phone: true, email: true, role: true, status: true, lang: true },
   });
   if (!user) throw notFound('Compte introuvable');

@@ -7,10 +7,10 @@ const prisma = new PrismaClient();
 async function main() {
   // ── Admin (espace Admin) ──
   await prisma.user.upsert({
-    where: { phone: '+22997000000' },
+    where: { phone: '+2290197000000' },
     update: {},
     create: {
-      phone: '+22997000000',
+      phone: '+2290197000000',
       email: 'admin@digisante.bj',
       role: 'ADMIN',
       status: 'ACTIVE',
@@ -23,10 +23,10 @@ async function main() {
 
   // ── Médecin de démo (espace PRO) ──
   await prisma.user.upsert({
-    where: { phone: '+22997000001' },
+    where: { phone: '+2290197000001' },
     update: {},
     create: {
-      phone: '+22997000001',
+      phone: '+2290197000001',
       email: 'dr.demo@digisante.bj',
       role: 'MEDECIN',
       status: 'ACTIVE',
@@ -47,10 +47,10 @@ async function main() {
 
   // ── Patient de démo (espace Patient) + portefeuille ──
   await prisma.user.upsert({
-    where: { phone: '+22997000002' },
+    where: { phone: '+2290197000002' },
     update: {},
     create: {
-      phone: '+22997000002',
+      phone: '+2290197000002',
       role: 'PATIENT',
       status: 'ACTIVE',
       lang: 'FON',
