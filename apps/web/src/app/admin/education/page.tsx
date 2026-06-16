@@ -25,22 +25,30 @@ export default function AdminEducation() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [draft, setDraft] = useState<Content | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   async function create() {
+    setActionError(null);
     try {
       const c = (await post('/education', { title, body, category: 'PREVENTION' })) as Content;
       setDraft(c);
       setTitle('');
       setBody('');
     } catch {
-      /* ignore */
+      setActionError(t('auth.error'));
     }
   }
   async function submitReview() {
     if (!draft) return;
-    await post(`/education/${draft.id}/submit-review`).catch(() => {});
-    setDraft({ ...draft, status: 'MEDICAL_REVIEW' });
-    setTick((x) => x + 1);
+    setActionError(null);
+    try {
+      await post(`/education/${draft.id}/submit-review`);
+      // Réinitialiser pour permettre d'enchaîner une nouvelle création.
+      setDraft(null);
+      setTick((x) => x + 1);
+    } catch {
+      setActionError(t('auth.error'));
+    }
   }
 
   const inputCls = 'w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[14px] focus:outline-none focus:border-indigo-600';
@@ -64,6 +72,7 @@ export default function AdminEducation() {
               {t('edu.create')}
             </Button>
           )}
+          {actionError && <p className="text-[12px] text-sos-600 font-bold">{actionError}</p>}
         </CardPagne>
 
         <Nkyinkyim className="opacity-40" />

@@ -23,10 +23,14 @@ export default function WalletPage() {
   const { data } = useApi<WalletData>(() => get('/wallet'), [tick]);
   const [eur, setEur] = useState('10');
   const [msg, setMsg] = useState<string | null>(null);
+  // Garde front-only contre la double-soumission (double recharge) — §5 : aucune logique de paiement modifiée.
+  const [busy, setBusy] = useState(false);
 
   const xof = Math.round((Number(eur) || 0) * EUR_XOF);
 
   async function topup() {
+    if (busy) return;
+    setBusy(true);
     setMsg(null);
     try {
       await post('/wallet/topup', { amountEur: Number(eur), method: 'VISA_MC' });
@@ -34,6 +38,8 @@ export default function WalletPage() {
       setTick((x) => x + 1);
     } catch {
       setMsg(t('auth.error'));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -57,7 +63,7 @@ export default function WalletPage() {
             />
             <span className="text-[13px] text-white/80">€ → {t('wallet.converted', { xof: xof.toLocaleString('fr-FR') })}</span>
           </div>
-          <Button variant="ocre" full className="mt-3" onClick={topup} disabled={!Number(eur)}>
+          <Button variant="ocre" full className="mt-3" onClick={topup} disabled={busy || !Number(eur)}>
             {t('wallet.topup')} (Visa · 3-D Secure)
           </Button>
           {msg && <p className="mt-2 text-[12px] text-white">{msg}</p>}

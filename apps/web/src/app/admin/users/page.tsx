@@ -4,7 +4,7 @@ import { useState } from 'react';
 
 import { Badge, Button, CardPagne } from '@/components/ui';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
-import { Loading } from '@/components/ui/States';
+import { Empty, ErrorState, Loading } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get, post } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
@@ -25,12 +25,22 @@ interface Paginated {
 export default function AdminUsers() {
   const { t } = useLocale();
   const [tick, setTick] = useState(0);
-  const { data, loading } = useApi<Paginated>(() => get('/admin/users?pageSize=30'), [tick]);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const { data, loading, error } = useApi<Paginated>(() => get('/admin/users?pageSize=30'), [tick]);
 
   async function toggle(u: User) {
     const action = u.status === 'SUSPENDED' ? 'activate' : 'suspend';
-    await post(`/admin/users/${u.id}/${action}`).catch(() => {});
-    setTick((x) => x + 1);
+    const who = u.profile ? `${u.profile.firstName} ${u.profile.lastName}` : u.phone;
+    // Action sensible journalisée (USER_SUSPEND) → confirmation explicite.
+    const label = action === 'suspend' ? t('admin.suspend_confirm', { who }) : t('admin.activate_confirm', { who });
+    if (typeof window !== 'undefined' && !window.confirm(label)) return;
+    setActionError(null);
+    try {
+      await post(`/admin/users/${u.id}/${action}`);
+      setTick((x) => x + 1);
+    } catch {
+      setActionError(t('auth.error'));
+    }
   }
 
   return (
@@ -39,6 +49,9 @@ export default function AdminUsers() {
       <main className="px-6 -mt-10 relative z-20 space-y-3 pb-6">
         <p className="text-[12px] text-stone-400">{t('admin.no_medical')}</p>
         {loading && <Loading label={t('common.loading')} />}
+        {error && <ErrorState label={t('auth.error')} />}
+        {actionError && <p className="text-[12px] text-sos-600 font-bold">{actionError}</p>}
+        {!loading && !error && (data?.data?.length ?? 0) === 0 && <Empty label={t('common.empty')} />}
         {(data?.data ?? []).map((u) => (
           <CardPagne key={u.id} stitch={u.status === 'SUSPENDED' ? 'sos' : false} className="p-4 flex items-center justify-between">
             <div>

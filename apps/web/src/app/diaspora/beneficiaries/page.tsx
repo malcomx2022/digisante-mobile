@@ -1,5 +1,6 @@
 'use client';
 
+import { LANGUAGE_LIST } from '@digisante/shared';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -11,7 +12,8 @@ import { beneficiariesApi, type Beneficiary } from '@/lib/api/beneficiaries';
 import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
 
-const LANGS = ['FR', 'EN', 'FON', 'BARIBA', 'DENDI'];
+// Dérivé de l'enum Lang partagé (cohérence FR/EN/FON/BARIBA/DENDI) — code + endonyme affiché.
+const LANGS = LANGUAGE_LIST.map((l) => ({ code: l.code, label: l.nativeName }));
 const EMPTY = { name: '', relationship: '', phone: '', languagesSpoken: [] as string[], notes: '' };
 
 // D-20b — Diaspora : carnet des proches (ajout / édition / suppression).
@@ -21,6 +23,7 @@ export default function BeneficiariesPage() {
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState({ ...EMPTY });
   const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const { data, loading, error } = useApi<Beneficiary[]>(() => beneficiariesApi.list(), [tick]);
 
@@ -39,6 +42,7 @@ export default function BeneficiariesPage() {
   async function save() {
     if (!form.name.trim()) return;
     setBusy(true);
+    setActionError(null);
     const payload = {
       name: form.name.trim(),
       relationship: form.relationship.trim() || undefined,
@@ -51,14 +55,23 @@ export default function BeneficiariesPage() {
       else if (editing) await beneficiariesApi.update(editing, payload);
       setEditing(null);
       setTick((n) => n + 1);
+    } catch {
+      setActionError(t('auth.error'));
     } finally {
       setBusy(false);
     }
   }
 
   async function remove(id: string) {
-    await beneficiariesApi.remove(id).catch(() => {});
-    setTick((n) => n + 1);
+    // Suppression d'un proche → confirmation explicite.
+    if (typeof window !== 'undefined' && !window.confirm(t('beneficiaries.remove_confirm'))) return;
+    setActionError(null);
+    try {
+      await beneficiariesApi.remove(id);
+      setTick((n) => n + 1);
+    } catch {
+      setActionError(t('auth.error'));
+    }
   }
 
   const inputCls = 'w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[14px] focus:outline-none focus:border-ocre-500';
@@ -81,12 +94,12 @@ export default function BeneficiariesPage() {
               <div className="flex flex-wrap gap-1.5">
                 {LANGS.map((l) => (
                   <button
-                    key={l}
+                    key={l.code}
                     type="button"
-                    onClick={() => toggleLang(l)}
-                    className={cn('card-pagne px-2.5 py-1 text-[11px] font-display font-bold border', form.languagesSpoken.includes(l) ? 'bg-ocre-400 text-stone-900 border-stone-900' : 'bg-white text-stone-500 border-stone-300')}
+                    onClick={() => toggleLang(l.code)}
+                    className={cn('card-pagne px-2.5 py-1 text-[11px] font-display font-bold border', form.languagesSpoken.includes(l.code) ? 'bg-ocre-400 text-stone-900 border-stone-900' : 'bg-white text-stone-500 border-stone-300')}
                   >
-                    {l}
+                    {l.label}
                   </button>
                 ))}
               </div>
@@ -96,11 +109,13 @@ export default function BeneficiariesPage() {
               <Button variant="ocre" className="flex-1" onClick={save} disabled={busy || !form.name.trim()}>{t('beneficiaries.save')}</Button>
               <Button variant="outline" className="flex-1" onClick={() => setEditing(null)}>{t('common.close')}</Button>
             </div>
+            {actionError && <p className="text-[12px] text-sos-600 font-bold">{actionError}</p>}
           </CardPagne>
         ) : (
           <Button variant="ocre" full onClick={startAdd}>+ {t('beneficiaries.add')}</Button>
         )}
 
+        {actionError && !editing && <p className="text-[12px] text-sos-600 font-bold">{actionError}</p>}
         {loading && <Loading label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && (data?.length ?? 0) === 0 && !editing && <Empty label={t('beneficiaries.empty')} />}
