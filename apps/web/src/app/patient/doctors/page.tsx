@@ -1,26 +1,39 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { BookingModal, type BookingDoctor } from '@/components/patient/BookingModal';
 import { PatientHeader } from '@/components/patient/PatientHeader';
 import { Badge, Button, CardPagne } from '@/components/ui';
 import { Empty, ErrorState, Loading } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
+import { LANGUAGE_LIST } from '@digisante/shared';
 import { professionalsApi, type DoctorListItem } from '@/lib/api/professionals';
 import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
 
-const LANGS = ['FR', 'EN', 'FON', 'BARIBA', 'DENDI'];
+// Liste des langues dérivée de l'enum canonique partagé (source de vérité, parité garantie).
+const LANGS = LANGUAGE_LIST.map((l) => l.code);
 
 // D-05 — Recherche de médecin (annuaire vérifié) : recherche texte + filtre langue.
 export default function DoctorsPage() {
   const { t } = useLocale();
   const [q, setQ] = useState('');
+  const [debouncedQ, setDebouncedQ] = useState('');
   const [lang, setLang] = useState<string | null>(null);
   const [booking, setBooking] = useState<BookingDoctor | null>(null);
-  const { data, loading, error } = useApi(() => professionalsApi.list({ q: q || undefined, lang: lang ?? undefined }), [q, lang]);
+
+  // Debounce de la recherche : évite une requête par frappe (réseaux 2G/rural).
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQ(q.trim()), 300);
+    return () => clearTimeout(id);
+  }, [q]);
+
+  const { data, loading, error } = useApi(
+    () => professionalsApi.list({ q: debouncedQ || undefined, lang: lang ?? undefined }),
+    [debouncedQ, lang],
+  );
   const doctors: DoctorListItem[] = data?.data ?? [];
 
   return (
@@ -31,6 +44,7 @@ export default function DoctorsPage() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder={t('doctors.search')}
+          aria-label={t('doctors.search')}
           className="w-full bg-white card-pagne border-2 border-stone-900 px-4 py-3 font-body text-[15px] shadow-[4px_4px_0_rgba(33,28,22,.15)] focus:outline-none"
         />
 

@@ -51,11 +51,14 @@ export default function InsurancePage() {
   }
 
   async function remove(id: string) {
+    // Confirmation avant suppression (action destructive).
+    if (typeof window !== 'undefined' && !window.confirm(t('common.delete') + ' ?')) return;
+    setErr(null);
     try {
       await insuranceApi.remove(id);
       setTick((n) => n + 1);
-    } catch {
-      /* best-effort */
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : t('auth.error'));
     }
   }
 
@@ -67,6 +70,7 @@ export default function InsurancePage() {
         {loading && <Loading label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && (coverages?.length ?? 0) === 0 && <Empty label={t('insurance.none')} />}
+        {err && <p className="text-terre-600 font-bold text-[13px]">{err}</p>}
 
         <div className="space-y-3">
           {(coverages ?? []).map((c) => (

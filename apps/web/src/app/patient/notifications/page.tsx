@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { PatientHeader } from '@/components/patient/PatientHeader';
 import { Empty, ErrorState, Loading } from '@/components/ui/States';
@@ -12,20 +12,25 @@ import { cn } from '@/lib/cn';
 // Centre de notifications du patient (rappels, RDV, résultats, paiements…).
 export default function NotificationsPage() {
   const { t } = useLocale();
-  const [tick, setTick] = useState(0);
-  const { data, loading, error } = useApi<AppNotification[]>(() => notificationsApi.list(), [tick]);
+  const { data, loading, error } = useApi<AppNotification[]>(() => notificationsApi.list(), []);
+  // Copie locale pour mise à jour optimiste du « lu » (pas de re-fetch complet).
+  const [items, setItems] = useState<AppNotification[]>([]);
+  useEffect(() => {
+    setItems(data ?? []);
+  }, [data]);
 
   async function read(n: AppNotification) {
     if (n.readAt || n.status === 'READ') return;
+    // Marquage optimiste local.
+    const readAt = new Date().toISOString();
+    setItems((cur) => cur.map((it) => (it.id === n.id ? { ...it, readAt, status: 'READ' } : it)));
     try {
       await notificationsApi.markRead(n.id);
-      setTick((x) => x + 1);
     } catch {
-      /* best-effort */
+      // Échec : on restaure l'état non-lu de cette notification.
+      setItems((cur) => cur.map((it) => (it.id === n.id ? { ...it, readAt: n.readAt, status: n.status } : it)));
     }
   }
-
-  const items = data ?? [];
 
   return (
     <>

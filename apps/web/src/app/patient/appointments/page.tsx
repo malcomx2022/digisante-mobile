@@ -16,23 +16,30 @@ export default function AppointmentsPage() {
   const [tick, setTick] = useState(0);
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [reason, setReason] = useState('');
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const { data, loading, error } = useApi<PatientAppointment[]>(() => appointmentsApi.listMine(), [tick]);
 
   async function confirmCancel(id: string) {
+    setCancelError(null);
     try {
       await appointmentsApi.cancel(id, reason.trim() || 'Annulé par le patient');
       setCancelling(null);
       setReason('');
       setTick((n) => n + 1);
-    } catch {
-      /* best-effort */
+    } catch (e) {
+      // L'annulation a échoué : on garde le formulaire ouvert avec un message visible.
+      setCancelError(e instanceof Error ? e.message : t('auth.error'));
     }
   }
 
   const all = data ?? [];
   const now = Date.now();
-  const upcoming = all.filter((a) => new Date(a.scheduledAt).getTime() > now && !['CANCELLED', 'COMPLETED'].includes(a.status));
-  const past = all.filter((a) => !upcoming.includes(a));
+  const upcoming = all
+    .filter((a) => new Date(a.scheduledAt).getTime() > now && !['CANCELLED', 'COMPLETED'].includes(a.status))
+    .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
+  const past = all
+    .filter((a) => !upcoming.includes(a))
+    .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime());
 
   const card = (a: PatientAppointment) => {
     const future = new Date(a.scheduledAt).getTime() > now;
@@ -62,7 +69,7 @@ export default function AppointmentsPage() {
               </Link>
             )}
             {cancellable && cancelling !== a.id && (
-              <button type="button" onClick={() => { setCancelling(a.id); setReason(''); }} className="card-pagne bg-sos-50 text-sos-700 font-display font-extrabold text-[12px] px-3 py-1.5">
+              <button type="button" onClick={() => { setCancelling(a.id); setReason(''); setCancelError(null); }} className="card-pagne bg-sos-50 text-sos-700 font-display font-extrabold text-[12px] px-3 py-1.5">
                 {t('appt.cancel')}
               </button>
             )}
@@ -70,16 +77,19 @@ export default function AppointmentsPage() {
         )}
 
         {cancelling === a.id && (
-          <div className="mt-3 flex items-center gap-2">
-            <input
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder={t('appt.reason')}
-              className="flex-1 bg-white card-pagne border border-stone-300 px-3 py-2 text-[13px] focus:outline-none focus:border-sos-600"
-            />
-            <Button variant="sos" className="text-[12px] px-3 py-2" onClick={() => confirmCancel(a.id)}>
-              {t('appt.confirm_cancel')}
-            </Button>
+          <div className="mt-3">
+            <div className="flex items-center gap-2">
+              <input
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder={t('appt.reason')}
+                className="flex-1 bg-white card-pagne border border-stone-300 px-3 py-2 text-[13px] focus:outline-none focus:border-sos-600"
+              />
+              <Button variant="sos" className="text-[12px] px-3 py-2" onClick={() => confirmCancel(a.id)}>
+                {t('appt.confirm_cancel')}
+              </Button>
+            </div>
+            {cancelError && <p className="text-sos-600 font-bold text-[12px] mt-2">{cancelError}</p>}
           </div>
         )}
       </CardPagne>
