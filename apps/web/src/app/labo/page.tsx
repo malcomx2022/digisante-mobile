@@ -7,15 +7,11 @@ import { Suspense, useState } from 'react';
 import { Button, CardPagne } from '@/components/ui';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
 import { useLocale } from '@/i18n/LocaleProvider';
-import { post } from '@/lib/api/client';
+import { labApi, type SubmitResult } from '@/lib/api/laboratory';
 
 interface ValueRow {
   key: string;
   value: string;
-}
-
-interface SubmitResult {
-  critical: { key: string; value: number; reason: string }[];
 }
 
 // D-23 — Laboratoire : saisie de résultat + détection de valeur critique.
@@ -31,22 +27,30 @@ function LaboResult() {
   const { t } = useLocale();
   const params = useSearchParams();
   const [orderId, setOrderId] = useState(params.get('order') ?? '');
-  const [rows, setRows] = useState<ValueRow[]>([{ key: 'troponine', value: '' }]);
+  const [rows, setRows] = useState<ValueRow[]>([{ key: '', value: '' }]);
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [published, setPublished] = useState(false);
 
   function setRow(i: number, key: keyof ValueRow, val: string) {
     setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, [key]: val } : r)));
   }
 
   async function publish() {
+    if (published) return; // anti double-publication (évite une double notification patient)
     setError(null);
     setResult(null);
     const values: Record<string, number | string> = {};
-    for (const r of rows) if (r.key) values[r.key] = Number(r.value) || r.value;
+    for (const r of rows) {
+      if (!r.key) continue;
+      // Préserver la valeur « 0 » (falsy) : ne basculer sur la chaîne brute que si non numérique.
+      const num = Number(r.value);
+      values[r.key] = r.value !== '' && !Number.isNaN(num) ? num : r.value;
+    }
     try {
-      const res = (await post(`/lab/orders/${orderId}/result`, { values })) as SubmitResult;
+      const res = await labApi.submitResult(orderId, values);
       setResult(res);
+      setPublished(true);
     } catch {
       setError(t('auth.error'));
     }
@@ -75,16 +79,16 @@ function LaboResult() {
           </button>
         </CardPagne>
 
-        {result && result.critical.length > 0 && (
+        {result && (result.critical?.length ?? 0) > 0 && (
           <div className="bg-sos-500 text-white card-pagne px-4 py-3 font-display font-extrabold text-[13px] text-center">
             ⚠ {t('labo.critical')}
             <p className="font-body font-normal text-[12px] mt-1">{result.critical.map((c) => `${c.key} ${c.reason}`).join(' · ')}</p>
           </div>
         )}
-        {result && result.critical.length === 0 && <p className="text-center text-sante-700 font-bold">✓ Résultat publié</p>}
+        {result && (result.critical?.length ?? 0) === 0 && <p className="text-center text-sante-700 font-bold">✓ {t('labo.published')}</p>}
         {error && <p className="text-center text-sos-600 font-bold text-[13px]">{error}</p>}
 
-        <Button variant="sos" full onClick={publish} disabled={!orderId}>
+        <Button variant="sos" full onClick={publish} disabled={!orderId || published}>
           {t('labo.publish')}
         </Button>
       </main>

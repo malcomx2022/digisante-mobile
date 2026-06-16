@@ -29,7 +29,7 @@ export default function PharmacieHistoryPage() {
 
       <div className="px-6 flex-1 space-y-3 pb-6">
         {loading && <Loading label={t('common.loading')} />}
-        {error && <ErrorState label={t('auth.error')} />}
+        {error && <ErrorState label={t('common.load_error')} />}
         {!loading && !error && (data?.length ?? 0) === 0 && <Empty label={t('pharmacie.no_history')} />}
 
         {(data ?? []).map((d) => (
