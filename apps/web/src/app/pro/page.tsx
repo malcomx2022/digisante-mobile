@@ -23,6 +23,8 @@ export default function ProDashboard() {
   const { data, loading, error } = useApi<Appointment[]>(() => get('/appointments?pageSize=30'), []);
   const [confirmed, setConfirmed] = useState<Set<string>>(new Set());
 
+  const [confirmError, setConfirmError] = useState(false);
+
   const list = data ?? [];
   const stats = {
     total: list.length,
@@ -31,11 +33,18 @@ export default function ProDashboard() {
   };
 
   async function confirm(id: string) {
+    setConfirmError(false);
+    // Optimiste : marquer confirmé puis rollback en cas d'échec (pas de faux positif).
     setConfirmed((s) => new Set(s).add(id));
     try {
       await post(`/appointments/${id}/confirm`);
     } catch {
-      /* ignore */
+      setConfirmed((s) => {
+        const next = new Set(s);
+        next.delete(id);
+        return next;
+      });
+      setConfirmError(true);
     }
   }
 
@@ -72,6 +81,7 @@ export default function ProDashboard() {
         </div>
 
         <h2 className="font-display font-extrabold text-[14px] text-stone-700">{t('pro.queue')}</h2>
+        {confirmError && <p className="text-sos-600 font-bold text-[12px]">{t('auth.error')}</p>}
         {loading && <Loading label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && list.length === 0 && <Empty label={t('common.empty')} />}
@@ -79,7 +89,7 @@ export default function ProDashboard() {
         <div className="space-y-3">
           {list.map((a) => (
             <CardPagne key={a.id} className="p-4 flex items-center gap-3">
-              <span className={`w-1.5 self-stretch rounded-full ${a.status === 'CONFIRMED' ? 'bg-sante-500' : 'bg-ocre-400'}`} />
+              <span className={`w-1.5 self-stretch rounded-full ${a.status === 'CONFIRMED' ? 'bg-indigo-500' : 'bg-ocre-400'}`} />
               <div className="flex-1">
                 <p className="font-display font-bold text-[14px]">{a.type === 'TELECONSULTATION' ? 'Téléconsultation' : 'Présentiel'}</p>
                 <p className="text-[12px] text-stone-400">{new Date(a.scheduledAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</p>

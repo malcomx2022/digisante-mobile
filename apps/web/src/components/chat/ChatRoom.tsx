@@ -29,6 +29,7 @@ const THEME: Record<Theme, { mine: string; send: string; focus: string; unread: 
 
 interface LocalMessage extends ChatMessage {
   pending?: boolean;
+  failed?: boolean;
 }
 
 // Le temps réel passe par WebSocket ; ce polling n'est qu'un filet de sécurité lent
@@ -135,12 +136,27 @@ export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpar
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Envoi (ou renvoi) d'un message optimiste identifié par une clé stable et unique.
+  async function deliver(threadId: string, value: string, optimisticId: string) {
+    try {
+      const res = await chatApi.sendMessage(threadId, value);
+      if (res && typeof res === 'object' && 'queued' in res) return; // hors-ligne : reste « en attente »
+      void loadMessages(threadId, false);
+      void refreshThreads();
+    } catch (e) {
+      // Échec d'envoi : on marque le message optimiste comme ÉCHOUÉ (renvoi possible).
+      setMessages((m) => m.map((msg) => (msg.id === optimisticId ? { ...msg, pending: false, failed: true } : msg)));
+      setError(e instanceof Error ? e.message : t('auth.error'));
+    }
+  }
+
   async function send() {
     const value = text.trim();
     if (!value || !selectedId) return;
     setText('');
+    const optimisticId = crypto.randomUUID();
     const optimistic: LocalMessage = {
-      id: `tmp-${value.length}-${messages.length}`,
+      id: optimisticId,
       body: value,
       mine: true,
       readAt: null,
@@ -148,14 +164,14 @@ export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpar
       pending: !online,
     };
     setMessages((m) => [...m, optimistic]);
-    try {
-      const res = await chatApi.sendMessage(selectedId, value);
-      if (res && typeof res === 'object' && 'queued' in res) return; // hors-ligne : reste « en attente »
-      void loadMessages(selectedId, false);
-      void refreshThreads();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : t('auth.error'));
-    }
+    await deliver(selectedId, value, optimisticId);
+  }
+
+  // Renvoi d'un message en échec : on le repasse « en attente » puis on retente.
+  async function resend(m: LocalMessage) {
+    if (!selectedId) return;
+    setMessages((cur) => cur.map((msg) => (msg.id === m.id ? { ...msg, failed: false, pending: !online } : msg)));
+    await deliver(selectedId, m.body, m.id);
   }
 
   if (booting) return <Loading label={t('common.loading')} />;
@@ -197,6 +213,7 @@ export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpar
       <button
         type="button"
         onClick={() => setSelectedId(null)}
+        aria-label={t('common.back')}
         className="self-start text-[13px] text-stone-500 mb-2"
       >
         ← {current?.counterpart.name ?? t('chat.title')}
@@ -211,11 +228,20 @@ export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpar
                 'px-3 py-2 text-[14px]',
                 m.mine ? ui.mine : 'bg-white card-pagne border border-stone-200',
                 m.pending && 'border-2 border-dashed border-ocre-400',
+                m.failed && 'border-2 border-dashed border-sos-500 opacity-80',
               )}
             >
               {m.body}
             </div>
             {m.pending && <p className="text-[11px] text-ocre-600 mt-0.5 text-right">{t('chat.pending')}</p>}
+            {m.failed && (
+              <p className="text-[11px] mt-0.5 text-right">
+                <span className="text-sos-600">⚠ {t('chat.failed')}</span>{' '}
+                <button type="button" onClick={() => void resend(m)} className="text-sos-700 underline font-bold">
+                  {t('common.retry')}
+                </button>
+              </p>
+            )}
           </div>
         ))}
         <div ref={endRef} />
@@ -225,7 +251,10 @@ export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpar
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && send()}
+          onKeyDown={(e) => {
+            // Ne pas envoyer pendant une composition IME (Fɔ̀ngbè/Yorùbá, accents).
+            if (e.key === 'Enter' && !e.nativeEvent.isComposing) void send();
+          }}
           placeholder={t('chat.placeholder')}
           className={cn('flex-1 bg-white card-pagne border border-stone-300 px-3 py-2 text-[14px] focus:outline-none', ui.focus)}
         />

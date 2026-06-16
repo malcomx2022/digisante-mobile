@@ -7,6 +7,15 @@ import { QrImage } from '@/components/ui/QrImage';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { del, post } from '@/lib/api/client';
 import { cn } from '@/lib/cn';
+import { isOnline } from '@/lib/offline/online';
+
+/** Lève si la mutation a été mise en file hors-ligne — cohérent avec les helpers `online()` des API. */
+function online<T>(result: T | { queued: true }): T {
+  if (!isOnline() || (result && typeof result === 'object' && 'queued' in result)) {
+    throw new Error('QUEUED');
+  }
+  return result as T;
+}
 
 type ShareType = 'QR_CODE' | 'LINK' | 'TEMPORARY_ACCESS';
 
@@ -48,14 +57,10 @@ export function DmpShareDialog({
     setLoading(true);
     setError(null);
     try {
-      const res = await post<ShareResult>(`/dmp/records/${recordId}/share`, { shareType, ttlHours });
-      if ('queued' in res) {
-        setError(t('dmp.share_needs_network'));
-        return;
-      }
+      const res = online(await post<ShareResult>(`/dmp/records/${recordId}/share`, { shareType, ttlHours }));
       setResult(res);
-    } catch {
-      setError(t('dmp.share_error'));
+    } catch (e) {
+      setError(e instanceof Error && e.message === 'QUEUED' ? t('dmp.share_needs_network') : t('dmp.share_error'));
     } finally {
       setLoading(false);
     }
@@ -65,15 +70,11 @@ export function DmpShareDialog({
     setLoading(true);
     setError(null);
     try {
-      const res = await del<{ revoked: boolean }>(`/dmp/records/${recordId}/share`);
-      if ('queued' in res) {
-        setError(t('dmp.share_needs_network'));
-        return;
-      }
+      online(await del<{ revoked: boolean }>(`/dmp/records/${recordId}/share`));
       setRevoked(true);
       setResult(null);
-    } catch {
-      setError(t('dmp.share_error'));
+    } catch (e) {
+      setError(e instanceof Error && e.message === 'QUEUED' ? t('dmp.share_needs_network') : t('dmp.share_error'));
     } finally {
       setLoading(false);
     }

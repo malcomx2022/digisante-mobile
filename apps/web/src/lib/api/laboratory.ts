@@ -18,6 +18,15 @@ export interface IncomingOrder {
   prescribedBy: { firstName: string; lastName: string } | null;
 }
 
+export interface CriticalValue {
+  key: string;
+  reason: string;
+}
+
+export interface SubmitResult {
+  critical: CriticalValue[];
+}
+
 function online<T>(result: T | { queued: true }): T {
   if (result && typeof result === 'object' && 'queued' in result) {
     throw new Error('Connexion réseau requise pour cette action');
@@ -31,5 +40,5 @@ export const labApi = {
   claim: (id: string) => post<{ id: string; status: string }>(`/lab/orders/${id}/claim`).then(online),
   advance: (id: string) => post<{ id: string; status: string }>(`/lab/orders/${id}/advance`).then(online),
   submitResult: (orderId: string, values: Record<string, number | string>) =>
-    post<{ critical: { key: string; reason: string }[] }>(`/lab/orders/${orderId}/result`, { values }).then(online),
+    post<SubmitResult>(`/lab/orders/${orderId}/result`, { values }).then(online),
 };

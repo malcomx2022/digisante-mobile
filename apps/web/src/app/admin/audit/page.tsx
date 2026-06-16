@@ -2,7 +2,7 @@
 
 import { CardPagne } from '@/components/ui';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
-import { Loading } from '@/components/ui/States';
+import { ErrorState, Loading } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
@@ -23,13 +23,14 @@ interface Paginated {
 // D-25 (part 2) — Journal d'audit (registre append-only, hash SHA-256 chaîné).
 export default function AdminAudit() {
   const { t } = useLocale();
-  const { data, loading } = useApi<Paginated>(() => get('/admin/audit?pageSize=40'), []);
+  const { data, loading, error } = useApi<Paginated>(() => get('/admin/audit?pageSize=40'), []);
 
   return (
     <>
       <SpaceHeader title={t('admin.audit')} subtitle="Append-only · Loi N°2017-20" headerClass="bg-indigo-950" />
       <main className="px-6 -mt-10 relative z-20 space-y-2 pb-6">
         {loading && <Loading label={t('common.loading')} />}
+        {error && <ErrorState label={t('auth.error')} />}
         {(data?.data ?? []).map((e) => (
           <CardPagne key={e.id} className="p-3">
             <div className="flex items-center justify-between">

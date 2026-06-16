@@ -23,15 +23,20 @@ export default function LabOrdersPage() {
   const router = useRouter();
   const [tick, setTick] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const available = useApi<AvailableOrder[]>(() => labApi.available(), [tick]);
   const incoming = useApi<IncomingOrder[]>(() => labApi.incoming(), [tick]);
 
   async function claim(id: string) {
     setBusy(id);
+    setActionError(null);
     try {
       await labApi.claim(id);
       setTick((n) => n + 1);
+    } catch (e) {
+      // Échec courant : commande déjà prise par un autre labo (403), réseau, hors-ligne.
+      setActionError(e instanceof Error ? e.message : t('auth.error'));
     } finally {
       setBusy(null);
     }
@@ -39,9 +44,12 @@ export default function LabOrdersPage() {
 
   async function advance(id: string) {
     setBusy(id);
+    setActionError(null);
     try {
       await labApi.advance(id);
       setTick((n) => n + 1);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : t('auth.error'));
     } finally {
       setBusy(null);
     }
@@ -53,12 +61,16 @@ export default function LabOrdersPage() {
       <main className="px-6 -mt-10 relative z-20 space-y-5 pb-6">
         <Link href="/labo" className="inline-block text-[13px] text-ocre-700 font-display font-bold">← {t('labo.title')}</Link>
 
+        {actionError && (
+          <p className="bg-sos-100 text-sos-700 card-pagne px-3 py-2 text-[13px] font-bold">{actionError}</p>
+        )}
+
         {/* Demandes prises en charge */}
         <section className="space-y-3">
           <h2 className="font-display font-extrabold text-[15px] text-stone-800">{t('labo.in_progress')}</h2>
           {incoming.loading && <Loading label={t('common.loading')} />}
           {incoming.error && <ErrorState label={t('auth.error')} />}
-          {!incoming.loading && (incoming.data?.length ?? 0) === 0 && <Empty label={t('labo.no_incoming')} />}
+          {!incoming.loading && !incoming.error && (incoming.data?.length ?? 0) === 0 && <Empty label={t('labo.no_incoming')} />}
           {(incoming.data ?? []).map((o) => (
             <CardPagne key={o.id} className="p-4">
               <div className="flex items-start justify-between gap-2">
@@ -91,7 +103,8 @@ export default function LabOrdersPage() {
           <h2 className="font-display font-extrabold text-[15px] text-stone-800">{t('labo.available')}</h2>
           <p className="text-[12px] text-stone-400">{t('labo.available_hint')}</p>
           {available.loading && <Loading label={t('common.loading')} />}
-          {!available.loading && (available.data?.length ?? 0) === 0 && <Empty label={t('labo.no_available')} />}
+          {available.error && <ErrorState label={t('auth.error')} />}
+          {!available.loading && !available.error && (available.data?.length ?? 0) === 0 && <Empty label={t('labo.no_available')} />}
           {(available.data ?? []).map((o) => (
             <CardPagne key={o.id} className="p-4 flex items-center justify-between gap-2">
               <div>

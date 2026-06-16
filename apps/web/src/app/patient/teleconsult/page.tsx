@@ -67,14 +67,18 @@ function TeleconsultInner() {
       setMode((m) => (m === 'VIDEO' ? 'AUDIO' : 'CHAT'));
       return;
     }
+    // Le nouveau mode provient de la réponse (et non de l'état `mode` potentiellement périmé).
+    let nextMode: Mode;
     try {
       const res = await post<{ mode: Mode }>(`/consultations/${consultationId}/downgrade`, {});
-      if (!('queued' in res)) setMode(res.mode);
+      nextMode = 'queued' in res ? mode : res.mode;
+      setMode(nextMode);
     } catch {
       // En cas d'échec réseau, on dégrade localement l'affichage (sécurité réseau faible).
-      setMode((m) => (m === 'VIDEO' ? 'AUDIO' : 'CHAT'));
+      nextMode = mode === 'VIDEO' ? 'AUDIO' : 'CHAT';
+      setMode(nextMode);
     }
-    if (mode === 'AUDIO') router.push('/patient/chat');
+    if (nextMode === 'CHAT') router.push('/patient/chat');
   }
 
   return (
@@ -153,9 +157,20 @@ function TeleconsultInner() {
   );
 }
 
+function TeleconsultFallback() {
+  const { t } = useLocale();
+  return (
+    <div className="flex-1 bg-nuit text-white grid place-items-center">
+      <div className="card-pagne bg-indigo-900/60 px-6 py-4">
+        <p className="text-white/70 text-sm">{t('teleconsult.connecting')}</p>
+      </div>
+    </div>
+  );
+}
+
 export default function TeleconsultPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<TeleconsultFallback />}>
       <TeleconsultInner />
     </Suspense>
   );

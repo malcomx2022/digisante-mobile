@@ -13,7 +13,11 @@ import { professionalsApi, type DoctorDetail, type ReviewsResponse } from '@/lib
 import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
 
-const stars = (n: number) => '★★★★★☆☆☆☆☆'.slice(5 - Math.round(n), 10 - Math.round(n));
+const stars = (n: number) => {
+  // Clamp sur [0..5] : NaN/négatif/>5 décaleraient le slice et casseraient l'affichage.
+  const r = Math.min(5, Math.max(0, Math.round(Number.isFinite(n) ? n : 0)));
+  return '★★★★★☆☆☆☆☆'.slice(5 - r, 10 - r);
+};
 
 export default function DoctorDetailPage() {
   const { t } = useLocale();
@@ -24,18 +28,39 @@ export default function DoctorDetailPage() {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
   const [sent, setSent] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const { data, loading, error } = useApi<DoctorDetail>(() => professionalsApi.getOne(id), [id, reviewTick]);
-  const { data: reviews } = useApi<ReviewsResponse>(() => professionalsApi.reviews(id), [id, reviewTick]);
+  const { data: reviews, loading: reviewsLoading, error: reviewsError } = useApi<ReviewsResponse>(
+    () => professionalsApi.reviews(id),
+    [id, reviewTick],
+  );
+
+  // Modifier la note ou le commentaire repart d'un état « non envoyé » (efface aussi l'erreur).
+  function changeRating(n: number) {
+    setRating(n);
+    setSent(false);
+    setReviewError(null);
+  }
+  function changeComment(value: string) {
+    setComment(value);
+    setSent(false);
+    setReviewError(null);
+  }
 
   async function submitReview() {
+    setSubmitting(true);
+    setReviewError(null);
     try {
       await professionalsApi.addReview(id, { rating, comment: comment.trim() || undefined });
       setSent(true);
       setComment('');
       setReviewTick((n) => n + 1);
-    } catch {
-      /* best-effort */
+    } catch (e) {
+      setReviewError(e instanceof Error ? e.message : t('auth.error'));
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -97,21 +122,22 @@ export default function DoctorDetailPage() {
                 <p className="font-display font-extrabold text-[13px] text-stone-700">{t('reviews.rate')}</p>
                 <div className="flex gap-1 mt-2">
                   {[1, 2, 3, 4, 5].map((n) => (
-                    <button key={n} type="button" onClick={() => setRating(n)} className={cn('text-2xl leading-none', n <= rating ? 'text-ocre-500' : 'text-stone-300')} aria-label={`${n}/5`}>
+                    <button key={n} type="button" onClick={() => changeRating(n)} className={cn('text-2xl leading-none', n <= rating ? 'text-ocre-500' : 'text-stone-300')} aria-label={`${n}/5`}>
                       ★
                     </button>
                   ))}
                 </div>
                 <textarea
                   value={comment}
-                  onChange={(e) => setComment(e.target.value)}
+                  onChange={(e) => changeComment(e.target.value)}
                   placeholder={t('reviews.comment')}
                   className="mt-2 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[14px] focus:outline-none focus:border-sante-600"
                   rows={2}
                 />
                 {sent && <p className="text-sante-700 font-display font-bold text-[13px] mt-1">{t('reviews.submitted')}</p>}
-                <Button variant="sante" full className="mt-2" onClick={submitReview}>
-                  {t('reviews.submit')}
+                {reviewError && <p className="text-sos-600 font-bold text-[13px] mt-1">{reviewError}</p>}
+                <Button variant="sante" full className="mt-2" disabled={submitting} onClick={submitReview}>
+                  {submitting ? t('booking.submitting') : t('reviews.submit')}
                 </Button>
               </CardPagne>
             )}
@@ -120,7 +146,11 @@ export default function DoctorDetailPage() {
             <CardPagne className="p-4">
               <p className="font-display font-extrabold text-[13px] text-stone-700">{t('reviews.title')}</p>
               <Nkyinkyim className="my-3" />
-              {(reviews?.reviews.length ?? 0) === 0 ? (
+              {reviewsLoading ? (
+                <Loading label={t('common.loading')} />
+              ) : reviewsError ? (
+                <ErrorState label={t('auth.error')} />
+              ) : (reviews?.reviews.length ?? 0) === 0 ? (
                 <p className="text-[13px] text-stone-400">{t('reviews.none')}</p>
               ) : (
                 <div className="space-y-3">

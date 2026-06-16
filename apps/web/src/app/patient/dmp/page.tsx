@@ -9,16 +9,9 @@ import { CardPagne } from '@/components/ui';
 import { Empty, ErrorState, Loading } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get } from '@/lib/api/client';
-import { dmpApi, type DmpConsent } from '@/lib/api/dmp';
+import { dmpApi, type DmpConsent, type DmpRecord } from '@/lib/api/dmp';
 import { usersApi, type MeFull } from '@/lib/api/users';
 import { useApi } from '@/lib/api/useApi';
-
-interface DmpRecord {
-  id: string;
-  type: string;
-  title: string;
-  createdAt: string;
-}
 
 // Couleur de la barre latérale selon le type d'entrée (cf. D-04).
 const BAR: Record<string, string> = {
@@ -33,29 +26,34 @@ export default function DmpPage() {
   const { t } = useLocale();
   const [sharing, setSharing] = useState<DmpRecord | null>(null);
   const [revokeTick, setRevokeTick] = useState(0);
-  const { data, loading, error } = useApi<DmpRecord[]>(() => get('/dmp/records'), []);
+  // §4 : un échec d'action de sécurité (révocation/ré-octroi/export) DOIT être visible.
+  const [actionError, setActionError] = useState(false);
+  const { data, loading, error } = useApi<DmpRecord[]>(() => dmpApi.myRecords(), []);
   const { data: me } = useApi<MeFull>(() => usersApi.me(), []);
   const { data: consents } = useApi<DmpConsent[]>(() => dmpApi.listConsents(), [revokeTick]);
 
   async function revoke(granteeId: string) {
+    setActionError(false);
     try {
       await dmpApi.revokeConsent(granteeId);
       setRevokeTick((n) => n + 1);
     } catch {
-      /* révocation best-effort : silencieux */
+      setActionError(true);
     }
   }
 
   async function regrant(granteeId: string) {
+    setActionError(false);
     try {
       await dmpApi.regrantConsent(granteeId);
       setRevokeTick((n) => n + 1);
     } catch {
-      /* ré-autorisation best-effort : silencieux */
+      setActionError(true);
     }
   }
 
   async function exportFhir() {
+    setActionError(false);
     try {
       const bundle = await get<unknown>('/dmp/export');
       const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/fhir+json' });
@@ -66,7 +64,7 @@ export default function DmpPage() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      /* ignore */
+      setActionError(true);
     }
   }
 
@@ -90,6 +88,8 @@ export default function DmpPage() {
             {t('dmp.export')}
           </button>
         </CardPagne>
+
+        {actionError && <ErrorState label={t('auth.error')} />}
 
         {(consents?.length ?? 0) > 0 && (
           <CardPagne className="p-4">

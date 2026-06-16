@@ -22,6 +22,11 @@ export default function PharmaciePage() {
   const [dispensed, setDispensed] = useState(false);
   const [scanning, setScanning] = useState(false);
 
+  // Erreur réseau / 403 (profil absent) / hors-ligne → message réel ; sinon QR non reconnu.
+  function errorMessage(e: unknown): string {
+    return e instanceof Error && e.message ? e.message : t('pharmacie.invalid');
+  }
+
   async function scan(code: string = qr) {
     setError(null);
     setResult(null);
@@ -31,8 +36,8 @@ export default function PharmaciePage() {
       setResult(r);
       // Par défaut chaque ligne est marquée « délivrée » ; le pharmacien ajuste.
       setLineStatus(Object.fromEntries(r.items.map((it) => [it.id, 'DISPENSED' as LineStatus])));
-    } catch {
-      setError(t('pharmacie.invalid'));
+    } catch (e) {
+      setError(errorMessage(e));
     }
   }
 
@@ -44,8 +49,8 @@ export default function PharmaciePage() {
         result.items.map((it) => ({ itemId: it.id, status: lineStatus[it.id] ?? 'DISPENSED' })),
       );
       setDispensed(true);
-    } catch {
-      setError(t('pharmacie.invalid'));
+    } catch (e) {
+      setError(errorMessage(e));
     }
   }
 
@@ -83,6 +88,7 @@ export default function PharmaciePage() {
           value={qr}
           onChange={(e) => setQr(e.target.value)}
           placeholder={t('pharmacie.qr')}
+          aria-label={t('pharmacie.qr')}
           className="w-full bg-white/10 border border-white/20 card-pagne px-3 py-2 text-white text-[13px] focus:outline-none"
         />
         <button type="button" onClick={() => scan()} className="w-full bg-ocre-400 text-stone-900 font-display font-extrabold card-pagne py-3" disabled={qr.length < 16}>
@@ -94,7 +100,7 @@ export default function PharmaciePage() {
         {result && (
           <div className="bg-creme text-nuit card-pagne relative overflow-hidden">
             <div className="bg-sante-900 bogolan-dark text-white p-3 relative">
-              <p className="font-display font-extrabold">{result.authentic ? t('pharmacie.authentic') : 'Signature douteuse'}</p>
+              <p className="font-display font-extrabold">{result.authentic ? t('pharmacie.authentic') : t('pharmacie.suspicious')}</p>
               {result.patient && <p className="text-[12px] text-white/70">{result.patient.firstName} {result.patient.lastName}</p>}
               <KenteBar className="absolute bottom-0 left-0 right-0" />
             </div>
@@ -110,6 +116,7 @@ export default function PharmaciePage() {
                         <button
                           key={s}
                           type="button"
+                          aria-pressed={(lineStatus[it.id] ?? 'DISPENSED') === s}
                           onClick={() => setLineStatus((m) => ({ ...m, [it.id]: s }))}
                           className={cn(
                             'card-pagne px-2 py-1 text-[11px] font-display font-bold border',
@@ -131,9 +138,16 @@ export default function PharmaciePage() {
               {dispensed ? (
                 <p className="text-sante-700 font-display font-bold text-center">✓ {t('pharmacie.dispensed_ok')}</p>
               ) : (
-                <button type="button" onClick={dispense} className="w-full bg-sante-600 text-white font-display font-extrabold card-pagne py-2.5 mt-1" disabled={result.expired}>
-                  {t('pharmacie.dispense')}
-                </button>
+                <>
+                  {result.expired && (
+                    <p className="bg-sos-100 text-sos-700 card-pagne px-3 py-2 text-[12px] font-bold mb-1">
+                      {t('pharmacie.expired')}
+                    </p>
+                  )}
+                  <button type="button" onClick={dispense} className="w-full bg-sante-600 text-white font-display font-extrabold card-pagne py-2.5 mt-1" disabled={result.expired}>
+                    {t('pharmacie.dispense')}
+                  </button>
+                </>
               )}
             </div>
           </div>

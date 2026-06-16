@@ -61,18 +61,27 @@ function KycDetailPanel({ id, onBack, onDone }: { id: string; onBack: () => void
   const [tick, setTick] = useState(0);
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const { data, loading, error } = useApi<KycDetail>(() => adminKycApi.detail(id), [id, tick]);
 
   async function toggleDoc(docId: string, verified: boolean) {
-    await adminKycApi.verifyDocument(docId, verified).catch(() => {});
-    setTick((n) => n + 1);
+    setActionError(null);
+    try {
+      await adminKycApi.verifyDocument(docId, verified);
+      setTick((n) => n + 1);
+    } catch {
+      setActionError(t('auth.error'));
+    }
   }
 
   async function decide(decision: 'APPROVED' | 'REJECTED' | 'NEEDS_REVISION') {
     setBusy(true);
+    setActionError(null);
     try {
       await adminKycApi.review(id, { decision, notes: notes.trim() || undefined });
       onDone();
+    } catch {
+      setActionError(t('auth.error'));
     } finally {
       setBusy(false);
     }
@@ -119,7 +128,7 @@ function KycDetailPanel({ id, onBack, onDone }: { id: string; onBack: () => void
                   <button
                     type="button"
                     onClick={() => toggleDoc(d.id, !d.verified)}
-                    className={`shrink-0 card-pagne px-2.5 py-1 text-[11px] font-display font-bold border ${d.verified ? 'bg-sante-600 text-white border-stone-900' : 'bg-white text-stone-500 border-stone-300'}`}
+                    className={`shrink-0 card-pagne px-2.5 py-1 text-[11px] font-display font-bold border ${d.verified ? 'bg-terre-500 text-white border-stone-900' : 'bg-white text-stone-500 border-stone-300'}`}
                   >
                     {d.verified ? `✓ ${t('adminkyc.verified')}` : t('adminkyc.to_verify')}
                   </button>
@@ -139,8 +148,9 @@ function KycDetailPanel({ id, onBack, onDone }: { id: string; onBack: () => void
               className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[14px] focus:outline-none focus:border-indigo-600"
             />
             {!allVerified && <p className="text-[12px] text-ocre-600 mt-1">⚠ {t('adminkyc.warn_unverified')}</p>}
+            {actionError && <p className="text-[12px] text-sos-600 font-bold mt-1">{actionError}</p>}
             <div className="grid grid-cols-3 gap-2 mt-3">
-              <Button variant="sante" className="text-[12px] px-2 py-2" onClick={() => decide('APPROVED')} disabled={busy}>
+              <Button variant="terre" className="text-[12px] px-2 py-2" onClick={() => decide('APPROVED')} disabled={busy}>
                 {t('admin.approve')}
               </Button>
               <Button variant="ocre" className="text-[12px] px-2 py-2" onClick={() => decide('NEEDS_REVISION')} disabled={busy}>

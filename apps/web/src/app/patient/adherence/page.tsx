@@ -20,6 +20,7 @@ export default function AdherencePage() {
   const [remTick, setRemTick] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [timeInputs, setTimeInputs] = useState<Record<string, string>>({});
+  const [actionError, setActionError] = useState(false);
 
   const { data, loading, error } = useApi<AdherenceToday>(() => adherenceApi.today(), [tick]);
   const { data: reminders } = useApi<MedicationReminder[]>(() => remindersApi.listMedication(), [remTick]);
@@ -34,11 +35,12 @@ export default function AdherencePage() {
 
   async function take(itemId: string, name: string) {
     setBusy(itemId);
+    setActionError(false);
     try {
       await adherenceApi.take(itemId, name);
       setTick((n) => n + 1);
     } catch {
-      /* best-effort */
+      setActionError(true);
     } finally {
       setBusy(null);
     }
@@ -47,21 +49,23 @@ export default function AdherencePage() {
   async function addTime(itemId: string, name: string) {
     const time = timeInputs[itemId];
     if (!time) return;
+    setActionError(false);
     try {
       await remindersApi.addMedication({ itemId, medicationName: name, time });
       setTimeInputs((m) => ({ ...m, [itemId]: '' }));
       setRemTick((n) => n + 1);
     } catch {
-      /* best-effort */
+      setActionError(true);
     }
   }
 
   async function removeTime(id: string) {
+    setActionError(false);
     try {
       await remindersApi.removeMedication(id);
       setRemTick((n) => n + 1);
     } catch {
-      /* best-effort */
+      setActionError(true);
     }
   }
 
@@ -74,6 +78,7 @@ export default function AdherencePage() {
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
         {loading && <Loading label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
+        {actionError && <ErrorState label={t('auth.error')} />}
 
         {s && (
           <CardPagne stitch className="p-5">

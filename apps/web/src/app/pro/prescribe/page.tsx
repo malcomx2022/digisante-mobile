@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 import { ProHeader } from '@/components/pro/ProHeader';
 import { Button, CardPagne } from '@/components/ui';
@@ -17,13 +18,17 @@ interface Line {
 const empty = (): Line => ({ medicationName: '', dosage: '', frequency: '', duration: '' });
 
 // D-17 — Prescription assistée (DCI, contrôle d'allergie, signature).
-export default function PrescribePage() {
+function PrescribeInner() {
   const { t } = useLocale();
-  const [patientId, setPatientId] = useState('');
+  const params = useSearchParams();
+  // Pré-remplissage du patient depuis la vue 360° (/pro/prescribe?patientId=...).
+  // Le champ reste éditable en repli (saisie/collage manuel du cuid).
+  const [patientId, setPatientId] = useState(params.get('patientId') ?? '');
   const [lines, setLines] = useState<Line[]>([empty()]);
   const [conflicts, setConflicts] = useState<string[]>([]);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [submitError, setSubmitError] = useState(false);
 
   function setLine(i: number, key: keyof Line, val: string) {
     setLines((ls) => ls.map((l, idx) => (idx === i ? { ...l, [key]: val } : l)));
@@ -32,6 +37,7 @@ export default function PrescribePage() {
   async function submit(override = false) {
     setBusy(true);
     setConflicts([]);
+    setSubmitError(false);
     const validUntil = new Date(Date.now() + 30 * 24 * 3600_000).toISOString();
     try {
       await post('/prescriptions', { patientId, validUntil, items: lines, overrideAllergyWarning: override });
@@ -39,6 +45,9 @@ export default function PrescribePage() {
     } catch (e) {
       if (e instanceof ApiRequestError && Array.isArray((e.error.details as { allergyConflicts?: string[] })?.allergyConflicts)) {
         setConflicts((e.error.details as { allergyConflicts: string[] }).allergyConflicts);
+      } else {
+        // Autres erreurs (403/422/réseau) → message visible plutôt qu'avalé.
+        setSubmitError(true);
       }
     } finally {
       setBusy(false);
@@ -62,6 +71,8 @@ export default function PrescribePage() {
             </Button>
           </CardPagne>
         )}
+
+        {submitError && <p className="text-sos-600 font-bold text-[12px]">{t('auth.error')}</p>}
 
         {lines.map((l, i) => (
           <CardPagne key={i} className="p-3 space-y-2">
@@ -87,5 +98,13 @@ export default function PrescribePage() {
         )}
       </main>
     </>
+  );
+}
+
+export default function PrescribePage() {
+  return (
+    <Suspense fallback={null}>
+      <PrescribeInner />
+    </Suspense>
   );
 }

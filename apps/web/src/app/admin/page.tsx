@@ -5,7 +5,7 @@ import { useState } from 'react';
 
 import { Badge, Button, CardPagne } from '@/components/ui';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
-import { Loading } from '@/components/ui/States';
+import { ErrorState, Loading } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get, post } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
@@ -42,8 +42,8 @@ export default function AdminMetrics() {
   const usersTotal = Object.values(m.data?.users ?? {}).reduce((a, b) => a + b, 0);
   const kpis = [
     [usersTotal, t('admin.kpi_users')],
-    [m.data?.consultations.total ?? 0, t('admin.kpi_consult')],
-    [`${Number(m.data?.payments.completedVolume ?? 0).toLocaleString('fr-FR')}`, t('admin.kpi_revenue')],
+    [m.data?.consultations?.total ?? 0, t('admin.kpi_consult')],
+    [`${Number(m.data?.payments?.completedVolume ?? 0).toLocaleString('fr-FR')}`, t('admin.kpi_revenue')],
     [`${Math.round((m.data?.uptimeSeconds ?? 0) / 3600)}h`, t('admin.kpi_uptime')],
   ] as const;
 
@@ -52,6 +52,7 @@ export default function AdminMetrics() {
       <SpaceHeader title={t('admin.metrics')} headerClass="bg-indigo-950" profileHref="/admin/profile" />
       <main className="px-6 -mt-10 relative z-20 space-y-5 pb-6">
         {m.loading && <Loading label={t('common.loading')} />}
+        {m.error && <ErrorState label={t('auth.error')} />}
         <div className="grid grid-cols-2 gap-3">
           {kpis.map(([val, label], i) => (
             <CardPagne key={i} stitch={i === 0 ? 'indigo' : false} className={`p-4 ${i % 2 ? '-rotate-1' : 'rotate-1'}`}>
@@ -64,7 +65,7 @@ export default function AdminMetrics() {
         <div>
           <div className="flex items-center justify-between mb-2">
             <h2 className="font-display font-extrabold text-[14px] text-stone-700">
-              {t('admin.kyc_queue')} {m.data?.kyc.pendingReview ? `(${m.data.kyc.pendingReview})` : ''}
+              {t('admin.kyc_queue')} {m.data?.kyc?.pendingReview ? `(${m.data.kyc.pendingReview})` : ''}
             </h2>
             <Link href="/admin/kyc" className="text-[12px] text-indigo-700 font-display font-bold">
               {t('adminkyc.review')} →
@@ -82,7 +83,7 @@ export default function AdminMetrics() {
                   <Badge variant="eleve">{k.status}</Badge>
                 </div>
                 <div className="flex gap-2 mt-3">
-                  <Button variant="sante" className="text-[12px] px-3 py-1.5" onClick={() => review(k.id, 'APPROVED')}>
+                  <Button variant="terre" className="text-[12px] px-3 py-1.5" onClick={() => review(k.id, 'APPROVED')}>
                     {t('admin.approve')}
                   </Button>
                   <Button variant="sos" className="text-[12px] px-3 py-1.5" onClick={() => review(k.id, 'REJECTED')}>

@@ -28,6 +28,13 @@ export default function EducationPage() {
     return () => stopSpeaking();
   }, []);
 
+  // Changer de catégorie recharge la liste : on coupe toute lecture vocale en cours
+  // (les contenus affichés ne sont plus les mêmes).
+  useEffect(() => {
+    stopSpeaking();
+    setSpeakingId(null);
+  }, [category]);
+
   const items = data ?? [];
   const localized = (c: HealthContent) => {
     const tr = c.translations?.[lang];

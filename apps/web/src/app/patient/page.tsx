@@ -23,7 +23,15 @@ export default function PatientDashboard() {
   const { user } = useAuth();
   const { data, loading } = useApi<Appointment[]>(() => get('/appointments?pageSize=5'), []);
 
-  const next = (data ?? []).find((a) => a.status === 'PENDING' || a.status === 'CONFIRMED');
+  // Prochain RDV : à venir (date future), statut actif, le plus proche d'abord.
+  const now = Date.now();
+  const next = (data ?? [])
+    .filter(
+      (a) =>
+        (a.status === 'PENDING' || a.status === 'CONFIRMED') &&
+        new Date(a.scheduledAt).getTime() > now,
+    )
+    .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())[0];
 
   const quick = [
     { key: 'patient.quick.dmp', href: '/patient/dmp', rotate: 'rotate-1', bg: 'bg-sante-50 text-sante-700' },
@@ -47,7 +55,11 @@ export default function PatientDashboard() {
         <CardPagne stitch className="p-5">
           <div className="flex items-center justify-between">
             <h2 className="font-display font-extrabold text-[15px] text-sante-800">{t('home.next_appointment')}</h2>
-            {next && <Badge variant="normal">{t('home.confirmed')}</Badge>}
+            {next && (
+              <Badge variant={next.status === 'CONFIRMED' ? 'normal' : 'priorite'}>
+                {t(`appt.status.${next.status}`)}
+              </Badge>
+            )}
           </div>
           <Nkyinkyim className="my-3" />
           {loading ? (
@@ -56,7 +68,7 @@ export default function PatientDashboard() {
             <>
               <p className="text-[13px] text-stone-500">
                 {new Date(next.scheduledAt).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
-                {next.type === 'TELECONSULTATION' ? ' · Téléconsultation' : ''}
+                {next.type === 'TELECONSULTATION' ? ` · ${t('booking.type_teleconsult')}` : ` · ${t('booking.type_physical')}`}
               </p>
               <Link
                 href="/patient/appointments"

@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+
 import { useAuth } from '@/auth/AuthProvider';
 import { LogoutButton } from '@/components/auth/LogoutButton';
 import { PatientHeader } from '@/components/patient/PatientHeader';
@@ -13,8 +15,13 @@ import { cn } from '@/lib/cn';
 export default function ProfilePage() {
   const { t, lang, setLang } = useLocale();
   const { user } = useAuth();
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   async function exportFhir() {
+    // Export DMP = événement DATA_EXPORT : feedback explicite (chargement + erreur).
+    setExporting(true);
+    setExportError(null);
     try {
       const bundle = await get<unknown>('/dmp/export');
       const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/fhir+json' });
@@ -24,8 +31,10 @@ export default function ProfilePage() {
       a.download = 'dmp-export.fhir.json';
       a.click();
       URL.revokeObjectURL(url);
-    } catch {
-      /* ignore */
+    } catch (e) {
+      setExportError(e instanceof Error ? e.message : t('auth.error'));
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -51,10 +60,16 @@ export default function ProfilePage() {
 
         <CardPagne className="p-4">
           <Nkyinkyim className="mb-3" />
-          <button type="button" onClick={exportFhir} className="w-full text-left text-[14px] font-display font-bold text-sante-700">
-            {t('profile.export')}
+          <button
+            type="button"
+            onClick={exportFhir}
+            disabled={exporting}
+            className="w-full text-left text-[14px] font-display font-bold text-sante-700 disabled:opacity-50"
+          >
+            {exporting ? t('profile.exporting') : t('profile.export')}
           </button>
-          <p className="text-[11px] text-stone-400 mt-1">Portabilité — Loi N°2017-20 (APDP)</p>
+          {exportError && <p className="text-terre-600 font-bold text-[12px] mt-1">{t('profile.export_error')}</p>}
+          <p className="text-[11px] text-stone-400 mt-1">{t('profile.portability_notice')}</p>
         </CardPagne>
 
         <LogoutButton variant="outline" />

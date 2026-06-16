@@ -33,6 +33,7 @@ export default function VitalsPage() {
   const [weight, setWeight] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState(false);
 
   const num = (s: string) => (s.trim() === '' ? undefined : Number(s));
 
@@ -51,6 +52,7 @@ export default function VitalsPage() {
     if (!hasValue) return;
     setSaving(true);
     setSaved(false);
+    setSaveError(false);
     try {
       await dmpApi.addVital(reading);
       setSystolic('');
@@ -61,7 +63,7 @@ export default function VitalsPage() {
       setSaved(true);
       setTick((n) => n + 1);
     } catch {
-      /* erreur silencieuse — réessai possible */
+      setSaveError(true);
     } finally {
       setSaving(false);
     }
@@ -99,6 +101,7 @@ export default function VitalsPage() {
           </div>
           {field(t('vitals.weight'), weight, setWeight, '70')}
           {saved && <p className="text-sante-700 font-display font-bold text-[13px]">{t('vitals.saved')}</p>}
+          {saveError && <p className="text-sos-600 font-display font-bold text-[13px]">{t('auth.error')}</p>}
           <Button variant="sante" full disabled={saving} onClick={save}>
             {saving ? t('common.loading') : t('vitals.save')}
           </Button>
