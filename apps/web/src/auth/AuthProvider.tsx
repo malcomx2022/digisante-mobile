@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import { setAccessToken } from '@/lib/api/client';
+import { setAccessToken, setRefreshHandler, setSessionExpiredHandler } from '@/lib/api/client';
 import { authApi, type AuthUser, type OtpInfo, type RegisterBody } from '@/lib/api/auth';
 import { registerPushDevice } from './push';
 import { tokenStore } from './storage';
@@ -66,6 +66,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Purge complète de la session (utilisée par logout ET par l'expiration de session).
+  const clearSession = useCallback(() => {
+    tokenStore.clear();
+    setAccessToken(null);
+    setUser(null);
+    setStatus('anon');
+  }, []);
+
+  // ── Intercepteur de refresh (point 1) : branché sur le client API ───────────
+  // Le client appelle ce handler sur un 401 en cours de session. On rejoue le
+  // refresh à partir du refresh token stocké, on persiste le nouveau couple, et on
+  // renvoie le nouvel access token (ou null → session expirée, le client purgera).
+  useEffect(() => {
+    setRefreshHandler(async () => {
+      const { refresh } = tokenStore.get();
+      if (!refresh) return null;
+      const tokens = await authApi.refresh({ refreshToken: refresh });
+      tokenStore.set(tokens.accessToken, tokens.refreshToken);
+      setAccessToken(tokens.accessToken);
+      return tokens.accessToken;
+    });
+    setSessionExpiredHandler(() => clearSession());
+    return () => {
+      setRefreshHandler(null);
+      setSessionExpiredHandler(null);
+    };
+  }, [clearSession]);
+
   const register = useCallback<AuthContextValue['register']>((b) => authApi.register(b).then((r) => r.otp), []);
   const requestOtp = useCallback<AuthContextValue['requestOtp']>((phone, channel) => authApi.requestOtp({ phone, channel }), []);
 
@@ -91,11 +119,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
     // 2) Purge locale + redirection (assurée par la garde Protected → /onboarding).
-    tokenStore.clear();
-    setAccessToken(null);
-    setUser(null);
-    setStatus('anon');
-  }, []);
+    clearSession();
+  }, [clearSession]);
 
   const value = useMemo<AuthContextValue>(
     () => ({ status, user, register, requestOtp, verifyOtp, logout }),
