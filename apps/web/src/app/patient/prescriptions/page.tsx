@@ -36,15 +36,29 @@ const PAY_METHODS: { method: string; label: string; cls: string }[] = [
 export default function PrescriptionsPage() {
   const { t } = useLocale();
   const { data, loading, error } = useApi<Prescription[]>(() => get('/prescriptions'), []);
-  const [paid, setPaid] = useState<string | null>(null);
+  // État de paiement PAR ordonnance : succès / mis en file (hors-ligne) / erreur.
+  const [paid, setPaid] = useState<Set<string>>(new Set());
+  const [queued, setQueued] = useState<Set<string>>(new Set());
+  const [payError, setPayError] = useState<Set<string>>(new Set());
 
-  async function pay(method: string) {
+  // ⚠️ §5 : montant/type/appel paiement inchangés — seul le feedback UI est corrigé.
+  async function pay(prescriptionId: string, method: string) {
+    setPayError((s) => {
+      const n = new Set(s);
+      n.delete(prescriptionId);
+      return n;
+    });
     try {
-      await post('/payments', { type: 'CONSULTATION', method, amount: 2000 });
-      setPaid(method);
+      const res = await post('/payments', { type: 'CONSULTATION', method, amount: 2000 });
+      if (res && typeof res === 'object' && 'queued' in res) {
+        // Hors-ligne → mutation mise en file (rejouée au retour réseau) : pas encore « payé ».
+        setQueued((s) => new Set(s).add(prescriptionId));
+      } else {
+        setPaid((s) => new Set(s).add(prescriptionId));
+      }
     } catch {
-      /* hors-ligne → mis en file ; un toast réseau viendra plus tard */
-      setPaid(method);
+      // Vraie erreur (réseau/serveur) → ne PAS marquer payé.
+      setPayError((s) => new Set(s).add(prescriptionId));
     }
   }
 
@@ -96,14 +110,18 @@ export default function PrescriptionsPage() {
                   <button
                     key={m.method}
                     type="button"
-                    onClick={() => pay(m.method)}
+                    onClick={() => pay(p.id, m.method)}
                     className={`card-pagne ${m.cls} font-display font-bold text-[11px] py-2 px-1`}
                   >
                     {m.label}
                   </button>
                 ))}
               </div>
-              {paid && <p className="mt-2 text-[12px] text-sante-700 font-bold">✓ {t('prescriptions.paid')}</p>}
+              {paid.has(p.id) && <p className="mt-2 text-[12px] text-sante-700 font-bold">✓ {t('prescriptions.paid')}</p>}
+              {queued.has(p.id) && (
+                <p className="mt-2 text-[12px] text-ocre-600 font-bold">⏳ {t('prescriptions.payment_queued')}</p>
+              )}
+              {payError.has(p.id) && <p className="mt-2 text-[12px] text-sos-600 font-bold">{t('auth.error')}</p>}
             </div>
           </CardPagne>
         ))}

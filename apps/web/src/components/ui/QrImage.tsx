@@ -16,21 +16,39 @@ export function QrImage({
   className?: string;
 }) {
   const [src, setSrc] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let active = true;
+    setFailed(false);
     void import('qrcode')
       .then((QR) => QR.toDataURL(value, { margin: 1, width: size, errorCorrectionLevel: 'M' }))
       .then((url) => {
         if (active) setSrc(url);
       })
       .catch(() => {
-        /* génération impossible → placeholder conservé */
+        // Génération impossible → fallback texte visible (pas un div vide permanent).
+        if (active) setFailed(true);
       });
     return () => {
       active = false;
     };
   }, [value, size]);
+
+  if (failed) {
+    return (
+      <div
+        className={className}
+        style={{ width: size, height: size }}
+        role="img"
+        aria-label={alt}
+      >
+        <span className="grid h-full w-full place-items-center text-center text-[9px] font-bold text-stone-500">
+          QR ✕
+        </span>
+      </div>
+    );
+  }
 
   if (!src) {
     return <div className={className} style={{ width: size, height: size }} aria-hidden />;

@@ -53,9 +53,8 @@ export default function RemindersPage() {
               <Button variant="sante" className="text-[13px] px-3 py-2" onClick={() => markTaken(r.id)} disabled={taken.has(r.id)}>
                 ✓ {t('reminders.taken')}
               </Button>
-              <Button variant="outline" className="text-[13px] px-3 py-2">
-                {t('reminders.snooze')}
-              </Button>
+              {/* Bouton « Snooze / +30 min » retiré : aucun endpoint de report n'existe côté backend
+                  (pas de bouton inerte). À réactiver si une API de report est ajoutée. */}
             </div>
           </CardPagne>
         ))}

@@ -20,6 +20,7 @@ export default function EmergencyCardPage() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState(false);
 
   const [bloodGroup, setBloodGroup] = useState('');
   const [allergies, setAllergies] = useState('');
@@ -39,6 +40,7 @@ export default function EmergencyCardPage() {
   async function save() {
     setSaving(true);
     setSaved(false);
+    setSaveError(false);
     try {
       await usersApi.updateMedical({
         ...(bloodGroup ? { bloodGroup } : {}),
@@ -49,10 +51,18 @@ export default function EmergencyCardPage() {
       setSaved(true);
       setEditing(false);
     } catch {
-      /* erreur silencieuse — l'utilisateur peut réessayer */
+      setSaveError(true);
     } finally {
       setSaving(false);
     }
+  }
+
+  // Réouverture du formulaire : repartir d'un état propre (pas de « ✓ enregistré »
+  // résiduel ni d'erreur précédente affichée).
+  function openEditing() {
+    setSaved(false);
+    setSaveError(false);
+    setEditing(true);
   }
 
   const chips = (items: string[], tone: 'sos' | 'ocre') =>
@@ -118,7 +128,7 @@ export default function EmergencyCardPage() {
             </CardPagne>
 
             {saved && <p className="text-sante-700 font-display font-bold text-[13px] text-center">{t('emergency.saved')}</p>}
-            <Button variant="sante" full onClick={() => setEditing(true)}>
+            <Button variant="sante" full onClick={openEditing}>
               {t('emergency.edit')}
             </Button>
           </>
@@ -175,6 +185,7 @@ export default function EmergencyCardPage() {
               />
             </label>
 
+            {saveError && <p className="text-sos-600 font-display font-bold text-[13px] text-center">{t('auth.error')}</p>}
             <Button variant="sante" full disabled={saving} onClick={save}>
               {saving ? t('common.loading') : t('emergency.save')}
             </Button>

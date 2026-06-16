@@ -6,6 +6,7 @@ import { Empty, ErrorState, Loading } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
+import { speak, speechSupported } from '@/lib/speech';
 
 interface LabOrder {
   id: string;
@@ -17,8 +18,18 @@ interface LabOrder {
 
 // D-11 — Résultats de laboratoire (+ écoute audio Fɔ̀ngbè).
 export default function ResultsPage() {
-  const { t } = useLocale();
+  const { t, lang } = useLocale();
   const { data, loading, error } = useApi<LabOrder[]>(() => get('/lab/orders'), []);
+
+  // Lecture vocale d'un résultat (accessibilité — utilisateurs peu alphabétisés).
+  function listen(o: LabOrder) {
+    if (!o.result) return;
+    const spoken = [
+      o.testType,
+      ...Object.entries(o.result.values).map(([k, v]) => `${k}: ${String(v)}`),
+    ].join('. ');
+    speak(spoken, lang);
+  }
 
   return (
     <>
@@ -44,9 +55,15 @@ export default function ResultsPage() {
                     <span className="font-display font-bold">{String(v)}</span>
                   </div>
                 ))}
-                <button type="button" className="mt-2 text-[13px] text-sante-700 underline decoration-dotted underline-offset-4">
-                  {t('results.audio')}
-                </button>
+                {speechSupported() && (
+                  <button
+                    type="button"
+                    onClick={() => listen(o)}
+                    className="mt-2 text-[13px] text-sante-700 underline decoration-dotted underline-offset-4"
+                  >
+                    {t('results.audio')}
+                  </button>
+                )}
               </div>
             )}
           </CardPagne>

@@ -7,7 +7,11 @@ import { isOnline } from '@/lib/offline/online';
 /** Numéro d'urgence (à configurer via NEXT_PUBLIC_SOS_NUMBER). */
 export const SOS_NUMBER = process.env.NEXT_PUBLIC_SOS_NUMBER ?? '+22900000000';
 
-/** Construit un lien SMS pré-rempli (repli hors-ligne). */
+/**
+ * Construit un lien SMS pré-rempli (repli hors-ligne).
+ * §4 : `message` DOIT être fourni traduit dans la langue de l'utilisateur par l'appelant
+ * (clé i18n). Le repli FR ci-dessous n'est qu'un dernier recours si aucun message n'est passé.
+ */
 export function buildSosSmsLink(opts: { latitude?: number; longitude?: number; message?: string } = {}): string {
   const parts = [opts.message ?? 'URGENCE DigiSanté — besoin d’aide.'];
   if (opts.latitude != null && opts.longitude != null) {
