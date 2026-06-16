@@ -5,7 +5,7 @@
 import { isOnline } from '@/lib/offline/online';
 
 /** Numéro d'urgence (à configurer via NEXT_PUBLIC_SOS_NUMBER). */
-export const SOS_NUMBER = process.env.NEXT_PUBLIC_SOS_NUMBER ?? '+22900000000';
+export const SOS_NUMBER = process.env.NEXT_PUBLIC_SOS_NUMBER ?? '+2290100000000';
 
 /**
  * Construit un lien SMS pré-rempli (repli hors-ligne).
