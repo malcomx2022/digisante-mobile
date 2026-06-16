@@ -15,8 +15,8 @@ import { useApi } from '@/lib/api/useApi';
 const BAR: Record<string, string> = {
   LAB_RESULT: 'bg-indigo-500',
   VACCINATION: 'bg-ocre-400',
-  DIAGNOSIS: 'bg-sante-500',
-  VITAL_SIGNS: 'bg-sante-500',
+  DIAGNOSIS: 'bg-indigo-400',
+  VITAL_SIGNS: 'bg-indigo-300',
   ALLERGY: 'bg-sos-500',
 };
 
@@ -36,7 +36,7 @@ function Patient360Inner() {
   const [parseError, setParseError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
 
-  const { data, loading, error } = useApi<DmpRecord[]>(
+  const { data, loading, error, errorStatus } = useApi<DmpRecord[]>(
     () => (patientId && token ? dmpApi.recordsForPatient(patientId, token) : Promise.resolve([])),
     [patientId, token],
   );
@@ -101,23 +101,44 @@ function Patient360Inner() {
     );
   }
 
-  // 403 → partage absent/expiré.
+  // 403 → partage absent/expiré. Le statut HTTP (errorStatus) est désormais la
+  // source PRIMAIRE (point 3, exposé par useApi via ApiRequestError.status). On
+  // conserve le parsing du message en REPLI pour les cas où le statut ne remonte
+  // pas (variantes API DMP : NO_CONSENT « partage consenti », NOT_OWNER « propre
+  // dossier », FORBIDDEN « accès refusé/interdit »).
+  const msg = error?.toLowerCase() ?? '';
   const isForbidden =
-    error?.toLowerCase().includes('consent') ||
-    error?.toLowerCase().includes('partage') ||
-    error?.toLowerCase().includes('403');
+    errorStatus === 403 ||
+    (errorStatus === undefined &&
+      (msg.includes('consent') ||
+        msg.includes('partage') ||
+        msg.includes('propre dossier') ||
+        msg.includes('accès limité') ||
+        msg.includes('refusé') ||
+        msg.includes('interdit') ||
+        msg.includes('forbidden') ||
+        msg.includes('403')));
 
   return (
     <>
       <ProHeader title={t('pro.patient360')} subtitle={patientId} />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
         {/* La messagerie ne dépend pas du partage DMP : joignable dès qu'on a le patient. */}
-        <Link
-          href={`/pro/messages?patient=${encodeURIComponent(patientId)}`}
-          className="flex items-center justify-center gap-2 bg-indigo-600 text-white card-pagne px-4 py-2.5 font-display font-bold text-[14px]"
-        >
-          <span aria-hidden>💬</span> {t('pro.message_patient')}
-        </Link>
+        <div className="grid grid-cols-2 gap-2">
+          <Link
+            href={`/pro/messages?patient=${encodeURIComponent(patientId)}`}
+            className="flex items-center justify-center gap-2 bg-indigo-600 text-white card-pagne px-4 py-2.5 font-display font-bold text-[14px]"
+          >
+            <span aria-hidden>💬</span> {t('pro.message_patient')}
+          </Link>
+          {/* Pré-remplit le patient dans le formulaire d'ordonnance (point 6a). */}
+          <Link
+            href={`/pro/prescribe?patientId=${encodeURIComponent(patientId)}`}
+            className="flex items-center justify-center gap-2 bg-white border border-indigo-600 text-indigo-700 card-pagne px-4 py-2.5 font-display font-bold text-[14px]"
+          >
+            <span aria-hidden>℞</span> {t('pro.prescribe')}
+          </Link>
+        </div>
 
         {/* Partage requis (pas de jeton) OU refusé (jeton invalide/expiré) → saisie du jeton. */}
         {(!token || (!loading && error && isForbidden)) && (

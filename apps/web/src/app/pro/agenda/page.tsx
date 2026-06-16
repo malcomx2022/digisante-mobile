@@ -1,5 +1,7 @@
 'use client';
 
+import { useMemo } from 'react';
+
 import { ProHeader } from '@/components/pro/ProHeader';
 import { CardPagne } from '@/components/ui';
 import { Empty, ErrorState, Loading } from '@/components/ui/States';
@@ -15,17 +17,22 @@ interface AgendaItem {
   patient?: { user?: { profile?: { firstName: string; lastName: string } | null } | null };
 }
 
-const from = new Date();
-from.setHours(0, 0, 0, 0);
-const to = new Date(from);
-to.setDate(to.getDate() + 7);
-
 // D-15 — Agenda (7 jours).
 export default function AgendaPage() {
   const { t } = useLocale();
+  // Fenêtre 7 jours calculée à chaque montage (et non figée au chargement du
+  // bundle) — sinon en PWA persistante l'agenda resterait bloqué sur le jour
+  // d'ouverture de l'app.
+  const { from, to } = useMemo(() => {
+    const f = new Date();
+    f.setHours(0, 0, 0, 0);
+    const t2 = new Date(f);
+    t2.setDate(t2.getDate() + 7);
+    return { from: f.toISOString(), to: t2.toISOString() };
+  }, []);
   const { data, loading, error } = useApi<AgendaItem[]>(
-    () => get(`/appointments/agenda?from=${from.toISOString()}&to=${to.toISOString()}`),
-    [],
+    () => get(`/appointments/agenda?from=${from}&to=${to}`),
+    [from, to],
   );
 
   return (
@@ -44,7 +51,7 @@ export default function AgendaPage() {
                 <p className="font-display font-extrabold text-indigo-700 text-[15px]">{new Date(a.scheduledAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</p>
                 <p className="text-[10px] text-stone-400">{new Date(a.scheduledAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</p>
               </div>
-              <span className={`w-1 self-stretch rounded-full ${a.status === 'CONFIRMED' ? 'bg-sante-500' : 'bg-ocre-400'}`} />
+              <span className={`w-1 self-stretch rounded-full ${a.status === 'CONFIRMED' ? 'bg-indigo-500' : 'bg-ocre-400'}`} />
               <div className="flex-1">
                 <p className="font-display font-bold text-[14px]">{p ? `${p.firstName} ${p.lastName}` : 'Patient'}</p>
                 <p className="text-[12px] text-stone-400">{a.type === 'TELECONSULTATION' ? 'Téléconsultation' : 'Présentiel'} · {a.status}</p>

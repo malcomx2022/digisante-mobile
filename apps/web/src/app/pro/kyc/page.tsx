@@ -4,9 +4,9 @@ import { useState } from 'react';
 
 import { ProHeader } from '@/components/pro/ProHeader';
 import { Badge, Button, CardPagne } from '@/components/ui';
-import { Loading } from '@/components/ui/States';
+import { ErrorState, Loading } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
-import { get, post } from '@/lib/api/client';
+import { ApiRequestError, get, post } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
 
 interface Submission {
@@ -27,21 +27,37 @@ const FILL: Record<string, string> = {
 export default function ProKycPage() {
   const { t } = useLocale();
   const [tick, setTick] = useState(0);
-  const { data, loading } = useApi<Submission>(async () => {
+  const [busy, setBusy] = useState(false);
+  const { data, loading, error } = useApi<Submission>(async () => {
     try {
       return await get<Submission>('/kyc/me');
-    } catch {
-      return (await post<Submission>('/kyc')) as Submission;
+    } catch (e) {
+      // Ne créer un dossier QUE si aucun n'existe (404) — surtout pas sur une
+      // erreur réseau/serveur (5xx) qui créerait des dossiers fantômes / masquerait
+      // l'incident. Toute autre erreur est propagée à l'état d'erreur de useApi.
+      if (e instanceof ApiRequestError && e.status === 404) {
+        return (await post<Submission>('/kyc')) as Submission;
+      }
+      throw e;
     }
   }, [tick]);
 
   async function addDoc() {
-    await post('/kyc/documents', { type: 'MEDICAL_DEGREE', fileUrl: 'https://files.example.bj/diplome.pdf' }).catch(() => {});
-    setTick((x) => x + 1);
+    // TODO: brancher le vrai upload de pièce (sélection de fichier + stockage) —
+    // hors périmètre. Bouton désactivé pour ne PAS envoyer un faux fichier.
+    if (busy) return;
   }
   async function submit() {
-    await post('/kyc/submit').catch(() => {});
-    setTick((x) => x + 1);
+    if (busy) return; // anti-double-clic
+    setBusy(true);
+    try {
+      await post('/kyc/submit');
+      setTick((x) => x + 1);
+    } catch {
+      /* feedback : l'état est rafraîchi ; le statut reflètera l'échec côté serveur */
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -49,7 +65,8 @@ export default function ProKycPage() {
       <ProHeader title={t('pro.kyc')} />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
         {loading && <Loading label={t('common.loading')} />}
-        {data && (
+        {error && <ErrorState label={t('auth.error')} />}
+        {!loading && !error && data && (
           <>
             <CardPagne className="p-4">
               <div className="flex items-center justify-between mb-2">
@@ -74,12 +91,15 @@ export default function ProKycPage() {
                   </div>
                 ))
               )}
-              <Button variant="outline" className="w-full mt-2 text-[13px]" onClick={addDoc}>
+              {/* TODO: upload réel d'une pièce (hors périmètre) — bouton désactivé
+                  plutôt que d'envoyer une URL factice. */}
+              <Button variant="outline" className="w-full mt-2 text-[13px]" onClick={addDoc} disabled title="Upload à venir">
                 {t('pro.kyc_add_doc')}
               </Button>
+              <p className="text-[11px] text-stone-400">{t('pro.kyc_upload_soon')}</p>
             </CardPagne>
 
-            <Button variant="indigo" full onClick={submit} disabled={data.documents.length === 0 || data.status === 'UNDER_REVIEW' || data.status === 'APPROVED'}>
+            <Button variant="indigo" full onClick={submit} disabled={busy || data.documents.length === 0 || data.status === 'UNDER_REVIEW' || data.status === 'APPROVED'}>
               {t('pro.kyc_submit')}
             </Button>
           </>

@@ -15,15 +15,20 @@ export default function ProResultsPage() {
   const [tick, setTick] = useState(0);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
+  const [signError, setSignError] = useState<Record<string, boolean>>({});
   const { data, loading, error } = useApi<DoctorLabResult[]>(() => labResultsApi.list(), [tick]);
 
   async function sign(id: string) {
     const text = (drafts[id] ?? '').trim();
     if (!text) return;
     setBusy(id);
+    setSignError((e) => ({ ...e, [id]: false }));
     try {
       await labResultsApi.interpret(id, text);
       setTick((n) => n + 1);
+    } catch {
+      // Échec d'interprétation (ex. 403 non-prescripteur §4) → feedback par ligne.
+      setSignError((e) => ({ ...e, [id]: true }));
     } finally {
       setBusy(null);
     }
@@ -45,7 +50,7 @@ export default function ProResultsPage() {
                 <p className="text-[13px] text-stone-500">{r.patient ? `${r.patient.firstName} ${r.patient.lastName}` : '—'}</p>
               </div>
               {r.critical.length > 0 ? (
-                <Badge variant="pro">⚠ {t('labo.critical_short')}</Badge>
+                <Badge className="bg-sos-500 text-white">⚠ {t('labo.critical_short')}</Badge>
               ) : (
                 <Badge variant="indigo">{t('proresults.normal')}</Badge>
               )}
@@ -85,6 +90,7 @@ export default function ProResultsPage() {
                 <Button variant="indigo" full className="mt-2" onClick={() => sign(r.id)} disabled={busy === r.id || !(drafts[r.id] ?? '').trim()}>
                   {t('proresults.sign')}
                 </Button>
+                {signError[r.id] && <p className="text-sos-600 font-bold text-[12px] mt-2">{t('auth.error')}</p>}
               </>
             )}
           </CardPagne>
