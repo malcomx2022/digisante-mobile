@@ -63,7 +63,7 @@ describe('triggerSos', () => {
 
   it("crée l'alerte, prévient le contact d'urgence et passe contactNotified à true", async () => {
     const { triggerSos } = await import('./sos.service.js');
-    const { app, prisma } = makeApp({ emergencyContact: '+22990000000' });
+    const { app, prisma } = makeApp({ emergencyContact: '+2290190000000' });
 
     const result = await triggerSos(app, { patientId: 'pat_1', latitude: 6.36, longitude: 2.42 });
 
@@ -71,7 +71,7 @@ describe('triggerSos', () => {
     expect(prisma.sos.create).toHaveBeenCalledOnce();
     // SMS envoyé au contact d'urgence
     expect(sendSmsMock).toHaveBeenCalled();
-    expect(sendSmsMock.mock.calls[0]?.[0]).toMatchObject({ to: '+22990000000', lang: 'FON' });
+    expect(sendSmsMock.mock.calls[0]?.[0]).toMatchObject({ to: '+2290190000000', lang: 'FON' });
     // notification SOS_ALERT créée
     expect(prisma.notification.create).toHaveBeenCalledOnce();
     const notifArg = prisma.notification.create.mock.calls[0]?.[0] as { data: Record<string, unknown> };

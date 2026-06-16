@@ -2,9 +2,14 @@
 // Service Bénéficiaires : carnet des proches au Bénin gérés par la DIASPORA.
 // ⚠️ Au-dessus de la logique de paiement GELÉE (§5) — aucune écriture FedaPay/wallet.
 // ─────────────────────────────────────────────────────────────
+import { normalizeBeninPhone } from '@digisante/shared';
 import type { FastifyInstance } from 'fastify';
 
 import { notFound } from '@/lib/errors.js';
+
+// Réforme ARCEP 2024 : canonicaliser le numéro d'un proche (8 → 10 chiffres).
+// Les numéros diaspora (autre indicatif) sont laissés intacts par le helper.
+const normPhone = (phone?: string): string | null => (phone ? normalizeBeninPhone(phone) : null);
 
 interface BeneficiaryInput {
   name: string;
@@ -36,7 +41,7 @@ export async function addMine(app: FastifyInstance, ownerId: string, input: Bene
       ownerId,
       name: input.name,
       relationship: input.relationship ?? null,
-      phone: input.phone ?? null,
+      phone: normPhone(input.phone),
       languagesSpoken: input.languagesSpoken ?? [],
       notes: input.notes ?? null,
     },
@@ -58,7 +63,7 @@ export async function updateMine(app: FastifyInstance, ownerId: string, id: stri
     data: {
       name: input.name,
       relationship: input.relationship ?? null,
-      phone: input.phone ?? null,
+      phone: normPhone(input.phone),
       languagesSpoken: input.languagesSpoken ?? [],
       notes: input.notes ?? null,
     },

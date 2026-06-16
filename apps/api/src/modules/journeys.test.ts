@@ -6,7 +6,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
-const PHONES = ['+22988000001', '+22988000002', '+22988000003'];
+const PHONES = ['+2290188000001', '+2290188000002', '+2290188000003'];
 const WHSEC = 'whsec_journeys';
 
 describe.skipIf(!HAS_INFRA)('Parcours de bout en bout (intégration)', () => {

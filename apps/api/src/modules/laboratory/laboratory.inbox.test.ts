@@ -4,7 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
-const PHONES = ['+22993100001', '+22993100002', '+22993100003', '+22993100004'];
+const PHONES = ['+2290193100001', '+2290193100002', '+2290193100003', '+2290193100004'];
 
 describe.skipIf(!HAS_INFRA)('Inbox laboratoire (intégration)', () => {
   let app: FastifyInstance;
@@ -101,7 +101,7 @@ describe.skipIf(!HAS_INFRA)('Inbox laboratoire (intégration)', () => {
   });
 
   it('un compte laboratoire sans profil lab ne peut pas accéder au pool (403)', async () => {
-    const orphan = await app.prisma.user.create({ data: { phone: '+22993100009', role: 'LABORATOIRE', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'No', lastName: 'Lab' } } } });
+    const orphan = await app.prisma.user.create({ data: { phone: '+2290193100009', role: 'LABORATOIRE', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'No', lastName: 'Lab' } } } });
     const orphanToken = app.jwt.sign({ sub: orphan.id, role: 'LABORATOIRE' }, { expiresIn: '15m' });
     const res = await app.inject({ method: 'GET', url: '/api/v1/lab/orders/available', headers: auth(orphanToken) });
     expect(res.statusCode).toBe(403);

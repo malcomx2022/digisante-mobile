@@ -21,11 +21,15 @@ export const phoneSchema = z
   .trim()
   .regex(/^\+\d{8,15}$/, 'Numéro de téléphone invalide (format international +…)');
 
-/** Téléphone béninois strict : +229 suivi de 8 à 10 chiffres. */
+/**
+ * Téléphone béninois strict, format canonique post-réforme ARCEP 2024 :
+ * `+229` suivi de 10 chiffres (préfixe national « 01 »).
+ * Normaliser l'entrée via `normalizeBeninPhone` avant validation.
+ */
 export const beninPhoneSchema = z
   .string()
   .trim()
-  .regex(/^\+229\d{8,10}$/, 'Numéro béninois invalide (+229…)');
+  .regex(/^\+229\d{10}$/, 'Numéro béninois invalide (+229 + 10 chiffres)');
 
 export const emailSchema = z.string().trim().toLowerCase().email();
 

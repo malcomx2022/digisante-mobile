@@ -5,7 +5,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
-const PHONES = ['+22990000001', '+22990000002'];
+const PHONES = ['+2290190000001', '+2290190000002'];
 const WHSEC = 'whsec_test_p41';
 
 describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {

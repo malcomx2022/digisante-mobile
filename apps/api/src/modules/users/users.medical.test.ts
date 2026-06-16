@@ -3,8 +3,8 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
-const PHONE_PATIENT = '+22995000001';
-const PHONE_DOCTOR = '+22995000002';
+const PHONE_PATIENT = '+2290195000001';
+const PHONE_DOCTOR = '+2290195000002';
 const ALL = [PHONE_PATIENT, PHONE_DOCTOR];
 
 describe.skipIf(!HAS_INFRA)('Fiche médicale d’urgence (intégration)', () => {
@@ -46,7 +46,7 @@ describe.skipIf(!HAS_INFRA)('Fiche médicale d’urgence (intégration)', () => 
       method: 'PATCH', url: '/api/v1/users/me/medical', headers: auth(patientToken),
       payload: {
         bloodGroup: 'O+', allergies: ['Pénicilline', 'Arachide'],
-        chronicDiseases: ['Hypertension'], emergencyContact: '+22990000000',
+        chronicDiseases: ['Hypertension'], emergencyContact: '+2290190000000',
       },
     });
     expect(patch.statusCode).toBe(200);
@@ -57,7 +57,7 @@ describe.skipIf(!HAS_INFRA)('Fiche médicale d’urgence (intégration)', () => 
     const body = get.json();
     expect(body.allergies).toContain('Pénicilline');
     expect(body.chronicDiseases).toContain('Hypertension');
-    expect(body.emergencyContact).toBe('+22990000000');
+    expect(body.emergencyContact).toBe('+2290190000000');
   });
 
   it('rejette un groupe sanguin invalide (422)', async () => {

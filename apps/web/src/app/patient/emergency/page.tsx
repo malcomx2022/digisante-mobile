@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 
+import { normalizeBeninPhone } from '@digisante/shared';
+
 import { PatientHeader } from '@/components/patient/PatientHeader';
 import { Button, CardPagne, Nkyinkyim } from '@/components/ui';
 import { ErrorState, Loading } from '@/components/ui/States';
@@ -46,7 +48,7 @@ export default function EmergencyCardPage() {
         ...(bloodGroup ? { bloodGroup } : {}),
         allergies: toList(allergies),
         chronicDiseases: toList(chronic),
-        emergencyContact: contact.trim(),
+        emergencyContact: normalizeBeninPhone(contact.trim()),
       });
       setSaved(true);
       setEditing(false);
@@ -180,7 +182,7 @@ export default function EmergencyCardPage() {
               <input
                 value={contact}
                 onChange={(e) => setContact(e.target.value)}
-                placeholder="+229…"
+                placeholder="+229 01 96 46 67 77"
                 className="mt-1 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[14px] focus:outline-none focus:border-sante-600"
               />
             </label>

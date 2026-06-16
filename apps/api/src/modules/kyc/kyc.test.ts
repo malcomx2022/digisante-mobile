@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
-const PHONES = ['+22995000001', '+22995000002', '+22995000003'];
+const PHONES = ['+2290195000001', '+2290195000002', '+2290195000003'];
 
 describe.skipIf(!HAS_INFRA)('KYC (intégration)', () => {
   let app: FastifyInstance;

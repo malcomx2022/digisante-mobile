@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import type { Role } from '@digisante/shared';
+import { normalizeBeninPhone, type Role } from '@digisante/shared';
 
 import { Button, KenteBar, StatusBar } from '@/components/ui';
 import { useAuth } from '@/auth/AuthProvider';
@@ -47,7 +47,7 @@ export default function LoginPage() {
 
   /** Construit le corps d'inscription selon le rôle sélectionné. */
   function buildBody(): RegisterBody {
-    const body: RegisterBody = { phone, role, lang, firstName, lastName };
+    const body: RegisterBody = { phone: normalizeBeninPhone(phone), role, lang, firstName, lastName };
     if (email.trim()) body.email = email.trim();
     if (isDoctor) {
       body.speciality = speciality.trim();
@@ -89,7 +89,7 @@ export default function LoginPage() {
     setBusy(true);
     setError(null);
     try {
-      const otp = mode === 'register' ? await register(buildBody()) : await requestOtp(phone);
+      const otp = mode === 'register' ? await register(buildBody()) : await requestOtp(normalizeBeninPhone(phone));
       setHint(otp.devCode ? `${t('auth.code_sent')} (dev: ${otp.devCode})` : t('auth.code_sent'));
       setStep('code');
     } catch (err) {
@@ -103,7 +103,7 @@ export default function LoginPage() {
     setBusy(true);
     setError(null);
     try {
-      const user = await verifyOtp(phone, code);
+      const user = await verifyOtp(normalizeBeninPhone(phone), code);
       router.replace(spaceFor(user.role));
     } catch (err) {
       setError(apiErrorMessage(err));

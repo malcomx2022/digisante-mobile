@@ -6,7 +6,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
-const PHONE = '+22991000009';
+const PHONE = '+2290191000009';
 const TOKEN = 'reconcile_test_token';
 
 describe.skipIf(!HAS_INFRA)('Réconciliation FedaPay (intégration)', () => {
