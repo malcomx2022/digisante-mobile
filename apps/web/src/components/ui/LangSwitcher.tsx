@@ -20,7 +20,15 @@ export function LangSwitcher({ dark = false }: { dark?: boolean }) {
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="card-pagne focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-sante-600"
+        className={cn(
+          'card-pagne focus-visible:outline-none focus-visible:ring-2',
+          // L'anneau de focus repose sur l'en-tête (sombre) : un anneau clair neutre
+          // reste visible et theme-agnostique dans tous les espaces (vert patient,
+          // indigo médecin, ocre pharma/labo/diaspora, nuit admin). Vert uniquement en clair.
+          dark
+            ? 'focus-visible:ring-white/80'
+            : 'focus-visible:ring-offset-2 focus-visible:ring-sante-600',
+        )}
       >
         <LangPill lang={lang} dark={dark} />
       </button>
