@@ -3,8 +3,8 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
-const PHONE_PATIENT = '+22995100001';
-const PHONE_DOCTOR = '+22995100002';
+const PHONE_PATIENT = '+2290195100001';
+const PHONE_DOCTOR = '+2290195100002';
 const ALL = [PHONE_PATIENT, PHONE_DOCTOR];
 
 describe.skipIf(!HAS_INFRA)('Observance médicamenteuse (intégration)', () => {

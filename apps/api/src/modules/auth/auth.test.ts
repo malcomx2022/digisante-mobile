@@ -5,12 +5,12 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
-const PHONE = '+22996000777';
+const PHONE = '+2290196000777';
 // Numéros dédiés aux tests de rôle (isolés du parcours principal).
-const PHONE_DOC = '+22996000778';
-const PHONE_DOC_KO = '+22996000779';
-const PHONE_ADMIN = '+22996000780';
-const PHONE_LOGOUT = '+22996000781';
+const PHONE_DOC = '+2290196000778';
+const PHONE_DOC_KO = '+2290196000779';
+const PHONE_ADMIN = '+2290196000780';
+const PHONE_LOGOUT = '+2290196000781';
 const ALL_PHONES = [PHONE, PHONE_DOC, PHONE_DOC_KO, PHONE_ADMIN, PHONE_LOGOUT];
 const otpKeysFor = (p: string) => [`otp:${p}`, `otp:attempts:${p}`, `otp:lock:${p}`];
 const otpKeys = otpKeysFor(PHONE);

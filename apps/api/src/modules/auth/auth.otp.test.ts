@@ -14,16 +14,16 @@ describe('generateOtp', () => {
 
 describe('hashOtp', () => {
   it('est déterministe pour un même (phone, code)', () => {
-    expect(hashOtp('+22997000000', '123456')).toBe(hashOtp('+22997000000', '123456'));
+    expect(hashOtp('+2290197000000', '123456')).toBe(hashOtp('+2290197000000', '123456'));
   });
 
   it('diffère si le téléphone ou le code change', () => {
-    expect(hashOtp('+22997000000', '123456')).not.toBe(hashOtp('+22997000001', '123456'));
-    expect(hashOtp('+22997000000', '123456')).not.toBe(hashOtp('+22997000000', '654321'));
+    expect(hashOtp('+2290197000000', '123456')).not.toBe(hashOtp('+2290197000001', '123456'));
+    expect(hashOtp('+2290197000000', '123456')).not.toBe(hashOtp('+2290197000000', '654321'));
   });
 
   it('ne contient jamais le code en clair', () => {
-    expect(hashOtp('+22997000000', '123456')).not.toContain('123456');
+    expect(hashOtp('+2290197000000', '123456')).not.toContain('123456');
   });
 });
 

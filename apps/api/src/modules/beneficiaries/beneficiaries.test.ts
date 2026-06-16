@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
-const PHONES = ['+22993300001', '+22993300002', '+22993300003'];
+const PHONES = ['+2290193300001', '+2290193300002', '+2290193300003'];
 
 describe.skipIf(!HAS_INFRA)('Bénéficiaires diaspora (intégration)', () => {
   let app: FastifyInstance;
@@ -36,7 +36,7 @@ describe.skipIf(!HAS_INFRA)('Bénéficiaires diaspora (intégration)', () => {
   it('CRUD complet d’un proche par son propriétaire', async () => {
     const add = await app.inject({
       method: 'POST', url: '/api/v1/beneficiaries', headers: auth(diasporaToken),
-      payload: { name: 'Aïcha', relationship: 'Mère', phone: '+22996000000', languagesSpoken: ['FON'] },
+      payload: { name: 'Aïcha', relationship: 'Mère', phone: '+2290196000000', languagesSpoken: ['FON'] },
     });
     expect(add.statusCode).toBe(201);
     const id = add.json().id as string;

@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
-const PHONE = '+22987000111';
+const PHONE = '+2290187000111';
 
 describe.skipIf(!HAS_INFRA)('Anti-abus OTP (intégration)', () => {
   let app: FastifyInstance;

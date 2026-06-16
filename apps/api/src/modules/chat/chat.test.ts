@@ -6,9 +6,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 
-const PHONE_PATIENT = '+22996010001';
-const PHONE_DOCTOR = '+22996010002';
-const PHONE_OTHER = '+22996010003';
+const PHONE_PATIENT = '+2290196010001';
+const PHONE_DOCTOR = '+2290196010002';
+const PHONE_OTHER = '+2290196010003';
 const ALL_PHONES = [PHONE_PATIENT, PHONE_DOCTOR, PHONE_OTHER];
 
 describe.skipIf(!HAS_INFRA)('Chat (intégration)', () => {

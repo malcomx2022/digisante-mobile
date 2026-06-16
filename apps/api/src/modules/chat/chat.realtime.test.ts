@@ -8,8 +8,8 @@ import { WebSocket } from 'ws';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 
-const PHONE_PATIENT = '+22996020001';
-const PHONE_DOCTOR = '+22996020002';
+const PHONE_PATIENT = '+2290196020001';
+const PHONE_DOCTOR = '+2290196020002';
 const ALL_PHONES = [PHONE_PATIENT, PHONE_DOCTOR];
 
 function waitOpen(ws: WebSocket, ms = 4000): Promise<void> {

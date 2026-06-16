@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
-const PHONE = '+22989000001';
+const PHONE = '+2290189000001';
 const SVC = 'svc_token_p42';
 
 describe.skipIf(!HAS_INFRA)('Notifications (intégration)', () => {

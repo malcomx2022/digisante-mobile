@@ -3,8 +3,8 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
-const PHONE_PATIENT = '+22995200001';
-const PHONE_DOCTOR = '+22995200002';
+const PHONE_PATIENT = '+2290195200001';
+const PHONE_DOCTOR = '+2290195200002';
 const ALL = [PHONE_PATIENT, PHONE_DOCTOR];
 const TOKEN = 'med_reminder_test_token';
 

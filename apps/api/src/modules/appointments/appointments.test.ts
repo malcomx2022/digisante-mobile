@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
-const PHONES = ['+22994000001', '+22994000002'];
+const PHONES = ['+2290194000001', '+2290194000002'];
 const TOMORROW = new Date(Date.now() + 24 * 3600_000);
 
 describe.skipIf(!HAS_INFRA)('RDV & téléconsultation (intégration)', () => {
