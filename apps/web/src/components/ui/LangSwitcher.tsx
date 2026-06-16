@@ -15,7 +15,13 @@ export function LangSwitcher({ dark = false }: { dark?: boolean }) {
 
   return (
     <div className="relative">
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-haspopup="listbox" aria-expanded={open}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="card-pagne focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-sante-600"
+      >
         <LangPill lang={lang} dark={dark} />
       </button>
       {open && (
@@ -37,6 +43,7 @@ export function LangSwitcher({ dark = false }: { dark?: boolean }) {
                   }}
                   className={cn(
                     'w-full text-left px-3 py-2 text-[13px] font-body flex items-center justify-between gap-2',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sante-600',
                     l.code === lang ? 'bg-sante-600 text-white font-display font-bold' : 'text-nuit hover:bg-creme-deep',
                   )}
                 >

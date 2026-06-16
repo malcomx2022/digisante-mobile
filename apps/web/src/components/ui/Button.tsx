@@ -25,6 +25,7 @@ export function Button({ variant = 'terre', full = false, className, type = 'but
       type={type}
       className={cn(
         'font-display font-extrabold text-[15px] card-pagne px-5 py-3 transition active:translate-y-px disabled:opacity-50',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-sante-600',
         VARIANTS[variant],
         full && 'w-full',
         className,

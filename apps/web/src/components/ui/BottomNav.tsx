@@ -37,6 +37,12 @@ const ACTIVE_CLASS: Record<Accent, string> = {
   indigo: 'text-indigo-600',
   ocre: 'text-ocre-600',
 };
+// Anneau de focus clavier par espace (cohérent avec les thèmes « Wax & Terre »).
+const RING_CLASS: Record<Accent, string> = {
+  sante: 'focus-visible:ring-sante-600',
+  indigo: 'focus-visible:ring-indigo-600',
+  ocre: 'focus-visible:ring-ocre-500',
+};
 const FAB_CLASS: Record<Accent, string> = {
   sante: 'bg-terre-500 shadow-[0_10px_24px_rgba(194,84,43,.45)]',
   indigo: 'bg-indigo-600 shadow-[0_10px_24px_rgba(43,58,103,.45)]',
@@ -54,10 +60,12 @@ const DEFAULT_ITEMS: NavItem[] = [
 export function BottomNav({
   items = DEFAULT_ITEMS,
   fabHref = '/patient/sos',
+  fabLabelKey = 'nav.action',
   accent = 'sante',
 }: {
   items?: NavItem[];
   fabHref?: string;
+  fabLabelKey?: string;
   accent?: Accent;
 }) {
   const { t } = useLocale();
@@ -75,8 +83,13 @@ export function BottomNav({
         <div className="flex justify-center">
           <Link
             href={fabHref}
-            aria-label="Action"
-            className={cn('w-14 h-14 -mt-7 card-pagne text-white flex items-center justify-center border-4 border-creme rotate-3', FAB_CLASS[accent])}
+            aria-label={t(fabLabelKey)}
+            className={cn(
+              'w-14 h-14 -mt-7 card-pagne text-white flex items-center justify-center border-4 border-creme rotate-3',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+              RING_CLASS[accent],
+              FAB_CLASS[accent],
+            )}
           >
             <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
               <path d="M12 5v14M5 12h14" />
@@ -97,6 +110,8 @@ function NavLink({ item, label, active, accent }: { item: NavItem; label: string
       href={item.href}
       className={cn(
         'flex flex-col items-center gap-1 text-[10px] font-display',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+        RING_CLASS[accent],
         active ? `${ACTIVE_CLASS[accent]} font-extrabold` : 'text-stone-400 font-bold',
       )}
     >
