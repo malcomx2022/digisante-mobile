@@ -99,7 +99,7 @@ export function DmpShareDialog({
             <p className="text-[12px] text-stone-500">{recordTitle}</p>
           </div>
           <button type="button" onClick={onClose} aria-label={t('common.close')} className="text-stone-400 font-display font-extrabold text-lg leading-none px-2">
-            ✕
+            <span aria-hidden="true">✕</span>
           </button>
         </div>
 

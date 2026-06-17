@@ -152,30 +152,30 @@ export default function LoginPage() {
                     </div>
 
                     <div className="flex gap-2">
-                      <input className={inputCls} placeholder={t('auth.firstname')} value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-                      <input className={inputCls} placeholder={t('auth.lastname')} value={lastName} onChange={(e) => setLastName(e.target.value)} />
+                      <input className={inputCls} placeholder={t('auth.firstname')} aria-label={t('auth.firstname')} value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+                      <input className={inputCls} placeholder={t('auth.lastname')} aria-label={t('auth.lastname')} value={lastName} onChange={(e) => setLastName(e.target.value)} />
                     </div>
-                    <input className={inputCls} inputMode="email" placeholder={t('auth.email_optional')} value={email} onChange={(e) => setEmail(e.target.value)} />
+                    <input className={inputCls} inputMode="email" placeholder={t('auth.email_optional')} aria-label={t('auth.email_optional')} value={email} onChange={(e) => setEmail(e.target.value)} />
 
                     {/* Champs médecin */}
                     {isDoctor && (
                       <>
-                        <input className={inputCls} placeholder={t('auth.speciality')} value={speciality} onChange={(e) => setSpeciality(e.target.value)} />
-                        <input className={inputCls} placeholder={t('auth.license_number')} value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} />
-                        <input className={inputCls} inputMode="numeric" placeholder={t('auth.consult_fee')} value={consultFee} onChange={(e) => setConsultFee(e.target.value.replace(/\D/g, ''))} />
+                        <input className={inputCls} placeholder={t('auth.speciality')} aria-label={t('auth.speciality')} value={speciality} onChange={(e) => setSpeciality(e.target.value)} />
+                        <input className={inputCls} placeholder={t('auth.license_number')} aria-label={t('auth.license_number')} value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} />
+                        <input className={inputCls} inputMode="numeric" placeholder={t('auth.consult_fee')} aria-label={t('auth.consult_fee')} value={consultFee} onChange={(e) => setConsultFee(e.target.value.replace(/\D/g, ''))} />
                       </>
                     )}
 
                     {/* Champs établissement (pharmacie / labo) */}
                     {isEstablishment && (
                       <>
-                        <input className={inputCls} placeholder={t('auth.establishment_name')} value={establishmentName} onChange={(e) => setEstablishmentName(e.target.value)} />
-                        <input className={inputCls} placeholder={t('auth.address_optional')} value={address} onChange={(e) => setAddress(e.target.value)} />
+                        <input className={inputCls} placeholder={t('auth.establishment_name')} aria-label={t('auth.establishment_name')} value={establishmentName} onChange={(e) => setEstablishmentName(e.target.value)} />
+                        <input className={inputCls} placeholder={t('auth.address_optional')} aria-label={t('auth.address_optional')} value={address} onChange={(e) => setAddress(e.target.value)} />
                       </>
                     )}
                   </>
                 )}
-                <input className={inputCls} inputMode="tel" placeholder={t('auth.phone')} value={phone} onChange={(e) => setPhone(e.target.value)} />
+                <input className={inputCls} inputMode="tel" placeholder={t('auth.phone')} aria-label={t('auth.phone')} value={phone} onChange={(e) => setPhone(e.target.value)} />
                 <Button variant="sante" full onClick={sendCode} disabled={busy}>
                   {t('auth.send_code')}
                 </Button>
@@ -198,6 +198,7 @@ export default function LoginPage() {
                   inputMode="numeric"
                   maxLength={6}
                   placeholder={t('auth.code')}
+                  aria-label={t('auth.code')}
                   value={code}
                   onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 />

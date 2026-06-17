@@ -86,11 +86,11 @@ export default function BeneficiariesPage() {
               {editing === 'new' ? t('beneficiaries.add') : t('beneficiaries.edit')}
             </p>
             <Nkyinkyim className="my-2" />
-            <input className={inputCls} placeholder={t('beneficiaries.name')} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
-            <input className={inputCls} placeholder={t('beneficiaries.relationship')} value={form.relationship} onChange={(e) => setForm((f) => ({ ...f, relationship: e.target.value }))} />
-            <input className={inputCls} placeholder={t('beneficiaries.phone')} value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
+            <input className={inputCls} placeholder={t('beneficiaries.name')} aria-label={t('beneficiaries.name')} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+            <input className={inputCls} placeholder={t('beneficiaries.relationship')} aria-label={t('beneficiaries.relationship')} value={form.relationship} onChange={(e) => setForm((f) => ({ ...f, relationship: e.target.value }))} />
+            <input className={inputCls} placeholder={t('beneficiaries.phone')} aria-label={t('beneficiaries.phone')} value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
             <div>
-              <p className="text-[12px] text-stone-500 mb-1">🗣 {t('common.spoken')}</p>
+              <p className="text-[12px] text-stone-500 mb-1"><span aria-hidden="true">🗣 </span>{t('common.spoken')}</p>
               <div className="flex flex-wrap gap-1.5">
                 {LANGS.map((l) => (
                   <button
@@ -104,7 +104,7 @@ export default function BeneficiariesPage() {
                 ))}
               </div>
             </div>
-            <textarea className={inputCls} rows={2} placeholder={t('beneficiaries.notes')} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
+            <textarea className={inputCls} rows={2} placeholder={t('beneficiaries.notes')} aria-label={t('beneficiaries.notes')} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
             <div className="flex gap-2 pt-1">
               <Button variant="ocre" className="flex-1" onClick={save} disabled={busy || !form.name.trim()}>{t('beneficiaries.save')}</Button>
               <Button variant="outline" className="flex-1" onClick={() => setEditing(null)}>{t('common.close')}</Button>

@@ -86,7 +86,7 @@ function TeleconsultInner() {
       <div className="relative flex-1 wax-dark flex items-center justify-center">
         {loading ? (
           <div className="card-pagne bg-indigo-900/60 px-6 py-4">
-            <p className="text-white/70 text-sm">{t('teleconsult.connecting')}</p>
+            <p className="text-white/80 text-sm">{t('teleconsult.connecting')}</p>
           </div>
         ) : error ? (
           <div className="card-pagne stitch-light bg-indigo-900/60 w-[78%] grid place-items-center p-6 text-center">
@@ -122,7 +122,7 @@ function TeleconsultInner() {
         ) : (
           // roomUrl absent : Daily non configuré côté serveur → état gracieux.
           <div className="card-pagne stitch-light bg-indigo-900/60 w-[78%] aspect-[3/4] grid place-items-center p-6 text-center">
-            <p className="text-white/60 text-sm">{t('teleconsult.room_preparing')}</p>
+            <p className="text-white/80 text-sm">{t('teleconsult.room_preparing')}</p>
           </div>
         )}
 
@@ -162,7 +162,7 @@ function TeleconsultFallback() {
   return (
     <div className="flex-1 bg-nuit text-white grid place-items-center">
       <div className="card-pagne bg-indigo-900/60 px-6 py-4">
-        <p className="text-white/70 text-sm">{t('teleconsult.connecting')}</p>
+        <p className="text-white/80 text-sm">{t('teleconsult.connecting')}</p>
       </div>
     </div>
   );

@@ -130,6 +130,7 @@ export default function InsurancePage() {
             value={memberNumber}
             onChange={(e) => setMemberNumber(e.target.value)}
             placeholder={t('insurance.member_number')}
+            aria-label={t('insurance.member_number')}
             className="mt-3 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[14px] focus:outline-none focus:border-sante-600"
           />
           <label className="block text-[12px] text-stone-500 mt-2">{t('insurance.expires_at')}</label>
@@ -137,6 +138,7 @@ export default function InsurancePage() {
             type="date"
             value={expiresAt}
             onChange={(e) => setExpiresAt(e.target.value)}
+            aria-label={t('insurance.expires_at')}
             className="mt-1 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[14px] focus:outline-none focus:border-sante-600"
           />
 

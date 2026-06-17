@@ -60,11 +60,11 @@ function PrescribeInner() {
     <>
       <ProHeader title={t('pro.prescribe')} />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto">
-        <input className={`${inputCls} w-full`} placeholder="patientId (cuid)" value={patientId} onChange={(e) => setPatientId(e.target.value)} />
+        <input className={`${inputCls} w-full`} placeholder="patientId (cuid)" aria-label="patientId (cuid)" value={patientId} onChange={(e) => setPatientId(e.target.value)} /> {/* TODO i18n */}
 
         {conflicts.length > 0 && (
           <CardPagne stitch="sos" className="p-3 bg-sos-50">
-            <p className="font-display font-extrabold text-sos-600 text-[13px]">⚠ {t('pro.allergy_alert')}</p>
+            <p className="font-display font-extrabold text-sos-600 text-[13px]"><span aria-hidden="true">⚠</span> {t('pro.allergy_alert')}</p>
             <p className="text-[13px] text-stone-700">{conflicts.join(', ')}</p>
             <Button variant="sos" className="mt-2 text-[12px] px-3 py-1.5" onClick={() => submit(true)} disabled={busy}>
               {t('pro.sign')} (override)
@@ -76,11 +76,11 @@ function PrescribeInner() {
 
         {lines.map((l, i) => (
           <CardPagne key={i} className="p-3 space-y-2">
-            <input className={`${inputCls} w-full`} placeholder={t('pro.add_med')} value={l.medicationName} onChange={(e) => setLine(i, 'medicationName', e.target.value)} />
+            <input className={`${inputCls} w-full`} placeholder={t('pro.add_med')} aria-label={t('pro.add_med')} value={l.medicationName} onChange={(e) => setLine(i, 'medicationName', e.target.value)} />
             <div className="grid grid-cols-3 gap-2">
-              <input className={inputCls} placeholder="Posologie" value={l.dosage} onChange={(e) => setLine(i, 'dosage', e.target.value)} />
-              <input className={inputCls} placeholder="Fréquence" value={l.frequency} onChange={(e) => setLine(i, 'frequency', e.target.value)} />
-              <input className={inputCls} placeholder="Durée" value={l.duration} onChange={(e) => setLine(i, 'duration', e.target.value)} />
+              <input className={inputCls} placeholder="Posologie" aria-label="Posologie" value={l.dosage} onChange={(e) => setLine(i, 'dosage', e.target.value)} /> {/* TODO i18n */}
+              <input className={inputCls} placeholder="Fréquence" aria-label="Fréquence" value={l.frequency} onChange={(e) => setLine(i, 'frequency', e.target.value)} /> {/* TODO i18n */}
+              <input className={inputCls} placeholder="Durée" aria-label="Durée" value={l.duration} onChange={(e) => setLine(i, 'duration', e.target.value)} /> {/* TODO i18n */}
             </div>
           </CardPagne>
         ))}
@@ -90,7 +90,7 @@ function PrescribeInner() {
         </button>
 
         {done ? (
-          <p className="text-center text-sante-700 font-display font-bold">✓ Ordonnance signée et émise</p>
+          <p className="text-center text-sante-700 font-display font-bold"><span aria-hidden="true">✓</span> Ordonnance signée et émise</p>
         ) : (
           <Button variant="indigo" full onClick={() => submit(false)} disabled={busy || !patientId || !lines[0]?.medicationName}>
             {t('pro.sign')}

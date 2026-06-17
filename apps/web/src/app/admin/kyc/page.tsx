@@ -94,7 +94,7 @@ function KycDetailPanel({ id, onBack, onDone }: { id: string; onBack: () => void
   return (
     <div className="space-y-4 lg:max-w-2xl lg:mx-auto">
       <button type="button" onClick={onBack} className="text-[13px] text-indigo-700 font-display font-bold">
-        ← {t('common.back')}
+        <span aria-hidden="true">← </span>{t('common.back')}
       </button>
 
       {loading && <Loading label={t('common.loading')} />}
@@ -146,10 +146,11 @@ function KycDetailPanel({ id, onBack, onDone }: { id: string; onBack: () => void
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder={t('adminkyc.notes')}
+              aria-label={t('adminkyc.notes')}
               rows={2}
               className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[14px] focus:outline-none focus:border-indigo-600"
             />
-            {!allVerified && <p className="text-[12px] text-ocre-600 mt-1">⚠ {t('adminkyc.warn_unverified')}</p>}
+            {!allVerified && <p className="text-[12px] text-ocre-600 mt-1"><span aria-hidden="true">⚠ </span>{t('adminkyc.warn_unverified')}</p>}
             {actionError && <p className="text-[12px] text-sos-600 font-bold mt-1">{actionError}</p>}
             <div className="grid grid-cols-3 gap-2 mt-3">
               <Button variant="terre" className="text-[12px] px-2 py-2" onClick={() => decide('APPROVED')} disabled={busy}>

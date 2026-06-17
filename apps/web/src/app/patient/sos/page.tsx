@@ -66,17 +66,19 @@ export default function SosPage() {
             SOS
           </button>
           <p className="mt-4 text-[13px] text-stone-500">
-            {status === 'locating'
-              ? t('sos.locating')
-              : status === 'sent'
-                ? `✓ ${t('sos.sent')}`
-                : status === 'failed'
-                  ? `⚠️ ${t('sos.fallback')}`
-                  : t('sos.tap')}
+            {status === 'locating' ? (
+              t('sos.locating')
+            ) : status === 'sent' ? (
+              <><span aria-hidden="true">✓</span> {t('sos.sent')}</>
+            ) : status === 'failed' ? (
+              <><span aria-hidden="true">⚠️</span> {t('sos.fallback')}</>
+            ) : (
+              t('sos.tap')
+            )}
           </p>
           {coords && (
             <p className="text-[12px] text-stone-400">
-              📍 {coords.latitude.toFixed(4)}, {coords.longitude.toFixed(4)}
+              <span aria-hidden="true">📍</span> {coords.latitude.toFixed(4)}, {coords.longitude.toFixed(4)}
             </p>
           )}
         </div>
@@ -91,7 +93,7 @@ export default function SosPage() {
 
         {/* Fiche d'urgence : groupe sanguin, allergies, contact — visible par les secours */}
         <Link href="/patient/emergency" className="block w-full text-center bg-white card-pagne border border-stone-300 text-stone-800 font-display font-extrabold py-3">
-          🩸 {t('sos.emergency_card')}
+          <span aria-hidden="true">🩸</span> {t('sos.emergency_card')}
         </Link>
 
         <CardPagne className="p-4">

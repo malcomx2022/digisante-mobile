@@ -59,7 +59,7 @@ export default function LabOrdersPage() {
     <>
       <SpaceHeader title={t('labo.orders_title')} subtitle={t('labo.orders_sub')} headerClass="bg-ocre-900" profileHref="/labo/profile" />
       <main className="px-6 -mt-10 relative z-20 space-y-5 pb-6 lg:max-w-5xl lg:mx-auto">
-        <Link href="/labo" className="inline-block text-[13px] text-ocre-700 font-display font-bold">← {t('labo.title')}</Link>
+        <Link href="/labo" className="inline-block text-[13px] text-ocre-700 font-display font-bold"><span aria-hidden="true">←</span> {t('labo.title')}</Link>
 
         {actionError && (
           <p className="bg-sos-100 text-sos-700 card-pagne px-3 py-2 text-[13px] font-bold">{actionError}</p>
@@ -93,7 +93,7 @@ export default function LabOrdersPage() {
                     {t('labo.enter_result')}
                   </Button>
                 )}
-                {o.hasResult && <span className="text-sante-700 font-display font-bold text-[13px] self-center">✓ {t('labo.status.COMPLETED')}</span>}
+                {o.hasResult && <span className="text-sante-700 font-display font-bold text-[13px] self-center"><span aria-hidden="true">✓</span> {t('labo.status.COMPLETED')}</span>}
               </div>
             </CardPagne>
           ))}

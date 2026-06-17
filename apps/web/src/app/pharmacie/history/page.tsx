@@ -23,7 +23,7 @@ export default function PharmacieHistoryPage() {
       <div className="px-6 pt-2 pb-4 flex items-start justify-between gap-2">
         <div>
           <h1 className="font-display font-extrabold text-2xl">{t('pharmacie.history')}</h1>
-          <p className="text-[12px] text-white/60">{t('pharmacie.history_sub')}</p>
+          <p className="text-[12px] text-white/80">{t('pharmacie.history_sub')}</p>
         </div>
         <Link href="/pharmacie" className="card-pagne bg-white/15 border border-white/20 px-3 py-1.5 text-[12px] font-display font-bold">
           {t('common.back')}

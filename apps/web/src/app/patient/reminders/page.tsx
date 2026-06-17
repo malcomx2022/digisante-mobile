@@ -47,12 +47,12 @@ export default function RemindersPage() {
             <p className="text-[13px] text-stone-500">{r.body}</p>
             {r.scheduledAt && (
               <p className="text-[12px] text-ocre-600 mt-1">
-                ⏰ {new Date(r.scheduledAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+                <span aria-hidden="true">⏰</span> {new Date(r.scheduledAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
               </p>
             )}
             <div className="flex gap-2 mt-3">
               <Button variant="sante" className="text-[13px] px-3 py-2" onClick={() => markTaken(r.id)} disabled={taken.has(r.id)}>
-                ✓ {t('reminders.taken')}
+                <span aria-hidden="true">✓</span> {t('reminders.taken')}
               </Button>
               {/* Bouton « Snooze / +30 min » retiré : aucun endpoint de report n'existe côté backend
                   (pas de bouton inerte). À réactiver si une API de report est ajoutée. */}

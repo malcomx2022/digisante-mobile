@@ -78,7 +78,7 @@ export default function PrescriptionsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-display font-extrabold">ORD · {p.id.slice(-6).toUpperCase()}</p>
-                  <p className="text-[12px] text-white/70">
+                  <p className="text-[12px] text-white/80">
                     {t('prescriptions.valid_until', { date: new Date(p.validUntil).toLocaleDateString('fr-FR') })}
                   </p>
                 </div>
@@ -118,9 +118,9 @@ export default function PrescriptionsPage() {
                   </button>
                 ))}
               </div>
-              {paid.has(p.id) && <p className="mt-2 text-[12px] text-sante-700 font-bold">✓ {t('prescriptions.paid')}</p>}
+              {paid.has(p.id) && <p className="mt-2 text-[12px] text-sante-700 font-bold"><span aria-hidden="true">✓</span> {t('prescriptions.paid')}</p>}
               {queued.has(p.id) && (
-                <p className="mt-2 text-[12px] text-ocre-600 font-bold">⏳ {t('prescriptions.payment_queued')}</p>
+                <p className="mt-2 text-[12px] text-ocre-600 font-bold"><span aria-hidden="true">⏳</span> {t('prescriptions.payment_queued')}</p>
               )}
               {payError.has(p.id) && <p className="mt-2 text-[12px] text-sos-600 font-bold">{t('auth.error')}</p>}
             </div>

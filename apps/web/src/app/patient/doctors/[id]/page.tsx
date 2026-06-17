@@ -81,12 +81,12 @@ export default function DoctorDetailPage() {
                     <p className="font-display font-extrabold text-[17px] text-stone-800">
                       Dr {data.profile?.firstName} {data.profile?.lastName}
                     </p>
-                    {data.isVerified && <Badge variant="normal">✓ {t('doctors.verified')}</Badge>}
+                    {data.isVerified && <Badge variant="normal"><span aria-hidden="true">✓</span> {t('doctors.verified')}</Badge>}
                   </div>
                   <p className="text-[13px] text-stone-500">{data.speciality}</p>
                   {data.rating.average != null && (
                     <p className="text-[13px] text-ocre-600 font-bold mt-0.5">
-                      {stars(data.rating.average)} {data.rating.average} · {t('reviews.count', { n: String(data.rating.count) })}
+                      <span aria-hidden="true">{stars(data.rating.average)}</span> {data.rating.average} · {t('reviews.count', { n: String(data.rating.count) })}
                     </p>
                   )}
                   <p className="font-display font-bold text-sante-700 text-[14px] mt-1">
@@ -96,7 +96,7 @@ export default function DoctorDetailPage() {
               </div>
 
               {data.profile?.spokenLangs?.length ? (
-                <p className="text-[12px] text-stone-500 mt-3">🗣 {data.profile.spokenLangs.join(' · ')}</p>
+                <p className="text-[12px] text-stone-500 mt-3"><span aria-hidden="true">🗣</span> {data.profile.spokenLangs.join(' · ')}</p>
               ) : null}
 
               {data.bio ? (
@@ -123,7 +123,7 @@ export default function DoctorDetailPage() {
                 <div className="flex gap-1 mt-2">
                   {[1, 2, 3, 4, 5].map((n) => (
                     <button key={n} type="button" onClick={() => changeRating(n)} className={cn('text-2xl leading-none', n <= rating ? 'text-ocre-500' : 'text-stone-300')} aria-label={`${n}/5`}>
-                      ★
+                      <span aria-hidden="true">★</span>
                     </button>
                   ))}
                 </div>
@@ -131,6 +131,7 @@ export default function DoctorDetailPage() {
                   value={comment}
                   onChange={(e) => changeComment(e.target.value)}
                   placeholder={t('reviews.comment')}
+                  aria-label={t('reviews.comment')}
                   className="mt-2 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[14px] focus:outline-none focus:border-sante-600"
                   rows={2}
                 />
@@ -158,7 +159,7 @@ export default function DoctorDetailPage() {
                     <div key={i} className="border-b border-dashed border-stone-200 pb-2 last:border-0">
                       <div className="flex items-center justify-between">
                         <span className="font-display font-bold text-[13px] text-stone-800">{r.name}</span>
-                        <span className="text-ocre-500 text-[13px]">{stars(r.rating)}</span>
+                        <span className="text-ocre-500 text-[13px]" aria-label={`${r.rating}/5`}>{stars(r.rating)}</span>
                       </div>
                       {r.comment && <p className="text-[13px] text-stone-600 mt-0.5">{r.comment}</p>}
                     </div>

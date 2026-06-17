@@ -31,7 +31,11 @@ export default function OfflinePage() {
       <PatientHeader title={t('offline.title')} />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto lg:w-full">
         <div className="bg-ocre-400 trame-tissee text-stone-900 card-pagne px-4 py-2 text-center text-[13px] font-display font-bold">
-          {online ? '🟢 En ligne' : `🟠 ${t('offline.banner')}`}
+          {online ? (
+            <><span aria-hidden="true">🟢</span> En ligne</>
+          ) : (
+            <><span aria-hidden="true">🟠</span> {t('offline.banner')}</>
+          )}
         </div>
 
         <CardPagne className="p-4">
@@ -55,13 +59,13 @@ export default function OfflinePage() {
             queue.map((q) => (
               <div key={q.id} className="flex items-center justify-between py-1.5 border-b border-dashed border-stone-200 text-[12px]">
                 <span className="font-mono text-stone-600">{q.method} {q.path}</span>
-                <span className="text-ocre-600">⏳</span>
+                <span className="text-ocre-600" aria-hidden="true">⏳</span>
               </div>
             ))
           )}
         </CardPagne>
 
-        <p className="text-center text-[12px] text-sos-600 font-display font-bold">⚠ {t('offline.sos_active')}</p>
+        <p className="text-center text-[12px] text-sos-600 font-display font-bold"><span aria-hidden="true">⚠</span> {t('offline.sos_active')}</p>
       </main>
     </div>
   );

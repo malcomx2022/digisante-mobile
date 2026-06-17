@@ -112,13 +112,13 @@ export function BookingModal({
             aria-label={t('common.close')}
             className="text-stone-400 font-display font-extrabold text-lg leading-none px-2"
           >
-            ✕
+            <span aria-hidden="true">✕</span>
           </button>
         </div>
 
         {done ? (
           <div className="mt-4 text-center py-4">
-            <div className="w-14 h-14 card-pagne bg-sante-600 text-white rotate-2 mx-auto grid place-items-center font-display font-extrabold text-2xl">✓</div>
+            <div className="w-14 h-14 card-pagne bg-sante-600 text-white rotate-2 mx-auto grid place-items-center font-display font-extrabold text-2xl" aria-hidden="true">✓</div>
             <p className="font-display font-extrabold text-[16px] text-stone-800 mt-3">
               {done.status === 'QUEUED' ? t('booking.queued_title') : t('booking.success_title')}
             </p>

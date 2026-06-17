@@ -122,7 +122,7 @@ export default function EmergencyCardPage() {
               <p className="font-display font-extrabold text-[13px] text-stone-700 mt-3">{t('emergency.contact')}</p>
               {data.emergencyContact ? (
                 <a href={`tel:${data.emergencyContact}`} className="text-[15px] font-display font-bold text-sante-700">
-                  📞 {data.emergencyContact}
+                  <span aria-hidden="true">📞</span> {data.emergencyContact}
                 </a>
               ) : (
                 <p className="text-[13px] text-stone-400 mt-0.5">{t('emergency.none')}</p>

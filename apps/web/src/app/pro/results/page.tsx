@@ -50,7 +50,7 @@ export default function ProResultsPage() {
                 <p className="text-[13px] text-stone-500">{r.patient ? `${r.patient.firstName} ${r.patient.lastName}` : '—'}</p>
               </div>
               {r.critical.length > 0 ? (
-                <Badge className="bg-sos-500 text-white">⚠ {t('labo.critical_short')}</Badge>
+                <Badge className="bg-sos-500 text-white"><span aria-hidden="true">⚠</span> {t('labo.critical_short')}</Badge>
               ) : (
                 <Badge variant="indigo">{t('proresults.normal')}</Badge>
               )}
@@ -84,6 +84,7 @@ export default function ProResultsPage() {
                   value={drafts[r.id] ?? ''}
                   onChange={(e) => setDrafts((d) => ({ ...d, [r.id]: e.target.value }))}
                   placeholder={t('proresults.placeholder')}
+                  aria-label={t('proresults.placeholder')}
                   rows={2}
                   className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[14px] focus:outline-none focus:border-indigo-600"
                 />
