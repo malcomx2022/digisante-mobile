@@ -76,7 +76,7 @@ export function BottomNav({
   return (
     <nav className="relative bg-white border-t border-stone-200">
       <Nkyinkyim className="absolute -top-3 left-0 right-0" />
-      <div className="grid grid-cols-5 items-end pt-2 pb-3">
+      <div className="grid grid-cols-5 items-end pt-2 pb-safe">
         {left.map((it) => (
           <NavLink key={it.href} item={it} label={t(it.labelKey)} active={pathname === it.href} accent={accent} />
         ))}
@@ -108,6 +108,7 @@ function NavLink({ item, label, active, accent }: { item: NavItem; label: string
   return (
     <Link
       href={item.href}
+      aria-current={active ? 'page' : undefined}
       className={cn(
         'flex flex-col items-center gap-1 text-[10px] font-display',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
