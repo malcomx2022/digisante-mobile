@@ -1,18 +1,30 @@
 'use client';
 
 import { Protected } from '@/components/auth/Protected';
-import { BottomNav } from '@/components/ui';
+import { AppShell } from '@/components/spaces/AppShell';
+import type { NavItem } from '@/components/ui/BottomNav';
 
-// Coquille de l'espace Patient : garde de rôle + cadre mobile + navigation basse.
+// Navigation de l'espace Patient (accent sante). FAB = SOS.
+const NAV: NavItem[] = [
+  { labelKey: 'nav.home', icon: 'home', href: '/patient' },
+  { labelKey: 'nav.dossier', icon: 'file', href: '/patient/dmp' },
+  { labelKey: 'nav.search', icon: 'search', href: '/patient/doctors' },
+  { labelKey: 'nav.profil', icon: 'user', href: '/patient/profile' },
+];
+
+// Coquille de l'espace Patient : garde de rôle + cadre adaptatif (mobile/desktop).
 export default function PatientLayout({ children }: { children: React.ReactNode }) {
   return (
     <Protected role="PATIENT">
-      <div className="min-h-screen wax-light">
-        <div className="mx-auto max-w-[420px] min-h-screen bg-creme flex flex-col shadow-xl">
-          <div className="flex-1 flex flex-col">{children}</div>
-          <BottomNav />
-        </div>
-      </div>
+      <AppShell
+        accent="sante"
+        items={NAV}
+        fabHref="/patient/sos"
+        fabLabelKey="sos.title"
+        profileHref="/patient/profile"
+      >
+        {children}
+      </AppShell>
     </Protected>
   );
 }
