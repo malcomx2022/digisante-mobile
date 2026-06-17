@@ -48,7 +48,7 @@ export default function WalletPage() {
       <SpaceHeader title={t('wallet.title')} headerClass="bg-ocre-900" />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto">
         <CardPagne stitch className="p-5 bg-ocre-900 bogolan-dark text-white">
-          <p className="text-[12px] text-white/70">{t('wallet.balance')}</p>
+          <p className="text-[12px] text-white/80">{t('wallet.balance')}</p>
           <p className="font-display font-extrabold text-3xl">
             {Number(data?.balance ?? 0).toLocaleString('fr-FR')} <span className="text-base">{data?.currency ?? 'XOF'}</span>
           </p>
@@ -60,6 +60,7 @@ export default function WalletPage() {
               inputMode="decimal"
               className="w-24 bg-white/15 border border-white/20 card-pagne px-3 py-2 text-white text-[15px] focus:outline-none"
               placeholder={t('wallet.topup_eur')}
+              aria-label={t('wallet.topup_eur')}
             />
             <span className="text-[13px] text-white/80">€ → {t('wallet.converted', { xof: xof.toLocaleString('fr-FR') })}</span>
           </div>

@@ -55,7 +55,7 @@ export default function DoctorsPage() {
             onClick={() => setLang(null)}
             className={cn('shrink-0 card-pagne px-3 py-1.5 text-[12px] font-display font-bold', lang === null ? 'bg-sante-600 text-white' : 'bg-creme-deep text-stone-600')}
           >
-            🗣 {t('doctors.all_langs')}
+<span aria-hidden="true">🗣</span> {t('doctors.all_langs')}
           </button>
           {LANGS.map((l) => (
             <button
@@ -83,14 +83,14 @@ export default function DoctorsPage() {
                     <p className="font-display font-extrabold text-[14px] text-stone-800">
                       Dr {d.profile?.firstName} {d.profile?.lastName}
                     </p>
-                    {d.isVerified && <Badge variant="normal">✓ {t('doctors.verified')}</Badge>}
+                    {d.isVerified && <Badge variant="normal"><span aria-hidden="true">✓</span> {t('doctors.verified')}</Badge>}
                   </Link>
                   <p className="text-[13px] text-stone-500">{d.speciality}</p>
                   {d.profile?.spokenLangs?.length ? (
-                    <p className="text-[12px] text-stone-400 mt-0.5">🗣 {d.profile.spokenLangs.join(' · ')}</p>
+                    <p className="text-[12px] text-stone-400 mt-0.5"><span aria-hidden="true">🗣</span> {d.profile.spokenLangs.join(' · ')}</p>
                   ) : null}
                   {d.rating.average != null && (
-                    <p className="text-[12px] text-ocre-600 font-bold mt-0.5">★ {d.rating.average} ({d.rating.count})</p>
+                    <p className="text-[12px] text-ocre-600 font-bold mt-0.5"><span aria-hidden="true">★</span> {d.rating.average} ({d.rating.count})</p>
                   )}
                   <div className="flex items-center justify-between mt-2">
                     <span className="font-display font-bold text-sante-700 text-[13px]">

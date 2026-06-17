@@ -52,7 +52,7 @@ export default function ProfilePage() {
                 onClick={() => setLang(l.code as Lang)}
                 className={cn('card-pagne px-3 py-1.5 text-[13px] font-display font-bold', l.code === lang ? 'bg-sante-600 text-white' : 'bg-creme-deep text-stone-600')}
               >
-                {l.code} {l.hasAudio ? '🔊' : ''}
+                {l.code} {l.hasAudio ? <span aria-hidden="true">🔊</span> : ''}
               </button>
             ))}
           </div>

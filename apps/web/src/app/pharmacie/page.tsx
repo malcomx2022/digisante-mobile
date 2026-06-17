@@ -63,7 +63,7 @@ export default function PharmaciePage() {
       <div className="px-6 pt-2 pb-4 flex items-start justify-between gap-2">
         <div>
           <h1 className="font-display font-extrabold text-2xl">{t('pharmacie.title')}</h1>
-          <p className="text-[12px] text-white/60">{t('pharmacie.scan')}</p>
+          <p className="text-[12px] text-white/80">{t('pharmacie.scan')}</p>
         </div>
         <div className="flex items-center gap-2">
           <Link href="/pharmacie/history" className="card-pagne bg-white/15 border border-white/20 px-3 py-1.5 text-[12px] font-display font-bold">
@@ -84,7 +84,7 @@ export default function PharmaciePage() {
           className="relative w-full wax-dark card-pagne stitch-light border-2 border-ocre-400 h-44 grid place-items-center overflow-hidden"
         >
           <div className="absolute left-0 right-0 h-0.5 bg-ocre-400 scan-line" />
-          <span className="text-white/60 text-[13px] font-display font-bold">📷 {t('scan.tap')}</span>
+          <span className="text-white/80 text-[13px] font-display font-bold"><span aria-hidden="true">📷</span> {t('scan.tap')}</span>
         </button>
 
         <input
@@ -104,14 +104,14 @@ export default function PharmaciePage() {
           <div className="bg-creme text-nuit card-pagne relative overflow-hidden">
             <div className="bg-sante-900 bogolan-dark text-white p-3 relative">
               <p className="font-display font-extrabold">{result.authentic ? t('pharmacie.authentic') : t('pharmacie.suspicious')}</p>
-              {result.patient && <p className="text-[12px] text-white/70">{result.patient.firstName} {result.patient.lastName}</p>}
+              {result.patient && <p className="text-[12px] text-white/80">{result.patient.firstName} {result.patient.lastName}</p>}
               <KenteBar className="absolute bottom-0 left-0 right-0" />
             </div>
             <div className="p-4 space-y-3">
               {result.items.map((it) => (
                 <div key={it.id} className="border-b border-dashed border-stone-200 pb-2.5">
                   <span className="font-display font-bold text-[14px]">{it.medicationName}</span>
-                  {it.genericSuggestion && <p className="text-[12px] text-ocre-600">↳ {t('pharmacie.generic')} : {it.genericSuggestion}</p>}
+                  {it.genericSuggestion && <p className="text-[12px] text-ocre-600"><span aria-hidden="true">↳</span> {t('pharmacie.generic')} : {it.genericSuggestion}</p>}
                   {/* Choix du statut de délivrance par ligne (rupture de stock, partiel…) */}
                   {!dispensed && (
                     <div className="flex gap-1.5 mt-1.5">
@@ -139,7 +139,7 @@ export default function PharmaciePage() {
                 </div>
               ))}
               {dispensed ? (
-                <p className="text-sante-700 font-display font-bold text-center">✓ {t('pharmacie.dispensed_ok')}</p>
+                <p className="text-sante-700 font-display font-bold text-center"><span aria-hidden="true">✓</span> {t('pharmacie.dispensed_ok')}</p>
               ) : (
                 <>
                   {result.expired && (

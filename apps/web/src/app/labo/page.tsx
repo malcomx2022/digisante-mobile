@@ -63,15 +63,15 @@ function LaboResult() {
       <SpaceHeader title={t('labo.title')} subtitle={t('labo.result')} headerClass="bg-ocre-900" profileHref="/labo/profile" />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto">
         <Link href="/labo/orders" className="block w-full text-center bg-ocre-400 text-stone-900 font-display font-extrabold card-pagne py-3">
-          📥 {t('labo.orders_title')}
+          <span aria-hidden="true">📥</span> {t('labo.orders_title')}
         </Link>
-        <input className={`${inputCls} w-full`} placeholder={t('labo.order')} value={orderId} onChange={(e) => setOrderId(e.target.value)} />
+        <input className={`${inputCls} w-full`} placeholder={t('labo.order')} aria-label={t('labo.order')} value={orderId} onChange={(e) => setOrderId(e.target.value)} />
 
         <CardPagne className="p-4 space-y-2">
           {rows.map((r, i) => (
             <div key={i} className="grid grid-cols-2 gap-2">
-              <input className={inputCls} placeholder="Analyse (ex. glucose)" value={r.key} onChange={(e) => setRow(i, 'key', e.target.value)} />
-              <input className={`${inputCls} border-2 border-sos-500`} placeholder="Valeur" value={r.value} onChange={(e) => setRow(i, 'value', e.target.value)} />
+              <input className={inputCls} placeholder="Analyse (ex. glucose)" aria-label="Analyse (ex. glucose)" value={r.key} onChange={(e) => setRow(i, 'key', e.target.value)} /> {/* TODO i18n */}
+              <input className={`${inputCls} border-2 border-sos-500`} placeholder="Valeur" aria-label="Valeur" value={r.value} onChange={(e) => setRow(i, 'value', e.target.value)} /> {/* TODO i18n */}
             </div>
           ))}
           <button type="button" onClick={() => setRows((rs) => [...rs, { key: '', value: '' }])} className="text-[13px] text-ocre-600 underline decoration-dotted underline-offset-4">
@@ -81,11 +81,11 @@ function LaboResult() {
 
         {result && (result.critical?.length ?? 0) > 0 && (
           <div className="bg-sos-500 text-white card-pagne px-4 py-3 font-display font-extrabold text-[13px] text-center">
-            ⚠ {t('labo.critical')}
+            <span aria-hidden="true">⚠</span> {t('labo.critical')}
             <p className="font-body font-normal text-[12px] mt-1">{result.critical.map((c) => `${c.key} ${c.reason}`).join(' · ')}</p>
           </div>
         )}
-        {result && (result.critical?.length ?? 0) === 0 && <p className="text-center text-sante-700 font-bold">✓ {t('labo.published')}</p>}
+        {result && (result.critical?.length ?? 0) === 0 && <p className="text-center text-sante-700 font-bold"><span aria-hidden="true">✓</span> {t('labo.published')}</p>}
         {error && <p className="text-center text-sos-600 font-bold text-[13px]">{error}</p>}
 
         <Button variant="sos" full onClick={publish} disabled={!orderId || published}>

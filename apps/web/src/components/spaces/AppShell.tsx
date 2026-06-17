@@ -2,6 +2,7 @@
 
 import { BottomNav, type NavItem } from '@/components/ui/BottomNav';
 import { TopNav } from '@/components/ui/TopNav';
+import { useLocale } from '@/i18n/LocaleProvider';
 import { cn } from '@/lib/cn';
 
 // Aligné sur les accents de BottomNav (par espace).
@@ -36,8 +37,16 @@ export function AppShell({
   bgInner?: string;
   children: React.ReactNode;
 }) {
+  const { t } = useLocale();
   return (
     <div className={cn('min-h-screen', bgWrap)}>
+      {/* Lien d'évitement (a11y clavier) : visible uniquement au focus. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-2 focus:bg-white focus:text-nuit focus:card-pagne focus:shadow-lg focus:font-display focus:font-bold"
+      >
+        {t('a11y.skip')}
+      </a>
       <TopNav items={items} accent={accent} fabHref={fabHref} fabLabelKey={fabLabelKey} profileHref={profileHref} />
       <div
         className={cn(
@@ -47,7 +56,7 @@ export function AppShell({
           bgInner,
         )}
       >
-        <div className="flex-1 flex flex-col">{children}</div>
+        <div id="main-content" tabIndex={-1} className="flex-1 flex flex-col outline-none">{children}</div>
         <div className="lg:hidden">
           <BottomNav items={items} accent={accent} fabHref={fabHref} fabLabelKey={fabLabelKey} />
         </div>

@@ -107,14 +107,14 @@ export function ProfileSettings({
         <p className="text-[12px] text-stone-400">{displayPhone}</p>
         <Nkyinkyim className="opacity-30" />
         <div className="flex gap-2">
-          <input className={inputCls} placeholder={t('auth.firstname')} value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-          <input className={inputCls} placeholder={t('auth.lastname')} value={lastName} onChange={(e) => setLastName(e.target.value)} />
+          <input className={inputCls} placeholder={t('auth.firstname')} aria-label={t('auth.firstname')} value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+          <input className={inputCls} placeholder={t('auth.lastname')} aria-label={t('auth.lastname')} value={lastName} onChange={(e) => setLastName(e.target.value)} />
         </div>
       </CardPagne>
 
       {/* Langues parlées 🗣 */}
       <CardPagne className="p-4">
-        <p className="font-display font-extrabold text-[13px] text-stone-700 mb-2">🗣 {t('common.spoken')}</p>
+        <p className="font-display font-extrabold text-[13px] text-stone-700 mb-2"><span aria-hidden="true">🗣 </span>{t('common.spoken')}</p>
         <div className="flex flex-wrap gap-2">
           {LANGUAGE_LIST.map((l) => (
             <button

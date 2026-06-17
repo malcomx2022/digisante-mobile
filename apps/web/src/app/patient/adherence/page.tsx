@@ -84,7 +84,7 @@ export default function AdherencePage() {
           <CardPagne stitch className="p-5">
             <div className="grid grid-cols-2 divide-x divide-stone-200 text-center">
               <div>
-                <p className="font-display font-extrabold text-3xl text-sante-700 leading-none">🔥 {s.streak}</p>
+                <p className="font-display font-extrabold text-3xl text-sante-700 leading-none"><span aria-hidden="true">🔥</span> {s.streak}</p>
                 <p className="text-[11px] text-stone-500 mt-1">{t('adherence.streak_label')}</p>
               </div>
               <div>
@@ -119,7 +119,7 @@ export default function AdherencePage() {
                 </div>
                 {tr.takenToday ? (
                   <span className="shrink-0 card-pagne bg-sante-600 text-white font-display font-extrabold text-[12px] px-3 py-2">
-                    ✓ {t('adherence.taken')}
+                    <span aria-hidden="true">✓</span> {t('adherence.taken')}
                   </span>
                 ) : (
                   <Button
@@ -134,15 +134,16 @@ export default function AdherencePage() {
 
               {/* Rappels horaires du traitement */}
               <div className="mt-3 pt-3 border-t border-dashed border-stone-200 flex items-center gap-2 flex-wrap">
-                <span className="text-[11px] text-stone-500 font-display font-bold">⏰ {t('adherence.reminders')}</span>
+                <span className="text-[11px] text-stone-500 font-display font-bold"><span aria-hidden="true">⏰</span> {t('adherence.reminders')}</span>
                 {times.map((r) => (
                   <button
                     key={r.id}
                     type="button"
                     onClick={() => removeTime(r.id)}
+                    aria-label={`${t('common.delete')} ${r.time}`}
                     className="card-pagne bg-creme-deep text-stone-700 text-[12px] font-bold px-2.5 py-1"
                   >
-                    {r.time} ✕
+                    {r.time} <span aria-hidden="true">✕</span>
                   </button>
                 ))}
                 <input
@@ -155,9 +156,10 @@ export default function AdherencePage() {
                 <button
                   type="button"
                   onClick={() => addTime(tr.itemId, tr.medicationName)}
+                  aria-label={t('adherence.add_time')}
                   className="card-pagne bg-sante-600 text-white font-display font-extrabold text-[13px] px-2.5 py-1"
                 >
-                  +
+                  <span aria-hidden="true">+</span>
                 </button>
               </div>
             </CardPagne>

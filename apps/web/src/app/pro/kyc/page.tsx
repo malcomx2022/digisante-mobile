@@ -87,7 +87,10 @@ export default function ProKycPage() {
                 data.documents.map((d) => (
                   <div key={d.id} className="flex items-center justify-between text-[13px] border-b border-dashed border-stone-200 py-1.5">
                     <span>{d.type}</span>
-                    <span>{d.verified ? '✓' : '⏳'}</span>
+                    {/* TODO i18n : libellés de statut de pièce */}
+                    <span aria-label={d.verified ? 'Vérifié' : 'En attente'}>
+                      <span aria-hidden="true">{d.verified ? '✓' : '⏳'}</span>
+                    </span>
                   </div>
                 ))
               )}

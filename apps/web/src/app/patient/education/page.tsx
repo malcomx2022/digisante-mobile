@@ -97,7 +97,11 @@ export default function EducationPage() {
                   onClick={() => toggleSpeak(c.id, title, body)}
                   className="mt-3 card-pagne bg-sante-50 text-sante-700 font-display font-bold text-[12px] px-3 py-1.5"
                 >
-                  {speakingId === c.id ? `⏹ ${t('education.stop')}` : `🔊 ${t('education.listen')}`}
+                  {speakingId === c.id ? (
+                    <><span aria-hidden="true">⏹</span> {t('education.stop')}</>
+                  ) : (
+                    <><span aria-hidden="true">🔊</span> {t('education.listen')}</>
+                  )}
                 </button>
               )}
             </CardPagne>

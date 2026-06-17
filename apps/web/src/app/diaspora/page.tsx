@@ -27,7 +27,7 @@ export default function DiasporaDashboard() {
       <SpaceHeader title={t('diaspora.title')} subtitle="Paris 🇫🇷 · Cotonou 🇧🇯" headerClass="bg-ocre-900" profileHref="/diaspora/profile" />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
         <CardPagne stitch className="p-5 bg-ocre-900 bogolan-dark text-white">
-          <p className="text-[12px] text-white/70">{t('wallet.balance')}</p>
+          <p className="text-[12px] text-white/80">{t('wallet.balance')}</p>
           {loading ? (
             <Loading label={t('common.loading')} />
           ) : error ? (
