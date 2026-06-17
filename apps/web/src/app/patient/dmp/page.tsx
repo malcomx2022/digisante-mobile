@@ -71,7 +71,7 @@ export default function DmpPage() {
   return (
     <>
       <PatientHeader title={t('dmp.title')} />
-      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
+      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-3xl lg:mx-auto lg:w-full">
         <Link
           href="/patient/vitals"
           className="flex items-center gap-2 bg-white card-pagne border border-stone-200 px-4 py-3 font-display font-bold text-[14px] text-sante-700"
@@ -135,7 +135,7 @@ export default function DmpPage() {
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && (data?.length ?? 0) === 0 && <Empty label={t('common.empty')} />}
 
-        <div className="space-y-3">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
           {(data ?? []).map((r) => (
             <CardPagne key={r.id} className="p-4 flex gap-3">
               <span className={`w-1.5 rounded-full ${BAR[r.type] ?? 'bg-stone-300'}`} />

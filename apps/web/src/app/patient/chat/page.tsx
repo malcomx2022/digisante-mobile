@@ -14,7 +14,7 @@ export default function ChatPage() {
   return (
     <>
       <PatientHeader title={t('chat.title')} />
-      <main className="px-4 -mt-8 relative z-20 flex-1 flex flex-col pb-4">
+      <main className="px-4 -mt-8 relative z-20 flex-1 flex flex-col pb-4 lg:max-w-3xl lg:mx-auto lg:w-full">
         <Suspense fallback={<Loading label={t('common.loading')} />}>
           <ChatRoom theme="patient" counterpartParam="doctor" />
         </Suspense>

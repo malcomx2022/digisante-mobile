@@ -38,7 +38,7 @@ export default function AgendaPage() {
   return (
     <>
       <ProHeader title={t('pro.agenda')} />
-      <main className="px-6 -mt-10 relative z-20 space-y-3 pb-6">
+      <main className="px-6 -mt-10 relative z-20 space-y-3 pb-6 lg:max-w-5xl lg:mx-auto lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
         {loading && <Loading label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && (data?.length ?? 0) === 0 && <Empty label={t('common.empty')} />}

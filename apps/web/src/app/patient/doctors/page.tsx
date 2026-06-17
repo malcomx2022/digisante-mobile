@@ -73,7 +73,7 @@ export default function DoctorsPage() {
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && doctors.length === 0 && <Empty label={t('common.empty')} />}
 
-        <div className="space-y-3">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
           {doctors.map((d) => (
             <CardPagne key={d.id} className="p-4">
               <div className="flex items-start gap-3">

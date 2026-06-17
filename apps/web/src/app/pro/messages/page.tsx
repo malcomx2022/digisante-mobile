@@ -14,7 +14,7 @@ export default function ProMessagesPage() {
   return (
     <>
       <ProHeader title={t('chat.title')} />
-      <main className="px-4 -mt-10 relative z-20 flex-1 flex flex-col pb-6">
+      <main className="px-4 -mt-10 relative z-20 flex-1 flex flex-col pb-6 lg:max-w-2xl lg:mx-auto lg:w-full">
         <Suspense fallback={<Loading label={t('common.loading')} />}>
           <ChatRoom theme="pro" counterpartParam="patient" />
         </Suspense>

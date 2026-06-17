@@ -107,13 +107,13 @@ export default function AppointmentsPage() {
         {upcoming.length > 0 && (
           <>
             <p className="font-display font-extrabold text-[13px] text-stone-700">{t('appt.upcoming')}</p>
-            {upcoming.map(card)}
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">{upcoming.map(card)}</div>
           </>
         )}
         {past.length > 0 && (
           <>
             <p className="font-display font-extrabold text-[13px] text-stone-700 pt-2">{t('appt.past')}</p>
-            {past.map(card)}
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">{past.map(card)}</div>
           </>
         )}
       </main>

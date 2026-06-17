@@ -48,7 +48,7 @@ export default function DiasporaDashboard() {
             {t('beneficiaries.manage')} →
           </Link>
         </div>
-        <div className="space-y-3">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
           {(family ?? []).slice(0, 4).map((f, i) => (
             <CardPagne key={f.id} className={`p-4 flex items-center justify-between ${i % 2 ? '-rotate-1' : 'rotate-1'}`}>
               <div>

@@ -43,7 +43,7 @@ export default function ProStatsPage() {
   return (
     <>
       <ProHeader title={t('pro.stats')} />
-      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
+      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto">
         {/* Revenus — agrégation revenus pro non encore disponible. On n'affiche
             AUCUN chiffre inventé : état explicite « indisponible / à venir ». */}
         <CardPagne stitch="indigo" className="p-5 bg-indigo-900 bogolan-dark text-white">

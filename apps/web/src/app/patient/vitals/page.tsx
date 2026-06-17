@@ -89,7 +89,7 @@ export default function VitalsPage() {
   return (
     <>
       <PatientHeader title={t('vitals.title')} subtitle={t('vitals.subtitle')} />
-      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
+      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto lg:w-full">
         {/* Saisie d'une mesure */}
         <CardPagne className="p-4 space-y-3">
           <p className="font-display font-extrabold text-[13px] text-stone-700">{t('vitals.add')}</p>

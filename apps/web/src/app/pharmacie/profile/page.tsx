@@ -22,7 +22,9 @@ export default function PharmacieProfilePage() {
         <KenteBar className="absolute -bottom-1 left-0 right-0" />
       </div>
       <div className="flex-1 bg-creme wax-ocre text-nuit px-6 py-6">
-        <ProfileSettings accent="ocre" logoutVariant="outline" />
+        <div className="lg:max-w-2xl lg:mx-auto">
+          <ProfileSettings accent="ocre" logoutVariant="outline" />
+        </div>
       </div>
     </div>
   );

@@ -53,7 +53,7 @@ export default function AdminMetrics() {
       <main className="px-6 -mt-10 relative z-20 space-y-5 pb-6">
         {m.loading && <Loading label={t('common.loading')} />}
         {m.error && <ErrorState label={t('auth.error')} />}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {kpis.map(([val, label], i) => (
             <CardPagne key={i} stitch={i === 0 ? 'indigo' : false} className={`p-4 ${i % 2 ? '-rotate-1' : 'rotate-1'}`}>
               <p className="font-display font-extrabold text-2xl text-indigo-700">{val}</p>
@@ -72,7 +72,7 @@ export default function AdminMetrics() {
             </Link>
           </div>
           {queue.loading && <Loading label={t('common.loading')} />}
-          <div className="space-y-3">
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
             {(queue.data?.data ?? []).map((k) => (
               <CardPagne key={k.id} className="p-4">
                 <div className="flex items-center justify-between">

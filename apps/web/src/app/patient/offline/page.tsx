@@ -29,7 +29,7 @@ export default function OfflinePage() {
   return (
     <div className="flex-1 wax-ocre">
       <PatientHeader title={t('offline.title')} />
-      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
+      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto lg:w-full">
         <div className="bg-ocre-400 trame-tissee text-stone-900 card-pagne px-4 py-2 text-center text-[13px] font-display font-bold">
           {online ? '🟢 En ligne' : `🟠 ${t('offline.banner')}`}
         </div>

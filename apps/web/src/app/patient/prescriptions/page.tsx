@@ -70,6 +70,7 @@ export default function PrescriptionsPage() {
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && (data?.length ?? 0) === 0 && <Empty label={t('common.empty')} />}
 
+        <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
         {(data ?? []).map((p) => (
           <CardPagne key={p.id} stitch className="overflow-hidden">
             {/* Header ticket bogolan + kenté + QR */}
@@ -125,6 +126,7 @@ export default function PrescriptionsPage() {
             </div>
           </CardPagne>
         ))}
+        </div>
       </main>
     </>
   );

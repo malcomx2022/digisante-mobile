@@ -65,14 +65,14 @@ export default function InsurancePage() {
   return (
     <>
       <PatientHeader title={t('insurance.title')} subtitle={t('insurance.subtitle')} />
-      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
+      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-3xl lg:mx-auto lg:w-full">
         {/* Mes couvertures */}
         {loading && <Loading label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && (coverages?.length ?? 0) === 0 && <Empty label={t('insurance.none')} />}
         {err && <p className="text-terre-600 font-bold text-[13px]">{err}</p>}
 
-        <div className="space-y-3">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
           {(coverages ?? []).map((c) => (
             <CardPagne key={c.id} className="p-4">
               <div className="flex items-start justify-between gap-3">

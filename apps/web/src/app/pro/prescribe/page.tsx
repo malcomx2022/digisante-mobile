@@ -59,7 +59,7 @@ function PrescribeInner() {
   return (
     <>
       <ProHeader title={t('pro.prescribe')} />
-      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
+      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto">
         <input className={`${inputCls} w-full`} placeholder="patientId (cuid)" value={patientId} onChange={(e) => setPatientId(e.target.value)} />
 
         {conflicts.length > 0 && (

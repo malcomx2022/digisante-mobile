@@ -58,7 +58,7 @@ export default function LabOrdersPage() {
   return (
     <>
       <SpaceHeader title={t('labo.orders_title')} subtitle={t('labo.orders_sub')} headerClass="bg-ocre-900" profileHref="/labo/profile" />
-      <main className="px-6 -mt-10 relative z-20 space-y-5 pb-6">
+      <main className="px-6 -mt-10 relative z-20 space-y-5 pb-6 lg:max-w-5xl lg:mx-auto">
         <Link href="/labo" className="inline-block text-[13px] text-ocre-700 font-display font-bold">← {t('labo.title')}</Link>
 
         {actionError && (
@@ -71,6 +71,7 @@ export default function LabOrdersPage() {
           {incoming.loading && <Loading label={t('common.loading')} />}
           {incoming.error && <ErrorState label={t('auth.error')} />}
           {!incoming.loading && !incoming.error && (incoming.data?.length ?? 0) === 0 && <Empty label={t('labo.no_incoming')} />}
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 items-start">
           {(incoming.data ?? []).map((o) => (
             <CardPagne key={o.id} className="p-4">
               <div className="flex items-start justify-between gap-2">
@@ -96,6 +97,7 @@ export default function LabOrdersPage() {
               </div>
             </CardPagne>
           ))}
+          </div>
         </section>
 
         {/* Pool des demandes disponibles (anonymisé) */}
@@ -105,6 +107,7 @@ export default function LabOrdersPage() {
           {available.loading && <Loading label={t('common.loading')} />}
           {available.error && <ErrorState label={t('auth.error')} />}
           {!available.loading && !available.error && (available.data?.length ?? 0) === 0 && <Empty label={t('labo.no_available')} />}
+          <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 items-start">
           {(available.data ?? []).map((o) => (
             <CardPagne key={o.id} className="p-4 flex items-center justify-between gap-2">
               <div>
@@ -116,6 +119,7 @@ export default function LabOrdersPage() {
               </Button>
             </CardPagne>
           ))}
+          </div>
         </section>
       </main>
     </>

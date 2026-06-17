@@ -75,7 +75,7 @@ export default function AdherencePage() {
   return (
     <>
       <PatientHeader title={t('adherence.title')} subtitle={t('adherence.subtitle')} />
-      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
+      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-3xl lg:mx-auto lg:w-full">
         {loading && <Loading label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {actionError && <ErrorState label={t('auth.error')} />}
@@ -105,6 +105,7 @@ export default function AdherencePage() {
           </CardPagne>
         )}
 
+        <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
         {treatments.map((tr) => {
           const times = remindersByItem.get(tr.itemId) ?? [];
           return (
@@ -162,6 +163,7 @@ export default function AdherencePage() {
             </CardPagne>
           );
         })}
+        </div>
       </main>
     </>
   );

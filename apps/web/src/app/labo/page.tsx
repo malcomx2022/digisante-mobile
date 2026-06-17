@@ -61,7 +61,7 @@ function LaboResult() {
   return (
     <>
       <SpaceHeader title={t('labo.title')} subtitle={t('labo.result')} headerClass="bg-ocre-900" profileHref="/labo/profile" />
-      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
+      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto">
         <Link href="/labo/orders" className="block w-full text-center bg-ocre-400 text-stone-900 font-display font-extrabold card-pagne py-3">
           📥 {t('labo.orders_title')}
         </Link>
