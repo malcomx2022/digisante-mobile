@@ -12,7 +12,10 @@ export default function PharmacieProfilePage() {
   const { user } = useAuth();
   return (
     <div className="flex-1 bg-nuit bogolan-dark text-white flex flex-col">
-      <StatusBar dark right={<div className="flex items-center gap-2"><LangSwitcher dark /><HeaderLogout /></div>} />
+      {/* StatusBar mobile uniquement ; sur desktop, langue/déconnexion via la TopNav. */}
+      <div className="lg:hidden">
+        <StatusBar dark right={<div className="flex items-center gap-2"><LangSwitcher dark /><HeaderLogout /></div>} />
+      </div>
       <div className="px-6 pt-2 pb-4 relative">
         <h1 className="font-display font-extrabold text-2xl">{t('profile.title')}</h1>
         <p className="text-[12px] text-white/60">{user?.phone}</p>

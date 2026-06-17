@@ -56,7 +56,10 @@ export default function PharmaciePage() {
 
   return (
     <div className="flex-1 bg-nuit bogolan-dark text-white flex flex-col">
-      <StatusBar dark right={<div className="flex items-center gap-2"><LangSwitcher dark /><HeaderLogout /></div>} />
+      {/* StatusBar mobile uniquement ; sur desktop, langue/déconnexion via la TopNav. */}
+      <div className="lg:hidden">
+        <StatusBar dark right={<div className="flex items-center gap-2"><LangSwitcher dark /><HeaderLogout /></div>} />
+      </div>
       <div className="px-6 pt-2 pb-4 flex items-start justify-between gap-2">
         <div>
           <h1 className="font-display font-extrabold text-2xl">{t('pharmacie.title')}</h1>

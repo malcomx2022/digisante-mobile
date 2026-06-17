@@ -17,6 +17,8 @@ export const viewport: Viewport = {
   themeColor: '#1F7040',
   width: 'device-width',
   initialScale: 1,
+  // Étend le contenu sous les encoches ; combiné à `.pb-safe` pour la zone sûre.
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

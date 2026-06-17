@@ -25,4 +25,8 @@
   .clip-inv {
     clip-path: polygon(18px 0, 100% 0, 100% 100%, 0 100%, 0 18px);
   }
+  /* Padding bas respectant la zone sûre (home indicator iOS / gestes Android). */
+  .pb-safe {
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
 }
