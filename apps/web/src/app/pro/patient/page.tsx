@@ -65,7 +65,7 @@ function Patient360Inner() {
     return (
       <>
         <ProHeader title={t('pro.patient360')} />
-        <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
+        <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto">
           <CardPagne stitch="indigo" className="p-5">
             <p className="font-display font-extrabold text-[15px] text-stone-800 text-center">{t('pro.no_patient_title')}</p>
             <p className="text-[13px] text-stone-500 mt-2 text-center">{t('pro.no_patient_desc')}</p>
@@ -122,7 +122,7 @@ function Patient360Inner() {
   return (
     <>
       <ProHeader title={t('pro.patient360')} subtitle={patientId} />
-      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
+      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto">
         {/* La messagerie ne dépend pas du partage DMP : joignable dès qu'on a le patient. */}
         <div className="grid grid-cols-2 gap-2">
           <Link

@@ -75,7 +75,7 @@ export default function PharmaciePage() {
         </div>
       </div>
 
-      <div className="px-6 flex-1 space-y-4">
+      <div className="px-6 flex-1 space-y-4 lg:max-w-2xl lg:mx-auto lg:w-full">
         {/* Viseur — toucher pour scanner à la caméra */}
         <button
           type="button"

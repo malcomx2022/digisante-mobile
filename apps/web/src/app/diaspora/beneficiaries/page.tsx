@@ -120,7 +120,7 @@ export default function BeneficiariesPage() {
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && (data?.length ?? 0) === 0 && !editing && <Empty label={t('beneficiaries.empty')} />}
 
-        <div className="space-y-3">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
           {(data ?? []).map((b, i) => (
             <CardPagne key={b.id} className={cn('p-4', i % 2 ? '-rotate-1' : 'rotate-1')}>
               <div className="flex items-start justify-between gap-2">

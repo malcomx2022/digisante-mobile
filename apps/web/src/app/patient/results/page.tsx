@@ -39,6 +39,7 @@ export default function ResultsPage() {
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && (data?.length ?? 0) === 0 && <Empty label={t('common.empty')} />}
 
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {(data ?? []).map((o) => (
           <CardPagne key={o.id} className="p-4">
             <div className="flex items-center justify-between">
@@ -68,6 +69,7 @@ export default function ResultsPage() {
             )}
           </CardPagne>
         ))}
+        </div>
       </main>
     </>
   );

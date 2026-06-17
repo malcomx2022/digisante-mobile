@@ -56,7 +56,7 @@ export default function AdminEducation() {
   return (
     <>
       <SpaceHeader title={t('admin.education')} headerClass="bg-indigo-950" />
-      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
+      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto">
         <CardPagne stitch="indigo" className="p-4 space-y-2">
           <input className={inputCls} placeholder={t('edu.title_ph')} value={title} onChange={(e) => setTitle(e.target.value)} />
           <textarea className={`${inputCls} h-20`} placeholder={t('edu.body_ph')} value={body} onChange={(e) => setBody(e.target.value)} />

@@ -52,22 +52,24 @@ export default function AdminUsers() {
         {error && <ErrorState label={t('auth.error')} />}
         {actionError && <p className="text-[12px] text-sos-600 font-bold">{actionError}</p>}
         {!loading && !error && (data?.data?.length ?? 0) === 0 && <Empty label={t('common.empty')} />}
-        {(data?.data ?? []).map((u) => (
-          <CardPagne key={u.id} stitch={u.status === 'SUSPENDED' ? 'sos' : false} className="p-4 flex items-center justify-between">
-            <div>
-              <p className="font-display font-bold text-[14px]">{u.profile ? `${u.profile.firstName} ${u.profile.lastName}` : u.phone}</p>
-              <p className="text-[12px] text-stone-400">
-                {u.role} · {u.phone}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant={u.status === 'SUSPENDED' ? 'eleve' : 'normal'}>{u.status}</Badge>
-              <Button variant={u.status === 'SUSPENDED' ? 'sante' : 'sos'} className="text-[11px] px-2.5 py-1" onClick={() => toggle(u)}>
-                {u.status === 'SUSPENDED' ? t('admin.activate') : t('admin.suspend')}
-              </Button>
-            </div>
-          </CardPagne>
-        ))}
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+          {(data?.data ?? []).map((u) => (
+            <CardPagne key={u.id} stitch={u.status === 'SUSPENDED' ? 'sos' : false} className="p-4 flex items-center justify-between">
+              <div>
+                <p className="font-display font-bold text-[14px]">{u.profile ? `${u.profile.firstName} ${u.profile.lastName}` : u.phone}</p>
+                <p className="text-[12px] text-stone-400">
+                  {u.role} · {u.phone}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant={u.status === 'SUSPENDED' ? 'eleve' : 'normal'}>{u.status}</Badge>
+                <Button variant={u.status === 'SUSPENDED' ? 'sante' : 'sos'} className="text-[11px] px-2.5 py-1" onClick={() => toggle(u)}>
+                  {u.status === 'SUSPENDED' ? t('admin.activate') : t('admin.suspend')}
+                </Button>
+              </div>
+            </CardPagne>
+          ))}
+        </div>
       </main>
     </>
   );

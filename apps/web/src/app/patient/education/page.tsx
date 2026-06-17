@@ -80,6 +80,7 @@ export default function EducationPage() {
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && items.length === 0 && <Empty label={t('education.empty')} />}
 
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((c) => {
           const { title, body } = localized(c);
           return (
@@ -102,6 +103,7 @@ export default function EducationPage() {
             </CardPagne>
           );
         })}
+        </div>
       </main>
     </>
   );

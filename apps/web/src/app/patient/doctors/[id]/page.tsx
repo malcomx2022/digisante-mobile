@@ -67,7 +67,7 @@ export default function DoctorDetailPage() {
   return (
     <>
       <PatientHeader title={t('doctors.profile')} />
-      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
+      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto lg:w-full">
         {loading && <Loading label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
 

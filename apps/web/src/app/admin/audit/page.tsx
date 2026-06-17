@@ -31,6 +31,7 @@ export default function AdminAudit() {
       <main className="px-6 -mt-10 relative z-20 space-y-2 pb-6">
         {loading && <Loading label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
+        <div className="grid gap-2 grid-cols-1 sm:grid-cols-2">
         {(data?.data ?? []).map((e) => (
           <CardPagne key={e.id} className="p-3">
             <div className="flex items-center justify-between">
@@ -42,6 +43,7 @@ export default function AdminAudit() {
             </p>
           </CardPagne>
         ))}
+        </div>
         {!loading && (data?.data?.length ?? 0) === 0 && <p className="text-[13px] text-stone-400 text-center">{t('common.empty')}</p>}
       </main>
     </>

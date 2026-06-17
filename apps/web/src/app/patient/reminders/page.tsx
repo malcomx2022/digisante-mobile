@@ -40,6 +40,7 @@ export default function RemindersPage() {
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && (data?.length ?? 0) === 0 && <Empty label={t('common.empty')} />}
 
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {(data ?? []).map((r) => (
           <CardPagne key={r.id} stitch={taken.has(r.id) ? false : true} className="p-4">
             <p className="font-display font-extrabold text-[14px] text-stone-800">{r.title}</p>
@@ -58,6 +59,7 @@ export default function RemindersPage() {
             </div>
           </CardPagne>
         ))}
+        </div>
       </main>
     </>
   );

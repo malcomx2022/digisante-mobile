@@ -37,7 +37,7 @@ export default function ProResultsPage() {
   return (
     <>
       <ProHeader title={t('proresults.title')} subtitle={t('proresults.sub')} />
-      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
+      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-5xl lg:mx-auto lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0 lg:items-start">
         {loading && <Loading label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && (data?.length ?? 0) === 0 && <Empty label={t('proresults.empty')} />}

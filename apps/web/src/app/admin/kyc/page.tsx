@@ -36,6 +36,7 @@ export default function AdminKycPage() {
             {queue.loading && <Loading label={t('common.loading')} />}
             {queue.error && <ErrorState label={t('auth.error')} />}
             {!queue.loading && items.length === 0 && <Empty label={t('adminkyc.empty')} />}
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
             {items.map((k) => (
               <CardPagne key={k.id} className="p-4 flex items-center justify-between gap-2">
                 <div>
@@ -49,6 +50,7 @@ export default function AdminKycPage() {
                 </Button>
               </CardPagne>
             ))}
+            </div>
           </>
         )}
       </main>
@@ -90,7 +92,7 @@ function KycDetailPanel({ id, onBack, onDone }: { id: string; onBack: () => void
   const allVerified = (data?.documents.length ?? 0) > 0 && (data?.documents ?? []).every((d) => d.verified);
 
   return (
-    <>
+    <div className="space-y-4 lg:max-w-2xl lg:mx-auto">
       <button type="button" onClick={onBack} className="text-[13px] text-indigo-700 font-display font-bold">
         ← {t('common.back')}
       </button>
@@ -163,6 +165,6 @@ function KycDetailPanel({ id, onBack, onDone }: { id: string; onBack: () => void
           </CardPagne>
         </>
       )}
-    </>
+    </div>
   );
 }

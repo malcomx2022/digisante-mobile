@@ -41,7 +41,9 @@ export function AppShell({
       <TopNav items={items} accent={accent} fabHref={fabHref} fabLabelKey={fabLabelKey} profileHref={profileHref} />
       <div
         className={cn(
-          'mx-auto w-full max-w-[420px] lg:max-w-3xl min-h-screen flex flex-col shadow-xl lg:shadow-none',
+          // Desktop : conteneur élargi pour les grilles multi-colonnes ;
+          // les contenus « lecture/formulaire » se recentrent eux-mêmes (max-w-2xl).
+          'mx-auto w-full max-w-[420px] lg:max-w-5xl min-h-screen flex flex-col shadow-xl lg:shadow-none',
           bgInner,
         )}
       >

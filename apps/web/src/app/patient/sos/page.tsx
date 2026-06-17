@@ -60,7 +60,7 @@ export default function SosPage() {
   return (
     <>
       <PatientHeader title={t('sos.title')} />
-      <main className="px-6 -mt-10 relative z-20 space-y-5 pb-6">
+      <main className="px-6 -mt-10 relative z-20 space-y-5 pb-6 lg:max-w-2xl lg:mx-auto lg:w-full">
         <div className="flex flex-col items-center pt-4">
           <button type="button" onClick={trigger} aria-label={t('sos.title')} className="sos-octogone pulse-sos w-44 h-44 text-white font-display font-extrabold text-xl grid place-items-center">
             SOS

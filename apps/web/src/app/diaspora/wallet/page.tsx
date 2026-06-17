@@ -46,7 +46,7 @@ export default function WalletPage() {
   return (
     <>
       <SpaceHeader title={t('wallet.title')} headerClass="bg-ocre-900" />
-      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
+      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto">
         <CardPagne stitch className="p-5 bg-ocre-900 bogolan-dark text-white">
           <p className="text-[12px] text-white/70">{t('wallet.balance')}</p>
           <p className="font-display font-extrabold text-3xl">

@@ -51,7 +51,7 @@ export default function ProDashboard() {
   return (
     <>
       <ProHeader title={t('pro.dashboard')} subtitle="Dr" />
-      <main className="px-6 -mt-10 relative z-20 space-y-5 pb-6">
+      <main className="px-6 -mt-10 relative z-20 space-y-5 pb-6 lg:max-w-5xl lg:mx-auto">
         <CardPagne stitch className="p-4 grid grid-cols-3 text-center divide-x divide-stone-200">
           {[
             [stats.total, t('pro.queue')],
@@ -86,7 +86,7 @@ export default function ProDashboard() {
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && list.length === 0 && <Empty label={t('common.empty')} />}
 
-        <div className="space-y-3">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {list.map((a) => (
             <CardPagne key={a.id} className="p-4 flex items-center gap-3">
               <span className={`w-1.5 self-stretch rounded-full ${a.status === 'CONFIRMED' ? 'bg-indigo-500' : 'bg-ocre-400'}`} />

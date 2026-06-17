@@ -30,7 +30,7 @@ export default function PharmacieHistoryPage() {
         </Link>
       </div>
 
-      <div className="px-6 flex-1 space-y-3 pb-6">
+      <div className="px-6 flex-1 space-y-3 pb-6 lg:max-w-5xl lg:mx-auto lg:w-full lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0 lg:items-start">
         {loading && <Loading label={t('common.loading')} />}
         {error && <ErrorState label={t('common.load_error')} />}
         {!loading && !error && (data?.length ?? 0) === 0 && <Empty label={t('pharmacie.no_history')} />}
