@@ -5,7 +5,7 @@ import { CONTENT_CATEGORIES, langSchema, paginationSchema } from '@digisante/sha
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
-import { requireRole } from '@/lib/rbac.js';
+import { requireRole, requireScope } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
 import * as education from './education.service.js';
 
@@ -23,7 +23,7 @@ const listSchema = paginationSchema.extend({ category: z.enum(CONTENT_CATEGORIES
 const idParams = z.object({ id: z.string().cuid() });
 
 export default async function educationRoutes(app: FastifyInstance) {
-  const admin = { preHandler: [app.authenticate, requireRole('ADMIN')] };
+  const admin = { preHandler: [app.authenticate, requireRole('ADMIN'), requireScope('education:write')] };
   const doctor = { preHandler: [app.authenticate, requireRole('MEDECIN')] };
 
   // Catalogue public des contenus publiés.

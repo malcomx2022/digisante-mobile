@@ -1,4 +1,5 @@
 // Tests d'intégration Éducation + Admin (via app.inject). Si DB+Redis (CI).
+import { ADMIN_PRESETS } from '@digisante/shared';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -25,7 +26,13 @@ describe.skipIf(!HAS_INFRA)('Éducation & Admin (intégration)', () => {
     await app.ready();
     await cleanup();
 
-    const admin = await app.prisma.user.create({ data: { phone: PHONES[0], role: 'ADMIN', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Adm', lastName: 'In' } } } });
+    const admin = await app.prisma.user.create({
+      data: {
+        phone: PHONES[0], role: 'ADMIN', status: 'ACTIVE', lang: 'FR',
+        profile: { create: { firstName: 'Adm', lastName: 'In' } },
+        adminProfile: { create: { scopes: [...ADMIN_PRESETS.SUPER_ADMIN], preset: 'SUPER_ADMIN' } },
+      },
+    });
     const doctor = await app.prisma.user.create({ data: { phone: PHONES[1], role: 'MEDECIN', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Dr', lastName: 'V' } }, doctor: { create: { speciality: 'G', licenseNumber: 'BJ-MED-4001', consultFee: 0, verifiedAt: new Date() } } } });
     const patient = await app.prisma.user.create({ data: { phone: PHONES[2], role: 'PATIENT', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'P', lastName: 'A' } }, patient: { create: {} } } });
     patientUserId = patient.id;

@@ -40,6 +40,19 @@ async function main() {
     },
   });
 
+  // Profil RBAC : l'admin de démo est super-admin (tous les scopes).
+  // (Tableau aligné sur ADMIN_PRESETS.SUPER_ADMIN de @digisante/shared.)
+  const SUPER_ADMIN_SCOPES = [
+    'admin:manage', 'users:read', 'users:write', 'kyc:review', 'ops:read',
+    'finance:read', 'finance:write', 'support:write', 'otp:write',
+    'webhooks:read', 'webhooks:replay', 'audit:read', 'audit:export', 'education:write',
+  ];
+  await prisma.adminProfile.upsert({
+    where: { userId: adminUser.id },
+    update: { scopes: SUPER_ADMIN_SCOPES, preset: 'SUPER_ADMIN', suspendedAt: null },
+    create: { userId: adminUser.id, scopes: SUPER_ADMIN_SCOPES, preset: 'SUPER_ADMIN' },
+  });
+
   // ── Médecin de démo (espace PRO) ──
   const doctorUser = await prisma.user.upsert({
     where: { phone: '+2290197000001' },

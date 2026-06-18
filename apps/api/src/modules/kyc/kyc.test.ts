@@ -1,4 +1,5 @@
 // Tests d'intégration KYC (via app.inject). Exécutés si DB+Redis présents (CI).
+import { ADMIN_PRESETS } from '@digisante/shared';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -41,7 +42,11 @@ describe.skipIf(!HAS_INFRA)('KYC (intégration)', () => {
     doctorId = caregiver.doctor!.id;
 
     const admin = await app.prisma.user.create({
-      data: { phone: PHONES[1], role: 'ADMIN', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Admin', lastName: 'Sys' } } },
+      data: {
+        phone: PHONES[1], role: 'ADMIN', status: 'ACTIVE', lang: 'FR',
+        profile: { create: { firstName: 'Admin', lastName: 'Sys' } },
+        adminProfile: { create: { scopes: [...ADMIN_PRESETS.SUPER_ADMIN], preset: 'SUPER_ADMIN' } },
+      },
     });
     const patient = await app.prisma.user.create({
       data: { phone: PHONES[2], role: 'PATIENT', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Koffi', lastName: 'D' } }, patient: { create: {} } },

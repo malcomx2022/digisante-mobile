@@ -1,0 +1,91 @@
+// Tests d'intégration RBAC admin (profilage par scopes). Exécutés si DB+Redis (CI).
+import type { FastifyInstance } from 'fastify';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
+const PHONES = ['+2290196500001', '+2290196500002'];
+
+const SUPER = [
+  'admin:manage', 'users:read', 'users:write', 'kyc:review', 'ops:read',
+  'finance:read', 'finance:write', 'support:write', 'otp:write',
+  'webhooks:read', 'webhooks:replay', 'audit:read', 'audit:export', 'education:write',
+];
+
+describe.skipIf(!HAS_INFRA)('Admin RBAC (intégration)', () => {
+  let app: FastifyInstance;
+  let superToken: string;
+  let promotedUserId: string;
+
+  const auth = (t: string) => ({ authorization: `Bearer ${t}` });
+
+  const cleanup = async () => {
+    await app.prisma.user.deleteMany({ where: { phone: { in: PHONES } } }); // cascade adminProfile
+  };
+
+  beforeAll(async () => {
+    const { buildServer } = await import('@/server.js');
+    app = await buildServer();
+    await app.ready();
+    await cleanup();
+
+    const superAdmin = await app.prisma.user.create({
+      data: {
+        phone: PHONES[0], role: 'ADMIN', status: 'ACTIVE', lang: 'FR',
+        profile: { create: { firstName: 'Sup', lastName: 'Admin' } },
+        adminProfile: { create: { scopes: SUPER, preset: 'SUPER_ADMIN' } },
+      },
+    });
+    const futureAdmin = await app.prisma.user.create({
+      data: { phone: PHONES[1], role: 'PATIENT', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Mod', lastName: 'X' } }, patient: { create: {} } },
+    });
+    promotedUserId = futureAdmin.id;
+    superToken = app.jwt.sign({ sub: superAdmin.id, role: 'ADMIN' }, { expiresIn: '15m' });
+  });
+
+  afterAll(async () => {
+    if (!app) return;
+    await cleanup();
+    await app.close();
+  });
+
+  it('expose les scopes de l\'appelant via /admin/me', async () => {
+    const me = await app.inject({ method: 'GET', url: '/api/v1/admin/me', headers: auth(superToken) });
+    expect(me.statusCode).toBe(200);
+    expect(me.json().scopes).toContain('admin:manage');
+  });
+
+  it('promotion d\'un compte en admin (preset MODERATION) + scopes restreints appliqués', async () => {
+    const create = await app.inject({
+      method: 'POST', url: '/api/v1/admin/admins', headers: auth(superToken),
+      payload: { phone: PHONES[1], preset: 'MODERATION' },
+    });
+    expect(create.statusCode).toBe(201);
+    expect(create.json().user.id).toBe(promotedUserId);
+
+    // Le compte promu a désormais le rôle ADMIN et le jeu de scopes MODERATION.
+    const modToken = app.jwt.sign({ sub: promotedUserId, role: 'ADMIN' }, { expiresIn: '15m' });
+    const me = await app.inject({ method: 'GET', url: '/api/v1/admin/me', headers: auth(modToken) });
+    expect(me.json().scopes).toEqual(expect.arrayContaining(['kyc:review', 'users:write', 'audit:read']));
+    expect(me.json().scopes).not.toContain('users:read');
+
+    // Enforcement : MODERATION n'a pas `users:read` → 403 sur la liste des users…
+    const users = await app.inject({ method: 'GET', url: '/api/v1/admin/users', headers: auth(modToken) });
+    expect(users.statusCode).toBe(403);
+    // …mais a `audit:read` → 200 sur l'audit.
+    const audit = await app.inject({ method: 'GET', url: '/api/v1/admin/audit', headers: auth(modToken) });
+    expect(audit.statusCode).toBe(200);
+    // …et n'a pas `admin:manage` → 403 sur la gestion des admins.
+    const admins = await app.inject({ method: 'GET', url: '/api/v1/admin/admins', headers: auth(modToken) });
+    expect(admins.statusCode).toBe(403);
+  });
+
+  it('anti-verrouillage : un super-admin ne peut pas retirer son propre admin:manage', async () => {
+    const list = await app.inject({ method: 'GET', url: '/api/v1/admin/admins', headers: auth(superToken) });
+    const selfId = list.json().data.find((a: { user: { phone: string }; id: string }) => a.user.phone === PHONES[0]).id as string;
+    const patch = await app.inject({
+      method: 'PATCH', url: `/api/v1/admin/admins/${selfId}`, headers: auth(superToken),
+      payload: { preset: 'CONTENT' }, // CONTENT n'a pas admin:manage
+    });
+    expect(patch.statusCode).toBe(400);
+  });
+});
