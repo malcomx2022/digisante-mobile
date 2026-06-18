@@ -52,7 +52,7 @@ export function TopNav({
                 aria-current={active ? 'page' : undefined}
                 className={cn(
                   'px-3 py-1.5 card-pagne text-[13px] font-display font-bold transition-colors',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/80',
                   active ? 'bg-white/15 text-white' : 'text-white/70 hover:text-white hover:bg-white/10',
                 )}
               >
@@ -65,7 +65,7 @@ export function TopNav({
               href={fabHref}
               className={cn(
                 'ml-1 px-3 py-1.5 card-pagne text-[13px] font-display font-bold bg-white/20 hover:bg-white/30 text-white',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/80',
               )}
             >
               {fabLabelKey ? t(fabLabelKey) : '+'}

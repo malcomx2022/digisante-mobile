@@ -29,4 +29,22 @@
   .pb-safe {
     padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
   }
+  /* Pleine hauteur fiable sur mobile : 100dvh tient compte de la barre d'URL
+     dynamique ; repli 100vh pour les navigateurs sans unités dynamiques. */
+  .min-h-dvh-screen {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+}
+
+/* iOS Safari zoome automatiquement sur tout champ dont la police est < 16px au
+   focus (et ne dézoome pas). Sur la coquille mobile (<lg), on plancher la police
+   des contrôles de saisie à 16px. `!important` car des utilitaires `text-[15px]`
+   sont posés directement sur les inputs (cf. recherche annuaire). */
+@media (max-width: 1023px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }

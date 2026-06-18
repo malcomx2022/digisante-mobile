@@ -86,7 +86,8 @@ export function BottomNav({
             aria-label={t(fabLabelKey)}
             className={cn(
               'w-14 h-14 -mt-7 card-pagne text-white flex items-center justify-center border-4 border-creme rotate-3',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+              // `ring-inset` : le coin coupé `card-pagne` du FAB rognerait un anneau externe.
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset',
               RING_CLASS[accent],
               FAB_CLASS[accent],
             )}

@@ -39,7 +39,11 @@ export function AppShell({
 }) {
   const { t } = useLocale();
   return (
-    <div className={cn('min-h-screen', bgWrap)}>
+    // Colonne flex pleine hauteur (100dvh) : la TopNav (desktop) prend sa hauteur
+    // propre et le conteneur de contenu remplit le reste via `flex-1` — évite le
+    // double `min-h-screen` qui débordait d'une hauteur de barre sur desktop, et
+    // le débordement de `100vh` sous la barre d'URL mobile.
+    <div className={cn('min-h-dvh-screen flex flex-col', bgWrap)}>
       {/* Lien d'évitement (a11y clavier) : visible uniquement au focus. */}
       <a
         href="#main-content"
@@ -52,7 +56,7 @@ export function AppShell({
         className={cn(
           // Desktop : conteneur élargi pour les grilles multi-colonnes ;
           // les contenus « lecture/formulaire » se recentrent eux-mêmes (max-w-2xl).
-          'mx-auto w-full max-w-[420px] lg:max-w-5xl min-h-screen flex flex-col shadow-xl lg:shadow-none',
+          'mx-auto w-full max-w-[420px] lg:max-w-5xl flex-1 flex flex-col shadow-xl lg:shadow-none',
           bgInner,
         )}
       >
