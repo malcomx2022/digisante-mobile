@@ -8,8 +8,8 @@ import { useLocale } from '@/i18n/LocaleProvider';
 export default function Home() {
   const { t } = useLocale();
   return (
-    <div className="min-h-dvh-screen wax-light flex flex-col">
-      <div className="mx-auto w-full max-w-[420px] flex-1 bg-creme flex flex-col shadow-xl">
+    <div className="min-h-dvh-screen wax-light flex flex-col lg:items-center lg:justify-center">
+      <div className="mx-auto w-full max-w-[420px] flex-1 lg:flex-none bg-creme flex flex-col shadow-xl lg:my-8">
         {/* Header sombre patient : bogolan + kenté en bas */}
         <header className="bg-sante-900 bogolan-dark relative pb-16 text-white">
           <StatusBar dark right={<LangSwitcher dark />} />
