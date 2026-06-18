@@ -24,15 +24,21 @@ pnpm i18n:export     # idem + écrit docs/i18n/todo.<locale>.csv (clés à tradu
 
 ## Brouillons assistés par machine (NLLB-200) — `pnpm i18n:draft`
 
-Un 1er jet peut être généré avec **NLLB-200** (Meta, via HuggingFace Inference) pour accélérer le travail des relecteurs. **Outil de développement uniquement** — il n'écrit JAMAIS dans `messages.ts`, mais dans un CSV de revue.
+Un 1er jet peut être généré avec **NLLB-200** (Meta) pour accélérer le travail des relecteurs natifs. **Outil de développement uniquement** — il n'écrit JAMAIS dans `messages.ts`, mais dans un CSV de revue.
+
+> ⚠️ NLLB n'est **plus servi par l'API serverless HuggingFace** : la traduction s'exécute **en local** (CPU). Pré-requis (hors dépendances du repo) :
+> ```bash
+> pip install transformers torch sentencepiece
+> ```
+> Le modèle (~2,4 Go) se télécharge au 1er lancement depuis huggingface.co (accès public, aucun token requis).
 
 ```bash
-# Jeton HF (accès lecture) requis : https://huggingface.co/settings/tokens
-HF_TOKEN=hf_xxx pnpm i18n:draft -- --locale=fon,yor
-# essai à blanc sans réseau (vérifie le périmètre) :
-pnpm i18n:draft -- --locale=fon,yor --dry
+pnpm i18n:draft -- --locale=fon,yor       # génère docs/i18n/draft.fon.csv + draft.yor.csv
+pnpm i18n:draft -- --locale=fon --limit=20  # test sur 20 clés
+pnpm i18n:draft -- --locale=fon,yor --dry   # essai à blanc (sans charger le modèle)
 ```
 
+- Architecture : le script Node (`translate-draft.mjs`) parse `messages.ts`, exclut les clés critiques, protège les variables et écrit le CSV ; il délègue l'inférence au service Python local `nllb_translate.py` (modèle chargé une fois par langue).
 - Sortie : `docs/i18n/draft.<locale>.csv` (colonnes `key, critical, fr, en, draft, flags`).
 - Les **clés critiques** `sos.*` / `labo.*` / `payments.*` ne sont **jamais** machine-traduites (drapeau `HUMAIN_OBLIGATOIRE`) — cf. §6.
 - Les variables `{name}`, `{date}`… sont protégées ; un drapeau `PLACEHOLDER_A_VERIFIER` signale les cas à corriger.

@@ -1,31 +1,38 @@
 #!/usr/bin/env node
 // ─────────────────────────────────────────────────────────────
 // i18n — génération de BROUILLONS de traduction (outil DEV uniquement) via
-// NLLB-200 (HuggingFace Inference). FR = source de vérité.
+// NLLB-200 exécuté EN LOCAL (transformers + torch CPU). FR = source de vérité.
+//
+// ⚠️ NLLB n'est plus servi par l'API serverless HuggingFace ; la traduction se
+// fait donc localement (service Python `nllb_translate.py`). Pré-requis :
+//     pip install transformers torch sentencepiece
 //
 // Écrit docs/i18n/draft.<locale>.csv — JAMAIS directement messages.ts.
 // Les clés CRITIQUES (sos./labo./payments.) ne sont PAS machine-traduites
-// (CLAUDE.md §4/§6) : listées avec un drapeau « HUMAIN_OBLIGATOIRE », à traduire
-// ET double-valider par un humain. Le reste est un 1er JET à RELIRE par des
-// locuteurs natifs avant intégration (Phase 3).
+// (CLAUDE.md §4/§6) : drapeau « HUMAIN_OBLIGATOIRE », à traduire ET
+// double-valider par un humain. Le reste est un 1er JET à RELIRE par des
+// locuteurs natifs avant intégration.
 //
-//   HF_TOKEN=hf_xxx node scripts/i18n/translate-draft.mjs --locale=fon,yor
+//   node scripts/i18n/translate-draft.mjs --locale=fon,yor
 //   options :
 //     --locale=fon,yor      langues cibles (déf. fon,yor)
 //     --limit=N             limite le nombre de clés (test)
 //     --model=ID            modèle HF (déf. facebook/nllb-200-distilled-600M)
 //     --include-critical    force la MT des clés critiques (DÉCONSEILLÉ)
-//     --dry                 n'appelle PAS HF : liste seulement (test parsing)
+//     --dry                 n'appelle PAS le modèle : liste seulement
 //
-// 0 dépendance (fetch/fs natifs, Node ≥ 18). Licence NLLB = CC-BY-NC.
+// 0 dépendance npm. Licence NLLB-200 = CC-BY-NC.
 // ─────────────────────────────────────────────────────────────
+import { spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const HERE = dirname(fileURLToPath(import.meta.url));
+const ROOT = resolve(HERE, '..', '..');
 const MESSAGES = resolve(ROOT, 'apps/web/src/i18n/messages.ts');
 const OUT_DIR = resolve(ROOT, 'docs/i18n');
+const PY_HELPER = resolve(HERE, 'nllb_translate.py');
 
 const CRITICAL_PREFIXES = ['sos.', 'labo.', 'payments.'];
 const isCritical = (k) => CRITICAL_PREFIXES.some((p) => k.startsWith(p));
@@ -33,7 +40,6 @@ const isCritical = (k) => CRITICAL_PREFIXES.some((p) => k.startsWith(p));
 // locale interne → code FLORES-200 attendu par NLLB.
 const FLORES = { fr: 'fra_Latn', en: 'eng_Latn', fon: 'fon_Latn', yor: 'yor_Latn' };
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const csv = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 const argv = process.argv.slice(2);
 const arg = (name, def) => {
@@ -70,44 +76,32 @@ function restore(text, vars) {
 }
 
 const MODEL = arg('model', 'facebook/nllb-200-distilled-600M');
-const HF_URL = `https://api-inference.huggingface.co/models/${MODEL}`;
 
-async function translate(text, tgtCode, token) {
-  const { masked, vars } = protect(text);
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    const res = await fetch(HF_URL, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        inputs: masked,
-        parameters: { src_lang: FLORES.fr, tgt_lang: tgtCode },
-        options: { wait_for_model: true },
-      }),
-    });
-    if (res.status === 503) {
-      await sleep(4000 * (attempt + 1)); // modèle en chargement
-      continue;
-    }
-    if (!res.ok) throw new Error(`HF ${res.status} : ${(await res.text()).slice(0, 120)}`);
-    const data = await res.json();
-    const raw = Array.isArray(data) ? data[0]?.translation_text : data?.translation_text;
-    if (!raw) throw new Error(`réponse HF inattendue : ${JSON.stringify(data).slice(0, 160)}`);
-    return restore(raw, vars);
+/** Traduit un lot de chaînes via le service Python local (modèle chargé 1×). */
+function translateLocal(texts, tgtFlores) {
+  const res = spawnSync('python3', [PY_HELPER], {
+    input: JSON.stringify({ model: MODEL, src_lang: FLORES.fr, tgt_lang: tgtFlores, texts }),
+    encoding: 'utf8',
+    maxBuffer: 256 * 1024 * 1024,
+    stdio: ['pipe', 'pipe', 'inherit'], // progression Python → stderr visible
+  });
+  if (res.status !== 0) {
+    throw new Error(`Échec du service NLLB (python3). Pré-requis : pip install transformers torch sentencepiece.\n${res.error ?? ''}`);
   }
-  throw new Error('HF indisponible après plusieurs tentatives (modèle en chargement ?)');
+  let parsed;
+  try {
+    parsed = JSON.parse(res.stdout);
+  } catch {
+    throw new Error(`Sortie Python illisible : ${String(res.stdout).slice(0, 200)}`);
+  }
+  if (!Array.isArray(parsed) || parsed.length !== texts.length) {
+    throw new Error(`Nombre de traductions inattendu (${parsed.length}/${texts.length}).`);
+  }
+  return parsed;
 }
 
-async function main() {
+function main() {
   const dry = flag('dry');
-  const token = process.env.HF_TOKEN;
-  if (!token && !dry) {
-    console.error('❌ HF_TOKEN manquant. Génère un jeton (accès lecture) sur :');
-    console.error('   https://huggingface.co/settings/tokens');
-    console.error('   puis : HF_TOKEN=hf_xxx node scripts/i18n/translate-draft.mjs --locale=fon,yor');
-    console.error('   (ou --dry pour un essai à blanc sans appel réseau)');
-    process.exit(1);
-  }
-
   const locales = arg('locale', 'fon,yor').split(',').map((s) => s.trim()).filter(Boolean);
   const limit = Number(arg('limit', '0')) || 0;
   const includeCritical = flag('include-critical');
@@ -127,45 +121,47 @@ async function main() {
     let missing = frKeys.filter((k) => !(k in existing));
     if (limit) missing = missing.slice(0, limit);
 
-    console.log(`\n${locale} : ${missing.length} clés manquantes${dry ? ' (DRY)' : ` → NLLB ${MODEL}`}`);
-    const rows = [['key', 'critical', 'fr', 'en', 'draft', 'flags'].map(csv).join(',')];
-    let done = 0;
-    let flagged = 0;
-    let humans = 0;
+    // Sépare clés critiques (jamais machine-traduites) et clés à traduire.
+    const toMT = missing.filter((k) => !isCritical(k) || includeCritical);
+    const humans = missing.filter((k) => isCritical(k) && !includeCritical);
+    console.log(`\n${locale} : ${missing.length} manquantes — ${toMT.length} machine, ${humans.length} critiques→humain${dry ? ' (DRY)' : ` → NLLB ${MODEL} (local)`}`);
 
-    for (const key of missing) {
-      const critical = isCritical(key);
-      if (critical && !includeCritical) {
-        rows.push([key, 'CRITIQUE', fr[key], en[key] ?? '', '', 'HUMAIN_OBLIGATOIRE'].map(csv).join(','));
-        humans += 1;
-        continue;
-      }
+    // Prépare et traduit le lot (masquage des variables avant MT).
+    const prepared = toMT.map((k) => ({ key: k, ...protect(fr[k]) }));
+    let translations = [];
+    if (!dry && prepared.length) {
+      translations = translateLocal(prepared.map((p) => p.masked), FLORES[locale]);
+    }
+    const drafts = new Map();
+    let flagged = 0;
+    prepared.forEach((p, i) => {
       if (dry) {
-        rows.push([key, critical ? 'CRITIQUE' : '', fr[key], en[key] ?? '', '', 'DRY'].map(csv).join(','));
-        continue;
+        drafts.set(p.key, { out: '', flags: 'DRY' });
+        return;
       }
-      try {
-        const { out, ok } = await translate(fr[key], FLORES[locale], token);
-        if (!ok) flagged += 1;
-        const flags = [critical ? 'CRITIQUE' : '', ok ? '' : 'PLACEHOLDER_A_VERIFIER'].filter(Boolean).join('|');
-        rows.push([key, critical ? 'CRITIQUE' : '', fr[key], en[key] ?? '', out, flags].map(csv).join(','));
-        done += 1;
-        process.stdout.write(`\r  ${done}/${missing.length}`);
-        await sleep(200);
-      } catch (e) {
-        rows.push([key, critical ? 'CRITIQUE' : '', fr[key], en[key] ?? '', '', `ERREUR:${String(e.message).slice(0, 80)}`].map(csv).join(','));
+      const { out, ok } = restore(translations[i], p.vars);
+      if (!ok) flagged += 1;
+      drafts.set(p.key, { out, flags: ok ? '' : 'PLACEHOLDER_A_VERIFIER' });
+    });
+
+    // Écrit le CSV dans l'ordre source.
+    const rows = [['key', 'critical', 'fr', 'en', 'draft', 'flags'].map(csv).join(',')];
+    for (const key of missing) {
+      const critical = isCritical(key) && !includeCritical;
+      if (critical) {
+        rows.push([key, 'CRITIQUE', fr[key], en[key] ?? '', '', 'HUMAIN_OBLIGATOIRE'].map(csv).join(','));
+      } else {
+        const d = drafts.get(key) ?? { out: '', flags: 'ERREUR' };
+        const flags = [isCritical(key) ? 'CRITIQUE' : '', d.flags].filter(Boolean).join('|');
+        rows.push([key, isCritical(key) ? 'CRITIQUE' : '', fr[key], en[key] ?? '', d.out, flags].map(csv).join(','));
       }
     }
-
     const path = resolve(OUT_DIR, `draft.${locale}.csv`);
     writeFileSync(path, `${rows.join('\n')}\n`, 'utf8');
-    console.log(`\n  → ${path}  (machine ${done}, critiques→humain ${humans}, placeholders à vérifier ${flagged})`);
+    console.log(`  → ${path}  (machine ${toMT.length}, critiques→humain ${humans.length}, placeholders à vérifier ${flagged})`);
   }
 
-  console.log('\n⚠️  Brouillons = 1er jet. RELECTURE par locuteurs natifs OBLIGATOIRE avant intégration (Phase 3).');
+  console.log('\n⚠️  Brouillons = 1er jet. RELECTURE par locuteurs natifs OBLIGATOIRE avant intégration.');
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+main();
