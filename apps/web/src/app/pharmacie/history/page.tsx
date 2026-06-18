@@ -3,7 +3,7 @@
 import Link from 'next/link';
 
 import { LangSwitcher, StatusBar } from '@/components/ui';
-import { Empty, ErrorState, Loading } from '@/components/ui/States';
+import { Empty, ErrorState, SkeletonCards } from '@/components/ui/States';
 import { HeaderLogout } from '@/components/auth/HeaderLogout';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { pharmacyApi, type Dispensation } from '@/lib/api/pharmacy';
@@ -31,7 +31,7 @@ export default function PharmacieHistoryPage() {
       </div>
 
       <div className="px-6 flex-1 space-y-3 pb-6 lg:max-w-5xl lg:mx-auto lg:w-full lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0 lg:items-start">
-        {loading && <Loading label={t('common.loading')} />}
+        {loading && <SkeletonCards label={t('common.loading')} count={4} className="lg:col-span-2" />}
         {error && <ErrorState label={t('common.load_error')} />}
         {!loading && !error && (data?.length ?? 0) === 0 && <Empty label={t('pharmacie.no_history')} />}
 
