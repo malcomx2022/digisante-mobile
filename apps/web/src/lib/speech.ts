@@ -5,8 +5,7 @@ const LANG_MAP: Record<string, string> = {
   FR: 'fr-FR',
   EN: 'en-US',
   FON: 'fr-FR',
-  BARIBA: 'fr-FR',
-  DENDI: 'fr-FR',
+  YOR: 'fr-FR',
 };
 
 export function speechSupported(): boolean {

@@ -4,7 +4,7 @@
 // Cible : PostgreSQL 16 natif (dev local docker, prod VPS Infomaniak).
 //
 // Décisions (arbitrées) :
-//   - Lang  : FR · EN · FON · BARIBA · DENDI            (source : DocTech)
+//   - Lang  : FR · EN · FON · YOR                       (source : DocTech)
 //   - Role  : PATIENT · MEDECIN · PHARMACIE · LABORATOIRE · DIASPORA · ADMIN (FR)
 //   - AuditLog (§4) ajouté en plus des 26 modèles : trail immuable append-only,
 //     hash SHA-256 chaîné (triggers anti UPDATE/DELETE posés dans la migration).
@@ -46,8 +46,7 @@ enum Lang {
   FR
   EN
   FON
-  BARIBA
-  DENDI
+  YOR
 }
 
 enum AppointmentType {

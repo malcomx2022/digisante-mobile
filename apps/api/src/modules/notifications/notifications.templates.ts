@@ -2,7 +2,7 @@
 // Gabarits de notification multilingues (pur, testable).
 // Chaque message part dans la langue de l'utilisateur ; à défaut de gabarit
 // pour la langue, repli sur le français (FR), puis sur le contenu stocké.
-// Les traductions FON/BARIBA/DENDI seront fournies par les traducteurs (P5.2) ;
+// Les traductions FON/YOR seront fournies par les traducteurs (P5.2) ;
 // en attendant, repli FR pour éviter des messages médicaux erronés.
 // ─────────────────────────────────────────────────────────────
 import type { Lang, NotificationType } from '@digisante/shared';

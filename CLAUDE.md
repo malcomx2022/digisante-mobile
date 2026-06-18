@@ -11,7 +11,7 @@
 Programme **NEXT IMPACT** (FP2E / Sèmè City / Banque Mondiale) — convention `FP2E/NI/IDÉ/2025`, subvention 7 000 USD.
 Porteur : **SEGLA E. Ulrich Gislain** (full-stack, 10+ ans). Collaboratrice : **Viviane EWEDJE** (junior dev).
 
-**Mission** : répondre aux défis sanitaires béninois — infrastructure médicale limitée, dossiers perdus, connectivité rurale faible — par une plateforme **offline-first**, **multilingue** (FR, Fɔ̀ngbè, Yorùbá, Baatɔnum, Dendi), avec téléconsultation, DMP patient, ordonnances QR, SOS, et paiements Mobile Money + wallet diaspora.
+**Mission** : répondre aux défis sanitaires béninois — infrastructure médicale limitée, dossiers perdus, connectivité rurale faible — par une plateforme **offline-first**, **multilingue** (FR, EN, Fɔ̀ngbè, Yorùbá — périmètre recentré juin 2026, cf. §8), avec téléconsultation, DMP patient, ordonnances QR, SOS, et paiements Mobile Money + wallet diaspora.
 
 **État** : codebase feature-complete — **113 endpoints** (dont 1 canal WebSocket temps réel) / **25 modules** + 5 intégrations, **48 pages frontend** (dont 19 espace patient), **36 modèles Prisma**, 28 enums, 13 migrations. **Tous les profils optimisés** (patient + médecin + pharmacie + laboratoire + diaspora + admin — vagues 1-12 livrées). Phase actuelle : **déploiement production VPS Infomaniak**.
 
@@ -147,6 +147,7 @@ Les scripts shell complets sont dans la Documentation technique v2 (`DocTech_Dig
 
 ## 8. Pièges connus (ne pas re-découvrir)
 
+- **Langues (périmètre recentré, juin 2026)** : l'app cible **FR · EN · FON · YOR** (enum `Lang` + `LANGS` partagé). **Baatɔnum/Dendi retirés**, **Yorùbá ajouté**. Le retrait de valeurs d'enum PostgreSQL impose une **recréation du type `Lang`** (migration `..._lang_fr_en_fon_yor` : rename → create → bascule colonne `users.lang` en repliant BARIBA/DENDI sur FR → drop ancien type). FR = **source de vérité**, EN **complet** ; FON/YOR complétés par un **1er jet machine (NLLB-200 via HuggingFace)** PUIS **relecture par locuteurs natifs** — la MT n'est JAMAIS publiée telle quelle, et `sos.*`/`labo.*`/`payments.*` exigent une **double validation** (§4/§6). Outillage : `pnpm i18n:check` (parité) / `i18n:export` (todo CSV) ; un script `scripts/i18n/translate-draft.*` (à venir, dev-only) génère les brouillons. **Aucune traduction au runtime** (offline-first, faible conso). Licence NLLB = **CC-BY-NC** (usage projet santé non lucratif assumé).
 - **openpyxl** : la validation par liste exige une correspondance de chaîne EXACTE — préserver les espaces insécables et typos des feuilles de référence ; recalcul des formules via script dédié après écriture.
 - **docx-js** : page A4 à définir explicitement ; jamais de `\n` (Paragraphs séparés) ; jamais de puces unicode (numbering config) ; tables = `columnWidths` + `width` par cellule en DXA ; `ShadingType.CLEAR`.
 - **Daily.co** : prévoir la bascule auto téléconsultation → chat (D-10) quand la bande passante chute.
