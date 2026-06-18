@@ -115,8 +115,8 @@ export default function LoginPage() {
   const inputCls = 'w-full bg-white card-pagne border border-stone-300 px-4 py-3 font-body text-[15px] focus:outline-none focus:border-sante-600';
 
   return (
-    <div className="min-h-screen wax-light">
-      <div className="mx-auto max-w-[420px] min-h-screen bg-creme flex flex-col shadow-xl">
+    <div className="min-h-dvh-screen wax-light flex flex-col">
+      <div className="mx-auto w-full max-w-[420px] flex-1 bg-creme flex flex-col shadow-xl">
         <header className="bg-sante-900 bogolan-dark relative pb-14 text-white">
           <StatusBar dark lang={lang} />
           <div className="px-6 pt-4">

@@ -14,8 +14,8 @@ export default function OnboardingPage() {
   const router = useRouter();
 
   return (
-    <div className="min-h-screen wax-light">
-      <div className="mx-auto max-w-[420px] min-h-screen bg-creme flex flex-col shadow-xl">
+    <div className="min-h-dvh-screen wax-light flex flex-col">
+      <div className="mx-auto w-full max-w-[420px] flex-1 bg-creme flex flex-col shadow-xl">
         <header className="bg-sante-900 bogolan-dark relative pb-14 text-white">
           <StatusBar dark />
           <div className="px-6 pt-4">

@@ -16,9 +16,12 @@ export default function PharmacieProfilePage() {
       <div className="lg:hidden">
         <StatusBar dark right={<div className="flex items-center gap-2"><LangSwitcher dark /><HeaderLogout /></div>} />
       </div>
+      {/* Fond + kenté plein-cadre ; titre recentré sur la colonne du contenu (2xl). */}
       <div className="px-6 pt-2 pb-4 relative">
-        <h1 className="font-display font-extrabold text-2xl">{t('profile.title')}</h1>
-        <p className="text-[12px] text-white/80">{user?.phone}</p>
+        <div className="lg:max-w-2xl lg:mx-auto lg:w-full">
+          <h1 className="font-display font-extrabold text-2xl">{t('profile.title')}</h1>
+          <p className="text-[12px] text-white/80">{user?.phone}</p>
+        </div>
         <KenteBar className="absolute -bottom-1 left-0 right-0" />
       </div>
       <div className="flex-1 bg-creme wax-ocre text-nuit px-6 py-6">
