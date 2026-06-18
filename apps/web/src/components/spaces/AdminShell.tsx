@@ -21,7 +21,7 @@ import { cn } from '@/lib/cn';
 //    INCHANGÉE — chaque page garde son SpaceHeader sombre.
 // ─────────────────────────────────────────────────────────────
 
-type IconKey = 'dashboard' | 'users' | 'kyc' | 'audit' | 'education' | 'support' | 'admins';
+type IconKey = 'dashboard' | 'users' | 'kyc' | 'audit' | 'education' | 'support' | 'admins' | 'finance';
 
 function NavIcon({ name }: { name: IconKey }) {
   const paths: Record<IconKey, JSX.Element> = {
@@ -62,6 +62,12 @@ function NavIcon({ name }: { name: IconKey }) {
         <path d="m15.5 7.5 3 3L22 7l-3-3" />
       </>
     ),
+    finance: (
+      <>
+        <line x1="12" y1="2" x2="12" y2="22" />
+        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+      </>
+    ),
   };
   return (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -76,6 +82,7 @@ const SIDEBAR: { labelKey: string; href: string; icon: IconKey; scope?: AdminSco
   { labelKey: 'admin.metrics', href: '/admin', icon: 'dashboard' },
   { labelKey: 'admin.users', href: '/admin/users', icon: 'users', scope: 'users:read' },
   { labelKey: 'adminkyc.title', href: '/admin/kyc', icon: 'kyc', scope: 'kyc:review' },
+  { labelKey: 'admin.finance', href: '/admin/finance', icon: 'finance', scope: 'finance:read' },
   { labelKey: 'admin.audit', href: '/admin/audit', icon: 'audit', scope: 'audit:read' },
   { labelKey: 'admin.education', href: '/admin/education', icon: 'education', scope: 'education:write' },
   { labelKey: 'admin.support', href: '/admin/support', icon: 'support', scope: 'support:write' },
