@@ -73,6 +73,14 @@ describe.skipIf(!HAS_INFRA)('Éducation & Admin (intégration)', () => {
     const list = await app.inject({ method: 'GET', url: '/api/v1/education?category=PREVENTION', headers: auth(patientToken) });
     expect(list.statusCode).toBe(200);
     expect(list.json().some((c: { id: string }) => c.id === id)).toBe(true);
+
+    // Liste de gestion (admin) : visible avec filtre statut PUBLISHED.
+    const manage = await app.inject({ method: 'GET', url: '/api/v1/education/manage?status=PUBLISHED&pageSize=100', headers: auth(adminToken) });
+    expect(manage.statusCode).toBe(200);
+    expect(manage.json().data.some((c: { id: string }) => c.id === id)).toBe(true);
+    // RBAC : un patient (sans education:write) n'accède pas à la gestion.
+    const denied = await app.inject({ method: 'GET', url: '/api/v1/education/manage', headers: auth(patientToken) });
+    expect(denied.statusCode).toBe(403);
   });
 
   it('Éducation : relecture médicale réservée aux médecins vérifiés', async () => {

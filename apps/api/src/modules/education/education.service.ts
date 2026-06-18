@@ -67,6 +67,27 @@ export async function publish(app: FastifyInstance, id: string) {
   return app.prisma.healthContent.update({ where: { id }, data: { status: 'PUBLISHED', isPublished: true } });
 }
 
+/** Liste de gestion (admin) : TOUS les contenus, filtre statut/catégorie, paginé. */
+export async function listForAdmin(
+  app: FastifyInstance,
+  params: { status?: ContentStatus; category?: ContentCategory; page: number; pageSize: number },
+) {
+  const where: Prisma.HealthContentWhereInput = {
+    ...(params.status ? { status: params.status } : {}),
+    ...(params.category ? { category: params.category } : {}),
+  };
+  const [data, total] = await Promise.all([
+    app.prisma.healthContent.findMany({
+      where,
+      orderBy: { updatedAt: 'desc' },
+      skip: (params.page - 1) * params.pageSize,
+      take: params.pageSize,
+    }),
+    app.prisma.healthContent.count({ where }),
+  ]);
+  return { data, total, page: params.page, pageSize: params.pageSize };
+}
+
 /** Liste des contenus publiés (public), filtre catégorie. */
 export async function listPublished(app: FastifyInstance, params: { category?: ContentCategory; page: number; pageSize: number }) {
   const where: Prisma.HealthContentWhereInput = { isPublished: true, ...(params.category ? { category: params.category } : {}) };
