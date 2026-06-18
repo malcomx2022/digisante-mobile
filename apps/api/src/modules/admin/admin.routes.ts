@@ -20,6 +20,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
 import { writeAudit } from '@/lib/audit.js';
+import { isFedapayConfigured } from '@/lib/env.js';
 import { badRequest, notFound } from '@/lib/errors.js';
 import { paginate } from '@/lib/http.js';
 import { loadAdminScopes, requireRole, requireScope } from '@/lib/rbac.js';
@@ -28,6 +29,9 @@ import * as payments from '@/modules/payments/payments.service.js';
 
 const auditQuery = paginationSchema.extend({ action: z.string().optional() });
 const idParams = z.object({ id: z.string().cuid() });
+
+// Événements de sécurité/ops surveillés sur 24 h (pouls du système).
+const OPS_EVENTS = ['AUTH_FAIL', 'AUTH_LOCKOUT', 'DMP_DENIED', 'SOS_ALERT', 'LAB_CRITICAL', 'PAYMENT_REFUND', 'OTP_RESET'] as const;
 
 // Filtres serveur de la liste utilisateurs (recherche + rôle/statut/langue).
 const usersQuery = paginationSchema.extend({
@@ -330,5 +334,43 @@ export default async function adminRoutes(app: FastifyInstance) {
       };
     });
     return paginate(items, total, q.page, q.pageSize);
+  });
+
+  // ── Ops / monitoring (LECTURE SEULE — santé système, §4 : aucun médical) ──
+  // Pouls du back-office : infra (Redis/DB/uptime), files de notifications,
+  // jobs cron (réconciliation, rappels), événements sécurité/ops sur 24 h.
+  app.get('/ops/health', withScope('ops:read'), async () => {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recThreshold = new Date(Date.now() - 60 * 60 * 1000);
+
+    // Sondes infra (tolérantes : une panne ne fait pas échouer la page).
+    const redisUp = await app.redis.ping().then((r) => r === 'PONG').catch(() => false);
+    const dbUp = await app.prisma.$queryRaw`SELECT 1`.then(() => true).catch(() => false);
+
+    const [notifByStatus, sentLast24h, reconBacklog, medAgg, apptAgg, events] = await Promise.all([
+      app.prisma.notification.groupBy({ by: ['status'], _count: { _all: true } }),
+      app.prisma.notification.count({ where: { status: { in: ['SENT', 'DELIVERED'] }, sentAt: { gte: since } } }),
+      app.prisma.payment.count({ where: { status: 'PENDING', createdAt: { lt: recThreshold }, fedapayId: { not: null } } }),
+      app.prisma.medicationReminder.aggregate({ _max: { lastGeneratedOn: true } }),
+      app.prisma.appointment.aggregate({ _max: { reminderSentAt: true } }),
+      app.prisma.auditLog.groupBy({ by: ['action'], where: { createdAt: { gte: since }, action: { in: [...OPS_EVENTS] } }, _count: { _all: true } }),
+    ]);
+
+    const byStatus = Object.fromEntries(notifByStatus.map((n) => [n.status, n._count._all]));
+    return {
+      infra: { redis: redisUp ? 'up' : 'down', db: dbUp ? 'up' : 'down', uptimeSeconds: Math.round(process.uptime()), fedapayConfigured: isFedapayConfigured },
+      notifications: {
+        byStatus: notifByStatus.map((n) => ({ status: n.status, count: n._count._all })),
+        pending: byStatus.PENDING ?? 0,
+        failed: byStatus.FAILED ?? 0,
+        sentLast24h,
+      },
+      jobs: {
+        reconciliationBacklog: reconBacklog,
+        medicationLastGeneratedAt: medAgg._max.lastGeneratedOn,
+        appointmentLastReminderAt: apptAgg._max.reminderSentAt,
+      },
+      events24h: OPS_EVENTS.map((action) => ({ action, count: events.find((e) => e.action === action)?._count._all ?? 0 })),
+    };
   });
 }

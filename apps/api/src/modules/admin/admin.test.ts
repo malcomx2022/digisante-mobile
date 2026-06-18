@@ -170,4 +170,21 @@ describe.skipIf(!HAS_INFRA)('Admin RBAC (intégration)', () => {
     const denied = await app.inject({ method: 'POST', url: `/api/v1/admin/finance/payments/${pay.id}/refund`, headers: auth(modToken), payload: {} });
     expect(denied.statusCode).toBe(403);
   });
+
+  it('ops : santé système (scope ops:read) + enforcement', async () => {
+    const health = await app.inject({ method: 'GET', url: '/api/v1/admin/ops/health', headers: auth(superToken) });
+    expect(health.statusCode).toBe(200);
+    const body = health.json();
+    expect(body.infra.redis).toBe('up'); // Redis présent en CI
+    expect(body.infra.db).toBe('up');
+    expect(typeof body.infra.uptimeSeconds).toBe('number');
+    expect(typeof body.notifications.pending).toBe('number');
+    expect(Array.isArray(body.events24h)).toBe(true);
+    expect(body.events24h.length).toBeGreaterThan(0);
+
+    // MODERATION n'a pas ops:read → 403.
+    const modToken = app.jwt.sign({ sub: promotedUserId, role: 'ADMIN' }, { expiresIn: '15m' });
+    const denied = await app.inject({ method: 'GET', url: '/api/v1/admin/ops/health', headers: auth(modToken) });
+    expect(denied.statusCode).toBe(403);
+  });
 });
