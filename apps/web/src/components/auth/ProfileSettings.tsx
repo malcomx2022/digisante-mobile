@@ -25,10 +25,13 @@ export function ProfileSettings({
   accent = 'sante',
   logoutVariant = 'outline',
   children,
+  columns = false,
 }: {
   accent?: 'sante' | 'indigo' | 'ocre';
   logoutVariant?: LogoutVariant;
   children?: React.ReactNode;
+  /** Densité desktop : dispose les cartes de réglages en 2 colonnes (≥lg). */
+  columns?: boolean;
 }) {
   const { t, lang, setLang } = useLocale();
   const { user } = useAuth();
@@ -101,6 +104,7 @@ export function ProfileSettings({
     <div className="space-y-4">
       {children}
 
+      <div className={cn('space-y-4', columns && 'lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-4 lg:items-start')}>
       {/* Identité */}
       <CardPagne className="p-4 space-y-3">
         <p className="font-display font-extrabold text-[0.8125rem] text-stone-700">{t('profile.identity')}</p>
@@ -145,6 +149,7 @@ export function ProfileSettings({
           ))}
         </div>
       </CardPagne>
+      </div>
 
       {saved && <p className={cn('text-[0.8125rem] font-bold', linkColor)}>✓ {t('profile.saved')}</p>}
       {error && <p className="text-[0.8125rem] text-sos-600 font-bold">{error}</p>}
