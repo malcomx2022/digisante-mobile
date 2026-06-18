@@ -49,7 +49,7 @@ export async function addDocument(
 }
 
 /** Finalise la soumission : passe le dossier en revue (UNDER_REVIEW). */
-export async function submitForReview(app: FastifyInstance, userId: string) {
+export async function submitForReview(app: FastifyInstance, userId: string, ip?: string | null) {
   const submission = await app.prisma.kycSubmission.findFirst({
     where: { userId, status: OPEN_STATUSES },
     include: { _count: { select: { documents: true } } },
@@ -59,11 +59,22 @@ export async function submitForReview(app: FastifyInstance, userId: string) {
     throw badRequest('Ajoutez au moins une pièce justificative avant de soumettre.');
   }
 
-  return app.prisma.kycSubmission.update({
+  const updated = await app.prisma.kycSubmission.update({
     where: { id: submission.id },
     data: { status: 'UNDER_REVIEW', submittedAt: new Date() },
     include: { documents: true },
   });
+
+  // §4 : journaliser la soumission (cycle de vie complet du dossier soignant).
+  await writeAudit(app.prisma, {
+    action: 'KYC_SUBMIT',
+    actorId: userId,
+    targetId: userId,
+    ip,
+    meta: { submissionId: submission.id, documents: submission._count.documents },
+  });
+
+  return updated;
 }
 
 /** Dossier KYC courant du professionnel (le plus récent). */
@@ -189,16 +200,16 @@ export async function reviewSubmission(
     }
   });
 
-  // On ne journalise que les décisions terminales (APPROVED / REJECTED).
-  if (input.decision !== 'NEEDS_REVISION') {
-    await writeAudit(app.prisma, {
-      action: input.decision === 'REJECTED' ? 'KYC_REJECT' : 'KYC_APPROVE',
-      actorId: adminId,
-      targetId: submission.user.id,
-      ip,
-      meta: { submissionId, decision: input.decision, cnom },
-    });
-  }
+  // §4 : TOUTE décision de revue est journalisée — approbation, rejet ET renvoi
+  // pour correction (NEEDS_REVISION) — traçabilité complète des actions admin.
+  const AUDIT_ACTION = { APPROVED: 'KYC_APPROVE', REJECTED: 'KYC_REJECT', NEEDS_REVISION: 'KYC_REVISION' } as const;
+  await writeAudit(app.prisma, {
+    action: AUDIT_ACTION[input.decision],
+    actorId: adminId,
+    targetId: submission.user.id,
+    ip,
+    meta: { submissionId, decision: input.decision, cnom },
+  });
 
   return { submissionId, status: input.decision, cnom };
 }

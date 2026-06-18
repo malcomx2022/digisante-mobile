@@ -134,5 +134,20 @@ describe.skipIf(!HAS_INFRA)('KYC (intégration)', () => {
 
     const detail2 = await app.inject({ method: 'GET', url: `/api/v1/kyc/submissions/${submissionId}`, headers: auth(adminToken) });
     expect(detail2.json().documents.find((d: { id: string }) => d.id === docId).verified).toBe(true);
+
+    // Revue « à corriger » (NEEDS_REVISION) : décision non terminale, mais
+    // désormais journalisée (§4) — traçabilité complète des actions admin.
+    const revision = await app.inject({
+      method: 'POST',
+      url: `/api/v1/kyc/submissions/${submissionId}/review`,
+      headers: auth(adminToken),
+      payload: { decision: 'NEEDS_REVISION', notes: 'Pièce illisible' },
+    });
+    expect(revision.statusCode).toBe(200);
+    expect(revision.json().status).toBe('NEEDS_REVISION');
+
+    // Audit : KYC_REVISION (renvoi) + KYC_SUBMIT (soumission) bien journalisés.
+    expect(await app.prisma.auditLog.count({ where: { action: 'KYC_REVISION' } })).toBeGreaterThanOrEqual(1);
+    expect(await app.prisma.auditLog.count({ where: { action: 'KYC_SUBMIT' } })).toBeGreaterThanOrEqual(1);
   });
 });
