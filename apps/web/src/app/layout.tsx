@@ -11,6 +11,22 @@ export const metadata: Metadata = {
   title: 'DigiSanté Mobile',
   description: 'PWA e-santé pour le Bénin — NEXT IMPACT',
   manifest: '/manifest.json',
+  // Icônes PNG (Android/Chrome) + apple-touch-icon (iOS « Ajouter à l'écran d'accueil »,
+  // qui n'accepte pas le SVG → PNG 180px opaque dérivé de l'icône maskable).
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
+  },
+  // Mode standalone iOS : titre, statut « capable » et barre d'état assortie au thème.
+  appleWebApp: {
+    capable: true,
+    title: 'DigiSanté',
+    statusBarStyle: 'black-translucent',
+  },
 };
 
 export const viewport: Viewport = {
