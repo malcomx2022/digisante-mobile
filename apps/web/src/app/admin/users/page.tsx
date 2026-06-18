@@ -4,7 +4,7 @@ import { useState } from 'react';
 
 import { Badge, Button, CardPagne, ConfirmDialog } from '@/components/ui';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
-import { Empty, ErrorState, Loading } from '@/components/ui/States';
+import { Empty, ErrorState, SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get, post } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
@@ -129,7 +129,7 @@ export default function AdminUsers() {
       <SpaceHeader title={t('admin.users')} headerClass="bg-indigo-950" wide />
       <main className="px-6 -mt-10 relative z-20 pb-6 lg:max-w-5xl lg:mx-auto lg:w-full space-y-3">
         <p className="text-[0.75rem] text-stone-400">{t('admin.no_medical')}</p>
-        {loading && <Loading label={t('common.loading')} />}
+        {loading && <SkeletonCards label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {actionError && <p className="text-[0.75rem] text-sos-600 font-bold">{actionError}</p>}
         {!loading && !error && total === 0 && <Empty label={t('common.empty')} />}

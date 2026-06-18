@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 
 import { PatientHeader } from '@/components/patient/PatientHeader';
-import { Empty, ErrorState, Loading } from '@/components/ui/States';
+import { Empty, ErrorState, SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { notificationsApi, type AppNotification } from '@/lib/api/notifications';
 import { useApi } from '@/lib/api/useApi';
@@ -36,7 +36,7 @@ export default function NotificationsPage() {
     <>
       <PatientHeader title={t('notifications.title')} wide />
       <main className="px-6 -mt-10 relative z-20 space-y-3 pb-6">
-        {loading && <Loading label={t('common.loading')} />}
+        {loading && <SkeletonCards label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && items.length === 0 && <Empty label={t('notifications.empty')} />}
 
