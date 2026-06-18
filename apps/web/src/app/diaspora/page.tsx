@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 import { CardPagne } from '@/components/ui';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
-import { Empty, ErrorState, Loading } from '@/components/ui/States';
+import { Empty, ErrorState, Skeleton } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get } from '@/lib/api/client';
 import { beneficiariesApi, type Beneficiary } from '@/lib/api/beneficiaries';
@@ -29,7 +29,7 @@ export default function DiasporaDashboard() {
         <CardPagne stitch className="p-5 bg-ocre-900 bogolan-dark text-white">
           <p className="text-[0.75rem] text-white/80">{t('wallet.balance')}</p>
           {loading ? (
-            <Loading label={t('common.loading')} />
+            <Skeleton className="h-8 w-40 mt-1" />
           ) : error ? (
             <ErrorState label={t('auth.error')} />
           ) : (

@@ -14,9 +14,9 @@ export function Skeleton({ className }: { className?: string }) {
 /** Grille de cartes en chargement — réseaux lents (2G/rural) : on montre la
  *  forme du contenu plutôt qu'un simple texte. `label` reste lu par les lecteurs
  *  d'écran (visuellement masqué). */
-export function SkeletonCards({ count = 4, label, columns = true }: { count?: number; label?: string; columns?: boolean }) {
+export function SkeletonCards({ count = 4, label, columns = true, className }: { count?: number; label?: string; columns?: boolean; className?: string }) {
   return (
-    <div role="status" aria-busy="true" aria-live="polite" className={cn('grid gap-3 grid-cols-1', columns && 'sm:grid-cols-2')}>
+    <div role="status" aria-busy="true" aria-live="polite" className={cn('grid gap-3 grid-cols-1', columns && 'sm:grid-cols-2', className)}>
       {label && <span className="sr-only">{label}</span>}
       {Array.from({ length: count }).map((_, i) => (
         <div key={i} className="bg-white card-pagne border border-stone-200 p-4 space-y-2.5" aria-hidden="true">

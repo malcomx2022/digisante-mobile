@@ -6,7 +6,7 @@ import { useState } from 'react';
 
 import { Button, CardPagne, ConfirmDialog, Nkyinkyim } from '@/components/ui';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
-import { Empty, ErrorState, Loading } from '@/components/ui/States';
+import { Empty, ErrorState, SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { beneficiariesApi, type Beneficiary } from '@/lib/api/beneficiaries';
 import { useApi } from '@/lib/api/useApi';
@@ -128,7 +128,7 @@ export default function BeneficiariesPage() {
         )}
 
         {actionError && !editing && <p className="text-[0.75rem] text-sos-600 font-bold">{actionError}</p>}
-        {loading && <Loading label={t('common.loading')} />}
+        {loading && <SkeletonCards label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && (data?.length ?? 0) === 0 && !editing && <Empty label={t('beneficiaries.empty')} />}
 

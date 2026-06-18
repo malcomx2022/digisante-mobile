@@ -6,7 +6,7 @@ import { useState } from 'react';
 
 import { Badge, Button, CardPagne, Nkyinkyim } from '@/components/ui';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
-import { Empty, ErrorState, Loading } from '@/components/ui/States';
+import { Empty, ErrorState, SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { labApi, type AvailableOrder, type IncomingOrder } from '@/lib/api/laboratory';
 import { useApi } from '@/lib/api/useApi';
@@ -68,7 +68,7 @@ export default function LabOrdersPage() {
         {/* Demandes prises en charge */}
         <section className="space-y-3">
           <h2 className="font-display font-extrabold text-[0.9375rem] text-stone-800">{t('labo.in_progress')}</h2>
-          {incoming.loading && <Loading label={t('common.loading')} />}
+          {incoming.loading && <SkeletonCards label={t('common.loading')} count={3} />}
           {incoming.error && <ErrorState label={t('auth.error')} />}
           {!incoming.loading && !incoming.error && (incoming.data?.length ?? 0) === 0 && <Empty label={t('labo.no_incoming')} />}
           <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 items-start">
@@ -104,7 +104,7 @@ export default function LabOrdersPage() {
         <section className="space-y-3">
           <h2 className="font-display font-extrabold text-[0.9375rem] text-stone-800">{t('labo.available')}</h2>
           <p className="text-[0.75rem] text-stone-400">{t('labo.available_hint')}</p>
-          {available.loading && <Loading label={t('common.loading')} />}
+          {available.loading && <SkeletonCards label={t('common.loading')} count={3} />}
           {available.error && <ErrorState label={t('auth.error')} />}
           {!available.loading && !available.error && (available.data?.length ?? 0) === 0 && <Empty label={t('labo.no_available')} />}
           <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 items-start">
