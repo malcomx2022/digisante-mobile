@@ -25,7 +25,7 @@ export function OfflineBanner() {
   if (online) return null;
 
   return (
-    <div className="wax-ocre bg-ocre-400 trame-tissee text-stone-900 text-[12px] font-display font-bold px-4 py-2 text-center" role="status" aria-live="polite">
+    <div className="wax-ocre bg-ocre-400 trame-tissee text-stone-900 text-[0.75rem] font-display font-bold px-4 py-2 text-center" role="status" aria-live="polite">
       {t('offline.banner')}
       {pending > 0 && <span className="ml-1 font-extrabold">· {t('offline.pending', { n: pending })}</span>}
     </div>

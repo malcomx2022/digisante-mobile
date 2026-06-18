@@ -47,9 +47,9 @@ export default function ProStatsPage() {
         {/* Revenus — agrégation revenus pro non encore disponible. On n'affiche
             AUCUN chiffre inventé : état explicite « indisponible / à venir ». */}
         <CardPagne stitch="indigo" className="p-5 bg-indigo-900 bogolan-dark text-white">
-          <p className="text-[12px] text-white/70">{t('pro.revenue')}</p>
+          <p className="text-[0.75rem] text-white/70">{t('pro.revenue')}</p>
           <p className="font-display font-extrabold text-xl">{t('pro.revenue_unavailable')}</p>
-          <p className="text-[12px] text-ocre-300 mt-1">{t('pro.revenue_soon')} · {t('pro.commission')}</p>
+          <p className="text-[0.75rem] text-ocre-300 mt-1">{t('pro.revenue_soon')} · {t('pro.commission')}</p>
         </CardPagne>
 
         {loading && <Loading label={t('common.loading')} />}
@@ -58,7 +58,7 @@ export default function ProStatsPage() {
         {!loading && !error && (
           <CardPagne className="p-4">
             <div className="flex items-center justify-between mb-2">
-              <p className="font-display font-extrabold text-[13px] text-stone-700">{t('pro.plan')}</p>
+              <p className="font-display font-extrabold text-[0.8125rem] text-stone-700">{t('pro.plan')}</p>
               {data && <Badge variant="pro">{data.subscriptionPlan}</Badge>}
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -66,7 +66,7 @@ export default function ProStatsPage() {
                 <Button
                   key={p}
                   variant={data?.subscriptionPlan === p ? 'indigo' : 'outline'}
-                  className="text-[12px] py-2"
+                  className="text-[0.75rem] py-2"
                   disabled={busy}
                   onClick={() => subscribe(p)}
                 >
@@ -74,7 +74,7 @@ export default function ProStatsPage() {
                 </Button>
               ))}
             </div>
-            {subError && <p className="text-sos-600 font-bold text-[12px] mt-2">{t('auth.error')}</p>}
+            {subError && <p className="text-sos-600 font-bold text-[0.75rem] mt-2">{t('auth.error')}</p>}
           </CardPagne>
         )}
       </main>

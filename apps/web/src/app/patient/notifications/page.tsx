@@ -55,11 +55,11 @@ export default function NotificationsPage() {
             >
               {unread && <span className="mt-1.5 w-2 h-2 rounded-full bg-sante-600 shrink-0" aria-hidden />}
               <div className="flex-1 min-w-0">
-                <p className={cn('text-[14px] truncate', unread ? 'font-display font-extrabold text-stone-800' : 'font-bold text-stone-600')}>
+                <p className={cn('text-[0.875rem] truncate', unread ? 'font-display font-extrabold text-stone-800' : 'font-bold text-stone-600')}>
                   {n.title}
                 </p>
-                <p className="text-[13px] text-stone-500">{n.body}</p>
-                <p className="text-[11px] text-stone-400 mt-0.5">
+                <p className="text-[0.8125rem] text-stone-500">{n.body}</p>
+                <p className="text-[0.6875rem] text-stone-400 mt-0.5">
                   {new Date(n.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
                 </p>
               </div>

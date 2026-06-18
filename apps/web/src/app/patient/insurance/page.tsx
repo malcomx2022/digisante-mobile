@@ -70,22 +70,22 @@ export default function InsurancePage() {
         {loading && <Loading label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && (coverages?.length ?? 0) === 0 && <Empty label={t('insurance.none')} />}
-        {err && <p className="text-terre-600 font-bold text-[13px]">{err}</p>}
+        {err && <p className="text-terre-600 font-bold text-[0.8125rem]">{err}</p>}
 
         <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
           {(coverages ?? []).map((c) => (
             <CardPagne key={c.id} className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">
-                  <p className="font-display font-extrabold text-[14px] text-stone-800">{c.insurance.name}</p>
-                  <p className="text-[13px] text-stone-500">N° {c.memberNumber}</p>
+                  <p className="font-display font-extrabold text-[0.875rem] text-stone-800">{c.insurance.name}</p>
+                  <p className="text-[0.8125rem] text-stone-500">N° {c.memberNumber}</p>
                   {c.insurance.coverageTypes.length > 0 && (
-                    <p className="text-[12px] text-stone-400 mt-1">
+                    <p className="text-[0.75rem] text-stone-400 mt-1">
                       {c.insurance.coverageTypes.map((ct) => t(`insurance.cov.${ct}`)).join(' · ')}
                     </p>
                   )}
                   {c.expiresAt && (
-                    <p className="text-[12px] text-ocre-600 mt-1">
+                    <p className="text-[0.75rem] text-ocre-600 mt-1">
                       {t('insurance.expires', { date: new Date(c.expiresAt).toLocaleDateString('fr-FR') })}
                     </p>
                   )}
@@ -95,7 +95,7 @@ export default function InsurancePage() {
                   <button
                     type="button"
                     onClick={() => remove(c.id)}
-                    className="text-[12px] text-terre-600 font-display font-bold"
+                    className="text-[0.75rem] text-terre-600 font-display font-bold"
                   >
                     {t('common.delete')}
                   </button>
@@ -107,7 +107,7 @@ export default function InsurancePage() {
 
         {/* Déclarer une couverture */}
         <CardPagne stitch className="p-4">
-          <p className="font-display font-extrabold text-[13px] text-stone-700">{t('insurance.add')}</p>
+          <p className="font-display font-extrabold text-[0.8125rem] text-stone-700">{t('insurance.add')}</p>
           <Nkyinkyim className="my-3" />
 
           <div className="space-y-2">
@@ -117,7 +117,7 @@ export default function InsurancePage() {
                 type="button"
                 onClick={() => setProviderId(p.id === providerId ? '' : p.id)}
                 className={cn(
-                  'w-full text-left card-pagne px-3 py-2 border-2 text-[13px] font-display font-bold',
+                  'w-full text-left card-pagne px-3 py-2 border-2 text-[0.8125rem] font-display font-bold',
                   p.id === providerId ? 'bg-sante-600 text-white border-stone-900' : 'bg-white text-stone-700 border-stone-200',
                 )}
               >
@@ -131,18 +131,18 @@ export default function InsurancePage() {
             onChange={(e) => setMemberNumber(e.target.value)}
             placeholder={t('insurance.member_number')}
             aria-label={t('insurance.member_number')}
-            className="mt-3 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[14px] focus:outline-none focus:border-sante-600"
+            className="mt-3 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.875rem] focus:outline-none focus:border-sante-600"
           />
-          <label className="block text-[12px] text-stone-500 mt-2">{t('insurance.expires_at')}</label>
+          <label className="block text-[0.75rem] text-stone-500 mt-2">{t('insurance.expires_at')}</label>
           <input
             type="date"
             value={expiresAt}
             onChange={(e) => setExpiresAt(e.target.value)}
             aria-label={t('insurance.expires_at')}
-            className="mt-1 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[14px] focus:outline-none focus:border-sante-600"
+            className="mt-1 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.875rem] focus:outline-none focus:border-sante-600"
           />
 
-          {err && <p className="text-terre-600 text-[13px] mt-2">{err}</p>}
+          {err && <p className="text-terre-600 text-[0.8125rem] mt-2">{err}</p>}
           <Button variant="sante" full className="mt-3" onClick={add} disabled={submitting || !providerId || !memberNumber.trim()}>
             {t('insurance.add')}
           </Button>

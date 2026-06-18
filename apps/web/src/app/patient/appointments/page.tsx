@@ -49,9 +49,9 @@ export default function AppointmentsPage() {
       <CardPagne key={a.id} className="p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <p className="font-display font-bold text-[15px] text-stone-800 truncate">{a.doctorName}</p>
-            <p className="text-[12px] text-stone-500">{a.speciality}</p>
-            <p className="text-[12px] text-stone-400 mt-0.5">
+            <p className="font-display font-bold text-[0.9375rem] text-stone-800 truncate">{a.doctorName}</p>
+            <p className="text-[0.75rem] text-stone-500">{a.speciality}</p>
+            <p className="text-[0.75rem] text-stone-400 mt-0.5">
               {new Date(a.scheduledAt).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
               {a.type === 'TELECONSULTATION' ? ` · ${t('booking.type_teleconsult')}` : ` · ${t('booking.type_physical')}`}
             </p>
@@ -64,12 +64,12 @@ export default function AppointmentsPage() {
         {(cancellable || joinable) && (
           <div className="mt-3 flex items-center gap-2">
             {joinable && (
-              <Link href={`/patient/teleconsult?id=${a.consultationId}`} className="card-pagne bg-sante-600 text-white font-display font-extrabold text-[12px] px-3 py-1.5">
+              <Link href={`/patient/teleconsult?id=${a.consultationId}`} className="card-pagne bg-sante-600 text-white font-display font-extrabold text-[0.75rem] px-3 py-1.5">
                 {t('home.join')}
               </Link>
             )}
             {cancellable && cancelling !== a.id && (
-              <button type="button" onClick={() => { setCancelling(a.id); setReason(''); setCancelError(null); }} className="card-pagne bg-sos-50 text-sos-700 font-display font-extrabold text-[12px] px-3 py-1.5">
+              <button type="button" onClick={() => { setCancelling(a.id); setReason(''); setCancelError(null); }} className="card-pagne bg-sos-50 text-sos-700 font-display font-extrabold text-[0.75rem] px-3 py-1.5">
                 {t('appt.cancel')}
               </button>
             )}
@@ -84,13 +84,13 @@ export default function AppointmentsPage() {
                 onChange={(e) => setReason(e.target.value)}
                 placeholder={t('appt.reason')}
                 aria-label={t('appt.reason')}
-                className="flex-1 bg-white card-pagne border border-stone-300 px-3 py-2 text-[13px] focus:outline-none focus:border-sos-600"
+                className="flex-1 bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.8125rem] focus:outline-none focus:border-sos-600"
               />
-              <Button variant="sos" className="text-[12px] px-3 py-2" onClick={() => confirmCancel(a.id)}>
+              <Button variant="sos" className="text-[0.75rem] px-3 py-2" onClick={() => confirmCancel(a.id)}>
                 {t('appt.confirm_cancel')}
               </Button>
             </div>
-            {cancelError && <p className="text-sos-600 font-bold text-[12px] mt-2">{cancelError}</p>}
+            {cancelError && <p className="text-sos-600 font-bold text-[0.75rem] mt-2">{cancelError}</p>}
           </div>
         )}
       </CardPagne>
@@ -107,13 +107,13 @@ export default function AppointmentsPage() {
 
         {upcoming.length > 0 && (
           <>
-            <p className="font-display font-extrabold text-[13px] text-stone-700">{t('appt.upcoming')}</p>
+            <p className="font-display font-extrabold text-[0.8125rem] text-stone-700">{t('appt.upcoming')}</p>
             <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">{upcoming.map(card)}</div>
           </>
         )}
         {past.length > 0 && (
           <>
-            <p className="font-display font-extrabold text-[13px] text-stone-700 pt-2">{t('appt.past')}</p>
+            <p className="font-display font-extrabold text-[0.8125rem] text-stone-700 pt-2">{t('appt.past')}</p>
             <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">{past.map(card)}</div>
           </>
         )}

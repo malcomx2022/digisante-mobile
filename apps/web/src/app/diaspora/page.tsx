@@ -27,7 +27,7 @@ export default function DiasporaDashboard() {
       <SpaceHeader title={t('diaspora.title')} subtitle="Paris 🇫🇷 · Cotonou 🇧🇯" headerClass="bg-ocre-900" profileHref="/diaspora/profile" />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto">
         <CardPagne stitch className="p-5 bg-ocre-900 bogolan-dark text-white">
-          <p className="text-[12px] text-white/80">{t('wallet.balance')}</p>
+          <p className="text-[0.75rem] text-white/80">{t('wallet.balance')}</p>
           {loading ? (
             <Loading label={t('common.loading')} />
           ) : error ? (
@@ -37,14 +37,14 @@ export default function DiasporaDashboard() {
               {Number(data?.balance ?? 0).toLocaleString('fr-FR')} <span className="text-base">{data?.currency ?? 'XOF'}</span>
             </p>
           )}
-          <Link href="/diaspora/wallet" className="inline-block mt-3 bg-ocre-400 text-stone-900 font-display font-bold card-pagne px-4 py-2 text-[13px]">
+          <Link href="/diaspora/wallet" className="inline-block mt-3 bg-ocre-400 text-stone-900 font-display font-bold card-pagne px-4 py-2 text-[0.8125rem]">
             {t('wallet.topup')}
           </Link>
         </CardPagne>
 
         <div className="flex items-center justify-between">
-          <h2 className="font-display font-extrabold text-[14px] text-stone-700">{t('diaspora.family')}</h2>
-          <Link href="/diaspora/beneficiaries" className="text-[12px] text-ocre-700 font-display font-bold">
+          <h2 className="font-display font-extrabold text-[0.875rem] text-stone-700">{t('diaspora.family')}</h2>
+          <Link href="/diaspora/beneficiaries" className="text-[0.75rem] text-ocre-700 font-display font-bold">
             {t('beneficiaries.manage')} →
           </Link>
         </div>
@@ -52,12 +52,12 @@ export default function DiasporaDashboard() {
           {(family ?? []).slice(0, 4).map((f, i) => (
             <CardPagne key={f.id} className={`p-4 flex items-center justify-between ${i % 2 ? '-rotate-1' : 'rotate-1'}`}>
               <div>
-                <p className="font-display font-bold text-[14px]">{f.name}</p>
-                <p className="text-[12px] text-stone-400">
+                <p className="font-display font-bold text-[0.875rem]">{f.name}</p>
+                <p className="text-[0.75rem] text-stone-400">
                   {f.relationship ?? ''}{f.languagesSpoken.length > 0 ? ` · 🗣 ${f.languagesSpoken.join(' · ')}` : ''}
                 </p>
               </div>
-              <Link href="/diaspora/wallet" className="bg-ocre-400 text-stone-900 font-display font-bold card-pagne px-3 py-1.5 text-[12px]">
+              <Link href="/diaspora/wallet" className="bg-ocre-400 text-stone-900 font-display font-bold card-pagne px-3 py-1.5 text-[0.75rem]">
                 {t('beneficiaries.send_money')}
               </Link>
             </CardPagne>

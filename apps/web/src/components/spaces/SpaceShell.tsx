@@ -20,7 +20,7 @@ export function SpaceShell({ role, titleKey, headerClass }: { role: Role; titleK
           <header className={cn(headerClass, 'bogolan-dark relative pb-14 text-white')}>
             <StatusBar dark right={<LangSwitcher dark />} />
             <div className="px-6 pt-2">
-              <p className="text-[12px] text-white/70">{t(titleKey)}</p>
+              <p className="text-[0.75rem] text-white/70">{t(titleKey)}</p>
               <h1 className="font-display font-extrabold text-2xl">{t('space.welcome', { name: user?.phone ?? '' })}</h1>
             </div>
             <KenteBar className="absolute bottom-0 left-0 right-0" />

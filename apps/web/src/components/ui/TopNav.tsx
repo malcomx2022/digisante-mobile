@@ -41,7 +41,7 @@ export function TopNav({
   return (
     <header className={cn('hidden lg:block sticky top-0 z-30 bogolan-dark text-white', BAR[accent])}>
       <div className="mx-auto max-w-6xl flex items-center gap-2 px-6 h-14">
-        <span className="font-display font-extrabold text-[15px] mr-4">DigiSanté</span>
+        <span className="font-display font-extrabold text-[0.9375rem] mr-4">DigiSanté</span>
         <nav className="flex items-center gap-1 flex-1" aria-label="Navigation principale">
           {items.map((it) => {
             const active = pathname === it.href;
@@ -51,7 +51,7 @@ export function TopNav({
                 href={it.href}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'px-3 py-1.5 card-pagne text-[13px] font-display font-bold transition-colors',
+                  'px-3 py-1.5 card-pagne text-[0.8125rem] font-display font-bold transition-colors',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/80',
                   active ? 'bg-white/15 text-white' : 'text-white/70 hover:text-white hover:bg-white/10',
                 )}
@@ -64,7 +64,7 @@ export function TopNav({
             <Link
               href={fabHref}
               className={cn(
-                'ml-1 px-3 py-1.5 card-pagne text-[13px] font-display font-bold bg-white/20 hover:bg-white/30 text-white',
+                'ml-1 px-3 py-1.5 card-pagne text-[0.8125rem] font-display font-bold bg-white/20 hover:bg-white/30 text-white',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/80',
               )}
             >

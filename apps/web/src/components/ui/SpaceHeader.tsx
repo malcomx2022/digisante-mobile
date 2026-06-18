@@ -30,7 +30,7 @@ export function SpaceHeader({
       </div>
       {/* Fond plein-cadre ; titre recentré sur la même colonne que le contenu. */}
       <div className={cn('px-6 pt-2 lg:pt-6 lg:mx-auto lg:w-full', wide ? 'lg:max-w-5xl' : 'lg:max-w-2xl')}>
-        {subtitle && <p className="text-[12px] text-white/80">{subtitle}</p>}
+        {subtitle && <p className="text-[0.75rem] text-white/80">{subtitle}</p>}
         <h1 className="font-display font-extrabold text-2xl">{title}</h1>
       </div>
       <KenteBar className="absolute bottom-0 left-0 right-0" />

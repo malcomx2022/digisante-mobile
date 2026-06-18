@@ -43,15 +43,15 @@ export default function RemindersPage() {
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {(data ?? []).map((r) => (
           <CardPagne key={r.id} stitch={taken.has(r.id) ? false : true} className="p-4">
-            <p className="font-display font-extrabold text-[14px] text-stone-800">{r.title}</p>
-            <p className="text-[13px] text-stone-500">{r.body}</p>
+            <p className="font-display font-extrabold text-[0.875rem] text-stone-800">{r.title}</p>
+            <p className="text-[0.8125rem] text-stone-500">{r.body}</p>
             {r.scheduledAt && (
-              <p className="text-[12px] text-ocre-600 mt-1">
+              <p className="text-[0.75rem] text-ocre-600 mt-1">
                 <span aria-hidden="true">⏰</span> {new Date(r.scheduledAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
               </p>
             )}
             <div className="flex gap-2 mt-3">
-              <Button variant="sante" className="text-[13px] px-3 py-2" onClick={() => markTaken(r.id)} disabled={taken.has(r.id)}>
+              <Button variant="sante" className="text-[0.8125rem] px-3 py-2" onClick={() => markTaken(r.id)} disabled={taken.has(r.id)}>
                 <span aria-hidden="true">✓</span> {t('reminders.taken')}
               </Button>
               {/* Bouton « Snooze / +30 min » retiré : aucun endpoint de report n'existe côté backend

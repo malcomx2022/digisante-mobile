@@ -20,7 +20,7 @@ export default function OnboardingPage() {
           <StatusBar dark />
           <div className="px-6 pt-4">
             <h1 className="font-display font-extrabold text-2xl">{t('onboarding.welcome')}</h1>
-            <p className="text-[13px] text-white/80 mt-1"><span aria-hidden="true">🇧🇯 </span>{t('onboarding.choose_language')}</p>
+            <p className="text-[0.8125rem] text-white/80 mt-1"><span aria-hidden="true">🇧🇯 </span>{t('onboarding.choose_language')}</p>
           </div>
           <KenteBar className="absolute bottom-0 left-0 right-0" />
         </header>
@@ -37,7 +37,7 @@ export default function OnboardingPage() {
               )}
             >
               <span>
-                <span className="font-display font-extrabold text-[15px] mr-2">{l.code}</span>
+                <span className="font-display font-extrabold text-[0.9375rem] mr-2">{l.code}</span>
                 <span className="text-stone-600">{l.nativeName}</span>
               </span>
               {l.hasAudio && <span role="img" aria-label="Audio Fɔ̀ngbè" title="Audio Fɔ̀ngbè">🔊</span>}

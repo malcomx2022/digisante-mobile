@@ -65,7 +65,7 @@ export default function SosPage() {
           <button type="button" onClick={trigger} aria-label={t('sos.title')} className="sos-octogone pulse-sos w-44 h-44 text-white font-display font-extrabold text-xl grid place-items-center">
             SOS
           </button>
-          <p className="mt-4 text-[13px] text-stone-500">
+          <p className="mt-4 text-[0.8125rem] text-stone-500">
             {status === 'locating' ? (
               t('sos.locating')
             ) : status === 'sent' ? (
@@ -77,7 +77,7 @@ export default function SosPage() {
             )}
           </p>
           {coords && (
-            <p className="text-[12px] text-stone-400">
+            <p className="text-[0.75rem] text-stone-400">
               <span aria-hidden="true">📍</span> {coords.latitude.toFixed(4)}, {coords.longitude.toFixed(4)}
             </p>
           )}
@@ -97,7 +97,7 @@ export default function SosPage() {
         </Link>
 
         <CardPagne className="p-4">
-          <p className="font-display font-extrabold text-[13px] text-stone-700 mb-2">{t('sos.numbers')}</p>
+          <p className="font-display font-extrabold text-[0.8125rem] text-stone-700 mb-2">{t('sos.numbers')}</p>
           <a href="tel:112" className="flex items-center justify-between py-2 border-b border-dashed border-stone-200">
             <span className="font-bold">{t('sos.samu')}</span>
             <span className="text-sos-600 font-display font-extrabold">112</span>

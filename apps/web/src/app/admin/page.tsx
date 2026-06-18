@@ -66,8 +66,8 @@ export default function AdminMetrics() {
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
           {kpis.map(([val, label, accent], i) => (
             <CardPagne key={i} stitch={i === 0 ? 'indigo' : false} className={cn('p-4', i % 2 ? 'lg:rotate-0 -rotate-1' : 'lg:rotate-0 rotate-1')}>
-              <p className="text-[10px] text-stone-400 font-extrabold uppercase tracking-wide mb-1">{label}</p>
-              <p className={cn('font-display font-extrabold text-2xl lg:text-[26px] leading-none', accent)}>{val}</p>
+              <p className="text-[0.625rem] text-stone-400 font-extrabold uppercase tracking-wide mb-1">{label}</p>
+              <p className={cn('font-display font-extrabold text-2xl lg:text-[1.625rem] leading-none', accent)}>{val}</p>
             </CardPagne>
           ))}
         </div>
@@ -75,15 +75,15 @@ export default function AdminMetrics() {
         {/* File KYC */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <h2 className="font-display font-extrabold text-[14px] text-stone-700">
+            <h2 className="font-display font-extrabold text-[0.875rem] text-stone-700">
               {t('admin.kyc_queue')} {m.data?.kyc?.pendingReview ? `(${m.data.kyc.pendingReview})` : ''}
             </h2>
-            <Link href="/admin/kyc" className="text-[12px] text-indigo-700 font-display font-bold">
+            <Link href="/admin/kyc" className="text-[0.75rem] text-indigo-700 font-display font-bold">
               {t('adminkyc.review')} →
             </Link>
           </div>
           {queue.loading && <Loading label={t('common.loading')} />}
-          {!queue.loading && items.length === 0 && <p className="text-[13px] text-stone-400">{t('common.empty')}</p>}
+          {!queue.loading && items.length === 0 && <p className="text-[0.8125rem] text-stone-400">{t('common.empty')}</p>}
 
           {/* Mobile : cartes */}
           <div className="lg:hidden grid gap-3 grid-cols-1 sm:grid-cols-2">
@@ -91,14 +91,14 @@ export default function AdminMetrics() {
               <CardPagne key={k.id} className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="min-w-0">
-                    <p className="font-display font-bold text-[14px] truncate">{kycName(k)}</p>
-                    <p className="text-[12px] text-stone-400">{k.user.role}</p>
+                    <p className="font-display font-bold text-[0.875rem] truncate">{kycName(k)}</p>
+                    <p className="text-[0.75rem] text-stone-400">{k.user.role}</p>
                   </div>
                   <Badge variant="eleve">{k.status}</Badge>
                 </div>
                 <div className="flex gap-2 mt-3">
-                  <Button variant="terre" className="text-[12px] px-3 py-1.5" onClick={() => review(k.id, 'APPROVED')}>{t('admin.approve')}</Button>
-                  <Button variant="sos" className="text-[12px] px-3 py-1.5" onClick={() => review(k.id, 'REJECTED')}>{t('admin.reject')}</Button>
+                  <Button variant="terre" className="text-[0.75rem] px-3 py-1.5" onClick={() => review(k.id, 'APPROVED')}>{t('admin.approve')}</Button>
+                  <Button variant="sos" className="text-[0.75rem] px-3 py-1.5" onClick={() => review(k.id, 'REJECTED')}>{t('admin.reject')}</Button>
                 </div>
               </CardPagne>
             ))}
@@ -110,22 +110,22 @@ export default function AdminMetrics() {
               <table className="w-full">
                 <thead>
                   <tr className="bg-creme">
-                    <th className="text-left px-5 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase tracking-wide">{t('admin.col_user')}</th>
-                    <th className="text-left px-3 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase tracking-wide">{t('admin.col_role')}</th>
-                    <th className="text-left px-3 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase tracking-wide">{t('admin.col_status')}</th>
-                    <th className="text-right px-5 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase tracking-wide">{t('admin.col_action')}</th>
+                    <th className="text-left px-5 py-2.5 text-[0.625rem] font-extrabold text-stone-400 uppercase tracking-wide">{t('admin.col_user')}</th>
+                    <th className="text-left px-3 py-2.5 text-[0.625rem] font-extrabold text-stone-400 uppercase tracking-wide">{t('admin.col_role')}</th>
+                    <th className="text-left px-3 py-2.5 text-[0.625rem] font-extrabold text-stone-400 uppercase tracking-wide">{t('admin.col_status')}</th>
+                    <th className="text-right px-5 py-2.5 text-[0.625rem] font-extrabold text-stone-400 uppercase tracking-wide">{t('admin.col_action')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100">
                   {items.map((k) => (
                     <tr key={k.id} className="hover:bg-creme">
-                      <td className="px-5 py-2.5 font-bold text-[13px] text-stone-900">{kycName(k)}</td>
-                      <td className="px-3 py-2.5"><span className="px-2 py-0.5 card-pagne bg-indigo-50 text-indigo-600 text-[9.5px] font-extrabold">{k.user.role}</span></td>
+                      <td className="px-5 py-2.5 font-bold text-[0.8125rem] text-stone-900">{kycName(k)}</td>
+                      <td className="px-3 py-2.5"><span className="px-2 py-0.5 card-pagne bg-indigo-50 text-indigo-600 text-[0.59375rem] font-extrabold">{k.user.role}</span></td>
                       <td className="px-3 py-2.5"><Badge variant="eleve">{k.status}</Badge></td>
                       <td className="px-5 py-2.5">
                         <div className="flex gap-1.5 justify-end">
-                          <Button variant="terre" className="text-[11px] px-2.5 py-1" onClick={() => review(k.id, 'APPROVED')}>{t('admin.approve')}</Button>
-                          <Button variant="sos" className="text-[11px] px-2.5 py-1" onClick={() => review(k.id, 'REJECTED')}>{t('admin.reject')}</Button>
+                          <Button variant="terre" className="text-[0.6875rem] px-2.5 py-1" onClick={() => review(k.id, 'APPROVED')}>{t('admin.approve')}</Button>
+                          <Button variant="sos" className="text-[0.6875rem] px-2.5 py-1" onClick={() => review(k.id, 'REJECTED')}>{t('admin.reject')}</Button>
                         </div>
                       </td>
                     </tr>

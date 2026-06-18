@@ -74,7 +74,7 @@ export default function BeneficiariesPage() {
     }
   }
 
-  const inputCls = 'w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[14px] focus:outline-none focus:border-ocre-500';
+  const inputCls = 'w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.875rem] focus:outline-none focus:border-ocre-500';
 
   return (
     <>
@@ -82,7 +82,7 @@ export default function BeneficiariesPage() {
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto">
         {editing ? (
           <CardPagne stitch className="p-4 space-y-2">
-            <p className="font-display font-extrabold text-[14px] text-stone-800">
+            <p className="font-display font-extrabold text-[0.875rem] text-stone-800">
               {editing === 'new' ? t('beneficiaries.add') : t('beneficiaries.edit')}
             </p>
             <Nkyinkyim className="my-2" />
@@ -90,14 +90,14 @@ export default function BeneficiariesPage() {
             <input className={inputCls} placeholder={t('beneficiaries.relationship')} aria-label={t('beneficiaries.relationship')} value={form.relationship} onChange={(e) => setForm((f) => ({ ...f, relationship: e.target.value }))} />
             <input className={inputCls} placeholder={t('beneficiaries.phone')} aria-label={t('beneficiaries.phone')} value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
             <div>
-              <p className="text-[12px] text-stone-500 mb-1"><span aria-hidden="true">🗣 </span>{t('common.spoken')}</p>
+              <p className="text-[0.75rem] text-stone-500 mb-1"><span aria-hidden="true">🗣 </span>{t('common.spoken')}</p>
               <div className="flex flex-wrap gap-1.5">
                 {LANGS.map((l) => (
                   <button
                     key={l.code}
                     type="button"
                     onClick={() => toggleLang(l.code)}
-                    className={cn('card-pagne px-2.5 py-1 text-[11px] font-display font-bold border', form.languagesSpoken.includes(l.code) ? 'bg-ocre-400 text-stone-900 border-stone-900' : 'bg-white text-stone-500 border-stone-300')}
+                    className={cn('card-pagne px-2.5 py-1 text-[0.6875rem] font-display font-bold border', form.languagesSpoken.includes(l.code) ? 'bg-ocre-400 text-stone-900 border-stone-900' : 'bg-white text-stone-500 border-stone-300')}
                   >
                     {l.label}
                   </button>
@@ -109,13 +109,13 @@ export default function BeneficiariesPage() {
               <Button variant="ocre" className="flex-1" onClick={save} disabled={busy || !form.name.trim()}>{t('beneficiaries.save')}</Button>
               <Button variant="outline" className="flex-1" onClick={() => setEditing(null)}>{t('common.close')}</Button>
             </div>
-            {actionError && <p className="text-[12px] text-sos-600 font-bold">{actionError}</p>}
+            {actionError && <p className="text-[0.75rem] text-sos-600 font-bold">{actionError}</p>}
           </CardPagne>
         ) : (
           <Button variant="ocre" full onClick={startAdd}>+ {t('beneficiaries.add')}</Button>
         )}
 
-        {actionError && !editing && <p className="text-[12px] text-sos-600 font-bold">{actionError}</p>}
+        {actionError && !editing && <p className="text-[0.75rem] text-sos-600 font-bold">{actionError}</p>}
         {loading && <Loading label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && (data?.length ?? 0) === 0 && !editing && <Empty label={t('beneficiaries.empty')} />}
@@ -125,17 +125,17 @@ export default function BeneficiariesPage() {
             <CardPagne key={b.id} className={cn('p-4', i % 2 ? '-rotate-1' : 'rotate-1')}>
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="font-display font-bold text-[14px]">{b.name}</p>
-                  {b.relationship && <p className="text-[12px] text-stone-500">{b.relationship}</p>}
-                  {b.languagesSpoken.length > 0 && <p className="text-[12px] text-stone-400 mt-0.5">🗣 {b.languagesSpoken.join(' · ')}</p>}
-                  {b.phone && <p className="text-[12px] text-stone-400">{b.phone}</p>}
+                  <p className="font-display font-bold text-[0.875rem]">{b.name}</p>
+                  {b.relationship && <p className="text-[0.75rem] text-stone-500">{b.relationship}</p>}
+                  {b.languagesSpoken.length > 0 && <p className="text-[0.75rem] text-stone-400 mt-0.5">🗣 {b.languagesSpoken.join(' · ')}</p>}
+                  {b.phone && <p className="text-[0.75rem] text-stone-400">{b.phone}</p>}
                 </div>
                 <div className="flex flex-col items-end gap-1.5">
-                  <button type="button" onClick={() => startEdit(b)} className="text-[12px] text-ocre-700 font-display font-bold">{t('beneficiaries.edit')}</button>
-                  <button type="button" onClick={() => remove(b.id)} className="text-[12px] text-terre-600 font-display font-bold">{t('common.delete')}</button>
+                  <button type="button" onClick={() => startEdit(b)} className="text-[0.75rem] text-ocre-700 font-display font-bold">{t('beneficiaries.edit')}</button>
+                  <button type="button" onClick={() => remove(b.id)} className="text-[0.75rem] text-terre-600 font-display font-bold">{t('common.delete')}</button>
                 </div>
               </div>
-              <Link href="/diaspora/wallet" className="mt-3 inline-block bg-ocre-400 text-stone-900 font-display font-bold card-pagne px-3 py-1.5 text-[12px]">
+              <Link href="/diaspora/wallet" className="mt-3 inline-block bg-ocre-400 text-stone-900 font-display font-bold card-pagne px-3 py-1.5 text-[0.75rem]">
                 {t('beneficiaries.send_money')}
               </Link>
             </CardPagne>

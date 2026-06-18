@@ -48,13 +48,13 @@ export default function AgendaPage() {
           return (
             <CardPagne key={a.id} className="p-4 flex items-center gap-3">
               <div className="text-center w-14 shrink-0">
-                <p className="font-display font-extrabold text-indigo-700 text-[15px]">{new Date(a.scheduledAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</p>
-                <p className="text-[10px] text-stone-400">{new Date(a.scheduledAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</p>
+                <p className="font-display font-extrabold text-indigo-700 text-[0.9375rem]">{new Date(a.scheduledAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</p>
+                <p className="text-[0.625rem] text-stone-400">{new Date(a.scheduledAt).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}</p>
               </div>
               <span className={`w-1 self-stretch rounded-full ${a.status === 'CONFIRMED' ? 'bg-indigo-500' : 'bg-ocre-400'}`} />
               <div className="flex-1">
-                <p className="font-display font-bold text-[14px]">{p ? `${p.firstName} ${p.lastName}` : 'Patient'}</p>
-                <p className="text-[12px] text-stone-400">{a.type === 'TELECONSULTATION' ? 'Téléconsultation' : 'Présentiel'} · {a.status}</p>
+                <p className="font-display font-bold text-[0.875rem]">{p ? `${p.firstName} ${p.lastName}` : 'Patient'}</p>
+                <p className="text-[0.75rem] text-stone-400">{a.type === 'TELECONSULTATION' ? 'Téléconsultation' : 'Présentiel'} · {a.status}</p>
               </div>
             </CardPagne>
           );

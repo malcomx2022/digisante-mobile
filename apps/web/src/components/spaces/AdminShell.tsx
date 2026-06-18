@@ -97,8 +97,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               </svg>
             </div>
             <div>
-              <p className="font-display font-extrabold text-[16px] leading-tight">DigiSanté</p>
-              <p className="text-[10px] text-indigo-300 font-bold uppercase tracking-widest">{t('admin.backoffice')}</p>
+              <p className="font-display font-extrabold text-[1rem] leading-tight">DigiSanté</p>
+              <p className="text-[0.625rem] text-indigo-300 font-bold uppercase tracking-widest">{t('admin.backoffice')}</p>
             </div>
           </div>
           <div className="kente-bar w-full rounded-full mb-4" />
@@ -112,7 +112,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                   href={it.href}
                   aria-current={active ? 'page' : undefined}
                   className={cn(
-                    'relative flex items-center gap-3 px-3 py-2.5 card-pagne text-[13px] font-display transition-colors',
+                    'relative flex items-center gap-3 px-3 py-2.5 card-pagne text-[0.8125rem] font-display transition-colors',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/70',
                     active ? 'text-white font-bold' : 'text-indigo-200 font-medium hover:text-white hover:bg-white/5',
                   )}

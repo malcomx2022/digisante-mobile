@@ -70,22 +70,22 @@ export default function ProKycPage() {
           <>
             <CardPagne className="p-4">
               <div className="flex items-center justify-between mb-2">
-                <p className="font-display font-extrabold text-[13px] text-stone-700">{t('pro.kyc_status')}</p>
+                <p className="font-display font-extrabold text-[0.8125rem] text-stone-700">{t('pro.kyc_status')}</p>
                 <Badge variant={data.status === 'APPROVED' ? 'normal' : 'eleve'}>{data.status}</Badge>
               </div>
               {/* Progression tissée */}
               <div className="h-3 card-pagne bg-stone-200 overflow-hidden">
                 <div className={`h-full fill-tisse-indigo ${FILL[data.status] ?? 'w-1/4'}`} />
               </div>
-              <p className="text-[11px] text-stone-400 mt-2">Délai de revue : 48h ouvrées.</p>
+              <p className="text-[0.6875rem] text-stone-400 mt-2">Délai de revue : 48h ouvrées.</p>
             </CardPagne>
 
             <CardPagne className="p-4 space-y-2">
               {data.documents.length === 0 ? (
-                <p className="text-[13px] text-stone-400">Aucune pièce</p>
+                <p className="text-[0.8125rem] text-stone-400">Aucune pièce</p>
               ) : (
                 data.documents.map((d) => (
-                  <div key={d.id} className="flex items-center justify-between text-[13px] border-b border-dashed border-stone-200 py-1.5">
+                  <div key={d.id} className="flex items-center justify-between text-[0.8125rem] border-b border-dashed border-stone-200 py-1.5">
                     <span>{d.type}</span>
                     {/* TODO i18n : libellés de statut de pièce */}
                     <span aria-label={d.verified ? 'Vérifié' : 'En attente'}>
@@ -96,10 +96,10 @@ export default function ProKycPage() {
               )}
               {/* TODO: upload réel d'une pièce (hors périmètre) — bouton désactivé
                   plutôt que d'envoyer une URL factice. */}
-              <Button variant="outline" className="w-full mt-2 text-[13px]" onClick={addDoc} disabled title="Upload à venir">
+              <Button variant="outline" className="w-full mt-2 text-[0.8125rem]" onClick={addDoc} disabled title="Upload à venir">
                 {t('pro.kyc_add_doc')}
               </Button>
-              <p className="text-[11px] text-stone-400">{t('pro.kyc_upload_soon')}</p>
+              <p className="text-[0.6875rem] text-stone-400">{t('pro.kyc_upload_soon')}</p>
             </CardPagne>
 
             <Button variant="indigo" full onClick={submit} disabled={busy || data.documents.length === 0 || data.status === 'UNDER_REVIEW' || data.status === 'APPROVED'}>

@@ -111,7 +111,7 @@ function NavLink({ item, label, active, accent }: { item: NavItem; label: string
       href={item.href}
       aria-current={active ? 'page' : undefined}
       className={cn(
-        'flex flex-col items-center gap-1 text-[10px] font-display',
+        'flex flex-col items-center gap-1 text-[0.625rem] font-display',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
         RING_CLASS[accent],
         active ? `${ACTIVE_CLASS[accent]} font-extrabold` : 'text-stone-400 font-bold',

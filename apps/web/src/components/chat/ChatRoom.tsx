@@ -190,13 +190,13 @@ export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpar
             className="w-full text-left bg-white card-pagne border border-stone-200 px-4 py-3 flex items-center gap-3"
           >
             <div className="flex-1 min-w-0">
-              <p className="font-display font-bold text-[14px] text-stone-800 truncate">{th.counterpart.name}</p>
+              <p className="font-display font-bold text-[0.875rem] text-stone-800 truncate">{th.counterpart.name}</p>
               {th.counterpart.speciality && (
-                <p className="text-[12px] text-stone-500 truncate">{th.counterpart.speciality}</p>
+                <p className="text-[0.75rem] text-stone-500 truncate">{th.counterpart.speciality}</p>
               )}
             </div>
             {th.unreadCount > 0 && (
-              <span className={cn('text-white text-[11px] font-bold rounded-full px-2 py-0.5', ui.unread)}>
+              <span className={cn('text-white text-[0.6875rem] font-bold rounded-full px-2 py-0.5', ui.unread)}>
                 {th.unreadCount}
               </span>
             )}
@@ -214,7 +214,7 @@ export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpar
         type="button"
         onClick={() => setSelectedId(null)}
         aria-label={t('common.back')}
-        className="self-start text-[13px] text-stone-500 mb-2"
+        className="self-start text-[0.8125rem] text-stone-500 mb-2"
       >
         ← {current?.counterpart.name ?? t('chat.title')}
       </button>
@@ -225,7 +225,7 @@ export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpar
           <div key={m.id} className={cn('max-w-[78%]', m.mine ? 'ml-auto' : 'mr-auto')}>
             <div
               className={cn(
-                'px-3 py-2 text-[14px]',
+                'px-3 py-2 text-[0.875rem]',
                 m.mine ? ui.mine : 'bg-white card-pagne border border-stone-200',
                 m.pending && 'border-2 border-dashed border-ocre-400',
                 m.failed && 'border-2 border-dashed border-sos-500 opacity-80',
@@ -233,9 +233,9 @@ export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpar
             >
               {m.body}
             </div>
-            {m.pending && <p className="text-[11px] text-ocre-600 mt-0.5 text-right">{t('chat.pending')}</p>}
+            {m.pending && <p className="text-[0.6875rem] text-ocre-600 mt-0.5 text-right">{t('chat.pending')}</p>}
             {m.failed && (
-              <p className="text-[11px] mt-0.5 text-right">
+              <p className="text-[0.6875rem] mt-0.5 text-right">
                 <span className="text-sos-600">⚠ {t('chat.failed')}</span>{' '}
                 <button type="button" onClick={() => void resend(m)} className="text-sos-700 underline font-bold">
                   {t('common.retry')}
@@ -256,7 +256,7 @@ export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpar
             if (e.key === 'Enter' && !e.nativeEvent.isComposing) void send();
           }}
           placeholder={t('chat.placeholder')}
-          className={cn('flex-1 bg-white card-pagne border border-stone-300 px-3 py-2 text-[14px] focus:outline-none', ui.focus)}
+          className={cn('flex-1 bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.875rem] focus:outline-none', ui.focus)}
         />
         <button type="button" onClick={send} className={cn('text-white font-display font-bold card-pagne px-4', ui.send)}>
           {t('chat.send')}

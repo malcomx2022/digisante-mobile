@@ -41,12 +41,12 @@ export default function AdminKycPage() {
               {items.map((k) => (
                 <CardPagne key={k.id} className="p-4 flex items-center justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="font-display font-bold text-[14px] truncate">
+                    <p className="font-display font-bold text-[0.875rem] truncate">
                       {k.user.profile ? `${k.user.profile.firstName} ${k.user.profile.lastName}` : k.user.phone}
                     </p>
-                    <p className="text-[12px] text-stone-400">{k.user.role}</p>
+                    <p className="text-[0.75rem] text-stone-400">{k.user.role}</p>
                   </div>
-                  <Button variant="indigo" className="text-[12px] px-3 py-1.5 shrink-0" onClick={() => setSelected(k.id)}>
+                  <Button variant="indigo" className="text-[0.75rem] px-3 py-1.5 shrink-0" onClick={() => setSelected(k.id)}>
                     {t('adminkyc.review')}
                   </Button>
                 </CardPagne>
@@ -59,22 +59,22 @@ export default function AdminKycPage() {
                 <table className="w-full">
                   <thead>
                     <tr className="bg-creme">
-                      <th className="text-left px-5 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase tracking-wide">{t('admin.col_user')}</th>
-                      <th className="text-left px-3 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase tracking-wide">{t('admin.col_role')}</th>
-                      <th className="text-left px-3 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase tracking-wide">{t('admin.col_status')}</th>
-                      <th className="text-right px-5 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase tracking-wide">{t('admin.col_action')}</th>
+                      <th className="text-left px-5 py-2.5 text-[0.625rem] font-extrabold text-stone-400 uppercase tracking-wide">{t('admin.col_user')}</th>
+                      <th className="text-left px-3 py-2.5 text-[0.625rem] font-extrabold text-stone-400 uppercase tracking-wide">{t('admin.col_role')}</th>
+                      <th className="text-left px-3 py-2.5 text-[0.625rem] font-extrabold text-stone-400 uppercase tracking-wide">{t('admin.col_status')}</th>
+                      <th className="text-right px-5 py-2.5 text-[0.625rem] font-extrabold text-stone-400 uppercase tracking-wide">{t('admin.col_action')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-100">
                     {items.map((k) => (
                       <tr key={k.id} className="hover:bg-creme cursor-pointer" onClick={() => setSelected(k.id)}>
-                        <td className="px-5 py-2.5 font-bold text-[13px] text-stone-900">
+                        <td className="px-5 py-2.5 font-bold text-[0.8125rem] text-stone-900">
                           {k.user.profile ? `${k.user.profile.firstName} ${k.user.profile.lastName}` : k.user.phone}
                         </td>
-                        <td className="px-3 py-2.5"><span className="px-2 py-0.5 card-pagne bg-indigo-50 text-indigo-600 text-[9.5px] font-extrabold">{k.user.role}</span></td>
+                        <td className="px-3 py-2.5"><span className="px-2 py-0.5 card-pagne bg-indigo-50 text-indigo-600 text-[0.59375rem] font-extrabold">{k.user.role}</span></td>
                         <td className="px-3 py-2.5"><Badge variant="eleve">{k.status}</Badge></td>
                         <td className="px-5 py-2.5 text-right">
-                          <Button variant="indigo" className="text-[11px] px-2.5 py-1" onClick={() => setSelected(k.id)}>{t('adminkyc.review')}</Button>
+                          <Button variant="indigo" className="text-[0.6875rem] px-2.5 py-1" onClick={() => setSelected(k.id)}>{t('adminkyc.review')}</Button>
                         </td>
                       </tr>
                     ))}
@@ -124,7 +124,7 @@ function KycDetailPanel({ id, onBack, onDone }: { id: string; onBack: () => void
 
   return (
     <div className="space-y-4 lg:max-w-2xl lg:mx-auto">
-      <button type="button" onClick={onBack} className="text-[13px] text-indigo-700 font-display font-bold">
+      <button type="button" onClick={onBack} className="text-[0.8125rem] text-indigo-700 font-display font-bold">
         <span aria-hidden="true">← </span>{t('common.back')}
       </button>
 
@@ -134,12 +134,12 @@ function KycDetailPanel({ id, onBack, onDone }: { id: string; onBack: () => void
       {data && (
         <>
           <CardPagne stitch="indigo" className="p-4">
-            <p className="font-display font-extrabold text-[15px] text-stone-800">
+            <p className="font-display font-extrabold text-[0.9375rem] text-stone-800">
               {data.user.profile ? `${data.user.profile.firstName} ${data.user.profile.lastName}` : data.user.phone}
             </p>
-            <p className="text-[12px] text-stone-400">{data.user.role} · {data.user.phone}</p>
+            <p className="text-[0.75rem] text-stone-400">{data.user.role} · {data.user.phone}</p>
             {data.user.doctor && (
-              <p className="text-[12px] mt-1">
+              <p className="text-[0.75rem] mt-1">
                 {t('adminkyc.license')} : <span className="font-mono">{data.user.doctor.licenseNumber}</span>{' '}
                 <Badge variant={data.cnom?.verified ? 'normal' : 'pro'}>
                   {data.cnom?.verified ? t('adminkyc.cnom_ok') : t('adminkyc.cnom_ko')}
@@ -150,24 +150,24 @@ function KycDetailPanel({ id, onBack, onDone }: { id: string; onBack: () => void
 
           {/* Pièces justificatives + checklist de vérification */}
           <CardPagne className="p-4">
-            <p className="font-display font-extrabold text-[13px] text-stone-700">{t('adminkyc.documents')}</p>
+            <p className="font-display font-extrabold text-[0.8125rem] text-stone-700">{t('adminkyc.documents')}</p>
             <Nkyinkyim className="my-3" />
             <div className="space-y-2">
               {data.documents.map((d) => (
                 <div key={d.id} className="flex items-center justify-between gap-2">
-                  <a href={d.fileUrl} target="_blank" rel="noopener noreferrer" className="text-[13px] text-indigo-700 underline decoration-dotted underline-offset-4 truncate">
+                  <a href={d.fileUrl} target="_blank" rel="noopener noreferrer" className="text-[0.8125rem] text-indigo-700 underline decoration-dotted underline-offset-4 truncate">
                     {t(`kycdoc.${d.type}`)}
                   </a>
                   <button
                     type="button"
                     onClick={() => toggleDoc(d.id, !d.verified)}
-                    className={`shrink-0 card-pagne px-2.5 py-1 text-[11px] font-display font-bold border ${d.verified ? 'bg-terre-500 text-white border-stone-900' : 'bg-white text-stone-500 border-stone-300'}`}
+                    className={`shrink-0 card-pagne px-2.5 py-1 text-[0.6875rem] font-display font-bold border ${d.verified ? 'bg-terre-500 text-white border-stone-900' : 'bg-white text-stone-500 border-stone-300'}`}
                   >
                     {d.verified ? `✓ ${t('adminkyc.verified')}` : t('adminkyc.to_verify')}
                   </button>
                 </div>
               ))}
-              {data.documents.length === 0 && <p className="text-[13px] text-stone-400">{t('adminkyc.no_docs')}</p>}
+              {data.documents.length === 0 && <p className="text-[0.8125rem] text-stone-400">{t('adminkyc.no_docs')}</p>}
             </div>
           </CardPagne>
 
@@ -179,18 +179,18 @@ function KycDetailPanel({ id, onBack, onDone }: { id: string; onBack: () => void
               placeholder={t('adminkyc.notes')}
               aria-label={t('adminkyc.notes')}
               rows={2}
-              className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[14px] focus:outline-none focus:border-indigo-600"
+              className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.875rem] focus:outline-none focus:border-indigo-600"
             />
-            {!allVerified && <p className="text-[12px] text-ocre-600 mt-1"><span aria-hidden="true">⚠ </span>{t('adminkyc.warn_unverified')}</p>}
-            {actionError && <p className="text-[12px] text-sos-600 font-bold mt-1">{actionError}</p>}
+            {!allVerified && <p className="text-[0.75rem] text-ocre-600 mt-1"><span aria-hidden="true">⚠ </span>{t('adminkyc.warn_unverified')}</p>}
+            {actionError && <p className="text-[0.75rem] text-sos-600 font-bold mt-1">{actionError}</p>}
             <div className="grid grid-cols-3 gap-2 mt-3">
-              <Button variant="terre" className="text-[12px] px-2 py-2" onClick={() => decide('APPROVED')} disabled={busy}>
+              <Button variant="terre" className="text-[0.75rem] px-2 py-2" onClick={() => decide('APPROVED')} disabled={busy}>
                 {t('admin.approve')}
               </Button>
-              <Button variant="ocre" className="text-[12px] px-2 py-2" onClick={() => decide('NEEDS_REVISION')} disabled={busy}>
+              <Button variant="ocre" className="text-[0.75rem] px-2 py-2" onClick={() => decide('NEEDS_REVISION')} disabled={busy}>
                 {t('adminkyc.revision')}
               </Button>
-              <Button variant="sos" className="text-[12px] px-2 py-2" onClick={() => decide('REJECTED')} disabled={busy}>
+              <Button variant="sos" className="text-[0.75rem] px-2 py-2" onClick={() => decide('REJECTED')} disabled={busy}>
                 {t('admin.reject')}
               </Button>
             </div>

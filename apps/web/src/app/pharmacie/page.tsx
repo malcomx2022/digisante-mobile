@@ -63,13 +63,13 @@ export default function PharmaciePage() {
       <div className="px-6 pt-2 pb-4 flex items-start justify-between gap-2 lg:max-w-2xl lg:mx-auto lg:w-full">
         <div>
           <h1 className="font-display font-extrabold text-2xl">{t('pharmacie.title')}</h1>
-          <p className="text-[12px] text-white/80">{t('pharmacie.scan')}</p>
+          <p className="text-[0.75rem] text-white/80">{t('pharmacie.scan')}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Link href="/pharmacie/history" className="card-pagne bg-white/15 border border-white/20 px-3 py-1.5 text-[12px] font-display font-bold">
+          <Link href="/pharmacie/history" className="card-pagne bg-white/15 border border-white/20 px-3 py-1.5 text-[0.75rem] font-display font-bold">
             {t('pharmacie.history')}
           </Link>
-          <Link href="/pharmacie/profile" className="card-pagne bg-white/15 border border-white/20 px-3 py-1.5 text-[12px] font-display font-bold">
+          <Link href="/pharmacie/profile" className="card-pagne bg-white/15 border border-white/20 px-3 py-1.5 text-[0.75rem] font-display font-bold">
             {t('profile.title')}
           </Link>
         </div>
@@ -84,7 +84,7 @@ export default function PharmaciePage() {
           className="relative w-full wax-dark card-pagne stitch-light border-2 border-ocre-400 h-44 grid place-items-center overflow-hidden"
         >
           <div className="absolute left-0 right-0 h-0.5 bg-ocre-400 scan-line" />
-          <span className="text-white/80 text-[13px] font-display font-bold"><span aria-hidden="true">📷</span> {t('scan.tap')}</span>
+          <span className="text-white/80 text-[0.8125rem] font-display font-bold"><span aria-hidden="true">📷</span> {t('scan.tap')}</span>
         </button>
 
         <input
@@ -92,26 +92,26 @@ export default function PharmaciePage() {
           onChange={(e) => setQr(e.target.value)}
           placeholder={t('pharmacie.qr')}
           aria-label={t('pharmacie.qr')}
-          className="w-full bg-white/10 border border-white/20 card-pagne px-3 py-2 text-white text-[13px] focus:outline-none"
+          className="w-full bg-white/10 border border-white/20 card-pagne px-3 py-2 text-white text-[0.8125rem] focus:outline-none"
         />
         <button type="button" onClick={() => scan()} className="w-full bg-ocre-400 text-stone-900 font-display font-extrabold card-pagne py-3" disabled={qr.length < 16}>
           {t('pharmacie.verify')}
         </button>
 
-        {error && <p className="text-sos-100 bg-sos-700/40 card-pagne px-3 py-2 text-[13px]">{error}</p>}
+        {error && <p className="text-sos-100 bg-sos-700/40 card-pagne px-3 py-2 text-[0.8125rem]">{error}</p>}
 
         {result && (
           <div className="bg-creme text-nuit card-pagne relative overflow-hidden">
             <div className="bg-sante-900 bogolan-dark text-white p-3 relative">
               <p className="font-display font-extrabold">{result.authentic ? t('pharmacie.authentic') : t('pharmacie.suspicious')}</p>
-              {result.patient && <p className="text-[12px] text-white/80">{result.patient.firstName} {result.patient.lastName}</p>}
+              {result.patient && <p className="text-[0.75rem] text-white/80">{result.patient.firstName} {result.patient.lastName}</p>}
               <KenteBar className="absolute bottom-0 left-0 right-0" />
             </div>
             <div className="p-4 space-y-3">
               {result.items.map((it) => (
                 <div key={it.id} className="border-b border-dashed border-stone-200 pb-2.5">
-                  <span className="font-display font-bold text-[14px]">{it.medicationName}</span>
-                  {it.genericSuggestion && <p className="text-[12px] text-ocre-600"><span aria-hidden="true">↳</span> {t('pharmacie.generic')} : {it.genericSuggestion}</p>}
+                  <span className="font-display font-bold text-[0.875rem]">{it.medicationName}</span>
+                  {it.genericSuggestion && <p className="text-[0.75rem] text-ocre-600"><span aria-hidden="true">↳</span> {t('pharmacie.generic')} : {it.genericSuggestion}</p>}
                   {/* Choix du statut de délivrance par ligne (rupture de stock, partiel…) */}
                   {!dispensed && (
                     <div className="flex gap-1.5 mt-1.5">
@@ -122,7 +122,7 @@ export default function PharmaciePage() {
                           aria-pressed={(lineStatus[it.id] ?? 'DISPENSED') === s}
                           onClick={() => setLineStatus((m) => ({ ...m, [it.id]: s }))}
                           className={cn(
-                            'card-pagne px-2 py-1 text-[11px] font-display font-bold border',
+                            'card-pagne px-2 py-1 text-[0.6875rem] font-display font-bold border',
                             (lineStatus[it.id] ?? 'DISPENSED') === s ? 'bg-sante-600 text-white border-stone-900' : 'bg-white text-stone-500 border-stone-200',
                           )}
                         >
@@ -143,7 +143,7 @@ export default function PharmaciePage() {
               ) : (
                 <>
                   {result.expired && (
-                    <p className="bg-sos-100 text-sos-700 card-pagne px-3 py-2 text-[12px] font-bold mb-1">
+                    <p className="bg-sos-100 text-sos-700 card-pagne px-3 py-2 text-[0.75rem] font-bold mb-1">
                       {t('pharmacie.expired')}
                     </p>
                   )}

@@ -36,7 +36,7 @@ export function SpaceError({
         </p>
         <h1 className="font-display font-extrabold text-xl text-nuit">{t('auth.error')}</h1>
         {isDev && error?.message && (
-          <pre className="mt-3 text-left text-[11px] text-sos-700 bg-creme-deep p-3 overflow-auto max-h-40 whitespace-pre-wrap">
+          <pre className="mt-3 text-left text-[0.6875rem] text-sos-700 bg-creme-deep p-3 overflow-auto max-h-40 whitespace-pre-wrap">
             {error.message}
             {error.digest ? `\n(digest: ${error.digest})` : ''}
           </pre>
@@ -47,7 +47,7 @@ export function SpaceError({
           </Button>
           <Link
             href={homeHref}
-            className="card-pagne px-4 py-2 text-[14px] font-display font-bold bg-creme-deep text-stone-700"
+            className="card-pagne px-4 py-2 text-[0.875rem] font-display font-bold bg-creme-deep text-stone-700"
           >
             {t(homeLabelKey)}
           </Link>

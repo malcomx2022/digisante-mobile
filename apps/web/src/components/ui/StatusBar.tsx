@@ -17,7 +17,7 @@ export function StatusBar({
   right?: ReactNode;
 }) {
   return (
-    <div className={cn('flex items-center justify-between px-4 h-11 text-[11px]', dark ? 'text-white' : 'text-nuit')}>
+    <div className={cn('flex items-center justify-between px-4 h-11 text-[0.6875rem]', dark ? 'text-white' : 'text-nuit')}>
       <span className="font-display font-bold">{time}</span>
       {right ?? <LangPill lang={lang} dark={dark} />}
     </div>

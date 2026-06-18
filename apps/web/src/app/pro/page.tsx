@@ -60,7 +60,7 @@ export default function ProDashboard() {
           ].map(([n, label], i) => (
             <div key={i}>
               <p className="font-display font-extrabold text-2xl text-indigo-700">{n as number}</p>
-              <p className="text-[11px] text-stone-400">{label as string}</p>
+              <p className="text-[0.6875rem] text-stone-400">{label as string}</p>
             </div>
           ))}
         </CardPagne>
@@ -68,20 +68,20 @@ export default function ProDashboard() {
         <div className="grid grid-cols-2 gap-3">
           <Link
             href="/pro/messages"
-            className="flex items-center gap-2 bg-white card-pagne border border-stone-200 px-4 py-3 font-display font-bold text-[13px] text-indigo-700"
+            className="flex items-center gap-2 bg-white card-pagne border border-stone-200 px-4 py-3 font-display font-bold text-[0.8125rem] text-indigo-700"
           >
             <span aria-hidden>💬</span> {t('chat.title')}
           </Link>
           <Link
             href="/pro/results"
-            className="flex items-center gap-2 bg-white card-pagne border border-stone-200 px-4 py-3 font-display font-bold text-[13px] text-indigo-700"
+            className="flex items-center gap-2 bg-white card-pagne border border-stone-200 px-4 py-3 font-display font-bold text-[0.8125rem] text-indigo-700"
           >
             <span aria-hidden>🧪</span> {t('proresults.title')}
           </Link>
         </div>
 
-        <h2 className="font-display font-extrabold text-[14px] text-stone-700">{t('pro.queue')}</h2>
-        {confirmError && <p className="text-sos-600 font-bold text-[12px]">{t('auth.error')}</p>}
+        <h2 className="font-display font-extrabold text-[0.875rem] text-stone-700">{t('pro.queue')}</h2>
+        {confirmError && <p className="text-sos-600 font-bold text-[0.75rem]">{t('auth.error')}</p>}
         {loading && <Loading label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && list.length === 0 && <Empty label={t('common.empty')} />}
@@ -91,11 +91,11 @@ export default function ProDashboard() {
             <CardPagne key={a.id} className="p-4 flex items-center gap-3">
               <span className={`w-1.5 self-stretch rounded-full ${a.status === 'CONFIRMED' ? 'bg-indigo-500' : 'bg-ocre-400'}`} />
               <div className="flex-1">
-                <p className="font-display font-bold text-[14px]">{a.type === 'TELECONSULTATION' ? 'Téléconsultation' : 'Présentiel'}</p>
-                <p className="text-[12px] text-stone-400">{new Date(a.scheduledAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</p>
+                <p className="font-display font-bold text-[0.875rem]">{a.type === 'TELECONSULTATION' ? 'Téléconsultation' : 'Présentiel'}</p>
+                <p className="text-[0.75rem] text-stone-400">{new Date(a.scheduledAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</p>
               </div>
               {a.status === 'PENDING' && !confirmed.has(a.id) ? (
-                <Button variant="indigo" className="text-[12px] px-3 py-1.5" onClick={() => confirm(a.id)}>
+                <Button variant="indigo" className="text-[0.75rem] px-3 py-1.5" onClick={() => confirm(a.id)}>
                   {t('pro.confirm')}
                 </Button>
               ) : (

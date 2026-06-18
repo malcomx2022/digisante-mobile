@@ -91,13 +91,13 @@ export default function AdminUsers() {
     if (total <= PAGE_SIZE) return null;
     return (
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] text-stone-400">{t('admin.results_range', { from, to, total })}</span>
+        <span className="text-[0.6875rem] text-stone-400">{t('admin.results_range', { from, to, total })}</span>
         <div className="flex gap-1.5">
           <button
             type="button"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={!hasPrev}
-            className="card-pagne bg-white border border-stone-200 text-stone-600 text-[12px] font-display font-bold px-3 py-1.5 disabled:opacity-40"
+            className="card-pagne bg-white border border-stone-200 text-stone-600 text-[0.75rem] font-display font-bold px-3 py-1.5 disabled:opacity-40"
           >
             <span aria-hidden="true">‹ </span>{t('admin.prev')}
           </button>
@@ -105,7 +105,7 @@ export default function AdminUsers() {
             type="button"
             onClick={() => setPage((p) => p + 1)}
             disabled={!hasNext}
-            className="card-pagne bg-white border border-stone-200 text-stone-600 text-[12px] font-display font-bold px-3 py-1.5 disabled:opacity-40"
+            className="card-pagne bg-white border border-stone-200 text-stone-600 text-[0.75rem] font-display font-bold px-3 py-1.5 disabled:opacity-40"
           >
             {t('admin.next')}<span aria-hidden="true"> ›</span>
           </button>
@@ -118,10 +118,10 @@ export default function AdminUsers() {
     <>
       <SpaceHeader title={t('admin.users')} headerClass="bg-indigo-950" wide />
       <main className="px-6 -mt-10 relative z-20 pb-6 lg:max-w-5xl lg:mx-auto lg:w-full space-y-3">
-        <p className="text-[12px] text-stone-400">{t('admin.no_medical')}</p>
+        <p className="text-[0.75rem] text-stone-400">{t('admin.no_medical')}</p>
         {loading && <Loading label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
-        {actionError && <p className="text-[12px] text-sos-600 font-bold">{actionError}</p>}
+        {actionError && <p className="text-[0.75rem] text-sos-600 font-bold">{actionError}</p>}
         {!loading && !error && total === 0 && <Empty label={t('common.empty')} />}
 
         {/* ── Mobile : cartes ── */}
@@ -130,14 +130,14 @@ export default function AdminUsers() {
             {users.map((u) => (
               <CardPagne key={u.id} stitch={u.status === 'SUSPENDED' ? 'sos' : false} className="p-4 flex items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="font-display font-bold text-[14px] truncate">{fullName(u)}</p>
-                  <p className="text-[12px] text-stone-400 truncate">
+                  <p className="font-display font-bold text-[0.875rem] truncate">{fullName(u)}</p>
+                  <p className="text-[0.75rem] text-stone-400 truncate">
                     {u.role} · {u.phone}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   {statusBadge(u.status)}
-                  <Button variant={u.status === 'SUSPENDED' ? 'sante' : 'sos'} className="text-[11px] px-2.5 py-1" onClick={() => toggle(u)}>
+                  <Button variant={u.status === 'SUSPENDED' ? 'sante' : 'sos'} className="text-[0.6875rem] px-2.5 py-1" onClick={() => toggle(u)}>
                     {u.status === 'SUSPENDED' ? t('admin.activate') : t('admin.suspend')}
                   </Button>
                 </div>
@@ -154,7 +154,7 @@ export default function AdminUsers() {
               <thead>
                 <tr className="bg-creme">
                   {['admin.col_user', 'admin.col_role', 'admin.col_lang', 'admin.col_joined', 'admin.col_status'].map((k, i) => (
-                    <th key={k} className={cn('text-left py-2.5 text-[10px] font-extrabold text-stone-400 uppercase tracking-wide', i === 0 ? 'px-5' : 'px-3')}>
+                    <th key={k} className={cn('text-left py-2.5 text-[0.625rem] font-extrabold text-stone-400 uppercase tracking-wide', i === 0 ? 'px-5' : 'px-3')}>
                       {t(k)}
                     </th>
                   ))}
@@ -172,22 +172,22 @@ export default function AdminUsers() {
                   >
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2.5">
-                        <div className={cn('w-9 h-9 card-pagne flex items-center justify-center font-display font-extrabold text-[11px] rotate-1 shrink-0', ROLE_BADGE[u.role] ?? 'bg-stone-200 text-stone-600')}>
+                        <div className={cn('w-9 h-9 card-pagne flex items-center justify-center font-display font-extrabold text-[0.6875rem] rotate-1 shrink-0', ROLE_BADGE[u.role] ?? 'bg-stone-200 text-stone-600')}>
                           {initials(u)}
                         </div>
                         <div className="min-w-0">
-                          <p className="font-bold text-[13px] text-stone-900 truncate">{fullName(u)}</p>
-                          <p className="text-[10px] text-stone-400 truncate">{u.phone}</p>
+                          <p className="font-bold text-[0.8125rem] text-stone-900 truncate">{fullName(u)}</p>
+                          <p className="text-[0.625rem] text-stone-400 truncate">{u.phone}</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-3 py-3">
-                      <span className={cn('px-2 py-0.5 card-pagne text-[9.5px] font-extrabold whitespace-nowrap', ROLE_BADGE[u.role] ?? 'bg-stone-100 text-stone-500')}>{u.role}</span>
+                      <span className={cn('px-2 py-0.5 card-pagne text-[0.59375rem] font-extrabold whitespace-nowrap', ROLE_BADGE[u.role] ?? 'bg-stone-100 text-stone-500')}>{u.role}</span>
                     </td>
-                    <td className="px-3 py-3 text-[12px] font-bold text-stone-700 whitespace-nowrap">
+                    <td className="px-3 py-3 text-[0.75rem] font-bold text-stone-700 whitespace-nowrap">
                       {u.lang ? <><span aria-hidden="true">🗣</span> {u.lang}</> : '—'}
                     </td>
-                    <td className="px-3 py-3 text-[11.5px] text-stone-500 whitespace-nowrap">
+                    <td className="px-3 py-3 text-[0.71875rem] text-stone-500 whitespace-nowrap">
                       {new Date(u.createdAt).toLocaleDateString('fr-FR', { dateStyle: 'medium' })}
                     </td>
                     <td className="px-3 py-3">{statusBadge(u.status)}</td>
@@ -206,15 +206,15 @@ export default function AdminUsers() {
               <>
                 <CardPagne stitch="indigo" className="p-4">
                   <div className="flex items-center gap-3 mb-3">
-                    <div className={cn('w-12 h-12 card-pagne flex items-center justify-center font-display font-extrabold text-[15px] rotate-2 shrink-0', ROLE_BADGE[selected.role] ?? 'bg-stone-200 text-stone-600')}>
+                    <div className={cn('w-12 h-12 card-pagne flex items-center justify-center font-display font-extrabold text-[0.9375rem] rotate-2 shrink-0', ROLE_BADGE[selected.role] ?? 'bg-stone-200 text-stone-600')}>
                       {initials(selected)}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-display font-extrabold text-[15px] text-stone-900 truncate">{fullName(selected)}</p>
-                      <p className="text-[10.5px] text-stone-400">{selected.role}</p>
+                      <p className="font-display font-extrabold text-[0.9375rem] text-stone-900 truncate">{fullName(selected)}</p>
+                      <p className="text-[0.65625rem] text-stone-400">{selected.role}</p>
                     </div>
                   </div>
-                  <div className="space-y-1.5 text-[11.5px]">
+                  <div className="space-y-1.5 text-[0.71875rem]">
                     <div className="flex justify-between gap-2"><span className="text-stone-400">{t('admin.phone')}</span><span className="font-bold text-stone-900 truncate">{selected.phone}</span></div>
                     {selected.email && <div className="flex justify-between gap-2"><span className="text-stone-400">{t('admin.email')}</span><span className="font-bold text-stone-900 truncate">{selected.email}</span></div>}
                     {selected.lang && <div className="flex justify-between gap-2"><span className="text-stone-400">{t('admin.col_lang')}</span><span className="font-bold text-stone-900">🗣 {selected.lang}</span></div>}
@@ -223,23 +223,23 @@ export default function AdminUsers() {
                   </div>
                 </CardPagne>
                 <CardPagne className="p-4">
-                  <p className="font-display font-extrabold text-[13px] text-stone-900 mb-2.5">{t('admin.account_actions')}</p>
+                  <p className="font-display font-extrabold text-[0.8125rem] text-stone-900 mb-2.5">{t('admin.account_actions')}</p>
                   <Button
                     full
                     variant={selected.status === 'SUSPENDED' ? 'sante' : 'sos'}
-                    className="text-[12px] py-2.5"
+                    className="text-[0.75rem] py-2.5"
                     onClick={() => toggle(selected)}
                   >
                     {selected.status === 'SUSPENDED' ? t('admin.activate') : t('admin.suspend')}
                   </Button>
-                  <p className="text-[9.5px] text-stone-400 mt-2.5 leading-snug">
+                  <p className="text-[0.59375rem] text-stone-400 mt-2.5 leading-snug">
                     <span aria-hidden="true">⚠ </span>{t('admin.no_medical')}
                   </p>
                 </CardPagne>
               </>
             ) : (
               <CardPagne className="p-5">
-                <p className="text-[13px] text-stone-400">{t('admin.detail_hint')}</p>
+                <p className="text-[0.8125rem] text-stone-400">{t('admin.detail_hint')}</p>
               </CardPagne>
             )}
           </aside>

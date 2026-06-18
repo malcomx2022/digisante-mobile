@@ -74,7 +74,7 @@ export default function EmergencyCardPage() {
           <span
             key={it}
             className={cn(
-              'card-pagne px-2.5 py-1 text-[12px] font-display font-bold',
+              'card-pagne px-2.5 py-1 text-[0.75rem] font-display font-bold',
               tone === 'sos' ? 'bg-sos-50 text-sos-700' : 'bg-ocre-50 text-ocre-700',
             )}
           >
@@ -83,7 +83,7 @@ export default function EmergencyCardPage() {
         ))}
       </div>
     ) : (
-      <p className="text-[13px] text-stone-400 mt-0.5">{t('emergency.none')}</p>
+      <p className="text-[0.8125rem] text-stone-400 mt-0.5">{t('emergency.none')}</p>
     );
 
   return (
@@ -99,7 +99,7 @@ export default function EmergencyCardPage() {
             <CardPagne stitch className="p-5">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-[12px] text-stone-500 font-display font-bold uppercase tracking-wide">
+                  <p className="text-[0.75rem] text-stone-500 font-display font-bold uppercase tracking-wide">
                     {t('emergency.blood_group')}
                   </p>
                   <p className="font-display font-extrabold text-4xl text-sos-600 leading-none mt-1">
@@ -113,23 +113,23 @@ export default function EmergencyCardPage() {
 
               <Nkyinkyim className="my-4" />
 
-              <p className="font-display font-extrabold text-[13px] text-stone-700">{t('emergency.allergies')}</p>
+              <p className="font-display font-extrabold text-[0.8125rem] text-stone-700">{t('emergency.allergies')}</p>
               {chips(data.allergies, 'sos')}
 
-              <p className="font-display font-extrabold text-[13px] text-stone-700 mt-3">{t('emergency.chronic')}</p>
+              <p className="font-display font-extrabold text-[0.8125rem] text-stone-700 mt-3">{t('emergency.chronic')}</p>
               {chips(data.chronicDiseases, 'ocre')}
 
-              <p className="font-display font-extrabold text-[13px] text-stone-700 mt-3">{t('emergency.contact')}</p>
+              <p className="font-display font-extrabold text-[0.8125rem] text-stone-700 mt-3">{t('emergency.contact')}</p>
               {data.emergencyContact ? (
-                <a href={`tel:${data.emergencyContact}`} className="text-[15px] font-display font-bold text-sante-700">
+                <a href={`tel:${data.emergencyContact}`} className="text-[0.9375rem] font-display font-bold text-sante-700">
                   <span aria-hidden="true">📞</span> {data.emergencyContact}
                 </a>
               ) : (
-                <p className="text-[13px] text-stone-400 mt-0.5">{t('emergency.none')}</p>
+                <p className="text-[0.8125rem] text-stone-400 mt-0.5">{t('emergency.none')}</p>
               )}
             </CardPagne>
 
-            {saved && <p className="text-sante-700 font-display font-bold text-[13px] text-center">{t('emergency.saved')}</p>}
+            {saved && <p className="text-sante-700 font-display font-bold text-[0.8125rem] text-center">{t('emergency.saved')}</p>}
             <Button variant="sante" full onClick={openEditing}>
               {t('emergency.edit')}
             </Button>
@@ -139,7 +139,7 @@ export default function EmergencyCardPage() {
         {!loading && !error && editing && (
           <CardPagne className="p-4 space-y-3">
             <div>
-              <p className="font-display font-bold text-[12px] text-stone-600 mb-1">{t('emergency.blood_group')}</p>
+              <p className="font-display font-bold text-[0.75rem] text-stone-600 mb-1">{t('emergency.blood_group')}</p>
               <div className="grid grid-cols-4 gap-2">
                 {BLOOD_GROUPS.map((g) => (
                   <button
@@ -147,7 +147,7 @@ export default function EmergencyCardPage() {
                     type="button"
                     onClick={() => setBloodGroup(g === bloodGroup ? '' : g)}
                     className={cn(
-                      'card-pagne py-2 font-display font-bold text-[13px] border',
+                      'card-pagne py-2 font-display font-bold text-[0.8125rem] border',
                       g === bloodGroup ? 'bg-sos-600 text-white border-sos-700' : 'bg-white text-stone-700 border-stone-200',
                     )}
                   >
@@ -158,40 +158,40 @@ export default function EmergencyCardPage() {
             </div>
 
             <label className="block">
-              <span className="font-display font-bold text-[12px] text-stone-600">{t('emergency.allergies')}</span>
+              <span className="font-display font-bold text-[0.75rem] text-stone-600">{t('emergency.allergies')}</span>
               <input
                 value={allergies}
                 onChange={(e) => setAllergies(e.target.value)}
                 placeholder={t('emergency.list_hint')}
-                className="mt-1 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[14px] focus:outline-none focus:border-sante-600"
+                className="mt-1 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.875rem] focus:outline-none focus:border-sante-600"
               />
             </label>
 
             <label className="block">
-              <span className="font-display font-bold text-[12px] text-stone-600">{t('emergency.chronic')}</span>
+              <span className="font-display font-bold text-[0.75rem] text-stone-600">{t('emergency.chronic')}</span>
               <input
                 value={chronic}
                 onChange={(e) => setChronic(e.target.value)}
                 placeholder={t('emergency.list_hint')}
-                className="mt-1 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[14px] focus:outline-none focus:border-sante-600"
+                className="mt-1 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.875rem] focus:outline-none focus:border-sante-600"
               />
             </label>
 
             <label className="block">
-              <span className="font-display font-bold text-[12px] text-stone-600">{t('emergency.contact')}</span>
+              <span className="font-display font-bold text-[0.75rem] text-stone-600">{t('emergency.contact')}</span>
               <input
                 value={contact}
                 onChange={(e) => setContact(e.target.value)}
                 placeholder="+229 01 96 46 67 77"
-                className="mt-1 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[14px] focus:outline-none focus:border-sante-600"
+                className="mt-1 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.875rem] focus:outline-none focus:border-sante-600"
               />
             </label>
 
-            {saveError && <p className="text-sos-600 font-display font-bold text-[13px] text-center">{t('auth.error')}</p>}
+            {saveError && <p className="text-sos-600 font-display font-bold text-[0.8125rem] text-center">{t('auth.error')}</p>}
             <Button variant="sante" full disabled={saving} onClick={save}>
               {saving ? t('common.loading') : t('emergency.save')}
             </Button>
-            <button type="button" onClick={() => setEditing(false)} className="w-full text-center text-[13px] text-stone-500">
+            <button type="button" onClick={() => setEditing(false)} className="w-full text-center text-[0.8125rem] text-stone-500">
               {t('common.close')}
             </button>
           </CardPagne>

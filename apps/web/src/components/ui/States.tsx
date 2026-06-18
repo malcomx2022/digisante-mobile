@@ -8,7 +8,7 @@ export function ErrorState({ label, retryLabel, onRetry }: { label: string; retr
     <div className="p-8 text-center" role="alert">
       <p className="text-sos-600 font-bold text-sm">{label}</p>
       {onRetry && retryLabel && (
-        <button type="button" onClick={onRetry} className="mt-2 text-sante-700 underline decoration-dotted underline-offset-4 text-[13px]">
+        <button type="button" onClick={onRetry} className="mt-2 text-sante-700 underline decoration-dotted underline-offset-4 text-[0.8125rem]">
           {retryLabel}
         </button>
       )}
