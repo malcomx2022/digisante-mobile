@@ -54,7 +54,7 @@ export default function PatientDashboard() {
       <main className="px-6 -mt-10 relative z-20 space-y-5 pb-6 lg:max-w-2xl lg:mx-auto lg:w-full">
         <CardPagne stitch className="p-5">
           <div className="flex items-center justify-between">
-            <h2 className="font-display font-extrabold text-[15px] text-sante-800">{t('home.next_appointment')}</h2>
+            <h2 className="font-display font-extrabold text-[0.9375rem] text-sante-800">{t('home.next_appointment')}</h2>
             {next && (
               <Badge variant={next.status === 'CONFIRMED' ? 'normal' : 'priorite'}>
                 {t(`appt.status.${next.status}`)}
@@ -66,7 +66,7 @@ export default function PatientDashboard() {
             <Loading label={t('common.loading')} />
           ) : next ? (
             <>
-              <p className="text-[13px] text-stone-500">
+              <p className="text-[0.8125rem] text-stone-500">
                 {new Date(next.scheduledAt).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
                 {next.type === 'TELECONSULTATION' ? ` · ${t('booking.type_teleconsult')}` : ` · ${t('booking.type_physical')}`}
               </p>
@@ -87,7 +87,7 @@ export default function PatientDashboard() {
             <Link
               key={q.key}
               href={q.href}
-              className={`card-pagne ${q.bg} ${q.rotate} p-3 text-center font-display font-bold text-[12px] shadow-[3px_3px_0_rgba(0,0,0,.08)]`}
+              className={`card-pagne ${q.bg} ${q.rotate} p-3 text-center font-display font-bold text-[0.75rem] shadow-[3px_3px_0_rgba(0,0,0,.08)]`}
             >
               {t(q.key)}
             </Link>

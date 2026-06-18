@@ -67,21 +67,21 @@ function Patient360Inner() {
         <ProHeader title={t('pro.patient360')} />
         <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto">
           <CardPagne stitch="indigo" className="p-5">
-            <p className="font-display font-extrabold text-[15px] text-stone-800 text-center">{t('pro.no_patient_title')}</p>
-            <p className="text-[13px] text-stone-500 mt-2 text-center">{t('pro.no_patient_desc')}</p>
+            <p className="font-display font-extrabold text-[0.9375rem] text-stone-800 text-center">{t('pro.no_patient_title')}</p>
+            <p className="text-[0.8125rem] text-stone-500 mt-2 text-center">{t('pro.no_patient_desc')}</p>
             <Nkyinkyim className="my-4" />
             <Button variant="indigo" full onClick={() => setScanning(true)}>
               <span aria-hidden="true">📷</span> {t('pro.scan_share')}
             </Button>
-            <p className="text-[12px] text-stone-400 my-3 text-center">{t('scan.or_paste')}</p>
+            <p className="text-[0.75rem] text-stone-400 my-3 text-center">{t('scan.or_paste')}</p>
             <input
               value={linkInput}
               onChange={(e) => setLinkInput(e.target.value)}
               placeholder={t('pro.paste_link')}
               aria-label={t('pro.paste_link')}
-              className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[13px] focus:outline-none focus:border-indigo-600"
+              className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.8125rem] focus:outline-none focus:border-indigo-600"
             />
-            {parseError && <p className="text-sos-600 font-bold text-[12px] mt-2">{parseError}</p>}
+            {parseError && <p className="text-sos-600 font-bold text-[0.75rem] mt-2">{parseError}</p>}
             <Button variant="indigo" full className="mt-3" onClick={() => handleSharePayload(linkInput)}>
               {t('pro.open_share')}
             </Button>
@@ -128,14 +128,14 @@ function Patient360Inner() {
         <div className="grid grid-cols-2 gap-2">
           <Link
             href={`/pro/messages?patient=${encodeURIComponent(patientId)}`}
-            className="flex items-center justify-center gap-2 bg-indigo-600 text-white card-pagne px-4 py-2.5 font-display font-bold text-[14px]"
+            className="flex items-center justify-center gap-2 bg-indigo-600 text-white card-pagne px-4 py-2.5 font-display font-bold text-[0.875rem]"
           >
             <span aria-hidden>💬</span> {t('pro.message_patient')}
           </Link>
           {/* Pré-remplit le patient dans le formulaire d'ordonnance (point 6a). */}
           <Link
             href={`/pro/prescribe?patientId=${encodeURIComponent(patientId)}`}
-            className="flex items-center justify-center gap-2 bg-white border border-indigo-600 text-indigo-700 card-pagne px-4 py-2.5 font-display font-bold text-[14px]"
+            className="flex items-center justify-center gap-2 bg-white border border-indigo-600 text-indigo-700 card-pagne px-4 py-2.5 font-display font-bold text-[0.875rem]"
           >
             <span aria-hidden>℞</span> {t('pro.prescribe')}
           </Link>
@@ -144,10 +144,10 @@ function Patient360Inner() {
         {/* Partage requis (pas de jeton) OU refusé (jeton invalide/expiré) → saisie du jeton. */}
         {(!token || (!loading && error && isForbidden)) && (
           <CardPagne stitch="indigo" className="p-5">
-            <p className="font-display font-extrabold text-[14px] text-stone-800 text-center">
+            <p className="font-display font-extrabold text-[0.875rem] text-stone-800 text-center">
               {token ? t('pro.access_denied_title') : t('pro.need_token_title')}
             </p>
-            <p className="text-[13px] text-stone-500 mt-2 text-center">
+            <p className="text-[0.8125rem] text-stone-500 mt-2 text-center">
               {token ? t('pro.access_denied_desc') : t('pro.need_token_desc')}
             </p>
             <Nkyinkyim className="my-4" />
@@ -156,7 +156,7 @@ function Patient360Inner() {
               onChange={(e) => setTokenInput(e.target.value)}
               placeholder={t('pro.paste_token')}
               aria-label={t('pro.paste_token')}
-              className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[13px] font-mono focus:outline-none focus:border-indigo-600"
+              className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.8125rem] font-mono focus:outline-none focus:border-indigo-600"
             />
             <Button variant="indigo" full className="mt-3" onClick={() => tokenInput.trim() && setToken(tokenInput.trim())}>
               {t('pro.apply_token')}
@@ -168,8 +168,8 @@ function Patient360Inner() {
 
         {token && !loading && error && !isForbidden && (
           <CardPagne stitch="indigo" className="p-5 text-center">
-            <p className="font-display font-extrabold text-[14px] text-stone-800">{t('common.empty')}</p>
-            <p className="text-[13px] text-stone-500 mt-2">{t('pro.load_error')}</p>
+            <p className="font-display font-extrabold text-[0.875rem] text-stone-800">{t('common.empty')}</p>
+            <p className="text-[0.8125rem] text-stone-500 mt-2">{t('pro.load_error')}</p>
           </CardPagne>
         )}
 
@@ -177,7 +177,7 @@ function Patient360Inner() {
 
         {token && !loading && !error && (data?.length ?? 0) > 0 && (
           <CardPagne stitch="indigo" className="p-4">
-            <p className="font-display font-extrabold text-[13px] text-stone-700">{t('pro.dmp_records')}</p>
+            <p className="font-display font-extrabold text-[0.8125rem] text-stone-700">{t('pro.dmp_records')}</p>
             <Nkyinkyim className="my-3" />
             <div className="space-y-3">
               {(data ?? []).map((r) => (
@@ -185,10 +185,10 @@ function Patient360Inner() {
                   <span className={`w-1.5 rounded-full ${BAR[r.type] ?? 'bg-stone-300'}`} />
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <p className="font-display font-bold text-[14px] text-stone-800">{r.title}</p>
+                      <p className="font-display font-bold text-[0.875rem] text-stone-800">{r.title}</p>
                       <Badge variant="indigo">{r.type}</Badge>
                     </div>
-                    <p className="text-[12px] text-stone-400">
+                    <p className="text-[0.75rem] text-stone-400">
                       {new Date(r.createdAt).toLocaleDateString('fr-FR', { dateStyle: 'medium' })}
                     </p>
                   </div>
@@ -208,8 +208,8 @@ function ConsentNote() {
   const { t } = useLocale();
   return (
     <CardPagne className="p-4">
-      <p className="font-display font-extrabold text-[13px] text-stone-700">{t('pro.access_section')}</p>
-      <p className="text-[12px] text-stone-500 mt-1">{t('pro.access_note')}</p>
+      <p className="font-display font-extrabold text-[0.8125rem] text-stone-700">{t('pro.access_section')}</p>
+      <p className="text-[0.75rem] text-stone-500 mt-1">{t('pro.access_note')}</p>
     </CardPagne>
   );
 }

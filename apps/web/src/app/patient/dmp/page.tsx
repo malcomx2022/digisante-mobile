@@ -74,7 +74,7 @@ export default function DmpPage() {
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto lg:w-full">
         <Link
           href="/patient/vitals"
-          className="flex items-center gap-2 bg-white card-pagne border border-stone-200 px-4 py-3 font-display font-bold text-[14px] text-sante-700"
+          className="flex items-center gap-2 bg-white card-pagne border border-stone-200 px-4 py-3 font-display font-bold text-[0.875rem] text-sante-700"
         >
           <span aria-hidden>📈</span> {t('vitals.title')}
         </Link>
@@ -83,7 +83,7 @@ export default function DmpPage() {
           <button
             type="button"
             onClick={exportFhir}
-            className="w-full text-center text-[13px] font-display font-bold text-sante-700 underline decoration-dotted underline-offset-4"
+            className="w-full text-center text-[0.8125rem] font-display font-bold text-sante-700 underline decoration-dotted underline-offset-4"
           >
             {t('dmp.export')}
           </button>
@@ -93,16 +93,16 @@ export default function DmpPage() {
 
         {(consents?.length ?? 0) > 0 && (
           <CardPagne className="p-4">
-            <p className="font-display font-extrabold text-[13px] text-stone-700">{t('dmp.access_section_title')}</p>
+            <p className="font-display font-extrabold text-[0.8125rem] text-stone-700">{t('dmp.access_section_title')}</p>
             <div className="mt-2 space-y-2">
               {(consents ?? []).map((c) => (
                 <div key={c.granteeId} className="flex items-center gap-2">
                   <div className="flex-1 min-w-0">
-                    <p className="font-display font-bold text-[13px] text-stone-800 truncate">
+                    <p className="font-display font-bold text-[0.8125rem] text-stone-800 truncate">
                       {c.name}
                       {c.speciality ? ` · ${c.speciality}` : ''}
                     </p>
-                    <p className="text-[11px] text-stone-400">
+                    <p className="text-[0.6875rem] text-stone-400">
                       {c.active
                         ? t('dmp.share_expires', { date: new Date(c.expiresAt).toLocaleDateString('fr-FR', { dateStyle: 'medium' }) })
                         : t('dmp.revoked_label')}
@@ -112,7 +112,7 @@ export default function DmpPage() {
                     <button
                       type="button"
                       onClick={() => revoke(c.granteeId)}
-                      className="shrink-0 card-pagne bg-sos-50 text-sos-700 font-display font-extrabold text-[11px] px-3 py-1.5"
+                      className="shrink-0 card-pagne bg-sos-50 text-sos-700 font-display font-extrabold text-[0.6875rem] px-3 py-1.5"
                     >
                       {t('dmp.revoke')}
                     </button>
@@ -120,7 +120,7 @@ export default function DmpPage() {
                     <button
                       type="button"
                       onClick={() => regrant(c.granteeId)}
-                      className="shrink-0 card-pagne bg-sante-50 text-sante-700 font-display font-extrabold text-[11px] px-3 py-1.5"
+                      className="shrink-0 card-pagne bg-sante-50 text-sante-700 font-display font-extrabold text-[0.6875rem] px-3 py-1.5"
                     >
                       {t('dmp.regrant')}
                     </button>
@@ -140,15 +140,15 @@ export default function DmpPage() {
             <CardPagne key={r.id} className="p-4 flex gap-3">
               <span className={`w-1.5 rounded-full ${BAR[r.type] ?? 'bg-stone-300'}`} />
               <div className="flex-1">
-                <p className="font-display font-bold text-[14px] text-stone-800">{r.title}</p>
-                <p className="text-[12px] text-stone-400">
+                <p className="font-display font-bold text-[0.875rem] text-stone-800">{r.title}</p>
+                <p className="text-[0.75rem] text-stone-400">
                   {r.type} · {new Date(r.createdAt).toLocaleDateString('fr-FR', { dateStyle: 'medium' })}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setSharing(r)}
-                className="self-center shrink-0 card-pagne bg-sante-50 text-sante-700 font-display font-extrabold text-[11px] px-3 py-1.5"
+                className="self-center shrink-0 card-pagne bg-sante-50 text-sante-700 font-display font-extrabold text-[0.6875rem] px-3 py-1.5"
               >
                 {t('dmp.share')}
               </button>

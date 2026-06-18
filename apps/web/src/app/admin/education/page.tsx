@@ -51,7 +51,7 @@ export default function AdminEducation() {
     }
   }
 
-  const inputCls = 'w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[14px] focus:outline-none focus:border-indigo-600';
+  const inputCls = 'w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.875rem] focus:outline-none focus:border-indigo-600';
 
   return (
     <>
@@ -63,7 +63,7 @@ export default function AdminEducation() {
           {draft ? (
             <div className="flex items-center justify-between">
               <Badge variant="eleve">{draft.status}</Badge>
-              <Button variant="indigo" className="text-[12px] px-3 py-1.5" onClick={submitReview} disabled={draft.status !== 'DRAFT'}>
+              <Button variant="indigo" className="text-[0.75rem] px-3 py-1.5" onClick={submitReview} disabled={draft.status !== 'DRAFT'}>
                 {t('edu.submit_review')}
               </Button>
             </div>
@@ -72,7 +72,7 @@ export default function AdminEducation() {
               {t('edu.create')}
             </Button>
           )}
-          {actionError && <p className="text-[12px] text-sos-600 font-bold">{actionError}</p>}
+          {actionError && <p className="text-[0.75rem] text-sos-600 font-bold">{actionError}</p>}
         </CardPagne>
 
         <Nkyinkyim className="opacity-40" />
@@ -82,8 +82,8 @@ export default function AdminEducation() {
           {(data ?? []).map((c) => (
             <CardPagne key={c.id} className="p-3 flex items-center justify-between">
               <div>
-                <p className="font-display font-bold text-[14px]">{c.title}</p>
-                <p className="text-[11px] text-stone-400">{c.category}</p>
+                <p className="font-display font-bold text-[0.875rem]">{c.title}</p>
+                <p className="text-[0.6875rem] text-stone-400">{c.category}</p>
               </div>
               <Badge variant={c.isPublished ? 'normal' : 'eleve'}>{c.status}</Badge>
             </CardPagne>

@@ -95,7 +95,7 @@ function TeleconsultInner() {
               <button
                 type="button"
                 onClick={() => void join()}
-                className="mt-3 text-ocre-400 underline decoration-dotted underline-offset-4 text-[13px] font-bold"
+                className="mt-3 text-ocre-400 underline decoration-dotted underline-offset-4 text-[0.8125rem] font-bold"
               >
                 {t('common.retry')}
               </button>
@@ -114,7 +114,7 @@ function TeleconsultInner() {
             <button
               type="button"
               onClick={() => router.push('/patient/chat')}
-              className="mt-3 bg-ocre-400 text-stone-900 font-display font-bold card-pagne px-4 py-2 text-[13px]"
+              className="mt-3 bg-ocre-400 text-stone-900 font-display font-bold card-pagne px-4 py-2 text-[0.8125rem]"
             >
               {t('teleconsult.open_chat')}
             </button>
@@ -130,7 +130,7 @@ function TeleconsultInner() {
         <div className="absolute bottom-4 right-4 w-20 h-28 card-pagne border-2 border-ocre-400 bg-black/40" />
 
         {(!online || mode !== 'VIDEO') && (
-          <div className="absolute top-3 left-3 right-3 bg-ocre-400 text-stone-900 text-[12px] font-display font-bold card-pagne px-3 py-1 text-center">
+          <div className="absolute top-3 left-3 right-3 bg-ocre-400 text-stone-900 text-[0.75rem] font-display font-bold card-pagne px-3 py-1 text-center">
             {t('teleconsult.low_network')} ({mode})
           </div>
         )}
@@ -141,7 +141,7 @@ function TeleconsultInner() {
           type="button"
           onClick={downgrade}
           disabled={mode === 'CHAT'}
-          className="bg-indigo-600 text-white font-display font-bold card-pagne px-4 py-3 text-[13px] disabled:opacity-50"
+          className="bg-indigo-600 text-white font-display font-bold card-pagne px-4 py-3 text-[0.8125rem] disabled:opacity-50"
         >
           {t('teleconsult.downgrade')}
         </button>

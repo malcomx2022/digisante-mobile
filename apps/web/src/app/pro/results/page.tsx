@@ -46,8 +46,8 @@ export default function ProResultsPage() {
           <CardPagne key={r.id} stitch={r.critical.length > 0} className="p-4">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="font-display font-extrabold text-[14px] text-stone-800">{r.testType}</p>
-                <p className="text-[13px] text-stone-500">{r.patient ? `${r.patient.firstName} ${r.patient.lastName}` : '—'}</p>
+                <p className="font-display font-extrabold text-[0.875rem] text-stone-800">{r.testType}</p>
+                <p className="text-[0.8125rem] text-stone-500">{r.patient ? `${r.patient.firstName} ${r.patient.lastName}` : '—'}</p>
               </div>
               {r.critical.length > 0 ? (
                 <Badge className="bg-sos-500 text-white"><span aria-hidden="true">⚠</span> {t('labo.critical_short')}</Badge>
@@ -61,7 +61,7 @@ export default function ProResultsPage() {
               {Object.entries(r.values).map(([k, v]) => {
                 const crit = r.critical.find((c) => c.key === k);
                 return (
-                  <li key={k} className="flex items-center justify-between text-[13px]">
+                  <li key={k} className="flex items-center justify-between text-[0.8125rem]">
                     <span className="text-stone-600">{k}</span>
                     <span className={crit ? 'text-sos-600 font-display font-bold' : 'text-stone-800'}>
                       {String(v)}{crit ? ` · ${t(`labo.reason.${crit.reason}`)}` : ''}
@@ -75,8 +75,8 @@ export default function ProResultsPage() {
 
             {r.interpretation ? (
               <div className="bg-indigo-50 card-pagne p-3">
-                <p className="text-[11px] font-display font-bold text-indigo-700">{t('proresults.interpreted')}</p>
-                <p className="text-[13px] text-stone-700 mt-0.5 whitespace-pre-line">{r.interpretation}</p>
+                <p className="text-[0.6875rem] font-display font-bold text-indigo-700">{t('proresults.interpreted')}</p>
+                <p className="text-[0.8125rem] text-stone-700 mt-0.5 whitespace-pre-line">{r.interpretation}</p>
               </div>
             ) : (
               <>
@@ -86,12 +86,12 @@ export default function ProResultsPage() {
                   placeholder={t('proresults.placeholder')}
                   aria-label={t('proresults.placeholder')}
                   rows={2}
-                  className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[14px] focus:outline-none focus:border-indigo-600"
+                  className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.875rem] focus:outline-none focus:border-indigo-600"
                 />
                 <Button variant="indigo" full className="mt-2" onClick={() => sign(r.id)} disabled={busy === r.id || !(drafts[r.id] ?? '').trim()}>
                   {t('proresults.sign')}
                 </Button>
-                {signError[r.id] && <p className="text-sos-600 font-bold text-[12px] mt-2">{t('auth.error')}</p>}
+                {signError[r.id] && <p className="text-sos-600 font-bold text-[0.75rem] mt-2">{t('auth.error')}</p>}
               </>
             )}
           </CardPagne>

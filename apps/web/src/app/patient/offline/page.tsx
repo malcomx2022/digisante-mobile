@@ -30,7 +30,7 @@ export default function OfflinePage() {
     <div className="flex-1 wax-ocre">
       <PatientHeader title={t('offline.title')} />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto lg:w-full">
-        <div className="bg-ocre-400 trame-tissee text-stone-900 card-pagne px-4 py-2 text-center text-[13px] font-display font-bold">
+        <div className="bg-ocre-400 trame-tissee text-stone-900 card-pagne px-4 py-2 text-center text-[0.8125rem] font-display font-bold">
           {online ? (
             <><span aria-hidden="true">🟢</span> En ligne</>
           ) : (
@@ -39,10 +39,10 @@ export default function OfflinePage() {
         </div>
 
         <CardPagne className="p-4">
-          <p className="font-display font-extrabold text-[13px] text-stone-700 mb-2">{t('offline.available')}</p>
+          <p className="font-display font-extrabold text-[0.8125rem] text-stone-700 mb-2">{t('offline.available')}</p>
           <div className="grid grid-cols-2 gap-2">
             {AVAILABLE.map((k, i) => (
-              <div key={k} className={`card-pagne bg-sante-50 text-sante-700 p-2 text-center text-[12px] font-bold ${i % 2 ? '-rotate-1' : 'rotate-1'}`}>
+              <div key={k} className={`card-pagne bg-sante-50 text-sante-700 p-2 text-center text-[0.75rem] font-bold ${i % 2 ? '-rotate-1' : 'rotate-1'}`}>
                 {t(k)}
               </div>
             ))}
@@ -50,14 +50,14 @@ export default function OfflinePage() {
         </CardPagne>
 
         <CardPagne className="p-4">
-          <p className="font-display font-extrabold text-[13px] text-stone-700 mb-2">
+          <p className="font-display font-extrabold text-[0.8125rem] text-stone-700 mb-2">
             {t('offline.queue')} {queue.length > 0 && `(${queue.length})`}
           </p>
           {queue.length === 0 ? (
-            <p className="text-[13px] text-stone-400">{t('common.empty')}</p>
+            <p className="text-[0.8125rem] text-stone-400">{t('common.empty')}</p>
           ) : (
             queue.map((q) => (
-              <div key={q.id} className="flex items-center justify-between py-1.5 border-b border-dashed border-stone-200 text-[12px]">
+              <div key={q.id} className="flex items-center justify-between py-1.5 border-b border-dashed border-stone-200 text-[0.75rem]">
                 <span className="font-mono text-stone-600">{q.method} {q.path}</span>
                 <span className="text-ocre-600" aria-hidden="true">⏳</span>
               </div>
@@ -65,7 +65,7 @@ export default function OfflinePage() {
           )}
         </CardPagne>
 
-        <p className="text-center text-[12px] text-sos-600 font-display font-bold"><span aria-hidden="true">⚠</span> {t('offline.sos_active')}</p>
+        <p className="text-center text-[0.75rem] text-sos-600 font-display font-bold"><span aria-hidden="true">⚠</span> {t('offline.sos_active')}</p>
       </main>
     </div>
   );

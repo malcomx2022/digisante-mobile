@@ -95,8 +95,8 @@ export function DmpShareDialog({
       <CardPagne stitch className="w-full max-w-md p-5 max-h-[90vh] overflow-y-auto">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="font-display font-extrabold text-[15px] text-stone-800">{t('dmp.share_title')}</p>
-            <p className="text-[12px] text-stone-500">{recordTitle}</p>
+            <p className="font-display font-extrabold text-[0.9375rem] text-stone-800">{t('dmp.share_title')}</p>
+            <p className="text-[0.75rem] text-stone-500">{recordTitle}</p>
           </div>
           <button type="button" onClick={onClose} aria-label={t('common.close')} className="text-stone-400 font-display font-extrabold text-lg leading-none px-2">
             <span aria-hidden="true">✕</span>
@@ -107,7 +107,7 @@ export function DmpShareDialog({
 
         {result ? (
           <div className="text-center">
-            <p className="text-[12px] text-stone-500 mb-3">{t('dmp.share_ready')}</p>
+            <p className="text-[0.75rem] text-stone-500 mb-3">{t('dmp.share_ready')}</p>
             {shareLink && (
               <QrImage
                 value={shareLink}
@@ -116,30 +116,30 @@ export function DmpShareDialog({
                 className="mx-auto card-pagne border border-stone-200 bg-white p-2 rotate-1"
               />
             )}
-            <div className="mt-3 bg-creme-deep card-pagne border border-dashed border-stone-300 p-2 break-all text-[11px] font-mono text-stone-600">
+            <div className="mt-3 bg-creme-deep card-pagne border border-dashed border-stone-300 p-2 break-all text-[0.6875rem] font-mono text-stone-600">
               {result.shareToken}
             </div>
-            <p className="text-[12px] text-terre-600 font-bold mt-3">
+            <p className="text-[0.75rem] text-terre-600 font-bold mt-3">
               {t('dmp.share_expires', {
                 date: new Date(result.expiresAt).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }),
               })}
             </p>
-            {error && <p className="text-sos-600 font-bold text-[13px] mt-2">{error}</p>}
+            {error && <p className="text-sos-600 font-bold text-[0.8125rem] mt-2">{error}</p>}
             <Button variant="sos" full className="mt-4" disabled={loading} onClick={revoke}>
               {loading ? t('common.loading') : t('dmp.revoke')}
             </Button>
           </div>
         ) : revoked ? (
           <div className="text-center py-4">
-            <p className="font-display font-extrabold text-[15px] text-stone-800">{t('dmp.revoked_title')}</p>
-            <p className="text-[12px] text-stone-500 mt-1">{t('dmp.revoked_desc')}</p>
+            <p className="font-display font-extrabold text-[0.9375rem] text-stone-800">{t('dmp.revoked_title')}</p>
+            <p className="text-[0.75rem] text-stone-500 mt-1">{t('dmp.revoked_desc')}</p>
             <Button variant="sante" full className="mt-4" onClick={onClose}>
               {t('common.close')}
             </Button>
           </div>
         ) : (
           <>
-            <p className="font-display font-bold text-[12px] text-stone-600 mb-2">{t('dmp.share_method')}</p>
+            <p className="font-display font-bold text-[0.75rem] text-stone-600 mb-2">{t('dmp.share_method')}</p>
             <div className="grid grid-cols-3 gap-2">
               {(['QR_CODE', 'LINK', 'TEMPORARY_ACCESS'] as ShareType[]).map((s) => (
                 <button
@@ -147,7 +147,7 @@ export function DmpShareDialog({
                   type="button"
                   onClick={() => setShareType(s)}
                   className={cn(
-                    'card-pagne py-2 font-display font-bold text-[11px] border',
+                    'card-pagne py-2 font-display font-bold text-[0.6875rem] border',
                     shareType === s ? 'bg-sante-600 text-white border-sante-700' : 'bg-white text-stone-700 border-stone-200',
                   )}
                 >
@@ -156,7 +156,7 @@ export function DmpShareDialog({
               ))}
             </div>
 
-            <p className="font-display font-bold text-[12px] text-stone-600 mt-4 mb-2">{t('dmp.share_duration')}</p>
+            <p className="font-display font-bold text-[0.75rem] text-stone-600 mt-4 mb-2">{t('dmp.share_duration')}</p>
             <div className="grid grid-cols-3 gap-2">
               {TTL_OPTIONS.map((o) => (
                 <button
@@ -164,7 +164,7 @@ export function DmpShareDialog({
                   type="button"
                   onClick={() => setTtlHours(o.hours)}
                   className={cn(
-                    'card-pagne py-2 font-display font-bold text-[12px] border',
+                    'card-pagne py-2 font-display font-bold text-[0.75rem] border',
                     ttlHours === o.hours ? 'bg-sante-600 text-white border-sante-700' : 'bg-white text-stone-700 border-stone-200',
                   )}
                 >
@@ -173,8 +173,8 @@ export function DmpShareDialog({
               ))}
             </div>
 
-            <p className="text-[11px] text-stone-400 mt-3">{t('dmp.share_consent_note')}</p>
-            {error && <p className="text-sos-600 font-bold text-[13px] mt-2">{error}</p>}
+            <p className="text-[0.6875rem] text-stone-400 mt-3">{t('dmp.share_consent_note')}</p>
+            {error && <p className="text-sos-600 font-bold text-[0.8125rem] mt-2">{error}</p>}
 
             <Button variant="terre" full className="mt-4" disabled={loading} onClick={grant}>
               {loading ? t('booking.submitting') : t('dmp.grant')}

@@ -54,7 +54,7 @@ function PrescribeInner() {
     }
   }
 
-  const inputCls = 'bg-white card-pagne border border-stone-300 px-3 py-2 text-[13px] focus:outline-none focus:border-indigo-600';
+  const inputCls = 'bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.8125rem] focus:outline-none focus:border-indigo-600';
 
   return (
     <>
@@ -64,15 +64,15 @@ function PrescribeInner() {
 
         {conflicts.length > 0 && (
           <CardPagne stitch="sos" className="p-3 bg-sos-50">
-            <p className="font-display font-extrabold text-sos-600 text-[13px]"><span aria-hidden="true">⚠</span> {t('pro.allergy_alert')}</p>
-            <p className="text-[13px] text-stone-700">{conflicts.join(', ')}</p>
-            <Button variant="sos" className="mt-2 text-[12px] px-3 py-1.5" onClick={() => submit(true)} disabled={busy}>
+            <p className="font-display font-extrabold text-sos-600 text-[0.8125rem]"><span aria-hidden="true">⚠</span> {t('pro.allergy_alert')}</p>
+            <p className="text-[0.8125rem] text-stone-700">{conflicts.join(', ')}</p>
+            <Button variant="sos" className="mt-2 text-[0.75rem] px-3 py-1.5" onClick={() => submit(true)} disabled={busy}>
               {t('pro.sign')} (override)
             </Button>
           </CardPagne>
         )}
 
-        {submitError && <p className="text-sos-600 font-bold text-[12px]">{t('auth.error')}</p>}
+        {submitError && <p className="text-sos-600 font-bold text-[0.75rem]">{t('auth.error')}</p>}
 
         {lines.map((l, i) => (
           <CardPagne key={i} className="p-3 space-y-2">
@@ -85,7 +85,7 @@ function PrescribeInner() {
           </CardPagne>
         ))}
 
-        <button type="button" onClick={() => setLines((ls) => [...ls, empty()])} className="w-full text-center text-[13px] text-indigo-700 underline decoration-dotted underline-offset-4">
+        <button type="button" onClick={() => setLines((ls) => [...ls, empty()])} className="w-full text-center text-[0.8125rem] text-indigo-700 underline decoration-dotted underline-offset-4">
           + {t('pro.add_med')}
         </button>
 

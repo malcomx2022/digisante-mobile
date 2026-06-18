@@ -60,7 +60,7 @@ export default function EducationPage() {
           <button
             type="button"
             onClick={() => setCategory(null)}
-            className={cn('shrink-0 card-pagne px-3 py-1.5 text-[12px] font-display font-bold', category === null ? 'bg-sante-600 text-white' : 'bg-creme-deep text-stone-600')}
+            className={cn('shrink-0 card-pagne px-3 py-1.5 text-[0.75rem] font-display font-bold', category === null ? 'bg-sante-600 text-white' : 'bg-creme-deep text-stone-600')}
           >
             {t('education.all')}
           </button>
@@ -69,7 +69,7 @@ export default function EducationPage() {
               key={c}
               type="button"
               onClick={() => setCategory(c)}
-              className={cn('shrink-0 card-pagne px-3 py-1.5 text-[12px] font-display font-bold', category === c ? 'bg-sante-600 text-white' : 'bg-creme-deep text-stone-600')}
+              className={cn('shrink-0 card-pagne px-3 py-1.5 text-[0.75rem] font-display font-bold', category === c ? 'bg-sante-600 text-white' : 'bg-creme-deep text-stone-600')}
             >
               {t(`edu.cat.${c}`)}
             </button>
@@ -86,16 +86,16 @@ export default function EducationPage() {
           return (
             <CardPagne key={c.id} className="p-4">
               <div className="flex items-start justify-between gap-2">
-                <p className="font-display font-extrabold text-[15px] text-stone-800">{title}</p>
+                <p className="font-display font-extrabold text-[0.9375rem] text-stone-800">{title}</p>
                 <Badge variant="normal">{t(`edu.cat.${c.category}`)}</Badge>
               </div>
-              <p className="text-[13px] text-stone-600 mt-2 whitespace-pre-line">{body}</p>
-              {c.tags?.length ? <p className="text-[11px] text-stone-400 mt-2">{c.tags.map((x) => `#${x}`).join(' ')}</p> : null}
+              <p className="text-[0.8125rem] text-stone-600 mt-2 whitespace-pre-line">{body}</p>
+              {c.tags?.length ? <p className="text-[0.6875rem] text-stone-400 mt-2">{c.tags.map((x) => `#${x}`).join(' ')}</p> : null}
               {supported && (
                 <button
                   type="button"
                   onClick={() => toggleSpeak(c.id, title, body)}
-                  className="mt-3 card-pagne bg-sante-50 text-sante-700 font-display font-bold text-[12px] px-3 py-1.5"
+                  className="mt-3 card-pagne bg-sante-50 text-sante-700 font-display font-bold text-[0.75rem] px-3 py-1.5"
                 >
                   {speakingId === c.id ? (
                     <><span aria-hidden="true">⏹</span> {t('education.stop')}</>

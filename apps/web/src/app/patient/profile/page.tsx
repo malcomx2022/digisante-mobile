@@ -43,14 +43,14 @@ export default function ProfilePage() {
       <PatientHeader title={t('profile.title')} subtitle={user?.phone} />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto lg:w-full">
         <CardPagne className="p-4">
-          <p className="font-display font-extrabold text-[13px] text-stone-700 mb-2">{t('common.language')}</p>
+          <p className="font-display font-extrabold text-[0.8125rem] text-stone-700 mb-2">{t('common.language')}</p>
           <div className="flex flex-wrap gap-2">
             {LANGUAGE_LIST.map((l) => (
               <button
                 key={l.code}
                 type="button"
                 onClick={() => setLang(l.code as Lang)}
-                className={cn('card-pagne px-3 py-1.5 text-[13px] font-display font-bold', l.code === lang ? 'bg-sante-600 text-white' : 'bg-creme-deep text-stone-600')}
+                className={cn('card-pagne px-3 py-1.5 text-[0.8125rem] font-display font-bold', l.code === lang ? 'bg-sante-600 text-white' : 'bg-creme-deep text-stone-600')}
               >
                 {l.code} {l.hasAudio ? <span aria-hidden="true">🔊</span> : ''}
               </button>
@@ -64,12 +64,12 @@ export default function ProfilePage() {
             type="button"
             onClick={exportFhir}
             disabled={exporting}
-            className="w-full text-left text-[14px] font-display font-bold text-sante-700 disabled:opacity-50"
+            className="w-full text-left text-[0.875rem] font-display font-bold text-sante-700 disabled:opacity-50"
           >
             {exporting ? t('profile.exporting') : t('profile.export')}
           </button>
-          {exportError && <p className="text-terre-600 font-bold text-[12px] mt-1">{t('profile.export_error')}</p>}
-          <p className="text-[11px] text-stone-400 mt-1">{t('profile.portability_notice')}</p>
+          {exportError && <p className="text-terre-600 font-bold text-[0.75rem] mt-1">{t('profile.export_error')}</p>}
+          <p className="text-[0.6875rem] text-stone-400 mt-1">{t('profile.portability_notice')}</p>
         </CardPagne>
 
         <LogoutButton variant="outline" />

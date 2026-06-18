@@ -32,7 +32,7 @@ function ActionTag({ action }: { action: string }) {
   return (
     <span
       className={cn(
-        'font-mono text-[11px] font-bold card-pagne px-2 py-0.5 whitespace-nowrap',
+        'font-mono text-[0.6875rem] font-bold card-pagne px-2 py-0.5 whitespace-nowrap',
         danger ? 'bg-sos-50 text-sos-700' : payment ? 'bg-ocre-50 text-ocre-600' : 'bg-indigo-50 text-indigo-700',
       )}
     >
@@ -57,12 +57,12 @@ export default function AdminAudit() {
     if (total <= PAGE_SIZE) return null;
     return (
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] text-stone-400">{t('admin.results_range', { from, to, total })}</span>
+        <span className="text-[0.6875rem] text-stone-400">{t('admin.results_range', { from, to, total })}</span>
         <div className="flex gap-1.5">
-          <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="card-pagne bg-white border border-stone-200 text-stone-600 text-[12px] font-display font-bold px-3 py-1.5 disabled:opacity-40">
+          <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="card-pagne bg-white border border-stone-200 text-stone-600 text-[0.75rem] font-display font-bold px-3 py-1.5 disabled:opacity-40">
             <span aria-hidden="true">‹ </span>{t('admin.prev')}
           </button>
-          <button type="button" onClick={() => setPage((p) => p + 1)} disabled={page * PAGE_SIZE >= total} className="card-pagne bg-white border border-stone-200 text-stone-600 text-[12px] font-display font-bold px-3 py-1.5 disabled:opacity-40">
+          <button type="button" onClick={() => setPage((p) => p + 1)} disabled={page * PAGE_SIZE >= total} className="card-pagne bg-white border border-stone-200 text-stone-600 text-[0.75rem] font-display font-bold px-3 py-1.5 disabled:opacity-40">
             {t('admin.next')}<span aria-hidden="true"> ›</span>
           </button>
         </div>
@@ -84,9 +84,9 @@ export default function AdminAudit() {
             <CardPagne key={e.id} className="p-3">
               <div className="flex items-center justify-between gap-2">
                 <ActionTag action={e.action} />
-                <span className="text-[11px] text-stone-400 whitespace-nowrap">{new Date(e.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                <span className="text-[0.6875rem] text-stone-400 whitespace-nowrap">{new Date(e.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</span>
               </div>
-              <p className="text-[11px] text-stone-400 mt-1 font-mono truncate">{e.ip ?? '—'} · #{e.hash.slice(0, 12)}</p>
+              <p className="text-[0.6875rem] text-stone-400 mt-1 font-mono truncate">{e.ip ?? '—'} · #{e.hash.slice(0, 12)}</p>
             </CardPagne>
           ))}
           <Pagination />
@@ -98,7 +98,7 @@ export default function AdminAudit() {
             <thead>
               <tr className="bg-creme">
                 {['admin.col_action', 'admin.col_actor', 'admin.col_ip', 'admin.col_hash', 'admin.col_date'].map((k, i) => (
-                  <th key={k} className={cn('text-left py-2.5 text-[10px] font-extrabold text-stone-400 uppercase tracking-wide', i === 0 ? 'px-5' : 'px-3')}>
+                  <th key={k} className={cn('text-left py-2.5 text-[0.625rem] font-extrabold text-stone-400 uppercase tracking-wide', i === 0 ? 'px-5' : 'px-3')}>
                     {t(k)}
                   </th>
                 ))}
@@ -108,10 +108,10 @@ export default function AdminAudit() {
               {entries.map((e) => (
                 <tr key={e.id} className="hover:bg-creme">
                   <td className="px-5 py-2.5"><ActionTag action={e.action} /></td>
-                  <td className="px-3 py-2.5 font-mono text-[11px] text-stone-500">{e.actorId ? e.actorId.slice(0, 8) : '—'}</td>
-                  <td className="px-3 py-2.5 font-mono text-[11px] text-stone-500">{e.ip ?? '—'}</td>
-                  <td className="px-3 py-2.5 font-mono text-[11px] text-stone-400">#{e.hash.slice(0, 12)}</td>
-                  <td className="px-3 py-2.5 text-[11.5px] text-stone-500 whitespace-nowrap">{new Date(e.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'medium' })}</td>
+                  <td className="px-3 py-2.5 font-mono text-[0.6875rem] text-stone-500">{e.actorId ? e.actorId.slice(0, 8) : '—'}</td>
+                  <td className="px-3 py-2.5 font-mono text-[0.6875rem] text-stone-500">{e.ip ?? '—'}</td>
+                  <td className="px-3 py-2.5 font-mono text-[0.6875rem] text-stone-400">#{e.hash.slice(0, 12)}</td>
+                  <td className="px-3 py-2.5 text-[0.71875rem] text-stone-500 whitespace-nowrap">{new Date(e.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'medium' })}</td>
                 </tr>
               ))}
             </tbody>

@@ -56,7 +56,7 @@ function LaboResult() {
     }
   }
 
-  const inputCls = 'bg-white card-pagne border border-stone-300 px-3 py-2 text-[13px] focus:outline-none focus:border-ocre-500';
+  const inputCls = 'bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.8125rem] focus:outline-none focus:border-ocre-500';
 
   return (
     <>
@@ -74,19 +74,19 @@ function LaboResult() {
               <input className={`${inputCls} border-2 border-sos-500`} placeholder="Valeur" aria-label="Valeur" value={r.value} onChange={(e) => setRow(i, 'value', e.target.value)} /> {/* TODO i18n */}
             </div>
           ))}
-          <button type="button" onClick={() => setRows((rs) => [...rs, { key: '', value: '' }])} className="text-[13px] text-ocre-600 underline decoration-dotted underline-offset-4">
+          <button type="button" onClick={() => setRows((rs) => [...rs, { key: '', value: '' }])} className="text-[0.8125rem] text-ocre-600 underline decoration-dotted underline-offset-4">
             + {t('labo.add_value')}
           </button>
         </CardPagne>
 
         {result && (result.critical?.length ?? 0) > 0 && (
-          <div className="bg-sos-500 text-white card-pagne px-4 py-3 font-display font-extrabold text-[13px] text-center">
+          <div className="bg-sos-500 text-white card-pagne px-4 py-3 font-display font-extrabold text-[0.8125rem] text-center">
             <span aria-hidden="true">⚠</span> {t('labo.critical')}
-            <p className="font-body font-normal text-[12px] mt-1">{result.critical.map((c) => `${c.key} ${c.reason}`).join(' · ')}</p>
+            <p className="font-body font-normal text-[0.75rem] mt-1">{result.critical.map((c) => `${c.key} ${c.reason}`).join(' · ')}</p>
           </div>
         )}
         {result && (result.critical?.length ?? 0) === 0 && <p className="text-center text-sante-700 font-bold"><span aria-hidden="true">✓</span> {t('labo.published')}</p>}
-        {error && <p className="text-center text-sos-600 font-bold text-[13px]">{error}</p>}
+        {error && <p className="text-center text-sos-600 font-bold text-[0.8125rem]">{error}</p>}
 
         <Button variant="sos" full onClick={publish} disabled={!orderId || published}>
           {t('labo.publish')}

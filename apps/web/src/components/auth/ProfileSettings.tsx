@@ -94,7 +94,7 @@ export function ProfileSettings({
     }
   }
 
-  const inputCls = 'w-full bg-white card-pagne border border-stone-300 px-4 py-3 font-body text-[15px] focus:outline-none focus:border-stone-500';
+  const inputCls = 'w-full bg-white card-pagne border border-stone-300 px-4 py-3 font-body text-[0.9375rem] focus:outline-none focus:border-stone-500';
   const displayPhone = me?.phone ?? user?.phone ?? '';
 
   return (
@@ -103,8 +103,8 @@ export function ProfileSettings({
 
       {/* Identité */}
       <CardPagne className="p-4 space-y-3">
-        <p className="font-display font-extrabold text-[13px] text-stone-700">{t('profile.identity')}</p>
-        <p className="text-[12px] text-stone-400">{displayPhone}</p>
+        <p className="font-display font-extrabold text-[0.8125rem] text-stone-700">{t('profile.identity')}</p>
+        <p className="text-[0.75rem] text-stone-400">{displayPhone}</p>
         <Nkyinkyim className="opacity-30" />
         <div className="flex gap-2">
           <input className={inputCls} placeholder={t('auth.firstname')} aria-label={t('auth.firstname')} value={firstName} onChange={(e) => setFirstName(e.target.value)} />
@@ -114,14 +114,14 @@ export function ProfileSettings({
 
       {/* Langues parlées 🗣 */}
       <CardPagne className="p-4">
-        <p className="font-display font-extrabold text-[13px] text-stone-700 mb-2"><span aria-hidden="true">🗣 </span>{t('common.spoken')}</p>
+        <p className="font-display font-extrabold text-[0.8125rem] text-stone-700 mb-2"><span aria-hidden="true">🗣 </span>{t('common.spoken')}</p>
         <div className="flex flex-wrap gap-2">
           {LANGUAGE_LIST.map((l) => (
             <button
               key={l.code}
               type="button"
               onClick={() => toggleSpoken(l.code as Lang)}
-              className={cn('card-pagne px-3 py-1.5 text-[13px] font-display font-bold', spoken.includes(l.code as Lang) ? activePill : 'bg-creme-deep text-stone-600')}
+              className={cn('card-pagne px-3 py-1.5 text-[0.8125rem] font-display font-bold', spoken.includes(l.code as Lang) ? activePill : 'bg-creme-deep text-stone-600')}
             >
               {l.code} {l.hasAudio ? '🔊' : ''}
             </button>
@@ -131,14 +131,14 @@ export function ProfileSettings({
 
       {/* Langue d'interface */}
       <CardPagne className="p-4">
-        <p className="font-display font-extrabold text-[13px] text-stone-700 mb-2">{t('common.language')}</p>
+        <p className="font-display font-extrabold text-[0.8125rem] text-stone-700 mb-2">{t('common.language')}</p>
         <div className="flex flex-wrap gap-2">
           {LANGUAGE_LIST.map((l) => (
             <button
               key={l.code}
               type="button"
               onClick={() => setLang(l.code as Lang)}
-              className={cn('card-pagne px-3 py-1.5 text-[13px] font-display font-bold', l.code === lang ? activePill : 'bg-creme-deep text-stone-600')}
+              className={cn('card-pagne px-3 py-1.5 text-[0.8125rem] font-display font-bold', l.code === lang ? activePill : 'bg-creme-deep text-stone-600')}
             >
               {l.code} {l.hasAudio ? '🔊' : ''}
             </button>
@@ -146,8 +146,8 @@ export function ProfileSettings({
         </div>
       </CardPagne>
 
-      {saved && <p className={cn('text-[13px] font-bold', linkColor)}>✓ {t('profile.saved')}</p>}
-      {error && <p className="text-[13px] text-sos-600 font-bold">{error}</p>}
+      {saved && <p className={cn('text-[0.8125rem] font-bold', linkColor)}>✓ {t('profile.saved')}</p>}
+      {error && <p className="text-[0.8125rem] text-sos-600 font-bold">{error}</p>}
 
       <Button variant={accent === 'ocre' ? 'ocre' : accent === 'indigo' ? 'indigo' : 'sante'} full onClick={save} disabled={saving || loading}>
         {t('profile.save')}

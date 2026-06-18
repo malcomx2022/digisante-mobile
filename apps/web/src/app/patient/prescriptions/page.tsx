@@ -78,14 +78,14 @@ export default function PrescriptionsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-display font-extrabold">ORD · {p.id.slice(-6).toUpperCase()}</p>
-                  <p className="text-[12px] text-white/80">
+                  <p className="text-[0.75rem] text-white/80">
                     {t('prescriptions.valid_until', { date: new Date(p.validUntil).toLocaleDateString('fr-FR') })}
                   </p>
                 </div>
                 {p.qrCode ? (
                   <QrImage value={p.qrCode} size={56} alt={t('prescriptions.qr_alt')} className="bg-creme card-pagne rotate-2 p-1" />
                 ) : (
-                  <div className="w-14 h-14 bg-creme card-pagne rotate-2 grid place-items-center text-[8px] text-stone-700">QR</div>
+                  <div className="w-14 h-14 bg-creme card-pagne rotate-2 grid place-items-center text-[0.5rem] text-stone-700">QR</div>
                 )}
               </div>
               <KenteBar className="absolute bottom-0 left-0 right-0" />
@@ -96,8 +96,8 @@ export default function PrescriptionsPage() {
                 <div key={it.id} className="flex gap-3 py-2 border-b border-dashed border-stone-200 last:border-0">
                   <span className={`w-1.5 rounded-full ${it.status === 'DISPENSED' ? 'bg-sante-500' : 'bg-ocre-400'}`} />
                   <div className="flex-1">
-                    <p className="font-display font-bold text-[14px]">{it.medicationName}</p>
-                    <p className="text-[12px] text-stone-500">
+                    <p className="font-display font-bold text-[0.875rem]">{it.medicationName}</p>
+                    <p className="text-[0.75rem] text-stone-500">
                       {it.dosage} · {it.frequency} · {it.duration}
                     </p>
                   </div>
@@ -112,17 +112,17 @@ export default function PrescriptionsPage() {
                     key={m.method}
                     type="button"
                     onClick={() => pay(p.id, m.method)}
-                    className={`card-pagne ${m.cls} font-display font-bold text-[11px] py-2 px-1`}
+                    className={`card-pagne ${m.cls} font-display font-bold text-[0.6875rem] py-2 px-1`}
                   >
                     {m.label}
                   </button>
                 ))}
               </div>
-              {paid.has(p.id) && <p className="mt-2 text-[12px] text-sante-700 font-bold"><span aria-hidden="true">✓</span> {t('prescriptions.paid')}</p>}
+              {paid.has(p.id) && <p className="mt-2 text-[0.75rem] text-sante-700 font-bold"><span aria-hidden="true">✓</span> {t('prescriptions.paid')}</p>}
               {queued.has(p.id) && (
-                <p className="mt-2 text-[12px] text-ocre-600 font-bold"><span aria-hidden="true">⏳</span> {t('prescriptions.payment_queued')}</p>
+                <p className="mt-2 text-[0.75rem] text-ocre-600 font-bold"><span aria-hidden="true">⏳</span> {t('prescriptions.payment_queued')}</p>
               )}
-              {payError.has(p.id) && <p className="mt-2 text-[12px] text-sos-600 font-bold">{t('auth.error')}</p>}
+              {payError.has(p.id) && <p className="mt-2 text-[0.75rem] text-sos-600 font-bold">{t('auth.error')}</p>}
             </div>
           </CardPagne>
         ))}

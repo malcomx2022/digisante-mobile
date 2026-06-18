@@ -23,9 +23,9 @@ export default function PharmacieHistoryPage() {
       <div className="px-6 pt-2 pb-4 flex items-start justify-between gap-2 lg:max-w-5xl lg:mx-auto lg:w-full">
         <div>
           <h1 className="font-display font-extrabold text-2xl">{t('pharmacie.history')}</h1>
-          <p className="text-[12px] text-white/80">{t('pharmacie.history_sub')}</p>
+          <p className="text-[0.75rem] text-white/80">{t('pharmacie.history_sub')}</p>
         </div>
-        <Link href="/pharmacie" className="card-pagne bg-white/15 border border-white/20 px-3 py-1.5 text-[12px] font-display font-bold">
+        <Link href="/pharmacie" className="card-pagne bg-white/15 border border-white/20 px-3 py-1.5 text-[0.75rem] font-display font-bold">
           {t('common.back')}
         </Link>
       </div>
@@ -38,19 +38,19 @@ export default function PharmacieHistoryPage() {
         {(data ?? []).map((d) => (
           <div key={d.id} className="bg-creme text-nuit card-pagne p-4">
             <div className="flex items-center justify-between">
-              <span className="font-display font-extrabold text-[14px]">
+              <span className="font-display font-extrabold text-[0.875rem]">
                 {d.patient ? `${d.patient.firstName} ${d.patient.lastName}` : '—'}
               </span>
-              <span className="text-[12px] text-stone-500">
+              <span className="text-[0.75rem] text-stone-500">
                 {new Date(d.dispensedAt).toLocaleDateString('fr-FR', { dateStyle: 'medium' })}
               </span>
             </div>
-            <p className="text-[12px] text-ocre-600 font-display font-bold mt-0.5">
+            <p className="text-[0.75rem] text-ocre-600 font-display font-bold mt-0.5">
               {t(`prescription.status.${d.status}`)}
             </p>
             <ul className="mt-2 space-y-1">
               {d.lines.map((l, i) => (
-                <li key={i} className="flex items-center justify-between text-[13px]">
+                <li key={i} className="flex items-center justify-between text-[0.8125rem]">
                   <span className="text-stone-700">{l.medicationName}</span>
                   <span className="text-stone-400">{t(`pharmacie.line.${l.status}`)}</span>
                 </li>

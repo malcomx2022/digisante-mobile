@@ -14,9 +14,9 @@ export default function Home() {
         <header className="bg-sante-900 bogolan-dark relative pb-16 text-white">
           <StatusBar dark right={<LangSwitcher dark />} />
           <div className="px-6 pt-2">
-            <p className="text-[12px] text-white/70 font-body">{t('common.greeting')} 👋</p>
+            <p className="text-[0.75rem] text-white/70 font-body">{t('common.greeting')} 👋</p>
             <h1 className="font-display font-extrabold text-2xl">{t('home.hello', { name: 'Koffi' })}</h1>
-            <p className="text-[12px] text-white/70 mt-1">🗣 Fon · Français</p>
+            <p className="text-[0.75rem] text-white/70 mt-1">🗣 Fon · Français</p>
           </div>
           <KenteBar className="absolute bottom-0 left-0 right-0" />
         </header>
@@ -25,14 +25,14 @@ export default function Home() {
         <main className="px-6 -mt-10 relative z-20 flex-1 space-y-5 pb-6">
           <CardPagne stitch className="p-5">
             <div className="flex items-center justify-between">
-              <h2 className="font-display font-extrabold text-[15px] text-sante-800">{t('home.next_appointment')}</h2>
+              <h2 className="font-display font-extrabold text-[0.9375rem] text-sante-800">{t('home.next_appointment')}</h2>
               <Badge variant="normal">{t('home.confirmed')}</Badge>
             </div>
             <Nkyinkyim className="my-3" />
             <p className="text-sm text-stone-600">
               Dr Awa Koffi — <span className="font-bold">{t('home.doctor_specialty')}</span>
             </p>
-            <p className="text-[13px] text-stone-500">{t('home.appointment_when')}</p>
+            <p className="text-[0.8125rem] text-stone-500">{t('home.appointment_when')}</p>
             <div className="mt-4 flex gap-2">
               <Button variant="sante" full>
                 {t('home.join')}
@@ -44,7 +44,7 @@ export default function Home() {
           <section>
             <div className="flex items-center gap-2 mb-2">
               <Nkyinkyim className="flex-1 opacity-50" />
-              <h3 className="font-display font-extrabold text-[12px] text-stone-500 uppercase tracking-wide">{t('showcase.components')}</h3>
+              <h3 className="font-display font-extrabold text-[0.75rem] text-stone-500 uppercase tracking-wide">{t('showcase.components')}</h3>
               <Nkyinkyim className="flex-1 opacity-50" />
             </div>
 

@@ -101,10 +101,10 @@ export function BookingModal({
       <CardPagne stitch className="w-full max-w-md p-5 max-h-[90vh] overflow-y-auto">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="font-display font-extrabold text-[15px] text-stone-800">
+            <p className="font-display font-extrabold text-[0.9375rem] text-stone-800">
               Dr {doctor.profile?.firstName} {doctor.profile?.lastName}
             </p>
-            <p className="text-[12px] text-stone-500">{doctor.speciality}</p>
+            <p className="text-[0.75rem] text-stone-500">{doctor.speciality}</p>
           </div>
           <button
             type="button"
@@ -119,13 +119,13 @@ export function BookingModal({
         {done ? (
           <div className="mt-4 text-center py-4">
             <div className="w-14 h-14 card-pagne bg-sante-600 text-white rotate-2 mx-auto grid place-items-center font-display font-extrabold text-2xl" aria-hidden="true">✓</div>
-            <p className="font-display font-extrabold text-[16px] text-stone-800 mt-3">
+            <p className="font-display font-extrabold text-[1rem] text-stone-800 mt-3">
               {done.status === 'QUEUED' ? t('booking.queued_title') : t('booking.success_title')}
             </p>
-            <p className="text-[13px] text-stone-500 mt-1">
+            <p className="text-[0.8125rem] text-stone-500 mt-1">
               {new Date(done.scheduledAt).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}
             </p>
-            <p className="text-[12px] text-stone-400 mt-1">
+            <p className="text-[0.75rem] text-stone-400 mt-1">
               {done.type === 'TELECONSULTATION' ? t('booking.type_teleconsult') : t('booking.type_physical')}
               {' · '}
               {t('booking.status_pending')}
@@ -139,7 +139,7 @@ export function BookingModal({
             <div className="nkyinkyim w-full my-3 opacity-30" />
 
             {/* Étape 1 — jour */}
-            <p className="font-display font-bold text-[12px] text-stone-600 mb-2">{t('booking.choose_day')}</p>
+            <p className="font-display font-bold text-[0.75rem] text-stone-600 mb-2">{t('booking.choose_day')}</p>
             <div className="flex gap-2 overflow-x-auto pb-1">
               {days.map((d, i) => {
                 const active = d.toDateString() === day.toDateString();
@@ -157,17 +157,17 @@ export function BookingModal({
                       active ? 'bg-sante-600 text-white border-sante-700' : 'bg-white text-stone-700 border-stone-200',
                     )}
                   >
-                    <span className="block font-display font-extrabold text-[11px] uppercase">
+                    <span className="block font-display font-extrabold text-[0.6875rem] uppercase">
                       {d.toLocaleDateString('fr-FR', { weekday: 'short' })}
                     </span>
-                    <span className="block font-display font-extrabold text-[16px] leading-tight">{d.getDate()}</span>
+                    <span className="block font-display font-extrabold text-[1rem] leading-tight">{d.getDate()}</span>
                   </button>
                 );
               })}
             </div>
 
             {/* Étape 2 — heure */}
-            <p className="font-display font-bold text-[12px] text-stone-600 mt-4 mb-2">{t('booking.choose_slot')}</p>
+            <p className="font-display font-bold text-[0.75rem] text-stone-600 mt-4 mb-2">{t('booking.choose_slot')}</p>
             <div className="grid grid-cols-4 gap-2">
               {SLOT_HOURS.map((h) => {
                 const active = hour === h;
@@ -177,7 +177,7 @@ export function BookingModal({
                     type="button"
                     onClick={() => setHour(h)}
                     className={cn(
-                      'card-pagne py-2 font-display font-bold text-[13px] border',
+                      'card-pagne py-2 font-display font-bold text-[0.8125rem] border',
                       active ? 'bg-sante-600 text-white border-sante-700' : 'bg-white text-stone-700 border-stone-200',
                     )}
                   >
@@ -188,7 +188,7 @@ export function BookingModal({
             </div>
 
             {/* Étape 3 — type */}
-            <p className="font-display font-bold text-[12px] text-stone-600 mt-4 mb-2">{t('booking.choose_type')}</p>
+            <p className="font-display font-bold text-[0.75rem] text-stone-600 mt-4 mb-2">{t('booking.choose_type')}</p>
             <div className="grid grid-cols-2 gap-2">
               {(['PHYSICAL', 'TELECONSULTATION'] as ApptType[]).map((ty) => {
                 const active = type === ty;
@@ -198,7 +198,7 @@ export function BookingModal({
                     type="button"
                     onClick={() => setType(ty)}
                     className={cn(
-                      'card-pagne py-3 font-display font-bold text-[13px] border',
+                      'card-pagne py-3 font-display font-bold text-[0.8125rem] border',
                       active ? 'bg-sante-600 text-white border-sante-700' : 'bg-white text-stone-700 border-stone-200',
                     )}
                   >
@@ -211,7 +211,7 @@ export function BookingModal({
             <div className="nkyinkyim w-full my-4 opacity-30" />
 
             <div className="flex items-center justify-between">
-              <span className="font-display font-bold text-sante-700 text-[13px]">
+              <span className="font-display font-bold text-sante-700 text-[0.8125rem]">
                 {Number(doctor.consultFee).toLocaleString('fr-FR')} {t('common.fcfa')}
               </span>
               {scheduledAt && (
@@ -221,7 +221,7 @@ export function BookingModal({
               )}
             </div>
 
-            {error && <p className="text-sos-600 font-bold text-[13px] mt-3 text-center">{error}</p>}
+            {error && <p className="text-sos-600 font-bold text-[0.8125rem] mt-3 text-center">{error}</p>}
 
             <Button variant="terre" full className="mt-4" disabled={!scheduledAt || submitting} onClick={confirm}>
               {submitting ? t('booking.submitting') : t('booking.confirm')}

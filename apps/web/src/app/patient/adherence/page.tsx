@@ -85,11 +85,11 @@ export default function AdherencePage() {
             <div className="grid grid-cols-2 divide-x divide-stone-200 text-center">
               <div>
                 <p className="font-display font-extrabold text-3xl text-sante-700 leading-none"><span aria-hidden="true">🔥</span> {s.streak}</p>
-                <p className="text-[11px] text-stone-500 mt-1">{t('adherence.streak_label')}</p>
+                <p className="text-[0.6875rem] text-stone-500 mt-1">{t('adherence.streak_label')}</p>
               </div>
               <div>
                 <p className="font-display font-extrabold text-3xl text-indigo-700 leading-none">{s.adherence7}%</p>
-                <p className="text-[11px] text-stone-500 mt-1">{t('adherence.percent_label')}</p>
+                <p className="text-[0.6875rem] text-stone-500 mt-1">{t('adherence.percent_label')}</p>
               </div>
             </div>
           </CardPagne>
@@ -99,7 +99,7 @@ export default function AdherencePage() {
           <CardPagne className="p-5 text-center">
             <Empty label={t('adherence.empty')} />
             <Nkyinkyim className="my-3" />
-            <Link href="/patient/prescriptions" className="text-[13px] font-display font-bold text-sante-700 underline decoration-dotted">
+            <Link href="/patient/prescriptions" className="text-[0.8125rem] font-display font-bold text-sante-700 underline decoration-dotted">
               {t('prescriptions.title')}
             </Link>
           </CardPagne>
@@ -112,19 +112,19 @@ export default function AdherencePage() {
             <CardPagne key={tr.itemId} className="p-4">
               <div className="flex items-center gap-3">
                 <div className="flex-1 min-w-0">
-                  <p className="font-display font-bold text-[15px] text-stone-800 truncate">{tr.medicationName}</p>
-                  <p className="text-[12px] text-stone-500">
+                  <p className="font-display font-bold text-[0.9375rem] text-stone-800 truncate">{tr.medicationName}</p>
+                  <p className="text-[0.75rem] text-stone-500">
                     {tr.dosage} · {tr.frequency}
                   </p>
                 </div>
                 {tr.takenToday ? (
-                  <span className="shrink-0 card-pagne bg-sante-600 text-white font-display font-extrabold text-[12px] px-3 py-2">
+                  <span className="shrink-0 card-pagne bg-sante-600 text-white font-display font-extrabold text-[0.75rem] px-3 py-2">
                     <span aria-hidden="true">✓</span> {t('adherence.taken')}
                   </span>
                 ) : (
                   <Button
                     variant="sante"
-                    className={cn('shrink-0 text-[12px] px-3 py-2', busy === tr.itemId && 'opacity-60')}
+                    className={cn('shrink-0 text-[0.75rem] px-3 py-2', busy === tr.itemId && 'opacity-60')}
                     onClick={() => take(tr.itemId, tr.medicationName)}
                   >
                     {t('adherence.take')}
@@ -134,14 +134,14 @@ export default function AdherencePage() {
 
               {/* Rappels horaires du traitement */}
               <div className="mt-3 pt-3 border-t border-dashed border-stone-200 flex items-center gap-2 flex-wrap">
-                <span className="text-[11px] text-stone-500 font-display font-bold"><span aria-hidden="true">⏰</span> {t('adherence.reminders')}</span>
+                <span className="text-[0.6875rem] text-stone-500 font-display font-bold"><span aria-hidden="true">⏰</span> {t('adherence.reminders')}</span>
                 {times.map((r) => (
                   <button
                     key={r.id}
                     type="button"
                     onClick={() => removeTime(r.id)}
                     aria-label={`${t('common.delete')} ${r.time}`}
-                    className="card-pagne bg-creme-deep text-stone-700 text-[12px] font-bold px-2.5 py-1"
+                    className="card-pagne bg-creme-deep text-stone-700 text-[0.75rem] font-bold px-2.5 py-1"
                   >
                     {r.time} <span aria-hidden="true">✕</span>
                   </button>
@@ -151,13 +151,13 @@ export default function AdherencePage() {
                   value={timeInputs[tr.itemId] ?? ''}
                   onChange={(e) => setTimeInputs((m) => ({ ...m, [tr.itemId]: e.target.value }))}
                   aria-label={t('adherence.add_time')}
-                  className="bg-white card-pagne border border-stone-300 px-2 py-1 text-[12px] focus:outline-none focus:border-sante-600"
+                  className="bg-white card-pagne border border-stone-300 px-2 py-1 text-[0.75rem] focus:outline-none focus:border-sante-600"
                 />
                 <button
                   type="button"
                   onClick={() => addTime(tr.itemId, tr.medicationName)}
                   aria-label={t('adherence.add_time')}
-                  className="card-pagne bg-sante-600 text-white font-display font-extrabold text-[13px] px-2.5 py-1"
+                  className="card-pagne bg-sante-600 text-white font-display font-extrabold text-[0.8125rem] px-2.5 py-1"
                 >
                   <span aria-hidden="true">+</span>
                 </button>

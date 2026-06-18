@@ -43,7 +43,7 @@ export function QrImage({
         role="img"
         aria-label={alt}
       >
-        <span className="grid h-full w-full place-items-center text-center text-[9px] font-bold text-stone-500">
+        <span className="grid h-full w-full place-items-center text-center text-[0.5625rem] font-bold text-stone-500">
           QR ✕
         </span>
       </div>

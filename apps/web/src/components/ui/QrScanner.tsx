@@ -118,7 +118,7 @@ export function QrScanner({
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-nuit/70 px-4 py-6" role="dialog" aria-modal="true">
       <CardPagne stitch className="w-full max-w-md p-5">
         <div className="flex items-start justify-between gap-3">
-          <p className="font-display font-extrabold text-[15px] text-stone-800">{title ?? t('scan.title')}</p>
+          <p className="font-display font-extrabold text-[0.9375rem] text-stone-800">{title ?? t('scan.title')}</p>
           <button
             type="button"
             onClick={onClose}
@@ -134,12 +134,12 @@ export function QrScanner({
           {!error && <div className="absolute left-0 right-0 top-1/2 h-0.5 bg-ocre-400 scan-line" />}
           {error && (
             <div className="absolute inset-0 grid place-items-center p-4 text-center">
-              <p className="text-white/80 text-[13px]">{error}</p>
+              <p className="text-white/80 text-[0.8125rem]">{error}</p>
             </div>
           )}
         </div>
 
-        <p className="text-[12px] text-stone-500 mt-3 text-center">{error ? t('scan.fallback') : t('scan.hint')}</p>
+        <p className="text-[0.75rem] text-stone-500 mt-3 text-center">{error ? t('scan.fallback') : t('scan.hint')}</p>
       </CardPagne>
     </div>
   );

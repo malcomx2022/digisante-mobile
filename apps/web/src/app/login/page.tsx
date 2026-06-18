@@ -112,7 +112,7 @@ export default function LoginPage() {
     }
   }
 
-  const inputCls = 'w-full bg-white card-pagne border border-stone-300 px-4 py-3 font-body text-[15px] focus:outline-none focus:border-sante-600';
+  const inputCls = 'w-full bg-white card-pagne border border-stone-300 px-4 py-3 font-body text-[0.9375rem] focus:outline-none focus:border-sante-600';
 
   return (
     <div className="min-h-dvh-screen wax-light flex flex-col">
@@ -133,7 +133,7 @@ export default function LoginPage() {
                   <>
                     {/* Sélecteur de rôle (pas d'ADMIN) */}
                     <div>
-                      <p className="font-display font-extrabold text-[12px] text-stone-600 mb-1.5">{t('auth.role')}</p>
+                      <p className="font-display font-extrabold text-[0.75rem] text-stone-600 mb-1.5">{t('auth.role')}</p>
                       <div className="flex flex-wrap gap-2">
                         {SELF_REGISTER_ROLES.map((r) => (
                           <button
@@ -141,7 +141,7 @@ export default function LoginPage() {
                             type="button"
                             onClick={() => setRole(r)}
                             className={cn(
-                              'card-pagne px-3 py-1.5 text-[12px] font-display font-bold',
+                              'card-pagne px-3 py-1.5 text-[0.75rem] font-display font-bold',
                               r === role ? 'bg-sante-600 text-white' : 'bg-creme-deep text-stone-600',
                             )}
                           >
@@ -185,14 +185,14 @@ export default function LoginPage() {
                     setMode((m) => (m === 'login' ? 'register' : 'login'));
                     setError(null);
                   }}
-                  className="w-full text-center text-[13px] text-sante-700 underline decoration-dotted underline-offset-4"
+                  className="w-full text-center text-[0.8125rem] text-sante-700 underline decoration-dotted underline-offset-4"
                 >
                   {mode === 'login' ? t('auth.new_account') : t('auth.have_account')}
                 </button>
               </>
             ) : (
               <>
-                {hint && <p className="text-[12px] text-stone-500">{hint}</p>}
+                {hint && <p className="text-[0.75rem] text-stone-500">{hint}</p>}
                 <input
                   className={cn(inputCls, 'tracking-[0.4em] text-center font-display font-extrabold')}
                   inputMode="numeric"
@@ -205,12 +205,12 @@ export default function LoginPage() {
                 <Button variant="sante" full onClick={confirm} disabled={busy || code.length !== 6}>
                   {t('auth.verify')}
                 </Button>
-                <button type="button" onClick={sendCode} className="w-full text-center text-[13px] text-sante-700 underline decoration-dotted underline-offset-4">
+                <button type="button" onClick={sendCode} className="w-full text-center text-[0.8125rem] text-sante-700 underline decoration-dotted underline-offset-4">
                   {t('auth.resend')}
                 </button>
               </>
             )}
-            {error && <p className="text-[13px] text-sos-600 font-bold">{error}</p>}
+            {error && <p className="text-[0.8125rem] text-sos-600 font-bold">{error}</p>}
           </div>
         </main>
       </div>

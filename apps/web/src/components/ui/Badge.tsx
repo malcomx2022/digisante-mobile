@@ -20,7 +20,7 @@ interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
 export function Badge({ variant = 'normal', className, children, ...props }: BadgeProps) {
   return (
     <span
-      className={cn('inline-block card-pagne font-display font-extrabold text-[9.5px] px-2 py-0.5 leading-tight', VARIANTS[variant], className)}
+      className={cn('inline-block card-pagne font-display font-extrabold text-[0.59375rem] px-2 py-0.5 leading-tight', VARIANTS[variant], className)}
       {...props}
     >
       {children}

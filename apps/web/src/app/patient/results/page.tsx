@@ -43,15 +43,15 @@ export default function ResultsPage() {
         {(data ?? []).map((o) => (
           <CardPagne key={o.id} className="p-4">
             <div className="flex items-center justify-between">
-              <p className="font-display font-extrabold text-[14px] text-stone-800">{o.testType}</p>
+              <p className="font-display font-extrabold text-[0.875rem] text-stone-800">{o.testType}</p>
               <Badge variant={o.status === 'COMPLETED' ? 'normal' : 'eleve'}>{o.status}</Badge>
             </div>
-            <p className="text-[12px] text-stone-400">{new Date(o.createdAt).toLocaleDateString('fr-FR', { dateStyle: 'medium' })}</p>
+            <p className="text-[0.75rem] text-stone-400">{new Date(o.createdAt).toLocaleDateString('fr-FR', { dateStyle: 'medium' })}</p>
 
             {o.result && (
               <div className="mt-3 space-y-1">
                 {Object.entries(o.result.values).map(([k, v]) => (
-                  <div key={k} className="flex justify-between text-[13px] border-b border-dashed border-stone-200 py-1">
+                  <div key={k} className="flex justify-between text-[0.8125rem] border-b border-dashed border-stone-200 py-1">
                     <span className="text-stone-500">{k}</span>
                     <span className="font-display font-bold">{String(v)}</span>
                   </div>
@@ -60,7 +60,7 @@ export default function ResultsPage() {
                   <button
                     type="button"
                     onClick={() => listen(o)}
-                    className="mt-2 text-[13px] text-sante-700 underline decoration-dotted underline-offset-4"
+                    className="mt-2 text-[0.8125rem] text-sante-700 underline decoration-dotted underline-offset-4"
                   >
                     {t('results.audio')}
                   </button>

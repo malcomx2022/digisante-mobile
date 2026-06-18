@@ -73,11 +73,11 @@ export function PwaRegister() {
   if (updateReady) {
     return (
       <div className="fixed bottom-24 inset-x-4 z-[60] flex items-center gap-3 bg-nuit text-white card-pagne px-4 py-3 shadow-[0_10px_26px_rgba(0,0,0,.35)]">
-        <span className="flex-1 text-[13px] font-display font-bold">{t('pwa.update')}</span>
+        <span className="flex-1 text-[0.8125rem] font-display font-bold">{t('pwa.update')}</span>
         <button
           type="button"
           onClick={() => window.location.reload()}
-          className="shrink-0 card-pagne bg-sante-600 text-white font-display font-extrabold text-[12px] px-3 py-1.5"
+          className="shrink-0 card-pagne bg-sante-600 text-white font-display font-extrabold text-[0.75rem] px-3 py-1.5"
         >
           {t('pwa.reload')}
         </button>
@@ -88,14 +88,14 @@ export function PwaRegister() {
   if (installEvt) {
     return (
       <div className="fixed bottom-24 inset-x-4 z-[60] flex items-center gap-3 bg-white card-pagne border border-stone-200 px-4 py-3 shadow-[0_10px_26px_rgba(0,0,0,.18)]">
-        <span className="flex-1 text-[13px] font-display font-bold text-stone-700">{t('pwa.install')}</span>
-        <button type="button" onClick={dismissInstall} className="shrink-0 text-[12px] text-stone-400">
+        <span className="flex-1 text-[0.8125rem] font-display font-bold text-stone-700">{t('pwa.install')}</span>
+        <button type="button" onClick={dismissInstall} className="shrink-0 text-[0.75rem] text-stone-400">
           {t('pwa.later')}
         </button>
         <button
           type="button"
           onClick={install}
-          className="shrink-0 card-pagne bg-sante-600 text-white font-display font-extrabold text-[12px] px-3 py-1.5"
+          className="shrink-0 card-pagne bg-sante-600 text-white font-display font-extrabold text-[0.75rem] px-3 py-1.5"
         >
           {t('pwa.install_cta')}
         </button>

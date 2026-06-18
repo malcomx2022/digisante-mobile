@@ -50,7 +50,7 @@ export function LangSwitcher({ dark = false }: { dark?: boolean }) {
                     setOpen(false);
                   }}
                   className={cn(
-                    'w-full text-left px-3 py-2 text-[13px] font-body flex items-center justify-between gap-2',
+                    'w-full text-left px-3 py-2 text-[0.8125rem] font-body flex items-center justify-between gap-2',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sante-600',
                     l.code === lang ? 'bg-sante-600 text-white font-display font-bold' : 'text-nuit hover:bg-creme-deep',
                   )}

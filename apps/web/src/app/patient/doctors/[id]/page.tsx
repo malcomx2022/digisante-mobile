@@ -78,31 +78,31 @@ export default function DoctorDetailPage() {
                 <div className="w-16 h-16 card-pagne bg-sante-900 bogolan-dark rotate-2 shrink-0" />
                 <div className="flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-display font-extrabold text-[17px] text-stone-800">
+                    <p className="font-display font-extrabold text-[1.0625rem] text-stone-800">
                       Dr {data.profile?.firstName} {data.profile?.lastName}
                     </p>
                     {data.isVerified && <Badge variant="normal"><span aria-hidden="true">✓</span> {t('doctors.verified')}</Badge>}
                   </div>
-                  <p className="text-[13px] text-stone-500">{data.speciality}</p>
+                  <p className="text-[0.8125rem] text-stone-500">{data.speciality}</p>
                   {data.rating.average != null && (
-                    <p className="text-[13px] text-ocre-600 font-bold mt-0.5">
+                    <p className="text-[0.8125rem] text-ocre-600 font-bold mt-0.5">
                       <span aria-hidden="true">{stars(data.rating.average)}</span> {data.rating.average} · {t('reviews.count', { n: String(data.rating.count) })}
                     </p>
                   )}
-                  <p className="font-display font-bold text-sante-700 text-[14px] mt-1">
+                  <p className="font-display font-bold text-sante-700 text-[0.875rem] mt-1">
                     {Number(data.consultFee).toLocaleString('fr-FR')} {t('common.fcfa')}
                   </p>
                 </div>
               </div>
 
               {data.profile?.spokenLangs?.length ? (
-                <p className="text-[12px] text-stone-500 mt-3"><span aria-hidden="true">🗣</span> {data.profile.spokenLangs.join(' · ')}</p>
+                <p className="text-[0.75rem] text-stone-500 mt-3"><span aria-hidden="true">🗣</span> {data.profile.spokenLangs.join(' · ')}</p>
               ) : null}
 
               {data.bio ? (
                 <>
                   <Nkyinkyim className="my-3" />
-                  <p className="text-[13px] text-stone-600 whitespace-pre-line">{data.bio}</p>
+                  <p className="text-[0.8125rem] text-stone-600 whitespace-pre-line">{data.bio}</p>
                 </>
               ) : null}
             </CardPagne>
@@ -119,7 +119,7 @@ export default function DoctorDetailPage() {
             {/* Formulaire de notation (si consultation terminée) */}
             {data.canReview && (
               <CardPagne className="p-4">
-                <p className="font-display font-extrabold text-[13px] text-stone-700">{t('reviews.rate')}</p>
+                <p className="font-display font-extrabold text-[0.8125rem] text-stone-700">{t('reviews.rate')}</p>
                 <div className="flex gap-1 mt-2">
                   {[1, 2, 3, 4, 5].map((n) => (
                     <button key={n} type="button" onClick={() => changeRating(n)} className={cn('text-2xl leading-none', n <= rating ? 'text-ocre-500' : 'text-stone-300')} aria-label={`${n}/5`}>
@@ -132,11 +132,11 @@ export default function DoctorDetailPage() {
                   onChange={(e) => changeComment(e.target.value)}
                   placeholder={t('reviews.comment')}
                   aria-label={t('reviews.comment')}
-                  className="mt-2 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[14px] focus:outline-none focus:border-sante-600"
+                  className="mt-2 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.875rem] focus:outline-none focus:border-sante-600"
                   rows={2}
                 />
-                {sent && <p className="text-sante-700 font-display font-bold text-[13px] mt-1">{t('reviews.submitted')}</p>}
-                {reviewError && <p className="text-sos-600 font-bold text-[13px] mt-1">{reviewError}</p>}
+                {sent && <p className="text-sante-700 font-display font-bold text-[0.8125rem] mt-1">{t('reviews.submitted')}</p>}
+                {reviewError && <p className="text-sos-600 font-bold text-[0.8125rem] mt-1">{reviewError}</p>}
                 <Button variant="sante" full className="mt-2" disabled={submitting} onClick={submitReview}>
                   {submitting ? t('booking.submitting') : t('reviews.submit')}
                 </Button>
@@ -145,23 +145,23 @@ export default function DoctorDetailPage() {
 
             {/* Liste des avis */}
             <CardPagne className="p-4">
-              <p className="font-display font-extrabold text-[13px] text-stone-700">{t('reviews.title')}</p>
+              <p className="font-display font-extrabold text-[0.8125rem] text-stone-700">{t('reviews.title')}</p>
               <Nkyinkyim className="my-3" />
               {reviewsLoading ? (
                 <Loading label={t('common.loading')} />
               ) : reviewsError ? (
                 <ErrorState label={t('auth.error')} />
               ) : (reviews?.reviews.length ?? 0) === 0 ? (
-                <p className="text-[13px] text-stone-400">{t('reviews.none')}</p>
+                <p className="text-[0.8125rem] text-stone-400">{t('reviews.none')}</p>
               ) : (
                 <div className="space-y-3">
                   {(reviews?.reviews ?? []).map((r, i) => (
                     <div key={i} className="border-b border-dashed border-stone-200 pb-2 last:border-0">
                       <div className="flex items-center justify-between">
-                        <span className="font-display font-bold text-[13px] text-stone-800">{r.name}</span>
-                        <span className="text-ocre-500 text-[13px]" aria-label={`${r.rating}/5`}>{stars(r.rating)}</span>
+                        <span className="font-display font-bold text-[0.8125rem] text-stone-800">{r.name}</span>
+                        <span className="text-ocre-500 text-[0.8125rem]" aria-label={`${r.rating}/5`}>{stars(r.rating)}</span>
                       </div>
-                      {r.comment && <p className="text-[13px] text-stone-600 mt-0.5">{r.comment}</p>}
+                      {r.comment && <p className="text-[0.8125rem] text-stone-600 mt-0.5">{r.comment}</p>}
                     </div>
                   ))}
                 </div>
