@@ -1,30 +1,14 @@
 'use client';
 
 import { Protected } from '@/components/auth/Protected';
-import { AppShell } from '@/components/spaces/AppShell';
-import type { NavItem } from '@/components/ui/BottomNav';
+import { AdminShell } from '@/components/spaces/AdminShell';
 
-// Navigation de l'espace Admin (accent indigo). FAB = CMS éducation.
-const NAV: NavItem[] = [
-  { labelKey: 'admin.metrics', icon: 'home', href: '/admin' },
-  { labelKey: 'admin.users', icon: 'user', href: '/admin/users' },
-  { labelKey: 'admin.audit', icon: 'file', href: '/admin/audit' },
-  { labelKey: 'admin.education', icon: 'search', href: '/admin/education' },
-];
-
+// Espace Admin : coquille back-office dédiée (sidebar desktop + BottomNav mobile).
+// La navigation est portée par AdminShell (jeu de destinations admin fixe).
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <Protected role="ADMIN">
-      <AppShell
-        accent="indigo"
-        items={NAV}
-        fabHref="/admin/education"
-        fabLabelKey="admin.education"
-        profileHref="/admin/profile"
-        bgWrap="wax-indigo"
-      >
-        {children}
-      </AppShell>
+      <AdminShell>{children}</AdminShell>
     </Protected>
   );
 }
