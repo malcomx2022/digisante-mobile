@@ -38,8 +38,9 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 
-# i18n — exports régénérables (pnpm i18n:export)
+# i18n — exports/brouillons régénérables (pnpm i18n:export / i18n:draft)
 docs/i18n/todo.*.csv
+docs/i18n/draft.*.csv
 
 # design-sync (claude.ai/design) — scripts stagés + sorties régénérables
 .ds-sync/
