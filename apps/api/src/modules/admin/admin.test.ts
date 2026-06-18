@@ -88,4 +88,20 @@ describe.skipIf(!HAS_INFRA)('Admin RBAC (intégration)', () => {
     });
     expect(patch.statusCode).toBe(400);
   });
+
+  it('filtre la liste utilisateurs par rôle et recherche (serveur)', async () => {
+    const has = (r: { json: () => { data: { phone: string }[] } }, phone: string) => r.json().data.some((u) => u.phone === phone);
+
+    const byRole = await app.inject({ method: 'GET', url: '/api/v1/admin/users?role=ADMIN&pageSize=100', headers: auth(superToken) });
+    expect(byRole.statusCode).toBe(200);
+    expect(has(byRole, PHONES[0])).toBe(true); // le super-admin (rôle ADMIN)
+
+    // Recherche par prénom ("Sup Admin") → trouve le super-admin.
+    const byName = await app.inject({ method: 'GET', url: '/api/v1/admin/users?q=Sup&pageSize=100', headers: auth(superToken) });
+    expect(has(byName, PHONES[0])).toBe(true);
+
+    // Filtre rôle PATIENT + recherche "Sup" → exclut le super-admin.
+    const byOther = await app.inject({ method: 'GET', url: '/api/v1/admin/users?role=PATIENT&q=Sup&pageSize=100', headers: auth(superToken) });
+    expect(has(byOther, PHONES[0])).toBe(false);
+  });
 });

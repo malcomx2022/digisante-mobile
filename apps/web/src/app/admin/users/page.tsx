@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { ROLES } from '@digisante/shared';
+import { useEffect, useState } from 'react';
 
 import { Badge, Button, CardPagne, ConfirmDialog } from '@/components/ui';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
@@ -57,10 +58,26 @@ export default function AdminUsers() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [pending, setPending] = useState<User | null>(null);
   const [busy, setBusy] = useState(false);
-  const { data, loading, error } = useApi<Paginated>(
-    () => get(`/admin/users?page=${page}&pageSize=${PAGE_SIZE}`),
-    [page, tick],
-  );
+  // Filtres serveur (recherche debouncée + rôle + statut).
+  const [q, setQ] = useState('');
+  const [debouncedQ, setDebouncedQ] = useState('');
+  const [role, setRole] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQ(q.trim()), 300); // réseaux 2G/rural
+    return () => clearTimeout(id);
+  }, [q]);
+  // Un changement de filtre repart à la page 1.
+  useEffect(() => setPage(1), [debouncedQ, role, status]);
+
+  const { data, loading, error } = useApi<Paginated>(() => {
+    const p = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) });
+    if (debouncedQ) p.set('q', debouncedQ);
+    if (role) p.set('role', role);
+    if (status) p.set('status', status);
+    return get(`/admin/users?${p.toString()}`);
+  }, [page, tick, debouncedQ, role, status]);
 
   const users = data?.data ?? [];
   const total = data?.total ?? 0;
@@ -128,6 +145,48 @@ export default function AdminUsers() {
     <>
       <SpaceHeader title={t('admin.users')} headerClass="bg-indigo-950" wide />
       <main className="px-6 -mt-10 relative z-20 pb-6 lg:max-w-5xl lg:mx-auto lg:w-full space-y-3">
+        {/* Filtres serveur : recherche + rôle + statut */}
+        <CardPagne className="p-3 space-y-2">
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={t('admin.search_users')}
+            aria-label={t('admin.search_users')}
+            className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 font-body text-base focus:outline-none focus:border-indigo-600"
+          />
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setRole(null)}
+              className={cn('card-pagne px-2.5 py-1 text-[0.6875rem] font-display font-bold', role === null ? 'bg-indigo-600 text-white' : 'bg-creme-deep text-stone-600')}
+            >
+              {t('admin.all')}
+            </button>
+            {ROLES.map((r) => (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setRole(r === role ? null : r)}
+                className={cn('card-pagne px-2.5 py-1 text-[0.6875rem] font-display font-bold', r === role ? 'bg-indigo-600 text-white' : 'bg-creme-deep text-stone-600')}
+              >
+                {r}
+              </button>
+            ))}
+            <select
+              aria-label={t('admin.col_status')}
+              value={status ?? ''}
+              onChange={(e) => setStatus(e.target.value || null)}
+              className="ml-auto card-pagne bg-white border border-stone-300 text-[0.6875rem] font-display font-bold px-2 py-1 focus:outline-none focus:border-indigo-600"
+            >
+              <option value="">{t('admin.all_statuses')}</option>
+              <option value="ACTIVE">ACTIVE</option>
+              <option value="SUSPENDED">SUSPENDED</option>
+              <option value="PENDING_KYC">PENDING_KYC</option>
+              <option value="PENDING_VERIFICATION">PENDING_VERIFICATION</option>
+            </select>
+          </div>
+        </CardPagne>
+
         <p className="text-[0.75rem] text-stone-400">{t('admin.no_medical')}</p>
         {loading && <SkeletonCards label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
