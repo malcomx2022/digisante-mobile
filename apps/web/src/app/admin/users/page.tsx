@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 
-import { Badge, Button, CardPagne } from '@/components/ui';
+import { Badge, Button, CardPagne, ConfirmDialog } from '@/components/ui';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
-import { Empty, ErrorState, Loading } from '@/components/ui/States';
+import { Empty, ErrorState, SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get, post } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
@@ -55,6 +55,8 @@ export default function AdminUsers() {
   const [tick, setTick] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [pending, setPending] = useState<User | null>(null);
+  const [busy, setBusy] = useState(false);
   const { data, loading, error } = useApi<Paginated>(
     () => get(`/admin/users?page=${page}&pageSize=${PAGE_SIZE}`),
     [page, tick],
@@ -68,18 +70,26 @@ export default function AdminUsers() {
   const hasPrev = page > 1;
   const hasNext = page * PAGE_SIZE < total;
 
-  async function toggle(u: User) {
-    const action = u.status === 'SUSPENDED' ? 'activate' : 'suspend';
-    const who = fullName(u);
-    // Action sensible journalisée (USER_SUSPEND) → confirmation explicite.
-    const label = action === 'suspend' ? t('admin.suspend_confirm', { who }) : t('admin.activate_confirm', { who });
-    if (typeof window !== 'undefined' && !window.confirm(label)) return;
+  // Action sensible (journalisée USER_SUSPEND) → confirmation via dialogue stylé.
+  function toggle(u: User) {
+    setActionError(null);
+    setPending(u);
+  }
+
+  async function confirmPending() {
+    if (!pending) return;
+    const action = pending.status === 'SUSPENDED' ? 'activate' : 'suspend';
+    setBusy(true);
     setActionError(null);
     try {
-      await post(`/admin/users/${u.id}/${action}`);
+      await post(`/admin/users/${pending.id}/${action}`);
+      setPending(null);
       setTick((x) => x + 1);
     } catch {
       setActionError(t('auth.error'));
+      setPending(null);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -119,7 +129,7 @@ export default function AdminUsers() {
       <SpaceHeader title={t('admin.users')} headerClass="bg-indigo-950" wide />
       <main className="px-6 -mt-10 relative z-20 pb-6 lg:max-w-5xl lg:mx-auto lg:w-full space-y-3">
         <p className="text-[0.75rem] text-stone-400">{t('admin.no_medical')}</p>
-        {loading && <Loading label={t('common.loading')} />}
+        {loading && <SkeletonCards label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {actionError && <p className="text-[0.75rem] text-sos-600 font-bold">{actionError}</p>}
         {!loading && !error && total === 0 && <Empty label={t('common.empty')} />}
@@ -245,6 +255,21 @@ export default function AdminUsers() {
           </aside>
         </div>
       </main>
+
+      <ConfirmDialog
+        open={!!pending}
+        danger={pending?.status !== 'SUSPENDED'}
+        busy={busy}
+        title={pending && pending.status === 'SUSPENDED' ? t('admin.activate') : t('admin.suspend')}
+        message={
+          pending
+            ? t(pending.status === 'SUSPENDED' ? 'admin.activate_confirm' : 'admin.suspend_confirm', { who: fullName(pending) })
+            : ''
+        }
+        confirmLabel={pending && pending.status === 'SUSPENDED' ? t('admin.activate') : t('admin.suspend')}
+        onConfirm={confirmPending}
+        onCancel={() => setPending(null)}
+      />
     </>
   );
 }

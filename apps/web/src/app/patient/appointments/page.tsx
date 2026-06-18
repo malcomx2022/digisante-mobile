@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 import { PatientHeader } from '@/components/patient/PatientHeader';
 import { Badge, Button, CardPagne } from '@/components/ui';
-import { Empty, ErrorState, Loading } from '@/components/ui/States';
+import { Empty, ErrorState, SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { appointmentsApi, type PatientAppointment } from '@/lib/api/appointments';
 import { useApi } from '@/lib/api/useApi';
@@ -101,7 +101,7 @@ export default function AppointmentsPage() {
     <>
       <PatientHeader title={t('appt.title')} wide />
       <main className="px-6 -mt-10 relative z-20 space-y-3 pb-6">
-        {loading && <Loading label={t('common.loading')} />}
+        {loading && <SkeletonCards label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && all.length === 0 && <Empty label={t('appt.empty')} />}
 

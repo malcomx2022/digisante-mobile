@@ -2,7 +2,7 @@
 
 import { PatientHeader } from '@/components/patient/PatientHeader';
 import { Badge, CardPagne } from '@/components/ui';
-import { Empty, ErrorState, Loading } from '@/components/ui/States';
+import { Empty, ErrorState, SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
@@ -35,7 +35,7 @@ export default function ResultsPage() {
     <>
       <PatientHeader title={t('results.title')} wide />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
-        {loading && <Loading label={t('common.loading')} />}
+        {loading && <SkeletonCards label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && (data?.length ?? 0) === 0 && <Empty label={t('common.empty')} />}
 

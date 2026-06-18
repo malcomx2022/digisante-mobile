@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { BookingModal, type BookingDoctor } from '@/components/patient/BookingModal';
 import { PatientHeader } from '@/components/patient/PatientHeader';
 import { Badge, Button, CardPagne } from '@/components/ui';
-import { Empty, ErrorState, Loading } from '@/components/ui/States';
+import { Empty, ErrorState, SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { LANGUAGE_LIST } from '@digisante/shared';
 import { professionalsApi, type DoctorListItem } from '@/lib/api/professionals';
@@ -69,7 +69,7 @@ export default function DoctorsPage() {
           ))}
         </div>
 
-        {loading && <Loading label={t('common.loading')} />}
+        {loading && <SkeletonCards label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && doctors.length === 0 && <Empty label={t('common.empty')} />}
 
