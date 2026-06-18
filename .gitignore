@@ -40,3 +40,16 @@ Thumbs.db
 
 # i18n — exports régénérables (pnpm i18n:export)
 docs/i18n/todo.*.csv
+
+# design-sync (claude.ai/design) — scripts stagés + sorties régénérables
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules
+# .ds-build : sources committées (barrel, tailwind.config.cjs, tw-input.css) ;
+# artefacts régénérables ignorés (CSS compilé, polices téléchargées)
+apps/web/.ds-build/_tw.css
+apps/web/.ds-build/gf.css
+apps/web/.ds-build/styles.css
+apps/web/.ds-build/fonts/

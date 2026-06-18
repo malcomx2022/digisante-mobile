@@ -1,0 +1,45 @@
+{
+  "projectId": "6982853c-4776-4c05-8f8f-1b05cd4c5359",
+  "shape": "package",
+  "pkg": "@digisante/web",
+  "globalName": "WaxTerre",
+  "tsconfig": "tsconfig.json",
+  "srcDir": "src",
+  "cssEntry": ".ds-build/styles.css",
+  "extraFonts": ".ds-build/fonts/fonts.css",
+  "provider": { "component": "LocaleProvider" },
+  "readmeHeader": ".design-sync/conventions.md",
+  "overrides": {
+    "ConfirmDialog": { "cardMode": "single", "viewport": "680x400" }
+  },
+  "componentSrcMap": {
+    "Button": "src/components/ui/Button.tsx",
+    "Badge": "src/components/ui/Badge.tsx",
+    "CardPagne": "src/components/ui/CardPagne.tsx",
+    "LangPill": "src/components/ui/LangPill.tsx",
+    "StatusBar": "src/components/ui/StatusBar.tsx",
+    "Nkyinkyim": "src/components/ui/Nkyinkyim.tsx",
+    "KenteBar": "src/components/ui/KenteBar.tsx",
+    "Loading": "src/components/ui/States.tsx",
+    "Skeleton": "src/components/ui/States.tsx",
+    "SkeletonCards": "src/components/ui/States.tsx",
+    "ErrorState": "src/components/ui/States.tsx",
+    "Empty": "src/components/ui/States.tsx",
+    "ConfirmDialog": "src/components/ui/ConfirmDialog.tsx"
+  },
+  "dtsPropsFor": {
+    "Button": "  /** Thème de l'action (par espace). */\n  variant?: 'terre' | 'indigo' | 'sante' | 'ocre' | 'outline' | 'sos';\n  /** Pleine largeur. */\n  full?: boolean;\n  type?: 'button' | 'submit' | 'reset';\n  disabled?: boolean;\n  className?: string;\n  onClick?: React.MouseEventHandler<HTMLButtonElement>;\n  children?: React.ReactNode;",
+    "Badge": "  /** Niveau / statut. */\n  variant?: 'normal' | 'eleve' | 'priorite' | 'pro' | 'indigo';\n  className?: string;\n  children?: React.ReactNode;",
+    "CardPagne": "  /** Couture « fait main » — 1 seule par groupe visuel. */\n  stitch?: boolean | 'terre' | 'indigo' | 'sos' | 'light';\n  className?: string;\n  children?: React.ReactNode;",
+    "LangPill": "  /** Code langue affiché (FR, FON, YOR…). */\n  lang?: string;\n  /** Variante sur fond sombre. */\n  dark?: boolean;",
+    "StatusBar": "  dark?: boolean;\n  lang?: string;\n  time?: string;\n  /** Slot droit (par défaut une LangPill). */\n  right?: React.ReactNode;",
+    "Nkyinkyim": "  className?: string;",
+    "KenteBar": "  className?: string;",
+    "Loading": "  label: string;",
+    "Skeleton": "  className?: string;",
+    "SkeletonCards": "  count?: number;\n  label?: string;\n  columns?: boolean;\n  className?: string;",
+    "ErrorState": "  label: string;\n  retryLabel?: string;\n  onRetry?: () => void;",
+    "Empty": "  label: string;",
+    "ConfirmDialog": "  open: boolean;\n  title: string;\n  message?: string;\n  confirmLabel: string;\n  cancelLabel?: string;\n  /** Action destructive → accent SOS (rouge). */\n  danger?: boolean;\n  /** Désactive les boutons pendant la requête. */\n  busy?: boolean;\n  onConfirm: () => void;\n  onCancel: () => void;\n  children?: React.ReactNode;"
+  }
+}

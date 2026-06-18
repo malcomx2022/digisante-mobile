@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Variables de police « Wax & Terre » (Next.js les injecte en prod via next/font ;
+   ici on les définit pour le bundle autoporté). Les @font-face réels sont fournis
+   via cfg.extraFonts (fonts.css). */
+:root {
+  --font-display: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
+  --font-body: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  body {
+    background-color: #faf6f0; /* crème — fond app (JAMAIS gray-50/blanc pur) */
+    color: #211c16;
+    font-family: var(--font-body);
+  }
+}
+
+@layer utilities {
+  .clip-inv {
+    clip-path: polygon(18px 0, 100% 0, 100% 100%, 0 100%, 0 18px);
+  }
+  .min-h-dvh-screen {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+}
