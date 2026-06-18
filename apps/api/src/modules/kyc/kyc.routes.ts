@@ -1,6 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 // Routes KYC (préfixe /api/v1/kyc). RBAC : professionnels pour la soumission,
-// ADMIN pour la revue. Audit KYC_APPROVE / KYC_REJECT côté service.
+// ADMIN pour la revue. Audit §4 côté service : KYC_SUBMIT (soumission) +
+// KYC_APPROVE / KYC_REJECT / KYC_REVISION (toutes les décisions de revue).
 // ─────────────────────────────────────────────────────────────
 import { KYC_DOCUMENT_TYPES, KYC_STATUSES, paginationSchema } from '@digisante/shared';
 import type { FastifyInstance } from 'fastify';
@@ -45,7 +46,7 @@ export default async function kycRoutes(app: FastifyInstance) {
   });
 
   app.post('/submit', caregiver, async (request) => {
-    return kyc.submitForReview(app, request.user.sub);
+    return kyc.submitForReview(app, request.user.sub, request.ip);
   });
 
   app.get('/me', { preHandler: [app.authenticate] }, async (request) => {

@@ -102,14 +102,15 @@ Permissions **par scope** (granulaire) + **presets** lisibles (UX). Un admin a u
 
 ---
 
-## 5. ✅ Conformité audit (§4) — à compléter
+## 5. ✅ Conformité audit (§4)
 
-Évènements **déjà journalisés** (vérifiés) : `DMP_ACCESS`, `DMP_DENIED`, `DMP_CONSENT_GRANT/REVOKE`, `DMP_SHARE`, `AUTH_FAIL`, `AUTH_LOCKOUT`, `DATA_EXPORT`, `LAB_CRITICAL`, `SOS_ALERT`, `USER_SUSPEND/ACTIVATE`, `LAB_ORDER_CLAIM`.
+> **Correction (Lot A) :** un premier constat annonçait `KYC_*`/`PAYMENT_*` « manquants » — c'était une **erreur de recherche** (recherche de `KYC_APPROVED`/`PAYMENT_COMPLETED` alors que le code émet `KYC_APPROVE`/`PAYMENT_CONFIRMED`). **Le registre d'audit est en réalité en bon état.**
 
-**Manquants (à câbler)** :
-- `KYC_*` (approbation/rejet soignant) — **0 référence** alors que la décision est persistée dans `KycReview`. **Lot A (P0)**, hors §5.
-- `PAYMENT_*` (statut résolu) — **0 référence**. **Lot F**, **§5** (modifie la résolution de statut partagée webhook/réconciliation).
-- Actions admin du nouveau périmètre : `ADMIN_*`, `OTP_RESET`, `PAYOUT_*`, `WEBHOOK_REPLAY`.
+Évènements journalisés (vérifiés dans le code) : `DMP_ACCESS`, `DMP_DENIED`, `DMP_CONSENT_GRANT/REVOKE`, `DMP_SHARE`, `AUTH_FAIL`, `AUTH_LOCKOUT`, `DATA_EXPORT`, `LAB_CRITICAL`, `LAB_ORDER_CLAIM`, `SOS_ALERT`, `USER_SUSPEND/ACTIVATE`, **`KYC_APPROVE`/`KYC_REJECT`** (décisions terminales), **`PAYMENT_CONFIRMED`/`PAYMENT_REFUND`**.
+
+**Complété par le Lot A** : `KYC_REVISION` (renvoi pour correction) + `KYC_SUBMIT` (soumission) → **toutes** les étapes du cycle KYC sont désormais tracées (+ test de non-régression).
+
+**À ajouter avec les nouveaux modules** : `ADMIN_*` (RBAC, Lot B), `OTP_RESET` (support, Lot D), `PAYOUT_*` + `WEBHOOK_REPLAY` (§5, Lot F).
 
 ---
 
