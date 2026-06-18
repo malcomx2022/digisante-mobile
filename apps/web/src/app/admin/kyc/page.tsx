@@ -20,8 +20,8 @@ export default function AdminKycPage() {
 
   return (
     <>
-      <SpaceHeader title={t('adminkyc.title')} subtitle={t('adminkyc.sub')} headerClass="bg-indigo-950" profileHref="/admin/profile" />
-      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto">
+      <SpaceHeader title={t('adminkyc.title')} subtitle={t('adminkyc.sub')} headerClass="bg-indigo-950" profileHref="/admin/profile" wide />
+      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-5xl lg:mx-auto lg:w-full">
         {selected ? (
           <KycDetailPanel
             id={selected}
@@ -36,21 +36,52 @@ export default function AdminKycPage() {
             {queue.loading && <Loading label={t('common.loading')} />}
             {queue.error && <ErrorState label={t('auth.error')} />}
             {!queue.loading && items.length === 0 && <Empty label={t('adminkyc.empty')} />}
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-            {items.map((k) => (
-              <CardPagne key={k.id} className="p-4 flex items-center justify-between gap-2">
-                <div>
-                  <p className="font-display font-bold text-[14px]">
-                    {k.user.profile ? `${k.user.profile.firstName} ${k.user.profile.lastName}` : k.user.phone}
-                  </p>
-                  <p className="text-[12px] text-stone-400">{k.user.role}</p>
-                </div>
-                <Button variant="indigo" className="text-[12px] px-3 py-1.5" onClick={() => setSelected(k.id)}>
-                  {t('adminkyc.review')}
-                </Button>
-              </CardPagne>
-            ))}
+            {/* Mobile : cartes */}
+            <div className="lg:hidden grid gap-4 grid-cols-1 sm:grid-cols-2">
+              {items.map((k) => (
+                <CardPagne key={k.id} className="p-4 flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-display font-bold text-[14px] truncate">
+                      {k.user.profile ? `${k.user.profile.firstName} ${k.user.profile.lastName}` : k.user.phone}
+                    </p>
+                    <p className="text-[12px] text-stone-400">{k.user.role}</p>
+                  </div>
+                  <Button variant="indigo" className="text-[12px] px-3 py-1.5 shrink-0" onClick={() => setSelected(k.id)}>
+                    {t('adminkyc.review')}
+                  </Button>
+                </CardPagne>
+              ))}
             </div>
+
+            {/* Desktop : table */}
+            {items.length > 0 && (
+              <div className="hidden lg:block bg-white card-pagne border border-stone-200 overflow-hidden">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-creme">
+                      <th className="text-left px-5 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase tracking-wide">{t('admin.col_user')}</th>
+                      <th className="text-left px-3 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase tracking-wide">{t('admin.col_role')}</th>
+                      <th className="text-left px-3 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase tracking-wide">{t('admin.col_status')}</th>
+                      <th className="text-right px-5 py-2.5 text-[10px] font-extrabold text-stone-400 uppercase tracking-wide">{t('admin.col_action')}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-100">
+                    {items.map((k) => (
+                      <tr key={k.id} className="hover:bg-creme cursor-pointer" onClick={() => setSelected(k.id)}>
+                        <td className="px-5 py-2.5 font-bold text-[13px] text-stone-900">
+                          {k.user.profile ? `${k.user.profile.firstName} ${k.user.profile.lastName}` : k.user.phone}
+                        </td>
+                        <td className="px-3 py-2.5"><span className="px-2 py-0.5 card-pagne bg-indigo-50 text-indigo-600 text-[9.5px] font-extrabold">{k.user.role}</span></td>
+                        <td className="px-3 py-2.5"><Badge variant="eleve">{k.status}</Badge></td>
+                        <td className="px-5 py-2.5 text-right">
+                          <Button variant="indigo" className="text-[11px] px-2.5 py-1" onClick={() => setSelected(k.id)}>{t('adminkyc.review')}</Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </>
         )}
       </main>
