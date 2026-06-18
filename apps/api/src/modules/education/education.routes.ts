@@ -7,6 +7,7 @@ import { z } from 'zod';
 
 import { requireRole, requireScope } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
+import { CONTENT_STATUSES } from './education.rules.js';
 import * as education from './education.service.js';
 
 const createSchema = z.object({
@@ -20,6 +21,7 @@ const translationsSchema = z.object({
   translations: z.record(langSchema, z.object({ title: z.string(), body: z.string() })),
 });
 const listSchema = paginationSchema.extend({ category: z.enum(CONTENT_CATEGORIES).optional() });
+const manageListSchema = listSchema.extend({ status: z.enum(CONTENT_STATUSES).optional() });
 const idParams = z.object({ id: z.string().cuid() });
 
 export default async function educationRoutes(app: FastifyInstance) {
@@ -30,6 +32,12 @@ export default async function educationRoutes(app: FastifyInstance) {
   app.get('/', { preHandler: [app.authenticate] }, async (request) => {
     const q = zParse(listSchema, request.query);
     return education.listPublished(app, { category: q.category, page: q.page, pageSize: q.pageSize });
+  });
+
+  // Liste de gestion (admin) — TOUS les statuts (pipeline éditorial).
+  app.get('/manage', admin, async (request) => {
+    const q = zParse(manageListSchema, request.query);
+    return education.listForAdmin(app, { status: q.status, category: q.category, page: q.page, pageSize: q.pageSize });
   });
 
   app.post('/', admin, async (request, reply) => {
