@@ -9,7 +9,7 @@ import type { FastifyInstance } from 'fastify';
 
 import { writeAudit } from '@/lib/audit.js';
 import { isFedapayConfigured } from '@/lib/env.js';
-import { badRequest, unauthorized } from '@/lib/errors.js';
+import { badRequest, notFound, unauthorized } from '@/lib/errors.js';
 import * as wallet from '@/modules/wallet/wallet.service.js';
 import {
   computeCommission,
@@ -56,6 +56,45 @@ async function applyPaymentStatus(
   }
 
   return { processed: true, status };
+}
+
+/**
+ * Remboursement INTERNE d'un paiement (reversal côté système — AUCUN appel
+ * FedaPay externe ; le retour d'argent côté opérateur reste une étape manuelle
+ * tracée). Idempotent : un paiement déjà REFUNDED n'est pas retraité ; seul un
+ * paiement COMPLETED est remboursable. Pour un WALLET_TOPUP, le crédit est
+ * reversé (WalletTransaction REFUND). Tracé par audit PAYMENT_REFUND.
+ * ⚠️ §5 — couvert par les tests refund + la non-régression des webhooks.
+ */
+export async function refund(
+  app: FastifyInstance,
+  paymentId: string,
+  opts: { actorId: string; ip?: string | null; reason?: string },
+): Promise<{ idempotent: true; status: string } | { refunded: true; status: string }> {
+  const payment = await app.prisma.payment.findUnique({
+    where: { id: paymentId },
+    select: { id: true, userId: true, type: true, status: true, amount: true, fedapayId: true },
+  });
+  if (!payment) throw notFound('Paiement introuvable');
+  if (payment.status === 'REFUNDED') return { idempotent: true, status: 'REFUNDED' };
+  if (payment.status !== 'COMPLETED') throw badRequest('Seul un paiement confirmé peut être remboursé');
+
+  await app.prisma.payment.update({ where: { id: payment.id }, data: { status: 'REFUNDED' } });
+
+  // Recharge de portefeuille → reversal du crédit.
+  if (payment.type === 'WALLET_TOPUP') {
+    await wallet.refund(app, payment.userId, payment.amount.toNumber(), payment.id, opts.reason ?? 'Remboursement');
+  }
+
+  await writeAudit(app.prisma, {
+    action: 'PAYMENT_REFUND',
+    actorId: opts.actorId,
+    targetId: payment.id,
+    ip: opts.ip,
+    meta: { fedapayId: payment.fedapayId, type: payment.type, amount: payment.amount.toString(), reason: opts.reason ?? null },
+  });
+
+  return { refunded: true, status: 'REFUNDED' };
 }
 
 interface InitiateInput {

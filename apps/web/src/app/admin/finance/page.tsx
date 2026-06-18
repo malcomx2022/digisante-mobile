@@ -1,10 +1,13 @@
 'use client';
 
-import { CardPagne } from '@/components/ui';
+import { useState } from 'react';
+
+import { Button, CardPagne, ConfirmDialog } from '@/components/ui';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
 import { ErrorState, SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
-import { financeApi, type FinanceOverview, type WebhookEntry } from '@/lib/api/finance';
+import { adminsApi } from '@/lib/api/admins';
+import { financeApi, type CompletedPayment, type FinanceOverview, type WebhookEntry } from '@/lib/api/finance';
 import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
 
@@ -19,9 +22,33 @@ function dt(s: string): string {
 // journal des webhooks FedaPay. LECTURE SEULE — la logique §5 reste gelée.
 export default function AdminFinance() {
   const { t } = useLocale();
-  const ov = useApi<FinanceOverview>(() => financeApi.overview(30), []);
+  const [tick, setTick] = useState(0);
+  const ov = useApi<FinanceOverview>(() => financeApi.overview(30), [tick]);
   const wh = useApi<{ data: WebhookEntry[]; total: number }>(() => financeApi.webhooks(1, 20), []);
+  const me = useApi(() => adminsApi.me(), []);
+  const canRefund = me.data?.scopes?.includes('finance:write') ?? false;
   const data = ov.data;
+
+  const [target, setTarget] = useState<CompletedPayment | null>(null);
+  const [reason, setReason] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function doRefund() {
+    if (!target) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      await financeApi.refund(target.id, reason.trim() || undefined);
+      setTarget(null);
+      setReason('');
+      setTick((x) => x + 1);
+    } catch {
+      setErr(t('auth.error'));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const totalVolume = data?.payments.byStatus.reduce((a, b) => a + Number(b.volume), 0) ?? 0;
   const completed = data?.payments.byStatus.find((b) => b.status === 'COMPLETED');
@@ -118,6 +145,35 @@ export default function AdminFinance() {
               )}
             </section>
 
+            {/* Paiements confirmés récents (+ remboursement, finance:write) */}
+            {data.payments.recentCompleted.length > 0 && (
+              <section>
+                <h2 className="font-display font-extrabold text-[0.875rem] text-stone-700 mb-2">{t('finance.recent_completed')}</h2>
+                {err && <p className="text-[0.75rem] text-sos-600 font-bold mb-2">{err}</p>}
+                <CardPagne className="p-0 overflow-hidden">
+                  <ul className="divide-y divide-stone-100">
+                    {data.payments.recentCompleted.map((p) => (
+                      <li key={p.id} className="flex items-center justify-between gap-2 px-4 py-2.5 text-[0.75rem]">
+                        <span className="flex items-center gap-2 min-w-0">
+                          <span className="px-2 py-0.5 card-pagne bg-indigo-50 text-indigo-600 text-[0.59375rem] font-extrabold">{p.type}</span>
+                          <span className="text-stone-400">{p.method}</span>
+                          <span className="font-bold text-stone-900">{xof(p.amount)}</span>
+                        </span>
+                        <span className="flex items-center gap-2 whitespace-nowrap">
+                          <span className="text-stone-400">{dt(p.createdAt)}</span>
+                          {canRefund && (
+                            <Button variant="sos" className="text-[0.6875rem] px-2.5 py-1" onClick={() => { setErr(null); setReason(''); setTarget(p); }}>
+                              {t('finance.refund')}
+                            </Button>
+                          )}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </CardPagne>
+              </section>
+            )}
+
             {/* Journal des webhooks FedaPay (dérivé de l'audit) */}
             <section>
               <h2 className="font-display font-extrabold text-[0.875rem] text-stone-700 mb-2">{t('finance.webhooks')}</h2>
@@ -150,6 +206,25 @@ export default function AdminFinance() {
           </>
         )}
       </main>
+
+      <ConfirmDialog
+        open={target !== null}
+        busy={busy}
+        danger
+        title={t('finance.refund')}
+        message={target ? t('finance.refund_confirm', { amount: xof(target.amount) }) : ''}
+        confirmLabel={t('finance.refund')}
+        onConfirm={doRefund}
+        onCancel={() => setTarget(null)}
+      >
+        <input
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder={t('finance.refund_reason')}
+          aria-label={t('finance.refund_reason')}
+          className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base focus:outline-none focus:border-indigo-600"
+        />
+      </ConfirmDialog>
     </>
   );
 }

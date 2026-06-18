@@ -21,6 +21,7 @@ export function ConfirmDialog({
   busy = false,
   onConfirm,
   onCancel,
+  children,
 }: {
   open: boolean;
   title: string;
@@ -33,6 +34,8 @@ export function ConfirmDialog({
   busy?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  /** Contenu optionnel (ex. champ de saisie) inséré sous le message. */
+  children?: React.ReactNode;
 }) {
   const { t } = useLocale();
   const confirmRef = useRef<HTMLButtonElement>(null);
@@ -60,6 +63,7 @@ export function ConfirmDialog({
       <CardPagne stitch={danger ? 'sos' : 'indigo'} className="w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
         <h2 className="font-display font-extrabold text-lg text-nuit">{title}</h2>
         {message && <p className="mt-1.5 text-[0.875rem] text-stone-500">{message}</p>}
+        {children && <div className="mt-3">{children}</div>}
         <div className="mt-5 flex gap-2">
           <Button variant="outline" full onClick={onCancel} disabled={busy}>
             {cancelLabel ?? t('common.cancel')}

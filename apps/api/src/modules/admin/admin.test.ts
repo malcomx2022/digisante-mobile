@@ -153,4 +153,21 @@ describe.skipIf(!HAS_INFRA)('Admin RBAC (intégration)', () => {
     const deniedWh = await app.inject({ method: 'GET', url: '/api/v1/admin/finance/webhooks', headers: auth(modToken) });
     expect(deniedWh.statusCode).toBe(403);
   });
+
+  it('remboursement admin (finance:write) : 200 + REFUNDED ; MODERATION → 403', async () => {
+    const pay = await app.prisma.payment.create({
+      data: { userId: promotedUserId, type: 'CONSULTATION', method: 'MTN_MOMO', amount: '2000', currency: 'XOF', status: 'COMPLETED' },
+      select: { id: true },
+    });
+
+    // SUPER (finance:write) → remboursement effectif.
+    const ok = await app.inject({ method: 'POST', url: `/api/v1/admin/finance/payments/${pay.id}/refund`, headers: auth(superToken), payload: { reason: 'admin_test' } });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json().status).toBe('REFUNDED');
+
+    // MODERATION (sans finance:write) → 403.
+    const modToken = app.jwt.sign({ sub: promotedUserId, role: 'ADMIN' }, { expiresIn: '15m' });
+    const denied = await app.inject({ method: 'POST', url: `/api/v1/admin/finance/payments/${pay.id}/refund`, headers: auth(modToken), payload: {} });
+    expect(denied.statusCode).toBe(403);
+  });
 });
