@@ -11,12 +11,15 @@ export function SpaceHeader({
   subtitle,
   headerClass = 'bg-ocre-900',
   profileHref,
+  wide = false,
 }: {
   title: string;
   subtitle?: string;
   headerClass?: string;
   /** Si fourni, ajoute un lien icône vers l'écran profil de l'espace. */
   profileHref?: string;
+  /** Aligne le titre sur une colonne large (`5xl`) pour les pages-grilles ; sinon `2xl`. */
+  wide?: boolean;
 }) {
   return (
     <header className={cn(headerClass, 'bogolan-dark relative pb-14 text-white')}>
@@ -25,7 +28,8 @@ export function SpaceHeader({
       <div className="lg:hidden">
         <StatusBar dark right={<div className="flex items-center gap-2"><LangSwitcher dark />{profileHref && <HeaderProfileLink href={profileHref} />}<HeaderLogout /></div>} />
       </div>
-      <div className="px-6 pt-2 lg:pt-6">
+      {/* Fond plein-cadre ; titre recentré sur la même colonne que le contenu. */}
+      <div className={cn('px-6 pt-2 lg:pt-6 lg:mx-auto lg:w-full', wide ? 'lg:max-w-5xl' : 'lg:max-w-2xl')}>
         {subtitle && <p className="text-[12px] text-white/80">{subtitle}</p>}
         <h1 className="font-display font-extrabold text-2xl">{title}</h1>
       </div>

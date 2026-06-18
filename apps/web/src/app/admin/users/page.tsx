@@ -46,7 +46,7 @@ export default function AdminUsers() {
   return (
     <>
       <SpaceHeader title={t('admin.users')} headerClass="bg-indigo-950" />
-      <main className="px-6 -mt-10 relative z-20 space-y-3 pb-6">
+      <main className="px-6 -mt-10 relative z-20 space-y-3 pb-6 lg:max-w-2xl lg:mx-auto">
         <p className="text-[12px] text-stone-400">{t('admin.no_medical')}</p>
         {loading && <Loading label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}

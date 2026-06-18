@@ -65,7 +65,7 @@ export default function InsurancePage() {
   return (
     <>
       <PatientHeader title={t('insurance.title')} subtitle={t('insurance.subtitle')} />
-      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-3xl lg:mx-auto lg:w-full">
+      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto lg:w-full">
         {/* Mes couvertures */}
         {loading && <Loading label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}

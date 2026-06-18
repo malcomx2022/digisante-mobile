@@ -50,7 +50,7 @@ export default function ProDashboard() {
 
   return (
     <>
-      <ProHeader title={t('pro.dashboard')} subtitle="Dr" />
+      <ProHeader title={t('pro.dashboard')} subtitle="Dr" wide />
       <main className="px-6 -mt-10 relative z-20 space-y-5 pb-6 lg:max-w-5xl lg:mx-auto">
         <CardPagne stitch className="p-4 grid grid-cols-3 text-center divide-x divide-stone-200">
           {[

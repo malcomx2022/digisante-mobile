@@ -51,7 +51,7 @@ export default function PatientDashboard() {
     <>
       <PatientHeader title={t('home.hello', { name: user?.phone ?? '' })} subtitle={`${t('common.greeting')} 👋`} />
 
-      <main className="px-6 -mt-10 relative z-20 space-y-5 pb-6 lg:max-w-3xl lg:mx-auto lg:w-full">
+      <main className="px-6 -mt-10 relative z-20 space-y-5 pb-6 lg:max-w-2xl lg:mx-auto lg:w-full">
         <CardPagne stitch className="p-5">
           <div className="flex items-center justify-between">
             <h2 className="font-display font-extrabold text-[15px] text-sante-800">{t('home.next_appointment')}</h2>

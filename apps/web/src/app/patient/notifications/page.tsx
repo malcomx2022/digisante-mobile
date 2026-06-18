@@ -34,7 +34,7 @@ export default function NotificationsPage() {
 
   return (
     <>
-      <PatientHeader title={t('notifications.title')} />
+      <PatientHeader title={t('notifications.title')} wide />
       <main className="px-6 -mt-10 relative z-20 space-y-3 pb-6">
         {loading && <Loading label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}

@@ -75,7 +75,7 @@ export default function AdherencePage() {
   return (
     <>
       <PatientHeader title={t('adherence.title')} subtitle={t('adherence.subtitle')} />
-      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-3xl lg:mx-auto lg:w-full">
+      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto lg:w-full">
         {loading && <Loading label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {actionError && <ErrorState label={t('auth.error')} />}

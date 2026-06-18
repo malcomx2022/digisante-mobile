@@ -38,14 +38,14 @@ export default function DoctorsPage() {
 
   return (
     <>
-      <PatientHeader title={t('doctors.title')} />
+      <PatientHeader title={t('doctors.title')} wide />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder={t('doctors.search')}
           aria-label={t('doctors.search')}
-          className="w-full bg-white card-pagne border-2 border-stone-900 px-4 py-3 font-body text-[15px] shadow-[4px_4px_0_rgba(33,28,22,.15)] focus:outline-none"
+          className="w-full lg:max-w-md bg-white card-pagne border-2 border-stone-900 px-4 py-3 font-body text-[15px] shadow-[4px_4px_0_rgba(33,28,22,.15)] focus:outline-none"
         />
 
         {/* Filtre par langue parlée (barrière linguistique) */}

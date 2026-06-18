@@ -79,7 +79,7 @@ export default function BeneficiariesPage() {
   return (
     <>
       <SpaceHeader title={t('beneficiaries.title')} subtitle={t('beneficiaries.sub')} headerClass="bg-ocre-900" profileHref="/diaspora/profile" />
-      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
+      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto">
         {editing ? (
           <CardPagne stitch className="p-4 space-y-2">
             <p className="font-display font-extrabold text-[14px] text-stone-800">
