@@ -19,7 +19,8 @@ describe.skipIf(!HAS_INFRA)('Admin RBAC (intégration)', () => {
   const auth = (t: string) => ({ authorization: `Bearer ${t}` });
 
   const cleanup = async () => {
-    await app.prisma.user.deleteMany({ where: { phone: { in: PHONES } } }); // cascade adminProfile
+    await app.prisma.user.deleteMany({ where: { phone: { in: PHONES } } }); // cascade adminProfile + supportNotes
+    await app.redis.del(...PHONES.flatMap((p) => [`otp:lock:${p}`, `otp:attempts:${p}`, `otp:send:${p}`]));
   };
 
   beforeAll(async () => {
@@ -103,5 +104,30 @@ describe.skipIf(!HAS_INFRA)('Admin RBAC (intégration)', () => {
     // Filtre rôle PATIENT + recherche "Sup" → exclut le super-admin.
     const byOther = await app.inject({ method: 'GET', url: '/api/v1/admin/users?role=PATIENT&q=Sup&pageSize=100', headers: auth(superToken) });
     expect(has(byOther, PHONES[0])).toBe(false);
+  });
+
+  it('support : verrou OTP → déverrouillage (audit OTP_RESET) + note interne', async () => {
+    // Pose un verrou OTP sur le compte super-admin (clés Redis).
+    await app.redis.set(`otp:lock:${PHONES[0]}`, '1');
+    await app.redis.set(`otp:attempts:${PHONES[0]}`, '5');
+
+    const list = await app.inject({ method: 'GET', url: '/api/v1/admin/admins?pageSize=100', headers: auth(superToken) });
+    const selfUserId = list.json().data.find((a: { user: { phone: string; id: string } }) => a.user.phone === PHONES[0]).user.id as string;
+
+    const acc = await app.inject({ method: 'GET', url: `/api/v1/admin/support/account/${selfUserId}`, headers: auth(superToken) });
+    expect(acc.statusCode).toBe(200);
+    expect(acc.json().lockout.locked).toBe(true);
+
+    const unlock = await app.inject({ method: 'POST', url: `/api/v1/admin/support/account/${selfUserId}/unlock`, headers: auth(superToken) });
+    expect(unlock.statusCode).toBe(200);
+    expect(await app.redis.get(`otp:lock:${PHONES[0]}`)).toBeNull();
+    expect(await app.prisma.auditLog.count({ where: { action: 'OTP_RESET' } })).toBeGreaterThanOrEqual(1);
+
+    const note = await app.inject({ method: 'POST', url: `/api/v1/admin/support/account/${selfUserId}/notes`, headers: auth(superToken), payload: { body: 'Appel client OK' } });
+    expect(note.statusCode).toBe(200);
+
+    const acc2 = await app.inject({ method: 'GET', url: `/api/v1/admin/support/account/${selfUserId}`, headers: auth(superToken) });
+    expect(acc2.json().lockout.locked).toBe(false);
+    expect(acc2.json().notes.some((n: { body: string }) => n.body === 'Appel client OK')).toBe(true);
   });
 });

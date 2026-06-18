@@ -279,6 +279,7 @@ model User {
   consentsReceived Consent[]       @relation("ConsentGrantee")
   beneficiaries    Beneficiary[]
   adminProfile     AdminProfile?   @relation("AdminProfileUser")
+  supportNotes     SupportNote[]   @relation("SupportNoteUser")
 
   @@index([role])
   @@index([status])
@@ -302,6 +303,21 @@ model AdminProfile {
   user User @relation("AdminProfileUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("admin_profiles")
+}
+
+// Note interne de support sur un compte (back-office). `authorId` = admin auteur.
+// §4 : aucune donnée médicale — note opérationnelle uniquement.
+model SupportNote {
+  id        String   @id @default(cuid())
+  userId    String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  user User @relation("SupportNoteUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("support_notes")
 }
 
 // 2 — Profile : informations civiles (1:1 User).
