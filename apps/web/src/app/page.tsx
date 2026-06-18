@@ -19,7 +19,7 @@ export default function Home() {
   }, [status, user, router]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-creme text-stone-500 font-body text-sm">
+    <div className="min-h-dvh-screen flex items-center justify-center bg-creme text-stone-500 font-body text-sm">
       {t('common.loading')}
     </div>
   );

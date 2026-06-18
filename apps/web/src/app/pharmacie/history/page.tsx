@@ -20,7 +20,7 @@ export default function PharmacieHistoryPage() {
       <div className="lg:hidden">
         <StatusBar dark right={<div className="flex items-center gap-2"><LangSwitcher dark /><HeaderLogout /></div>} />
       </div>
-      <div className="px-6 pt-2 pb-4 flex items-start justify-between gap-2">
+      <div className="px-6 pt-2 pb-4 flex items-start justify-between gap-2 lg:max-w-5xl lg:mx-auto lg:w-full">
         <div>
           <h1 className="font-display font-extrabold text-2xl">{t('pharmacie.history')}</h1>
           <p className="text-[12px] text-white/80">{t('pharmacie.history_sub')}</p>
