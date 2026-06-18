@@ -24,6 +24,7 @@ import { badRequest, notFound } from '@/lib/errors.js';
 import { paginate } from '@/lib/http.js';
 import { loadAdminScopes, requireRole, requireScope } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
+import * as payments from '@/modules/payments/payments.service.js';
 
 const auditQuery = paginationSchema.extend({ action: z.string().optional() });
 const idParams = z.object({ id: z.string().cuid() });
@@ -42,6 +43,8 @@ const scopeEnum = z.enum([...ADMIN_SCOPES] as [AdminScope, ...AdminScope[]]);
 const noteBody = z.object({ body: z.string().trim().min(1).max(2000) });
 // Tableau de bord finances : fenêtre d'observation (jours).
 const financeQuery = z.object({ days: z.coerce.number().int().min(1).max(365).default(30) });
+// Remboursement admin : motif libre optionnel.
+const refundBody = z.object({ reason: z.string().trim().max(200).optional() });
 const createAdminBody = z.object({ phone: z.string().min(6), preset: presetEnum });
 const updateAdminBody = z
   .object({ preset: presetEnum.optional(), scopes: z.array(scopeEnum).optional() })
@@ -265,11 +268,13 @@ export default async function adminRoutes(app: FastifyInstance) {
     // Même critère que la réconciliation cron (PENDING ancien > 1 h avec fedapayId).
     const recThreshold = new Date(Date.now() - 60 * 60 * 1000);
     const recWhere = { status: 'PENDING' as const, createdAt: { lt: recThreshold }, fedapayId: { not: null } };
-    const [byStatus, byMethod, backlog, oldest, walletAgg, walletActive, walletMoves] = await Promise.all([
+    const [byStatus, byMethod, backlog, oldest, recentCompleted, walletAgg, walletActive, walletMoves] = await Promise.all([
       app.prisma.payment.groupBy({ by: ['status'], where: { createdAt: { gte: since } }, _count: { _all: true }, _sum: { amount: true } }),
       app.prisma.payment.groupBy({ by: ['method'], where: { createdAt: { gte: since } }, _count: { _all: true }, _sum: { amount: true } }),
       app.prisma.payment.count({ where: recWhere }),
       app.prisma.payment.findMany({ where: recWhere, orderBy: { createdAt: 'asc' }, take: 20, select: { id: true, amount: true, method: true, type: true, fedapayId: true, createdAt: true } }),
+      // Paiements confirmés récents — cibles potentielles d'un remboursement admin.
+      app.prisma.payment.findMany({ where: { status: 'COMPLETED' }, orderBy: { updatedAt: 'desc' }, take: 10, select: { id: true, amount: true, method: true, type: true, createdAt: true } }),
       app.prisma.wallet.aggregate({ _sum: { balance: true }, _count: { _all: true } }),
       app.prisma.wallet.count({ where: { balance: { gt: 0 } } }),
       app.prisma.walletTransaction.findMany({ orderBy: { createdAt: 'desc' }, take: 10, select: { id: true, type: true, amount: true, reference: true, createdAt: true } }),
@@ -280,10 +285,20 @@ export default async function adminRoutes(app: FastifyInstance) {
       payments: {
         byStatus: byStatus.map((r) => ({ status: r.status, count: r._count._all, volume: r._sum.amount ?? 0 })),
         byMethod: byMethod.map((r) => ({ method: r.method, count: r._count._all, volume: r._sum.amount ?? 0 })),
+        recentCompleted,
       },
       reconciliation: { backlog, oldest },
       wallets: { totalBalance: walletAgg._sum.balance ?? 0, count: walletAgg._count._all, active: walletActive, recentMovements: walletMoves },
     };
+  });
+
+  // Remboursement (reversal interne) d'un paiement confirmé — ⚠️ §5, scope
+  // finance:write. Aucun appel FedaPay externe : marque REFUNDED, reverse le
+  // crédit wallet le cas échéant, journalise PAYMENT_REFUND (idempotent).
+  app.post('/finance/payments/:id/refund', withScope('finance:write'), async (request) => {
+    const { id } = zParse(idParams, request.params);
+    const { reason } = zParse(refundBody, request.body);
+    return payments.refund(app, id, { actorId: request.user.sub, ip: request.ip, reason });
   });
 
   // Journal des webhooks FedaPay — DÉRIVÉ de l'audit immuable (aucune table

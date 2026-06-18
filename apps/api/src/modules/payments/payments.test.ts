@@ -4,6 +4,8 @@ import { createHmac } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import type * as PaymentsService from './payments.service.js';
+
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 const PHONES = ['+2290190000001', '+2290190000002'];
 const WHSEC = 'whsec_test_p41';
@@ -12,6 +14,8 @@ describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
   let app: FastifyInstance;
   let patientToken: string;
   let doctorToken: string;
+  let patientId: string;
+  let payments: typeof PaymentsService;
 
   const auth = (t: string) => ({ authorization: `Bearer ${t}` });
   const sign = (body: string) => createHmac('sha256', WHSEC).update(body).digest('hex');
@@ -24,12 +28,14 @@ describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
     // Le secret webhook doit être présent AVANT le chargement de l'env.
     process.env.FEDAPAY_WEBHOOK_SECRET = WHSEC;
     const { buildServer } = await import('@/server.js');
+    payments = await import('./payments.service.js');
     app = await buildServer();
     await app.ready();
     await cleanup();
 
     const patient = await app.prisma.user.create({ data: { phone: PHONES[0], role: 'PATIENT', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'P', lastName: 'D' } }, patient: { create: {} } } });
     const doctor = await app.prisma.user.create({ data: { phone: PHONES[1], role: 'MEDECIN', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Dr', lastName: 'X' } }, doctor: { create: { speciality: 'G', licenseNumber: 'BJ-MED-3001', consultFee: 5000 } } } });
+    patientId = patient.id;
     patientToken = app.jwt.sign({ sub: patient.id, role: 'PATIENT' }, { expiresIn: '15m' });
     doctorToken = app.jwt.sign({ sub: doctor.id, role: 'MEDECIN' }, { expiresIn: '15m' });
   });
@@ -93,6 +99,43 @@ describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
     const pay = await app.inject({ method: 'POST', url: '/api/v1/wallet/pay', headers: auth(patientToken), payload: { amount: 1000, description: 'Consultation proche' } });
     expect(pay.statusCode).toBe(200);
     expect(Number(pay.json().balance)).toBe(5560);
+  });
+
+  it('remboursement (reversal interne) : COMPLETED → REFUNDED, idempotent + audit', async () => {
+    const init = await app.inject({ method: 'POST', url: '/api/v1/payments', headers: auth(patientToken), payload: { type: 'CONSULTATION', method: 'MTN_MOMO', amount: 3000 } });
+    const fedapayId = init.json().payment.fedapayId as string;
+    await webhook(fedapayId); // → COMPLETED
+    const payment = await app.prisma.payment.findUniqueOrThrow({ where: { fedapayId }, select: { id: true } });
+
+    const before = await app.prisma.auditLog.count({ where: { action: 'PAYMENT_REFUND' } });
+    const r1 = await payments.refund(app, payment.id, { actorId: patientId, reason: 'test_admin' });
+    expect('refunded' in r1 && r1.refunded).toBe(true);
+    const refunded = await app.prisma.payment.findUniqueOrThrow({ where: { id: payment.id }, select: { status: true } });
+    expect(refunded.status).toBe('REFUNDED');
+    const after = await app.prisma.auditLog.count({ where: { action: 'PAYMENT_REFUND' } });
+    expect(after).toBe(before + 1);
+
+    // Idempotence : un second remboursement ne retraite pas et n'audite pas.
+    const r2 = await payments.refund(app, payment.id, { actorId: patientId });
+    expect('idempotent' in r2 && r2.idempotent).toBe(true);
+    expect(await app.prisma.auditLog.count({ where: { action: 'PAYMENT_REFUND' } })).toBe(after);
+  });
+
+  it('remboursement d’une recharge wallet : le crédit est reversé (REFUND)', async () => {
+    const topup = await app.inject({ method: 'POST', url: '/api/v1/wallet/topup', headers: auth(patientToken), payload: { amountEur: 5, method: 'VISA_MC' } });
+    const fedapayId = topup.json().payment.fedapayId as string;
+    const amountXof = topup.json().amountXof as number;
+    await webhook(fedapayId); // crédite le wallet
+
+    const w1 = await app.inject({ method: 'GET', url: '/api/v1/wallet', headers: auth(patientToken) });
+    const balBefore = Number(w1.json().balance);
+
+    const payment = await app.prisma.payment.findUniqueOrThrow({ where: { fedapayId }, select: { id: true } });
+    await payments.refund(app, payment.id, { actorId: patientId, reason: 'topup_error' });
+
+    const w2 = await app.inject({ method: 'GET', url: '/api/v1/wallet', headers: auth(patientToken) });
+    expect(Number(w2.json().balance)).toBe(balBefore - amountXof);
+    expect(w2.json().transactions.some((tr: { type: string }) => tr.type === 'REFUND')).toBe(true);
   });
 
   it('abonnement professionnel : souscription d’un plan', async () => {

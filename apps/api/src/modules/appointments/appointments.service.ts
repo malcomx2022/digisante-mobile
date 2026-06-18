@@ -6,8 +6,8 @@
 import type { AppointmentType, Lang } from '@digisante/shared';
 import type { FastifyInstance } from 'fastify';
 
-import { writeAudit } from '@/lib/audit.js';
 import { badRequest, conflict, forbidden, notFound } from '@/lib/errors.js';
+import * as payments from '@/modules/payments/payments.service.js';
 import { isFuture, overlaps } from './appointments.rules.js';
 
 const fullName = (p: { firstName: string; lastName: string } | null | undefined) =>
@@ -188,20 +188,15 @@ export async function cancel(
     data: { status: 'CANCELLED', cancelReason: reason },
   });
 
-  // Annulation côté médecin : déclenche le remboursement d'un paiement éventuel (Phase 4).
+  // Annulation côté médecin : rembourse automatiquement le paiement confirmé
+  // éventuel (reversal interne — la couture « Phase 4 » est désormais branchée).
   if (appt.doctor.userId === user.sub) {
     const paid = await app.prisma.payment.findFirst({
       where: { appointmentId: id, status: 'COMPLETED' },
       select: { id: true },
     });
     if (paid) {
-      await writeAudit(app.prisma, {
-        action: 'PAYMENT_REFUND',
-        actorId: user.sub,
-        targetId: id,
-        ip,
-        meta: { reason: 'doctor_cancel', paymentId: paid.id, todo: 'refund branché en Phase 4' },
-      });
+      await payments.refund(app, paid.id, { actorId: user.sub, ip, reason: 'doctor_cancel' });
     }
   }
   return updated;

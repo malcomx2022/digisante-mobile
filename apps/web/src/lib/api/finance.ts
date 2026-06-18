@@ -1,5 +1,5 @@
-// Admin : tableau de bord Finances (LECTURE SEULE, §5 gelé). §4 : aucun médical.
-import { get } from './client';
+// Admin : tableau de bord Finances. Consultation + remboursement (§5, finance:write).
+import { get, post } from './client';
 
 export interface PaymentBucket {
   status?: string;
@@ -22,12 +22,20 @@ export interface WalletMove {
   reference: string | null;
   createdAt: string;
 }
+export interface CompletedPayment {
+  id: string;
+  amount: string | number;
+  method: string;
+  type: string;
+  createdAt: string;
+}
 export interface FinanceOverview {
   periodDays: number;
   currency: string;
   payments: {
     byStatus: PaymentBucket[];
     byMethod: PaymentBucket[];
+    recentCompleted: CompletedPayment[];
   };
   reconciliation: { backlog: number; oldest: ReconItem[] };
   wallets: { totalBalance: string | number; count: number; active: number; recentMovements: WalletMove[] };
@@ -52,4 +60,5 @@ export interface Paginated<T> {
 export const financeApi = {
   overview: (days = 30) => get<FinanceOverview>(`/admin/finance/overview?days=${days}`),
   webhooks: (page = 1, pageSize = 20) => get<Paginated<WebhookEntry>>(`/admin/finance/webhooks?page=${page}&pageSize=${pageSize}`),
+  refund: (id: string, reason?: string) => post<{ status: string }>(`/admin/finance/payments/${id}/refund`, { reason }),
 };

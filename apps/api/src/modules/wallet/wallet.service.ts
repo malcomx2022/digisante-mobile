@@ -36,6 +36,22 @@ export async function credit(app: FastifyInstance, userId: string, amount: numbe
   ]);
 }
 
+/**
+ * Reverse un crédit (remboursement interne d'une recharge). Atomique.
+ * Décrémente le solde du montant remboursé et trace une transaction REFUND.
+ * Autorité admin : pas de garde « solde insuffisant » (un solde négatif signale
+ * des fonds déjà dépensés et bloquera les débits ultérieurs, ce qui est voulu).
+ */
+export async function refund(app: FastifyInstance, userId: string, amount: number, reference: string, description?: string) {
+  const wallet = await getOrCreateWallet(app, userId);
+  await app.prisma.$transaction([
+    app.prisma.walletTransaction.create({
+      data: { walletId: wallet.id, type: 'REFUND', amount: new Prisma.Decimal(amount), reference, description },
+    }),
+    app.prisma.wallet.update({ where: { id: wallet.id }, data: { balance: { decrement: amount } } }),
+  ]);
+}
+
 /** Débite le portefeuille (paiement d'un soin, éventuellement pour un proche). */
 export async function debit(
   app: FastifyInstance,
