@@ -7,7 +7,7 @@ import { KYC_DOCUMENT_TYPES, KYC_STATUSES, paginationSchema } from '@digisante/s
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
-import { requireRole } from '@/lib/rbac.js';
+import { requireRole, requireScope } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
 import { CAREGIVER_ROLES } from './kyc.service.js';
 import * as kyc from './kyc.service.js';
@@ -31,7 +31,7 @@ const idParams = z.object({ id: z.string().cuid() });
 
 export default async function kycRoutes(app: FastifyInstance) {
   const caregiver = { preHandler: [app.authenticate, requireRole(...CAREGIVER_ROLES)] };
-  const admin = { preHandler: [app.authenticate, requireRole('ADMIN')] };
+  const admin = { preHandler: [app.authenticate, requireRole('ADMIN'), requireScope('kyc:review')] };
 
   // ── Professionnel : gestion de son dossier ──
   app.post('/', caregiver, async (request, reply) => {

@@ -278,11 +278,30 @@ model User {
   chatMessages     ChatMessage[]   @relation("ChatSender")
   consentsReceived Consent[]       @relation("ConsentGrantee")
   beneficiaries    Beneficiary[]
+  adminProfile     AdminProfile?   @relation("AdminProfileUser")
 
   @@index([role])
   @@index([status])
   @@index([lang])
   @@map("users")
+}
+
+// Profil administrateur (RBAC back-office) — 1:1 avec un User rôle ADMIN.
+// `scopes` = permissions effectives ; `preset` = raccourci d'attribution lisible.
+// Un admin `suspendedAt` non nul est désactivé (toutes ses actions refusées).
+model AdminProfile {
+  id          String    @id @default(cuid())
+  userId      String    @unique
+  scopes      String[]  @default([])
+  preset      String?
+  suspendedAt DateTime?
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user User @relation("AdminProfileUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("admin_profiles")
 }
 
 // 2 — Profile : informations civiles (1:1 User).

@@ -1,5 +1,6 @@
 'use client';
 
+import type { AdminScope } from '@digisante/shared';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -7,6 +8,8 @@ import { HeaderLogout } from '@/components/auth/HeaderLogout';
 import { BottomNav, type NavItem } from '@/components/ui/BottomNav';
 import { LangSwitcher } from '@/components/ui/LangSwitcher';
 import { useLocale } from '@/i18n/LocaleProvider';
+import { adminsApi } from '@/lib/api/admins';
+import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
 
 // ─────────────────────────────────────────────────────────────
@@ -18,7 +21,7 @@ import { cn } from '@/lib/cn';
 //    INCHANGÉE — chaque page garde son SpaceHeader sombre.
 // ─────────────────────────────────────────────────────────────
 
-type IconKey = 'dashboard' | 'users' | 'kyc' | 'audit' | 'education';
+type IconKey = 'dashboard' | 'users' | 'kyc' | 'audit' | 'education' | 'admins';
 
 function NavIcon({ name }: { name: IconKey }) {
   const paths: Record<IconKey, JSX.Element> = {
@@ -45,6 +48,13 @@ function NavIcon({ name }: { name: IconKey }) {
     ),
     audit: <path d="M14 2v6h6M4 22V4a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" />,
     education: <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />,
+    admins: (
+      <>
+        <circle cx="7.5" cy="15.5" r="5.5" />
+        <path d="m21 2-9.6 9.6" />
+        <path d="m15.5 7.5 3 3L22 7l-3-3" />
+      </>
+    ),
   };
   return (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -54,25 +64,33 @@ function NavIcon({ name }: { name: IconKey }) {
 }
 
 // Navigation latérale (desktop) — jeu complet des destinations admin.
-const SIDEBAR: { labelKey: string; href: string; icon: IconKey }[] = [
+// `scope` : la destination n'est visible que si l'admin possède ce scope.
+const SIDEBAR: { labelKey: string; href: string; icon: IconKey; scope?: AdminScope }[] = [
   { labelKey: 'admin.metrics', href: '/admin', icon: 'dashboard' },
-  { labelKey: 'admin.users', href: '/admin/users', icon: 'users' },
-  { labelKey: 'adminkyc.title', href: '/admin/kyc', icon: 'kyc' },
-  { labelKey: 'admin.audit', href: '/admin/audit', icon: 'audit' },
-  { labelKey: 'admin.education', href: '/admin/education', icon: 'education' },
+  { labelKey: 'admin.users', href: '/admin/users', icon: 'users', scope: 'users:read' },
+  { labelKey: 'adminkyc.title', href: '/admin/kyc', icon: 'kyc', scope: 'kyc:review' },
+  { labelKey: 'admin.audit', href: '/admin/audit', icon: 'audit', scope: 'audit:read' },
+  { labelKey: 'admin.education', href: '/admin/education', icon: 'education', scope: 'education:write' },
+  { labelKey: 'admin.admins', href: '/admin/admins', icon: 'admins', scope: 'admin:manage' },
 ];
 
-// Navigation basse (mobile) — identique à l'existant (4 emplacements + FAB).
-const BOTTOM: NavItem[] = [
+// Navigation basse (mobile) — 4 emplacements + FAB ; gated par scope également.
+const BOTTOM: (NavItem & { scope?: AdminScope })[] = [
   { labelKey: 'admin.metrics', icon: 'home', href: '/admin' },
-  { labelKey: 'admin.users', icon: 'user', href: '/admin/users' },
-  { labelKey: 'admin.audit', icon: 'file', href: '/admin/audit' },
-  { labelKey: 'admin.education', icon: 'search', href: '/admin/education' },
+  { labelKey: 'admin.users', icon: 'user', href: '/admin/users', scope: 'users:read' },
+  { labelKey: 'admin.audit', icon: 'file', href: '/admin/audit', scope: 'audit:read' },
+  { labelKey: 'admin.education', icon: 'search', href: '/admin/education', scope: 'education:write' },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const { t } = useLocale();
   const pathname = usePathname();
+  const me = useApi(() => adminsApi.me(), []);
+  const scopes = me.data?.scopes;
+  // Optimiste : tant que les scopes ne sont pas chargés, on n'ampute pas la nav.
+  const can = (scope?: AdminScope) => !scope || !scopes || scopes.includes(scope);
+  const sidebar = SIDEBAR.filter((it) => can(it.scope));
+  const bottom = BOTTOM.filter((it) => can(it.scope));
 
   return (
     <div className="min-h-dvh-screen wax-indigo lg:flex">
@@ -104,7 +122,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           <div className="kente-bar w-full rounded-full mb-4" />
 
           <nav className="space-y-1 flex-1" aria-label={t('admin.backoffice')}>
-            {SIDEBAR.map((it) => {
+            {sidebar.map((it) => {
               const active = pathname === it.href;
               return (
                 <Link
@@ -139,7 +157,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           {children}
         </div>
         <div className="lg:hidden">
-          <BottomNav items={BOTTOM} accent="indigo" fabHref="/admin/education" fabLabelKey="admin.education" />
+          <BottomNav items={bottom} accent="indigo" fabHref="/admin/education" fabLabelKey="admin.education" />
         </div>
       </div>
     </div>
