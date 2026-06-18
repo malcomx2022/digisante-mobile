@@ -34,7 +34,7 @@ export default function RemindersPage() {
 
   return (
     <>
-      <PatientHeader title={t('reminders.title')} />
+      <PatientHeader title={t('reminders.title')} wide />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
         {loading && <Loading label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}

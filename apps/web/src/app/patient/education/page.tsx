@@ -53,7 +53,7 @@ export default function EducationPage() {
 
   return (
     <>
-      <PatientHeader title={t('education.title')} subtitle={t('education.subtitle')} />
+      <PatientHeader title={t('education.title')} subtitle={t('education.subtitle')} wide />
       <main className="px-6 -mt-10 relative z-20 space-y-3 pb-6">
         {/* Filtre par catégorie */}
         <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">

@@ -21,7 +21,7 @@ export default function AdminKycPage() {
   return (
     <>
       <SpaceHeader title={t('adminkyc.title')} subtitle={t('adminkyc.sub')} headerClass="bg-indigo-950" profileHref="/admin/profile" />
-      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
+      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto">
         {selected ? (
           <KycDetailPanel
             id={selected}

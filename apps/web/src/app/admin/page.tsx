@@ -49,7 +49,7 @@ export default function AdminMetrics() {
 
   return (
     <>
-      <SpaceHeader title={t('admin.metrics')} headerClass="bg-indigo-950" profileHref="/admin/profile" />
+      <SpaceHeader title={t('admin.metrics')} headerClass="bg-indigo-950" profileHref="/admin/profile" wide />
       <main className="px-6 -mt-10 relative z-20 space-y-5 pb-6">
         {m.loading && <Loading label={t('common.loading')} />}
         {m.error && <ErrorState label={t('auth.error')} />}

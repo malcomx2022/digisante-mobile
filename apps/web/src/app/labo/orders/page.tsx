@@ -57,7 +57,7 @@ export default function LabOrdersPage() {
 
   return (
     <>
-      <SpaceHeader title={t('labo.orders_title')} subtitle={t('labo.orders_sub')} headerClass="bg-ocre-900" profileHref="/labo/profile" />
+      <SpaceHeader title={t('labo.orders_title')} subtitle={t('labo.orders_sub')} headerClass="bg-ocre-900" profileHref="/labo/profile" wide />
       <main className="px-6 -mt-10 relative z-20 space-y-5 pb-6 lg:max-w-5xl lg:mx-auto">
         <Link href="/labo" className="inline-block text-[13px] text-ocre-700 font-display font-bold"><span aria-hidden="true">←</span> {t('labo.title')}</Link>
 

@@ -71,7 +71,7 @@ export default function DmpPage() {
   return (
     <>
       <PatientHeader title={t('dmp.title')} />
-      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-3xl lg:mx-auto lg:w-full">
+      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto lg:w-full">
         <Link
           href="/patient/vitals"
           className="flex items-center gap-2 bg-white card-pagne border border-stone-200 px-4 py-3 font-display font-bold text-[14px] text-sante-700"

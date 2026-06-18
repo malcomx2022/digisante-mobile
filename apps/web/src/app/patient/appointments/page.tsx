@@ -99,7 +99,7 @@ export default function AppointmentsPage() {
 
   return (
     <>
-      <PatientHeader title={t('appt.title')} />
+      <PatientHeader title={t('appt.title')} wide />
       <main className="px-6 -mt-10 relative z-20 space-y-3 pb-6">
         {loading && <Loading label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}

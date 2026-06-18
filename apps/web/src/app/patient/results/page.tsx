@@ -33,7 +33,7 @@ export default function ResultsPage() {
 
   return (
     <>
-      <PatientHeader title={t('results.title')} />
+      <PatientHeader title={t('results.title')} wide />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6">
         {loading && <Loading label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}

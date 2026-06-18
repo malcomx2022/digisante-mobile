@@ -28,7 +28,7 @@ export default function AdminAudit() {
   return (
     <>
       <SpaceHeader title={t('admin.audit')} subtitle="Append-only · Loi N°2017-20" headerClass="bg-indigo-950" />
-      <main className="px-6 -mt-10 relative z-20 space-y-2 pb-6">
+      <main className="px-6 -mt-10 relative z-20 space-y-2 pb-6 lg:max-w-2xl lg:mx-auto">
         {loading && <Loading label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         <div className="grid gap-2 grid-cols-1 sm:grid-cols-2">
