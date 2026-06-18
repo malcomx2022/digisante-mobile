@@ -130,4 +130,27 @@ describe.skipIf(!HAS_INFRA)('Admin RBAC (intégration)', () => {
     expect(acc2.json().lockout.locked).toBe(false);
     expect(acc2.json().notes.some((n: { body: string }) => n.body === 'Appel client OK')).toBe(true);
   });
+
+  it('finances : aperçu lecture seule (scope finance:read) + journal webhooks (webhooks:read)', async () => {
+    const overview = await app.inject({ method: 'GET', url: '/api/v1/admin/finance/overview?days=7', headers: auth(superToken) });
+    expect(overview.statusCode).toBe(200);
+    const body = overview.json();
+    expect(body.periodDays).toBe(7);
+    expect(body.currency).toBe('XOF');
+    expect(Array.isArray(body.payments.byStatus)).toBe(true);
+    expect(Array.isArray(body.payments.byMethod)).toBe(true);
+    expect(typeof body.reconciliation.backlog).toBe('number');
+    expect(typeof body.wallets.count).toBe('number');
+
+    const webhooks = await app.inject({ method: 'GET', url: '/api/v1/admin/finance/webhooks', headers: auth(superToken) });
+    expect(webhooks.statusCode).toBe(200);
+    expect(Array.isArray(webhooks.json().data)).toBe(true);
+
+    // Enforcement : MODERATION (promu plus haut) n'a pas finance:read/webhooks:read → 403.
+    const modToken = app.jwt.sign({ sub: promotedUserId, role: 'ADMIN' }, { expiresIn: '15m' });
+    const denied = await app.inject({ method: 'GET', url: '/api/v1/admin/finance/overview', headers: auth(modToken) });
+    expect(denied.statusCode).toBe(403);
+    const deniedWh = await app.inject({ method: 'GET', url: '/api/v1/admin/finance/webhooks', headers: auth(modToken) });
+    expect(deniedWh.statusCode).toBe(403);
+  });
 });
