@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 import { PatientHeader } from '@/components/patient/PatientHeader';
-import { Badge, Button, CardPagne, Nkyinkyim } from '@/components/ui';
+import { Badge, Button, CardPagne, ConfirmDialog, Nkyinkyim } from '@/components/ui';
 import { Empty, ErrorState, Loading } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { insuranceApi, type Coverage, type InsuranceProvider } from '@/lib/api/insurance';
@@ -25,6 +25,8 @@ export default function InsurancePage() {
   const [expiresAt, setExpiresAt] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [pendingRemove, setPendingRemove] = useState<string | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   const { data: providers } = useApi<InsuranceProvider[]>(() => insuranceApi.providers(), []);
   const { data: coverages, loading, error } = useApi<Coverage[]>(() => insuranceApi.mine(), [tick]);
@@ -50,15 +52,25 @@ export default function InsurancePage() {
     }
   }
 
-  async function remove(id: string) {
-    // Confirmation avant suppression (action destructive).
-    if (typeof window !== 'undefined' && !window.confirm(t('common.delete') + ' ?')) return;
+  // Confirmation avant suppression (action destructive) via dialogue stylé.
+  function remove(id: string) {
+    setErr(null);
+    setPendingRemove(id);
+  }
+
+  async function confirmRemove() {
+    if (!pendingRemove) return;
+    setRemoving(true);
     setErr(null);
     try {
-      await insuranceApi.remove(id);
+      await insuranceApi.remove(pendingRemove);
+      setPendingRemove(null);
       setTick((n) => n + 1);
     } catch (e) {
       setErr(e instanceof Error ? e.message : t('auth.error'));
+      setPendingRemove(null);
+    } finally {
+      setRemoving(false);
     }
   }
 
@@ -148,6 +160,17 @@ export default function InsurancePage() {
           </Button>
         </CardPagne>
       </main>
+
+      <ConfirmDialog
+        open={!!pendingRemove}
+        danger
+        busy={removing}
+        title={t('common.delete')}
+        message={t('common.delete_confirm')}
+        confirmLabel={t('common.delete')}
+        onConfirm={confirmRemove}
+        onCancel={() => setPendingRemove(null)}
+      />
     </>
   );
 }

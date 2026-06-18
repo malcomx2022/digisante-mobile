@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 import { ProHeader } from '@/components/pro/ProHeader';
-import { Badge, Button, CardPagne } from '@/components/ui';
+import { Badge, Button, CardPagne, ConfirmDialog } from '@/components/ui';
 import { ErrorState, Loading } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get, post } from '@/lib/api/client';
@@ -21,20 +21,28 @@ export default function ProStatsPage() {
   const [tick, setTick] = useState(0);
   const [busy, setBusy] = useState(false);
   const [subError, setSubError] = useState(false);
+  const [pendingPlan, setPendingPlan] = useState<string | null>(null);
   const { data, loading, error } = useApi<Sub>(() => get('/subscriptions/me'), [tick]);
 
-  async function subscribe(plan: string) {
+  // Changement d'abonnement potentiellement payant → confirmation explicite.
+  function subscribe(plan: string) {
     if (busy) return; // anti-double-clic
     if (data?.subscriptionPlan === plan) return;
-    // Changement d'abonnement potentiellement payant → confirmation explicite.
-    if (!window.confirm(t('pro.plan_change_confirm'))) return;
+    setSubError(false);
+    setPendingPlan(plan);
+  }
+
+  async function confirmSubscribe() {
+    if (!pendingPlan) return;
     setBusy(true);
     setSubError(false);
     try {
-      await post('/subscriptions', { plan });
+      await post('/subscriptions', { plan: pendingPlan });
+      setPendingPlan(null);
       setTick((x) => x + 1);
     } catch {
       setSubError(true);
+      setPendingPlan(null);
     } finally {
       setBusy(false);
     }
@@ -78,6 +86,16 @@ export default function ProStatsPage() {
           </CardPagne>
         )}
       </main>
+
+      <ConfirmDialog
+        open={!!pendingPlan}
+        busy={busy}
+        title={t('pro.plan')}
+        message={t('pro.plan_change_confirm')}
+        confirmLabel={pendingPlan ?? ''}
+        onConfirm={confirmSubscribe}
+        onCancel={() => setPendingPlan(null)}
+      />
     </>
   );
 }

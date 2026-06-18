@@ -4,7 +4,7 @@ import { LANGUAGE_LIST } from '@digisante/shared';
 import Link from 'next/link';
 import { useState } from 'react';
 
-import { Button, CardPagne, Nkyinkyim } from '@/components/ui';
+import { Button, CardPagne, ConfirmDialog, Nkyinkyim } from '@/components/ui';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
 import { Empty, ErrorState, Loading } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
@@ -24,6 +24,8 @@ export default function BeneficiariesPage() {
   const [form, setForm] = useState({ ...EMPTY });
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [pendingRemove, setPendingRemove] = useState<string | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   const { data, loading, error } = useApi<Beneficiary[]>(() => beneficiariesApi.list(), [tick]);
 
@@ -62,15 +64,25 @@ export default function BeneficiariesPage() {
     }
   }
 
-  async function remove(id: string) {
-    // Suppression d'un proche → confirmation explicite.
-    if (typeof window !== 'undefined' && !window.confirm(t('beneficiaries.remove_confirm'))) return;
+  // Suppression d'un proche → confirmation explicite via dialogue stylé.
+  function remove(id: string) {
+    setActionError(null);
+    setPendingRemove(id);
+  }
+
+  async function confirmRemove() {
+    if (!pendingRemove) return;
+    setRemoving(true);
     setActionError(null);
     try {
-      await beneficiariesApi.remove(id);
+      await beneficiariesApi.remove(pendingRemove);
+      setPendingRemove(null);
       setTick((n) => n + 1);
     } catch {
       setActionError(t('auth.error'));
+      setPendingRemove(null);
+    } finally {
+      setRemoving(false);
     }
   }
 
@@ -142,6 +154,17 @@ export default function BeneficiariesPage() {
           ))}
         </div>
       </main>
+
+      <ConfirmDialog
+        open={!!pendingRemove}
+        danger
+        busy={removing}
+        title={t('common.delete')}
+        message={t('beneficiaries.remove_confirm')}
+        confirmLabel={t('common.delete')}
+        onConfirm={confirmRemove}
+        onCancel={() => setPendingRemove(null)}
+      />
     </>
   );
 }
