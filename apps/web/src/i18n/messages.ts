@@ -1,12 +1,12 @@
 // ─────────────────────────────────────────────────────────────
-// Messages i18n — 5 langues (FR·EN·FON·BARIBA·DENDI, alignées sur l'enum Lang
-// du backend). Clés plates `namespace.key`. AUCUNE chaîne d'UI en dur ailleurs.
+// Messages i18n — 4 langues (FR·EN·FON·YOR, alignées sur l'enum Lang du backend).
+// Clés plates `namespace.key`. AUCUNE chaîne d'UI en dur ailleurs.
 // FR = source de vérité ; repli automatique : langue → FR → clé brute.
 //
-// FR et EN sont COMPLETS. FON/BARIBA/DENDI sont partiels et complétés par des
-// TRADUCTEURS HUMAINS (langues peu dotées) ; les clés critiques (sos./labo./
-// payments.) exigent une DOUBLE VALIDATION (CLAUDE.md §6) — ne pas y mettre de
-// traduction automatique non vérifiée.
+// FR et EN sont COMPLETS. FON/YOR sont complétés par un 1er jet NLLB-200 PUIS
+// une RELECTURE par locuteurs natifs (langues peu dotées) ; les clés critiques
+// (sos./labo./payments.) exigent une DOUBLE VALIDATION (CLAUDE.md §6) — ne pas y
+// mettre de traduction automatique non vérifiée.
 //   Couverture / export :  pnpm i18n:check  |  pnpm i18n:export
 //   Workflow & CSV à remplir :  docs/i18n/README.md
 // ─────────────────────────────────────────────────────────────
@@ -1125,28 +1125,24 @@ const fon: Messages = {
   'role.DIASPORA': 'Diaspora',
 };
 
-// Baatɔnum & Dɛndi : à compléter par les traducteurs ; clés critiques + repli FR.
-const bariba: Messages = {
-  'role.PATIENT': 'Patient',
-  'role.MEDECIN': 'Dótɔ',
-  'role.PHARMACIE': 'Pharmacie',
-  'role.LABORATOIRE': 'Laboratoire',
+// Yorùbá — à compléter (1er jet NLLB-200 puis RELECTURE par locuteurs natifs,
+// cf. plan i18n P2/P3) ; clés critiques sos./labo./payments. = double validation.
+// Quelques clés socle ; le reste reprend FR (repli automatique).
+const yor: Messages = {
+  'common.greeting': 'Ẹ kú àbọ̀',
+  'home.hello': 'Ẹ kú àbọ̀, {name}',
+  'profile.logout': 'Jáde',
+  'auth.logout': 'Jáde',
+  'role.PATIENT': 'Aláìsàn',
+  'role.MEDECIN': 'Dókítà',
+  'role.PHARMACIE': 'Ilé òògùn',
+  'role.LABORATOIRE': 'Yàrá ìdánwò',
   'role.DIASPORA': 'Diaspora',
-  'profile.logout': 'Yari',
-};
-const dendi: Messages = {
-  'role.PATIENT': 'Patient',
-  'role.MEDECIN': 'Dótɔr',
-  'role.PHARMACIE': 'Pharmacie',
-  'role.LABORATOIRE': 'Laboratoire',
-  'role.DIASPORA': 'Diaspora',
-  'profile.logout': 'Funu',
 };
 
 export const messages: Record<Lang, Messages> = {
   FR: fr,
   EN: en,
   FON: fon,
-  BARIBA: bariba,
-  DENDI: dendi,
+  YOR: yor,
 };

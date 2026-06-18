@@ -102,6 +102,6 @@ describe('triggerSos', () => {
     expect(sosSmsBody('EN', 1, 2)).toContain('EMERGENCY');
     expect(sosSmsBody('FON', 1, 2)).toContain('ADANDÓ');
     // langue sans gabarit → repli FR
-    expect(sosSmsBody('DENDI', 1, 2)).toContain('URGENCE');
+    expect(sosSmsBody('YOR', 1, 2)).toContain('URGENCE');
   });
 });

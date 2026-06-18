@@ -62,8 +62,7 @@ export const LANGUAGE_META: Record<Lang, LanguageMeta> = {
   FR: { code: 'FR', name: 'Français', nativeName: 'Français', dir: 'ltr', hasAudio: false },
   EN: { code: 'EN', name: 'Anglais', nativeName: 'English', dir: 'ltr', hasAudio: false },
   FON: { code: 'FON', name: 'Fon', nativeName: 'Fɔ̀ngbè', dir: 'ltr', hasAudio: true },
-  BARIBA: { code: 'BARIBA', name: 'Bariba', nativeName: 'Baatɔnum', dir: 'ltr', hasAudio: false },
-  DENDI: { code: 'DENDI', name: 'Dendi', nativeName: 'Dɛndi', dir: 'ltr', hasAudio: false },
+  YOR: { code: 'YOR', name: 'Yoruba', nativeName: 'Yorùbá', dir: 'ltr', hasAudio: false },
 };
 
 /** Liste ordonnée des langues pour l'affichage du sélecteur. */

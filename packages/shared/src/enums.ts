@@ -10,7 +10,7 @@ export type Role = (typeof ROLES)[number];
 export const USER_STATUSES = ['PENDING_VERIFICATION', 'ACTIVE', 'SUSPENDED', 'PENDING_KYC'] as const;
 export type UserStatus = (typeof USER_STATUSES)[number];
 
-export const LANGS = ['FR', 'EN', 'FON', 'BARIBA', 'DENDI'] as const;
+export const LANGS = ['FR', 'EN', 'FON', 'YOR'] as const;
 export type Lang = (typeof LANGS)[number];
 
 export const APPOINTMENT_TYPES = ['PHYSICAL', 'TELECONSULTATION'] as const;

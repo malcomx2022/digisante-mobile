@@ -19,7 +19,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const MESSAGES = resolve(ROOT, 'apps/web/src/i18n/messages.ts');
 const OUT_DIR = resolve(ROOT, 'docs/i18n');
 
-const LOCALES = ['fr', 'en', 'fon', 'bariba', 'dendi'];
+const LOCALES = ['fr', 'en', 'fon', 'yor'];
 const CRITICAL_PREFIXES = ['sos.', 'labo.', 'payments.'];
 
 const isCritical = (key) => CRITICAL_PREFIXES.some((p) => key.startsWith(p));
