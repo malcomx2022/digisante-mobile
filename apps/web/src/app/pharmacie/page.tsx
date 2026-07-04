@@ -102,7 +102,7 @@ export default function PharmaciePage() {
           onChange={(e) => setQr(e.target.value)}
           placeholder={t('pharmacie.qr')}
           aria-label={t('pharmacie.qr')}
-          className="w-full bg-white/10 border border-white/20 card-pagne px-3 py-2 text-white text-[0.8125rem] focus:outline-none"
+          className="w-full bg-white/10 border border-white/20 card-pagne pagne-focus px-3 py-2 text-white text-base focus:outline-none focus:border-ocre-400"
         />
         <button type="button" onClick={() => scan()} className="w-full bg-ocre-400 text-stone-900 font-display font-extrabold card-pagne py-3 disabled:opacity-50" disabled={busy || qr.length < 16}>
           {t('pharmacie.verify')}

@@ -25,7 +25,7 @@ export function Protected({ role, children }: { role?: Role; children: React.Rea
 
   if (status !== 'authed' || (role && user?.role !== role)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-creme text-stone-500 font-body text-sm">
+      <div className="min-h-dvh-screen flex items-center justify-center bg-creme text-stone-500 font-body text-sm">
         {t('common.loading')}
       </div>
     );

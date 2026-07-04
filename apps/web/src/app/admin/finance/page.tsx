@@ -223,7 +223,7 @@ export default function AdminFinance() {
           onChange={(e) => setReason(e.target.value)}
           placeholder={t('finance.refund_reason')}
           aria-label={t('finance.refund_reason')}
-          className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base focus:outline-none focus:border-indigo-600"
+          className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base pagne-focus focus:outline-none focus:border-indigo-600"
         />
       </ConfirmDialog>
     </>

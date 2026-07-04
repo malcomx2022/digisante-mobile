@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 import { CardPagne } from '@/components/ui';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
-import { Empty, ErrorState, Skeleton } from '@/components/ui/States';
+import { Empty, ErrorState, Skeleton, SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get } from '@/lib/api/client';
 import { beneficiariesApi, type Beneficiary } from '@/lib/api/beneficiaries';
@@ -20,7 +20,8 @@ interface Wallet {
 export default function DiasporaDashboard() {
   const { t } = useLocale();
   const { data, loading, error } = useApi<Wallet>(() => get('/wallet'), []);
-  const { data: family } = useApi<Beneficiary[]>(() => beneficiariesApi.list(), []);
+  const familyState = useApi<Beneficiary[]>(() => beneficiariesApi.list(), []);
+  const family = familyState.data;
 
   return (
     <>
@@ -50,6 +51,8 @@ export default function DiasporaDashboard() {
           </Link>
         </div>
         <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+          {familyState.loading && <SkeletonCards count={2} label={t('common.loading')} className="sm:col-span-2" />}
+          {!familyState.loading && familyState.error && <ErrorState label={t('common.load_error')} />}
           {(family ?? []).slice(0, 4).map((f, i) => (
             <CardPagne key={f.id} className={`p-4 flex items-center justify-between ${i % 2 ? '-rotate-1' : 'rotate-1'}`}>
               <div>
@@ -63,7 +66,7 @@ export default function DiasporaDashboard() {
               </Link>
             </CardPagne>
           ))}
-          {(family?.length ?? 0) === 0 && (
+          {!familyState.loading && !familyState.error && (family?.length ?? 0) === 0 && (
             <Link href="/diaspora/beneficiaries" className="block">
               <Empty label={t('beneficiaries.empty_cta')} />
             </Link>

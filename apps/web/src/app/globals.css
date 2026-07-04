@@ -35,6 +35,12 @@
     min-height: 100vh;
     min-height: 100dvh;
   }
+  /* Anneau de focus pour les éléments interactifs `card-pagne` BRUTS (hors
+     composant Button) : le clip-path rogne l'outline/anneau externe → anneau
+     INSET en currentColor (WCAG 2.4.7, cf. CLAUDE.md §8). */
+  .pagne-focus {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-current;
+  }
 }
 
 /* iOS Safari zoome automatiquement sur tout champ dont la police est < 16px au

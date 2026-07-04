@@ -7,7 +7,7 @@ import { useParams } from 'next/navigation';
 import { BookingModal, type BookingDoctor } from '@/components/patient/BookingModal';
 import { PatientHeader } from '@/components/patient/PatientHeader';
 import { Badge, Button, CardPagne, Nkyinkyim } from '@/components/ui';
-import { ErrorState, Loading } from '@/components/ui/States';
+import { ErrorState, Loading , SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { professionalsApi, type DoctorDetail, type ReviewsResponse } from '@/lib/api/professionals';
 import { useApi } from '@/lib/api/useApi';
@@ -133,7 +133,7 @@ export default function DoctorDetailPage() {
                   onChange={(e) => changeComment(e.target.value)}
                   placeholder={t('reviews.comment')}
                   aria-label={t('reviews.comment')}
-                  className="mt-2 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.875rem] focus:outline-none focus:border-sante-600"
+                  className="mt-2 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base pagne-focus focus:outline-none focus:border-sante-600"
                   rows={2}
                 />
                 {sent && <p className="text-sante-700 font-display font-bold text-[0.8125rem] mt-1">{t('reviews.submitted')}</p>}
@@ -149,7 +149,7 @@ export default function DoctorDetailPage() {
               <p className="font-display font-extrabold text-[0.8125rem] text-stone-700">{t('reviews.title')}</p>
               <Nkyinkyim className="my-3" />
               {reviewsLoading ? (
-                <Loading label={t('common.loading')} />
+                <SkeletonCards count={2} columns={false} label={t('common.loading')} />
               ) : reviewsError ? (
                 <ErrorState label={t('auth.error')} />
               ) : (reviews?.reviews.length ?? 0) === 0 ? (

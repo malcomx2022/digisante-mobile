@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 
 import { Button, CardPagne, ConfirmDialog } from '@/components/ui';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
-import { ErrorState } from '@/components/ui/States';
+import { ErrorState, Skeleton, SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get } from '@/lib/api/client';
 import { supportApi, type SupportAccount } from '@/lib/api/support';
@@ -100,8 +100,14 @@ export default function AdminSupport() {
             onChange={(e) => setQ(e.target.value)}
             placeholder={t('admin.search_users')}
             aria-label={t('admin.search_users')}
-            className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 font-body text-base focus:outline-none focus:border-indigo-600"
+            className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 font-body text-base pagne-focus focus:outline-none focus:border-indigo-600"
           />
+          {/* États de la recherche : chargement / erreur / aucun résultat / chips. */}
+          {debouncedQ && search.loading && <Skeleton className="h-8 w-2/3" />}
+          {debouncedQ && !search.loading && search.error && <p className="text-[0.75rem] text-sos-600 font-bold">{t('common.load_error')}</p>}
+          {debouncedQ && !search.loading && !search.error && results.length === 0 && (
+            <p className="text-[0.75rem] text-stone-400">{t('common.empty')}</p>
+          )}
           {results.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {results.map((u) => (
@@ -109,7 +115,7 @@ export default function AdminSupport() {
                   key={u.id}
                   type="button"
                   onClick={() => setSelectedId(u.id)}
-                  className={cn('card-pagne px-3 py-1.5 text-[0.75rem] font-display font-bold', selectedId === u.id ? 'bg-indigo-600 text-white' : 'bg-creme-deep text-stone-600')}
+                  className={cn('card-pagne pagne-focus px-3 py-1.5 text-[0.75rem] font-display font-bold', selectedId === u.id ? 'bg-indigo-600 text-white' : 'bg-creme-deep text-stone-600')}
                 >
                   {nameOf(u)} · {u.phone}
                 </button>
@@ -120,6 +126,7 @@ export default function AdminSupport() {
 
         {err && <p className="text-[0.75rem] text-sos-600 font-bold">{err}</p>}
         {acc.error && selectedId && <ErrorState label={t('auth.error')} />}
+        {acc.loading && selectedId && !account && <SkeletonCards count={2} label={t('common.loading')} />}
 
         {account && (
           <div className="lg:grid lg:grid-cols-2 lg:gap-5 lg:items-start space-y-4 lg:space-y-0">
@@ -182,7 +189,7 @@ export default function AdminSupport() {
                   rows={2}
                   placeholder={t('admin.add_note')}
                   aria-label={t('admin.add_note')}
-                  className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base focus:outline-none focus:border-indigo-600"
+                  className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base pagne-focus focus:outline-none focus:border-indigo-600"
                 />
                 <Button variant="indigo" full className="mt-2 text-[0.8125rem]" onClick={addNote} disabled={busy || !note.trim()}>{t('admin.add_note_btn')}</Button>
               </CardPagne>

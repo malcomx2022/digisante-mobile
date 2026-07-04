@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 
 import { PatientHeader } from '@/components/patient/PatientHeader';
 import { Badge, CardPagne } from '@/components/ui';
-import { Empty, ErrorState, Loading } from '@/components/ui/States';
+import { Empty, ErrorState , SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { educationApi, type HealthContent } from '@/lib/api/education';
 import { useApi } from '@/lib/api/useApi';
@@ -60,7 +60,7 @@ export default function EducationPage() {
           <button
             type="button"
             onClick={() => setCategory(null)}
-            className={cn('shrink-0 card-pagne px-3 py-1.5 text-[0.75rem] font-display font-bold', category === null ? 'bg-sante-600 text-white' : 'bg-creme-deep text-stone-600')}
+            className={cn('shrink-0 card-pagne pagne-focus px-3 py-1.5 text-[0.75rem] font-display font-bold', category === null ? 'bg-sante-600 text-white' : 'bg-creme-deep text-stone-600')}
           >
             {t('education.all')}
           </button>
@@ -69,14 +69,14 @@ export default function EducationPage() {
               key={c}
               type="button"
               onClick={() => setCategory(c)}
-              className={cn('shrink-0 card-pagne px-3 py-1.5 text-[0.75rem] font-display font-bold', category === c ? 'bg-sante-600 text-white' : 'bg-creme-deep text-stone-600')}
+              className={cn('shrink-0 card-pagne pagne-focus px-3 py-1.5 text-[0.75rem] font-display font-bold', category === c ? 'bg-sante-600 text-white' : 'bg-creme-deep text-stone-600')}
             >
               {t(`edu.cat.${c}`)}
             </button>
           ))}
         </div>
 
-        {loading && <Loading label={t('common.loading')} />}
+        {loading && <SkeletonCards label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && items.length === 0 && <Empty label={t('education.empty')} />}
 

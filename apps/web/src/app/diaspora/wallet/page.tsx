@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { Button, CardPagne, Nkyinkyim } from '@/components/ui';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
+import { ErrorState, Skeleton } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get, post } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
@@ -21,7 +22,7 @@ const EUR_XOF = 655.957;
 export default function WalletPage() {
   const { t } = useLocale();
   const [tick, setTick] = useState(0);
-  const { data } = useApi<WalletData>(() => get('/wallet'), [tick]);
+  const { data, loading, error } = useApi<WalletData>(() => get('/wallet'), [tick]);
   const [eur, setEur] = useState('10');
   const [msg, setMsg] = useState<string | null>(null);
   // Garde front-only contre la double-soumission (double recharge) — §5 : aucune logique de paiement modifiée.
@@ -50,9 +51,16 @@ export default function WalletPage() {
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto">
         <CardPagne stitch className="p-5 bg-ocre-900 bogolan-dark text-white">
           <p className="text-[0.75rem] text-white/80">{t('wallet.balance')}</p>
-          <p className="font-display font-extrabold text-3xl">
-            {formatNumber(data?.balance ?? 0)} <span className="text-base">{data?.currency ?? 'XOF'}</span>
-          </p>
+          {/* Une erreur réseau NE doit PAS afficher un solde à 0 (trompeur). */}
+          {loading ? (
+            <Skeleton className="h-9 w-40 mt-1 bg-white/20" />
+          ) : error ? (
+            <ErrorState label={t('common.load_error')} />
+          ) : (
+            <p className="font-display font-extrabold text-3xl">
+              {formatNumber(data?.balance ?? 0)} <span className="text-base">{data?.currency ?? 'XOF'}</span>
+            </p>
+          )}
           <Nkyinkyim className="my-3 opacity-50" />
           <div className="flex items-center gap-2">
             <input
@@ -73,7 +81,9 @@ export default function WalletPage() {
 
         <h2 className="font-display font-extrabold text-[0.875rem] text-stone-700">{t('wallet.history')}</h2>
         <CardPagne className="p-4">
-          {(data?.transactions ?? []).length === 0 ? (
+          {error ? (
+            <ErrorState label={t('common.load_error')} />
+          ) : (data?.transactions ?? []).length === 0 ? (
             <p className="text-[0.8125rem] text-stone-400">{t('common.empty')}</p>
           ) : (
             (data?.transactions ?? []).map((tx) => (

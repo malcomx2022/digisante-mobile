@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { DmpShareDialog } from '@/components/patient/DmpShareDialog';
 import { PatientHeader } from '@/components/patient/PatientHeader';
 import { CardPagne } from '@/components/ui';
-import { Empty, ErrorState, Loading } from '@/components/ui/States';
+import { Empty, ErrorState , SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get } from '@/lib/api/client';
 import { dmpApi, type DmpConsent, type DmpRecord } from '@/lib/api/dmp';
@@ -132,7 +132,7 @@ export default function DmpPage() {
           </CardPagne>
         )}
 
-        {loading && <Loading label={t('common.loading')} />}
+        {loading && <SkeletonCards label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && (data?.length ?? 0) === 0 && <Empty label={t('common.empty')} />}
 

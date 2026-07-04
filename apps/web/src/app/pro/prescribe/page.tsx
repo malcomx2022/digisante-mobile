@@ -54,7 +54,7 @@ function PrescribeInner() {
     }
   }
 
-  const inputCls = 'bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.8125rem] focus:outline-none focus:border-indigo-600';
+  const inputCls = 'bg-white card-pagne border border-stone-300 px-3 py-2 text-base pagne-focus focus:outline-none focus:border-indigo-600';
 
   return (
     <>

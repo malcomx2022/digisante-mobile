@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 
 import { ProHeader } from '@/components/pro/ProHeader';
 import { CardPagne } from '@/components/ui';
-import { Empty, ErrorState, Loading } from '@/components/ui/States';
+import { Empty, ErrorState , SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
@@ -40,7 +40,7 @@ export default function AgendaPage() {
     <>
       <ProHeader title={t('pro.agenda')} wide />
       <main className="px-6 -mt-10 relative z-20 space-y-3 pb-6 lg:max-w-5xl lg:mx-auto lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
-        {loading && <Loading label={t('common.loading')} />}
+        {loading && <SkeletonCards columns={false} label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && (data?.length ?? 0) === 0 && <Empty label={t('common.empty')} />}
 
@@ -53,8 +53,8 @@ export default function AgendaPage() {
                 <p className="text-[0.625rem] text-stone-400">{formatDate(a.scheduledAt, { day: '2-digit', month: '2-digit' })}</p>
               </div>
               <span className={`w-1 self-stretch rounded-full ${a.status === 'CONFIRMED' ? 'bg-indigo-500' : 'bg-ocre-400'}`} />
-              <div className="flex-1">
-                <p className="font-display font-bold text-[0.875rem]">{p ? `${p.firstName} ${p.lastName}` : t('role.PATIENT')}</p>
+              <div className="flex-1 min-w-0">
+                <p className="font-display font-bold text-[0.875rem] truncate">{p ? `${p.firstName} ${p.lastName}` : t('role.PATIENT')}</p>
                 <p className="text-[0.75rem] text-stone-400">{t(`appt.type.${a.type}`)} · {t(`appt.status.${a.status}`)}</p>
               </div>
             </CardPagne>

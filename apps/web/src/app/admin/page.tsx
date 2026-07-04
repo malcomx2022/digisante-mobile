@@ -5,7 +5,7 @@ import { useState } from 'react';
 
 import { Badge, Button, CardPagne } from '@/components/ui';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
-import { ErrorState, Loading } from '@/components/ui/States';
+import { ErrorState, Loading , SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get, post } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
@@ -91,7 +91,7 @@ export default function AdminMetrics() {
               {t('adminkyc.review')} →
             </Link>
           </div>
-          {queue.loading && <Loading label={t('common.loading')} />}
+          {queue.loading && <SkeletonCards label={t('common.loading')} />}
           {!queue.loading && items.length === 0 && <p className="text-[0.8125rem] text-stone-400">{t('common.empty')}</p>}
 
           {/* Mobile : cartes */}
@@ -115,7 +115,7 @@ export default function AdminMetrics() {
 
           {/* Desktop : table */}
           {items.length > 0 && (
-            <div className="hidden lg:block bg-white card-pagne border border-stone-200 overflow-hidden">
+            <div className="hidden lg:block bg-white card-pagne border border-stone-200 overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="bg-creme">

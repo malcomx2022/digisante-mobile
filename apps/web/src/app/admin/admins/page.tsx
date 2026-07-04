@@ -81,7 +81,7 @@ export default function AdminAdmins() {
       aria-label={t('admin.preset')}
       value={(a.preset as AdminPreset) ?? ''}
       onChange={(e) => changePreset(a, e.target.value as AdminPreset)}
-      className="card-pagne bg-white border border-stone-300 text-[0.75rem] font-display font-bold px-2 py-1 focus:outline-none focus:border-indigo-600"
+      className="card-pagne bg-white border border-stone-300 text-base font-display font-bold px-2 py-1 pagne-focus focus:outline-none focus:border-indigo-600"
     >
       {!a.preset && <option value="">{t('admin.preset_custom')}</option>}
       {ADMIN_PRESET_NAMES.map((p) => (
@@ -113,13 +113,13 @@ export default function AdminAdmins() {
               inputMode="tel"
               placeholder={t('admin.admin_phone')}
               aria-label={t('admin.admin_phone')}
-              className="flex-1 bg-white card-pagne border border-stone-300 px-3 py-2 font-body text-base focus:outline-none focus:border-indigo-600"
+              className="flex-1 bg-white card-pagne border border-stone-300 px-3 py-2 font-body text-base pagne-focus focus:outline-none focus:border-indigo-600"
             />
             <select
               aria-label={t('admin.preset')}
               value={preset}
               onChange={(e) => setPreset(e.target.value as AdminPreset)}
-              className="card-pagne bg-white border border-stone-300 text-[0.875rem] font-display font-bold px-2 py-2 focus:outline-none focus:border-indigo-600"
+              className="card-pagne bg-white border border-stone-300 text-base font-display font-bold px-2 py-2 pagne-focus focus:outline-none focus:border-indigo-600"
             >
               {ADMIN_PRESET_NAMES.map((p) => (
                 <option key={p} value={p}>{p}</option>
@@ -162,10 +162,10 @@ export default function AdminAdmins() {
                 {t('admin.results_range', { from: (page - 1) * PAGE_SIZE + 1, to: Math.min(page * PAGE_SIZE, total), total })}
               </span>
               <div className="flex gap-1.5">
-                <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="card-pagne bg-white border border-stone-200 text-stone-600 text-[0.75rem] font-display font-bold px-3 py-1.5 disabled:opacity-40">
+                <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="card-pagne bg-white border border-stone-200 text-stone-600 text-[0.75rem] font-display font-bold px-4 py-2.5 disabled:opacity-40">
                   <span aria-hidden="true">‹ </span>{t('admin.prev')}
                 </button>
-                <button type="button" onClick={() => setPage((p) => p + 1)} disabled={page * PAGE_SIZE >= total} className="card-pagne bg-white border border-stone-200 text-stone-600 text-[0.75rem] font-display font-bold px-3 py-1.5 disabled:opacity-40">
+                <button type="button" onClick={() => setPage((p) => p + 1)} disabled={page * PAGE_SIZE >= total} className="card-pagne bg-white border border-stone-200 text-stone-600 text-[0.75rem] font-display font-bold px-4 py-2.5 disabled:opacity-40">
                   {t('admin.next')}<span aria-hidden="true"> ›</span>
                 </button>
               </div>
@@ -175,7 +175,7 @@ export default function AdminAdmins() {
 
         {/* Desktop : table */}
         {admins.length > 0 && (
-          <div className="hidden lg:block bg-white card-pagne border border-stone-200 overflow-hidden">
+          <div className="hidden lg:block bg-white card-pagne border border-stone-200 overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="bg-creme">
@@ -214,10 +214,10 @@ export default function AdminAdmins() {
                   {t('admin.results_range', { from: (page - 1) * PAGE_SIZE + 1, to: Math.min(page * PAGE_SIZE, total), total })}
                 </span>
                 <div className="flex gap-1.5">
-                  <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="card-pagne bg-white border border-stone-200 text-stone-600 text-[0.75rem] font-display font-bold px-3 py-1.5 disabled:opacity-40">
+                  <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="card-pagne bg-white border border-stone-200 text-stone-600 text-[0.75rem] font-display font-bold px-4 py-2.5 disabled:opacity-40">
                     <span aria-hidden="true">‹ </span>{t('admin.prev')}
                   </button>
-                  <button type="button" onClick={() => setPage((p) => p + 1)} disabled={page * PAGE_SIZE >= total} className="card-pagne bg-white border border-stone-200 text-stone-600 text-[0.75rem] font-display font-bold px-3 py-1.5 disabled:opacity-40">
+                  <button type="button" onClick={() => setPage((p) => p + 1)} disabled={page * PAGE_SIZE >= total} className="card-pagne bg-white border border-stone-200 text-stone-600 text-[0.75rem] font-display font-bold px-4 py-2.5 disabled:opacity-40">
                     {t('admin.next')}<span aria-hidden="true"> ›</span>
                   </button>
                 </div>

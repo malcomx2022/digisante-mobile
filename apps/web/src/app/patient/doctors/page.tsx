@@ -46,7 +46,7 @@ export default function DoctorsPage() {
           onChange={(e) => setQ(e.target.value)}
           placeholder={t('doctors.search')}
           aria-label={t('doctors.search')}
-          className="w-full lg:max-w-md bg-white card-pagne border-2 border-stone-900 px-4 py-3 font-body text-[0.9375rem] shadow-[4px_4px_0_rgba(33,28,22,.15)] focus:outline-none focus:border-sante-600 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sante-600"
+          className="w-full lg:max-w-md bg-white card-pagne border-2 border-stone-900 px-4 py-3 font-body text-base shadow-[4px_4px_0_rgba(33,28,22,.15)] pagne-focus focus:outline-none focus:border-sante-600 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sante-600"
         />
 
         {/* Filtre par langue parlée (barrière linguistique) */}
@@ -54,7 +54,7 @@ export default function DoctorsPage() {
           <button
             type="button"
             onClick={() => setLang(null)}
-            className={cn('shrink-0 card-pagne px-3 py-1.5 text-[0.75rem] font-display font-bold', lang === null ? 'bg-sante-600 text-white' : 'bg-creme-deep text-stone-600')}
+            className={cn('shrink-0 card-pagne pagne-focus px-3 py-1.5 text-[0.75rem] font-display font-bold', lang === null ? 'bg-sante-600 text-white' : 'bg-creme-deep text-stone-600')}
           >
 <span aria-hidden="true">🗣</span> {t('doctors.all_langs')}
           </button>
@@ -63,7 +63,7 @@ export default function DoctorsPage() {
               key={l}
               type="button"
               onClick={() => setLang(l === lang ? null : l)}
-              className={cn('shrink-0 card-pagne px-3 py-1.5 text-[0.75rem] font-display font-bold', l === lang ? 'bg-sante-600 text-white' : 'bg-creme-deep text-stone-600')}
+              className={cn('shrink-0 card-pagne pagne-focus px-3 py-1.5 text-[0.75rem] font-display font-bold', l === lang ? 'bg-sante-600 text-white' : 'bg-creme-deep text-stone-600')}
             >
               {l}
             </button>

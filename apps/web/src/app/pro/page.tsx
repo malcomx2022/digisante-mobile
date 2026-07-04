@@ -5,7 +5,7 @@ import { useState } from 'react';
 
 import { ProHeader } from '@/components/pro/ProHeader';
 import { Badge, Button, CardPagne } from '@/components/ui';
-import { Empty, ErrorState, Loading } from '@/components/ui/States';
+import { Empty, ErrorState , SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get, post } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
@@ -83,7 +83,7 @@ export default function ProDashboard() {
 
         <h2 className="font-display font-extrabold text-[0.875rem] text-stone-700">{t('pro.queue')}</h2>
         {confirmError && <p className="text-sos-600 font-bold text-[0.75rem]">{t('auth.error')}</p>}
-        {loading && <Loading label={t('common.loading')} />}
+        {loading && <SkeletonCards label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && list.length === 0 && <Empty label={t('common.empty')} />}
 

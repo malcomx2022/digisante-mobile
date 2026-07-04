@@ -4,7 +4,7 @@ import { useState } from 'react';
 
 import { PatientHeader } from '@/components/patient/PatientHeader';
 import { Button, CardPagne, Nkyinkyim } from '@/components/ui';
-import { Empty, ErrorState, Loading } from '@/components/ui/States';
+import { Empty, ErrorState , SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { dmpApi, type DmpRecord, type VitalReading } from '@/lib/api/dmp';
 import { useApi } from '@/lib/api/useApi';
@@ -82,7 +82,7 @@ export default function VitalsPage() {
         value={value}
         onChange={(e) => set(e.target.value)}
         placeholder={ph}
-        className="mt-1 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.875rem] focus:outline-none focus:border-sante-600"
+        className="mt-1 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base pagne-focus focus:outline-none focus:border-sante-600"
       />
     </label>
   );
@@ -117,7 +117,7 @@ export default function VitalsPage() {
           </CardPagne>
         )}
 
-        {loading && <Loading label={t('common.loading')} />}
+        {loading && <SkeletonCards count={3} columns={false} label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && readings.length === 0 && <Empty label={t('vitals.empty')} />}
 

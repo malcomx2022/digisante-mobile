@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ProHeader } from '@/components/pro/ProHeader';
 import { Badge, Button, CardPagne, Nkyinkyim } from '@/components/ui';
 import { QrScanner } from '@/components/ui/QrScanner';
-import { Empty, Loading } from '@/components/ui/States';
+import { Empty , SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { dmpApi, type DmpRecord } from '@/lib/api/dmp';
 import { useApi } from '@/lib/api/useApi';
@@ -80,7 +80,7 @@ function Patient360Inner() {
               onChange={(e) => setLinkInput(e.target.value)}
               placeholder={t('pro.paste_link')}
               aria-label={t('pro.paste_link')}
-              className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.8125rem] focus:outline-none focus:border-indigo-600"
+              className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base pagne-focus focus:outline-none focus:border-indigo-600"
             />
             {parseError && <p className="text-sos-600 font-bold text-[0.75rem] mt-2">{parseError}</p>}
             <Button variant="indigo" full className="mt-3" onClick={() => handleSharePayload(linkInput)}>
@@ -157,7 +157,7 @@ function Patient360Inner() {
               onChange={(e) => setTokenInput(e.target.value)}
               placeholder={t('pro.paste_token')}
               aria-label={t('pro.paste_token')}
-              className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.8125rem] font-mono focus:outline-none focus:border-indigo-600"
+              className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base font-mono pagne-focus focus:outline-none focus:border-indigo-600"
             />
             <Button variant="indigo" full className="mt-3" onClick={() => tokenInput.trim() && setToken(tokenInput.trim())}>
               {t('pro.apply_token')}
@@ -165,7 +165,7 @@ function Patient360Inner() {
           </CardPagne>
         )}
 
-        {token && loading && <Loading label={t('common.loading')} />}
+        {token && loading && <SkeletonCards label={t('common.loading')} />}
 
         {token && !loading && error && !isForbidden && (
           <CardPagne stitch="indigo" className="p-5 text-center">

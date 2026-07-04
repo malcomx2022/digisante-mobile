@@ -76,9 +76,9 @@ export default function LabOrdersPage() {
           {(incoming.data ?? []).map((o) => (
             <CardPagne key={o.id} className="p-4">
               <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="font-display font-extrabold text-[0.875rem] text-stone-800">{o.testType}</p>
-                  <p className="text-[0.8125rem] text-stone-500">{o.patient ? `${o.patient.firstName} ${o.patient.lastName}` : '—'}</p>
+                <div className="min-w-0">
+                  <p className="font-display font-extrabold text-[0.875rem] text-stone-800 truncate">{o.testType}</p>
+                  <p className="text-[0.8125rem] text-stone-500 truncate">{o.patient ? `${o.patient.firstName} ${o.patient.lastName}` : '—'}</p>
                 </div>
                 <Badge variant={STATUS_VARIANT[o.status] ?? 'eleve'}>{t(`labo.status.${o.status}`)}</Badge>
               </div>

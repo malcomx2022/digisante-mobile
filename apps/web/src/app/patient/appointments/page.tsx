@@ -85,7 +85,7 @@ export default function AppointmentsPage() {
                 onChange={(e) => setReason(e.target.value)}
                 placeholder={t('appt.reason')}
                 aria-label={t('appt.reason')}
-                className="flex-1 bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.8125rem] focus:outline-none focus:border-sos-600"
+                className="flex-1 bg-white card-pagne border border-stone-300 px-3 py-2 text-base pagne-focus focus:outline-none focus:border-sos-600"
               />
               <Button variant="sos" className="text-[0.75rem] px-3 py-2" onClick={() => confirmCancel(a.id)}>
                 {t('appt.confirm_cancel')}
