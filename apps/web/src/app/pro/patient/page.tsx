@@ -11,6 +11,7 @@ import { Empty, Loading } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { dmpApi, type DmpRecord } from '@/lib/api/dmp';
 import { useApi } from '@/lib/api/useApi';
+import { formatDate } from '@/i18n/format';
 
 const BAR: Record<string, string> = {
   LAB_RESULT: 'bg-indigo-500',
@@ -186,10 +187,10 @@ function Patient360Inner() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <p className="font-display font-bold text-[0.875rem] text-stone-800">{r.title}</p>
-                      <Badge variant="indigo">{r.type}</Badge>
+                      <Badge variant="indigo">{t(`record.${r.type}`)}</Badge>
                     </div>
                     <p className="text-[0.75rem] text-stone-400">
-                      {new Date(r.createdAt).toLocaleDateString('fr-FR', { dateStyle: 'medium' })}
+                      {formatDate(r.createdAt, { dateStyle: 'medium' })}
                     </p>
                   </div>
                 </div>

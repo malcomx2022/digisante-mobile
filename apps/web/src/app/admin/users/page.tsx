@@ -10,6 +10,7 @@ import { useLocale } from '@/i18n/LocaleProvider';
 import { get, post } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
+import { formatDate } from '@/i18n/format';
 
 interface User {
   id: string;
@@ -257,7 +258,7 @@ export default function AdminUsers() {
                       {u.lang ? <><span aria-hidden="true">🗣</span> {u.lang}</> : '—'}
                     </td>
                     <td className="px-3 py-3 text-[0.71875rem] text-stone-500 whitespace-nowrap">
-                      {new Date(u.createdAt).toLocaleDateString('fr-FR', { dateStyle: 'medium' })}
+                      {formatDate(u.createdAt, { dateStyle: 'medium' })}
                     </td>
                     <td className="px-3 py-3">{statusBadge(u.status)}</td>
                   </tr>
@@ -287,7 +288,7 @@ export default function AdminUsers() {
                     <div className="flex justify-between gap-2"><span className="text-stone-400">{t('admin.phone')}</span><span className="font-bold text-stone-900 truncate">{selected.phone}</span></div>
                     {selected.email && <div className="flex justify-between gap-2"><span className="text-stone-400">{t('admin.email')}</span><span className="font-bold text-stone-900 truncate">{selected.email}</span></div>}
                     {selected.lang && <div className="flex justify-between gap-2"><span className="text-stone-400">{t('admin.col_lang')}</span><span className="font-bold text-stone-900">🗣 {selected.lang}</span></div>}
-                    <div className="flex justify-between gap-2"><span className="text-stone-400">{t('admin.col_joined')}</span><span className="font-bold text-stone-900">{new Date(selected.createdAt).toLocaleDateString('fr-FR', { dateStyle: 'medium' })}</span></div>
+                    <div className="flex justify-between gap-2"><span className="text-stone-400">{t('admin.col_joined')}</span><span className="font-bold text-stone-900">{formatDate(selected.createdAt, { dateStyle: 'medium' })}</span></div>
                     <div className="flex justify-between gap-2 items-center"><span className="text-stone-400">{t('admin.col_status')}</span>{statusBadge(selected.status)}</div>
                   </div>
                 </CardPagne>

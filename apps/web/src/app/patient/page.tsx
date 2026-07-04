@@ -9,6 +9,7 @@ import { Loading } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
+import { formatDateTime } from '@/i18n/format';
 
 interface Appointment {
   id: string;
@@ -67,7 +68,7 @@ export default function PatientDashboard() {
           ) : next ? (
             <>
               <p className="text-[0.8125rem] text-stone-500">
-                {new Date(next.scheduledAt).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
+                {formatDateTime(next.scheduledAt, { dateStyle: 'medium', timeStyle: 'short' })}
                 {next.type === 'TELECONSULTATION' ? ` · ${t('booking.type_teleconsult')}` : ` · ${t('booking.type_physical')}`}
               </p>
               <Link

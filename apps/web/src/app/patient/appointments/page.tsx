@@ -9,6 +9,7 @@ import { Empty, ErrorState, SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { appointmentsApi, type PatientAppointment } from '@/lib/api/appointments';
 import { useApi } from '@/lib/api/useApi';
+import { formatDateTime } from '@/i18n/format';
 
 // Mes rendez-vous — liste (à venir / passés), annulation, rejoindre la téléconsult.
 export default function AppointmentsPage() {
@@ -22,7 +23,7 @@ export default function AppointmentsPage() {
   async function confirmCancel(id: string) {
     setCancelError(null);
     try {
-      await appointmentsApi.cancel(id, reason.trim() || 'Annulé par le patient');
+      await appointmentsApi.cancel(id, reason.trim() || t('appt.cancel_default'));
       setCancelling(null);
       setReason('');
       setTick((n) => n + 1);
@@ -52,7 +53,7 @@ export default function AppointmentsPage() {
             <p className="font-display font-bold text-[0.9375rem] text-stone-800 truncate">{a.doctorName}</p>
             <p className="text-[0.75rem] text-stone-500">{a.speciality}</p>
             <p className="text-[0.75rem] text-stone-400 mt-0.5">
-              {new Date(a.scheduledAt).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
+              {formatDateTime(a.scheduledAt, { dateStyle: 'medium', timeStyle: 'short' })}
               {a.type === 'TELECONSULTATION' ? ` · ${t('booking.type_teleconsult')}` : ` · ${t('booking.type_physical')}`}
             </p>
           </div>

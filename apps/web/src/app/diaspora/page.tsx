@@ -9,6 +9,7 @@ import { useLocale } from '@/i18n/LocaleProvider';
 import { get } from '@/lib/api/client';
 import { beneficiariesApi, type Beneficiary } from '@/lib/api/beneficiaries';
 import { useApi } from '@/lib/api/useApi';
+import { formatNumber } from '@/i18n/format';
 
 interface Wallet {
   balance: string | number;
@@ -24,7 +25,7 @@ export default function DiasporaDashboard() {
   return (
     <>
       {/* TODO: le sous-titre (ville d'origine/résidence) devrait venir du profil diaspora, pas codé en dur. */}
-      <SpaceHeader title={t('diaspora.title')} subtitle="Paris 🇫🇷 · Cotonou 🇧🇯" headerClass="bg-ocre-900" profileHref="/diaspora/profile" />
+      <SpaceHeader title={t('diaspora.title')} subtitle={t('diaspora.subtitle')} headerClass="bg-ocre-900" profileHref="/diaspora/profile" />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto">
         <CardPagne stitch className="p-5 bg-ocre-900 bogolan-dark text-white">
           <p className="text-[0.75rem] text-white/80">{t('wallet.balance')}</p>
@@ -34,7 +35,7 @@ export default function DiasporaDashboard() {
             <ErrorState label={t('auth.error')} />
           ) : (
             <p className="font-display font-extrabold text-3xl">
-              {Number(data?.balance ?? 0).toLocaleString('fr-FR')} <span className="text-base">{data?.currency ?? 'XOF'}</span>
+              {formatNumber(data?.balance ?? 0)} <span className="text-base">{data?.currency ?? 'XOF'}</span>
             </p>
           )}
           <Link href="/diaspora/wallet" className="inline-block mt-3 bg-ocre-400 text-stone-900 font-display font-bold card-pagne px-4 py-2 text-[0.8125rem]">

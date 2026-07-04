@@ -10,12 +10,13 @@ import { adminsApi } from '@/lib/api/admins';
 import { financeApi, type CompletedPayment, type FinanceOverview, type WebhookEntry } from '@/lib/api/finance';
 import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
+import { formatDateTime, formatNumber } from '@/i18n/format';
 
 function xof(v: string | number): string {
-  return Number(v).toLocaleString('fr-FR');
+  return formatNumber(v);
 }
 function dt(s: string): string {
-  return new Date(s).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+  return formatDateTime(s, { dateStyle: 'short', timeStyle: 'short' });
 }
 
 // D-25e — Finances (back-office) : volumes paiements, réconciliation, wallets,

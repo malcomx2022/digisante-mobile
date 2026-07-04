@@ -7,6 +7,7 @@ import { SpaceHeader } from '@/components/ui/SpaceHeader';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get, post } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
+import { formatDate, formatNumber } from '@/i18n/format';
 
 interface WalletData {
   balance: string | number;
@@ -34,7 +35,7 @@ export default function WalletPage() {
     setMsg(null);
     try {
       await post('/wallet/topup', { amountEur: Number(eur), method: 'VISA_MC' });
-      setMsg('✓ Recharge initiée (FedaPay)');
+      setMsg(`✓ ${t('wallet.topup_initiated')}`);
       setTick((x) => x + 1);
     } catch {
       setMsg(t('auth.error'));
@@ -50,7 +51,7 @@ export default function WalletPage() {
         <CardPagne stitch className="p-5 bg-ocre-900 bogolan-dark text-white">
           <p className="text-[0.75rem] text-white/80">{t('wallet.balance')}</p>
           <p className="font-display font-extrabold text-3xl">
-            {Number(data?.balance ?? 0).toLocaleString('fr-FR')} <span className="text-base">{data?.currency ?? 'XOF'}</span>
+            {formatNumber(data?.balance ?? 0)} <span className="text-base">{data?.currency ?? 'XOF'}</span>
           </p>
           <Nkyinkyim className="my-3 opacity-50" />
           <div className="flex items-center gap-2">
@@ -62,10 +63,10 @@ export default function WalletPage() {
               placeholder={t('wallet.topup_eur')}
               aria-label={t('wallet.topup_eur')}
             />
-            <span className="text-[0.8125rem] text-white/80">€ → {t('wallet.converted', { xof: xof.toLocaleString('fr-FR') })}</span>
+            <span className="text-[0.8125rem] text-white/80">€ → {t('wallet.converted', { xof: formatNumber(xof) })}</span>
           </div>
           <Button variant="ocre" full className="mt-3" onClick={topup} disabled={busy || !Number(eur)}>
-            {t('wallet.topup')} (Visa · 3-D Secure)
+            {t('wallet.topup')} {t('wallet.card_hint')}
           </Button>
           {msg && <p className="mt-2 text-[0.75rem] text-white">{msg}</p>}
         </CardPagne>
@@ -78,11 +79,11 @@ export default function WalletPage() {
             (data?.transactions ?? []).map((tx) => (
               <div key={tx.id} className="flex justify-between py-1.5 border-b border-dashed border-stone-200 text-[0.8125rem]">
                 <span className="text-stone-500">
-                  {tx.type} · {new Date(tx.createdAt).toLocaleDateString('fr-FR')}
+                  {t(`wallet.tx.${tx.type}`)} · {formatDate(tx.createdAt)}
                 </span>
                 <span className={`font-display font-bold ${tx.type === 'TOPUP' ? 'text-sante-700' : 'text-sos-600'}`}>
                   {tx.type === 'TOPUP' ? '+' : '−'}
-                  {Number(tx.amount).toLocaleString('fr-FR')}
+                  {formatNumber(tx.amount)}
                 </span>
               </div>
             ))

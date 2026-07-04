@@ -12,6 +12,7 @@ import { LANGUAGE_LIST } from '@digisante/shared';
 import { professionalsApi, type DoctorListItem } from '@/lib/api/professionals';
 import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
+import { formatNumber } from '@/i18n/format';
 
 // Liste des langues dérivée de l'enum canonique partagé (source de vérité, parité garantie).
 const LANGS = LANGUAGE_LIST.map((l) => l.code);
@@ -94,7 +95,7 @@ export default function DoctorsPage() {
                   )}
                   <div className="flex items-center justify-between mt-2">
                     <span className="font-display font-bold text-sante-700 text-[0.8125rem]">
-                      {Number(d.consultFee).toLocaleString('fr-FR')} {t('common.fcfa')}
+                      {formatNumber(d.consultFee)} {t('common.fcfa')}
                     </span>
                     <div className="flex items-center gap-2">
                       <Link

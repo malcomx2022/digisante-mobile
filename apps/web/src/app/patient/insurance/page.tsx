@@ -9,6 +9,7 @@ import { useLocale } from '@/i18n/LocaleProvider';
 import { insuranceApi, type Coverage, type InsuranceProvider } from '@/lib/api/insurance';
 import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
+import { formatDate } from '@/i18n/format';
 
 const STATUS_VARIANT: Record<string, 'normal' | 'eleve' | 'pro'> = {
   ACTIVE: 'normal',
@@ -98,7 +99,7 @@ export default function InsurancePage() {
                   )}
                   {c.expiresAt && (
                     <p className="text-[0.75rem] text-ocre-600 mt-1">
-                      {t('insurance.expires', { date: new Date(c.expiresAt).toLocaleDateString('fr-FR') })}
+                      {t('insurance.expires', { date: formatDate(c.expiresAt) })}
                     </p>
                   )}
                 </div>

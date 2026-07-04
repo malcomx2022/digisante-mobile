@@ -10,6 +10,7 @@ import { Empty, ErrorState, SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { labApi, type AvailableOrder, type IncomingOrder } from '@/lib/api/laboratory';
 import { useApi } from '@/lib/api/useApi';
+import { formatDate } from '@/i18n/format';
 
 const STATUS_VARIANT: Record<string, 'eleve' | 'indigo' | 'normal'> = {
   SAMPLE_COLLECTED: 'eleve',
@@ -112,7 +113,7 @@ export default function LabOrdersPage() {
             <CardPagne key={o.id} className="p-4 flex items-center justify-between gap-2">
               <div>
                 <p className="font-display font-extrabold text-[0.875rem] text-stone-800">{o.testType}</p>
-                <p className="text-[0.75rem] text-stone-400">{new Date(o.createdAt).toLocaleDateString('fr-FR', { dateStyle: 'medium' })}</p>
+                <p className="text-[0.75rem] text-stone-400">{formatDate(o.createdAt, { dateStyle: 'medium' })}</p>
               </div>
               <Button variant="ocre" className="text-[0.8125rem] px-3 py-2" onClick={() => claim(o.id)} disabled={busy === o.id}>
                 {t('labo.claim')}

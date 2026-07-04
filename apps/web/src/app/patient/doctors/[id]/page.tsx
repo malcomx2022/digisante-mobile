@@ -12,6 +12,7 @@ import { useLocale } from '@/i18n/LocaleProvider';
 import { professionalsApi, type DoctorDetail, type ReviewsResponse } from '@/lib/api/professionals';
 import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
+import { formatNumber } from '@/i18n/format';
 
 const stars = (n: number) => {
   // Clamp sur [0..5] : NaN/négatif/>5 décaleraient le slice et casseraient l'affichage.
@@ -90,7 +91,7 @@ export default function DoctorDetailPage() {
                     </p>
                   )}
                   <p className="font-display font-bold text-sante-700 text-[0.875rem] mt-1">
-                    {Number(data.consultFee).toLocaleString('fr-FR')} {t('common.fcfa')}
+                    {formatNumber(data.consultFee)} {t('common.fcfa')}
                   </p>
                 </div>
               </div>

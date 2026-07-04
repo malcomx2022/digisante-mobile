@@ -9,6 +9,7 @@ import { Empty, ErrorState, SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get, post } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
+import { formatDate } from '@/i18n/format';
 
 interface Item {
   id: string;
@@ -85,7 +86,7 @@ export default function PrescriptionsPage() {
                 <div>
                   <p className="font-display font-extrabold">ORD · {p.id.slice(-6).toUpperCase()}</p>
                   <p className="text-[0.75rem] text-white/80">
-                    {t('prescriptions.valid_until', { date: new Date(p.validUntil).toLocaleDateString('fr-FR') })}
+                    {t('prescriptions.valid_until', { date: formatDate(p.validUntil) })}
                   </p>
                 </div>
                 {p.qrCode ? (
@@ -107,7 +108,7 @@ export default function PrescriptionsPage() {
                       {it.dosage} · {it.frequency} · {it.duration}
                     </p>
                   </div>
-                  <Badge variant={it.status === 'DISPENSED' ? 'normal' : 'eleve'}>{it.status}</Badge>
+                  <Badge variant={it.status === 'DISPENSED' ? 'normal' : 'eleve'}>{t(`pharmacie.line.${it.status}`)}</Badge>
                 </div>
               ))}
 

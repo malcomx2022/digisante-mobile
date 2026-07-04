@@ -9,6 +9,7 @@ import { Empty, ErrorState, Loading } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get, post } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
+import { formatDateTime } from '@/i18n/format';
 
 interface Appointment {
   id: string;
@@ -50,7 +51,7 @@ export default function ProDashboard() {
 
   return (
     <>
-      <ProHeader title={t('pro.dashboard')} subtitle="Dr" wide />
+      <ProHeader title={t('pro.dashboard')} subtitle={t('pro.dr')} wide />
       <main className="px-6 -mt-10 relative z-20 space-y-5 pb-6 lg:max-w-5xl lg:mx-auto">
         <CardPagne stitch className="p-4 grid grid-cols-3 text-center divide-x divide-stone-200">
           {[
@@ -91,15 +92,15 @@ export default function ProDashboard() {
             <CardPagne key={a.id} className="p-4 flex items-center gap-3">
               <span className={`w-1.5 self-stretch rounded-full ${a.status === 'CONFIRMED' ? 'bg-indigo-500' : 'bg-ocre-400'}`} />
               <div className="flex-1">
-                <p className="font-display font-bold text-[0.875rem]">{a.type === 'TELECONSULTATION' ? 'Téléconsultation' : 'Présentiel'}</p>
-                <p className="text-[0.75rem] text-stone-400">{new Date(a.scheduledAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</p>
+                <p className="font-display font-bold text-[0.875rem]">{t(`appt.type.${a.type}`)}</p>
+                <p className="text-[0.75rem] text-stone-400">{formatDateTime(a.scheduledAt, { dateStyle: 'short', timeStyle: 'short' })}</p>
               </div>
               {a.status === 'PENDING' && !confirmed.has(a.id) ? (
                 <Button variant="indigo" className="text-[0.75rem] px-3 py-1.5" onClick={() => confirm(a.id)}>
                   {t('pro.confirm')}
                 </Button>
               ) : (
-                <Badge variant="indigo">{confirmed.has(a.id) ? 'CONFIRMED' : a.status}</Badge>
+                <Badge variant="indigo">{t(`appt.status.${confirmed.has(a.id) ? 'CONFIRMED' : a.status}`)}</Badge>
               )}
             </CardPagne>
           ))}

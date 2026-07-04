@@ -10,6 +10,7 @@ import { useLocale } from '@/i18n/LocaleProvider';
 import { get, post } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
+import { formatNumber } from '@/i18n/format';
 
 interface Metrics {
   users: Record<string, number>;
@@ -57,7 +58,7 @@ export default function AdminMetrics() {
   const kpis: [string | number, string, string][] = [
     [usersTotal, t('admin.kpi_users'), 'text-indigo-700'],
     [m.data?.consultations?.total ?? 0, t('admin.kpi_consult'), 'text-stone-900'],
-    [`${Number(m.data?.payments?.completedVolume ?? 0).toLocaleString('fr-FR')}`, t('admin.kpi_revenue'), 'text-terre-600'],
+    [`${formatNumber(m.data?.payments?.completedVolume ?? 0)}`, t('admin.kpi_revenue'), 'text-terre-600'],
     [m.data?.kyc?.pendingReview ?? 0, t('admin.kpi_kyc'), 'text-ocre-500'],
   ];
 
@@ -102,7 +103,7 @@ export default function AdminMetrics() {
                     <p className="font-display font-bold text-[0.875rem] truncate">{kycName(k)}</p>
                     <p className="text-[0.75rem] text-stone-400">{k.user.role}</p>
                   </div>
-                  <Badge variant="eleve">{k.status}</Badge>
+                  <Badge variant="eleve">{t(`kyc.status.${k.status}`)}</Badge>
                 </div>
                 <div className="flex gap-2 mt-3">
                   <Button variant="terre" className="text-[0.75rem] px-3 py-1.5" onClick={() => review(k.id, 'APPROVED')} disabled={busyId === k.id}>{t('admin.approve')}</Button>
@@ -129,7 +130,7 @@ export default function AdminMetrics() {
                     <tr key={k.id} className="hover:bg-creme">
                       <td className="px-5 py-2.5 font-bold text-[0.8125rem] text-stone-900">{kycName(k)}</td>
                       <td className="px-3 py-2.5"><span className="px-2 py-0.5 card-pagne bg-indigo-50 text-indigo-600 text-[0.59375rem] font-extrabold">{k.user.role}</span></td>
-                      <td className="px-3 py-2.5"><Badge variant="eleve">{k.status}</Badge></td>
+                      <td className="px-3 py-2.5"><Badge variant="eleve">{t(`kyc.status.${k.status}`)}</Badge></td>
                       <td className="px-5 py-2.5">
                         <div className="flex gap-1.5 justify-end">
                           <Button variant="terre" className="text-[0.6875rem] px-2.5 py-1" onClick={() => review(k.id, 'APPROVED')} disabled={busyId === k.id}>{t('admin.approve')}</Button>

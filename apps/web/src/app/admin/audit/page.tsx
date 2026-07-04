@@ -9,6 +9,7 @@ import { useLocale } from '@/i18n/LocaleProvider';
 import { get } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
+import { formatDateTime } from '@/i18n/format';
 
 interface AuditEntry {
   id: string;
@@ -72,7 +73,7 @@ export default function AdminAudit() {
 
   return (
     <>
-      <SpaceHeader title={t('admin.audit')} subtitle="Append-only · Loi N°2017-20" headerClass="bg-indigo-950" wide />
+      <SpaceHeader title={t('admin.audit')} subtitle={t('admin.audit_sub')} headerClass="bg-indigo-950" wide />
       <main className="px-6 -mt-10 relative z-20 pb-6 lg:max-w-5xl lg:mx-auto lg:w-full space-y-3">
         {loading && <SkeletonCards label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
@@ -84,7 +85,7 @@ export default function AdminAudit() {
             <CardPagne key={e.id} className="p-3">
               <div className="flex items-center justify-between gap-2">
                 <ActionTag action={e.action} />
-                <span className="text-[0.6875rem] text-stone-400 whitespace-nowrap">{new Date(e.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                <span className="text-[0.6875rem] text-stone-400 whitespace-nowrap">{formatDateTime(e.createdAt, { dateStyle: 'short', timeStyle: 'short' })}</span>
               </div>
               <p className="text-[0.6875rem] text-stone-400 mt-1 font-mono truncate">{e.ip ?? '—'} · #{e.hash.slice(0, 12)}</p>
             </CardPagne>
@@ -111,7 +112,7 @@ export default function AdminAudit() {
                   <td className="px-3 py-2.5 font-mono text-[0.6875rem] text-stone-500">{e.actorId ? e.actorId.slice(0, 8) : '—'}</td>
                   <td className="px-3 py-2.5 font-mono text-[0.6875rem] text-stone-500">{e.ip ?? '—'}</td>
                   <td className="px-3 py-2.5 font-mono text-[0.6875rem] text-stone-400">#{e.hash.slice(0, 12)}</td>
-                  <td className="px-3 py-2.5 text-[0.71875rem] text-stone-500 whitespace-nowrap">{new Date(e.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'medium' })}</td>
+                  <td className="px-3 py-2.5 text-[0.71875rem] text-stone-500 whitespace-nowrap">{formatDateTime(e.createdAt, { dateStyle: 'short', timeStyle: 'medium' })}</td>
                 </tr>
               ))}
             </tbody>

@@ -8,6 +8,7 @@ import { useLocale } from '@/i18n/LocaleProvider';
 import { del, post } from '@/lib/api/client';
 import { cn } from '@/lib/cn';
 import { isOnline } from '@/lib/offline/online';
+import { formatDateTime } from '@/i18n/format';
 
 /** Lève si la mutation a été mise en file hors-ligne — cohérent avec les helpers `online()` des API. */
 function online<T>(result: T | { queued: true }): T {
@@ -121,7 +122,7 @@ export function DmpShareDialog({
             </div>
             <p className="text-[0.75rem] text-terre-600 font-bold mt-3">
               {t('dmp.share_expires', {
-                date: new Date(result.expiresAt).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }),
+                date: formatDateTime(result.expiresAt, { dateStyle: 'medium', timeStyle: 'short' }),
               })}
             </p>
             {error && <p className="text-sos-600 font-bold text-[0.8125rem] mt-2">{error}</p>}

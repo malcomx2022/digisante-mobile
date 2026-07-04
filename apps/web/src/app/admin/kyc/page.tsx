@@ -72,7 +72,7 @@ export default function AdminKycPage() {
                           {k.user.profile ? `${k.user.profile.firstName} ${k.user.profile.lastName}` : k.user.phone}
                         </td>
                         <td className="px-3 py-2.5"><span className="px-2 py-0.5 card-pagne bg-indigo-50 text-indigo-600 text-[0.59375rem] font-extrabold">{k.user.role}</span></td>
-                        <td className="px-3 py-2.5"><Badge variant="eleve">{k.status}</Badge></td>
+                        <td className="px-3 py-2.5"><Badge variant="eleve">{t(`kyc.status.${k.status}`)}</Badge></td>
                         <td className="px-5 py-2.5 text-right">
                           <Button variant="indigo" className="text-[0.6875rem] px-2.5 py-1" onClick={() => setSelected(k.id)}>{t('adminkyc.review')}</Button>
                         </td>

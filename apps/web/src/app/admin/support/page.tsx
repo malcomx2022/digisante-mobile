@@ -10,6 +10,7 @@ import { get } from '@/lib/api/client';
 import { supportApi, type SupportAccount } from '@/lib/api/support';
 import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
+import { formatDate, formatDateTime } from '@/i18n/format';
 
 interface UserLite {
   id: string;
@@ -132,7 +133,7 @@ export default function AdminSupport() {
                   <Row label={t('admin.col_role')} value={account.user.role} />
                   <Row label={t('admin.col_status')} value={account.user.status} />
                   {account.user.lang && <Row label={t('admin.col_lang')} value={account.user.lang} />}
-                  <Row label={t('admin.col_joined')} value={new Date(account.user.createdAt).toLocaleDateString('fr-FR', { dateStyle: 'medium' })} />
+                  <Row label={t('admin.col_joined')} value={formatDate(account.user.createdAt, { dateStyle: 'medium' })} />
                 </div>
               </CardPagne>
 
@@ -158,7 +159,7 @@ export default function AdminSupport() {
                   {account.activity.map((a) => (
                     <div key={a.id} className="flex items-center justify-between gap-2 text-[0.6875rem]">
                       <span className="font-mono font-bold text-indigo-700 bg-indigo-50 card-pagne px-1.5 py-0.5">{a.action}</span>
-                      <span className="text-stone-400 whitespace-nowrap">{new Date(a.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                      <span className="text-stone-400 whitespace-nowrap">{formatDateTime(a.createdAt, { dateStyle: 'short', timeStyle: 'short' })}</span>
                     </div>
                   ))}
                 </div>
@@ -171,7 +172,7 @@ export default function AdminSupport() {
                   {account.notes.map((n) => (
                     <div key={n.id} className="bg-creme card-pagne p-2">
                       <p className="text-[0.75rem] text-nuit">{n.body}</p>
-                      <p className="text-[0.625rem] text-stone-400 mt-0.5">{new Date(n.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}</p>
+                      <p className="text-[0.625rem] text-stone-400 mt-0.5">{formatDateTime(n.createdAt, { dateStyle: 'short', timeStyle: 'short' })}</p>
                     </div>
                   ))}
                 </div>
