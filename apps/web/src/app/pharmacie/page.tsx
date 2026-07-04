@@ -21,6 +21,9 @@ export default function PharmaciePage() {
   const [error, setError] = useState<string | null>(null);
   const [dispensed, setDispensed] = useState(false);
   const [scanning, setScanning] = useState(false);
+  // Garde in-flight : un double-tap sur « délivrer » créerait DEUX journaux
+  // Dispensation (idem double-scan) — on verrouille pendant la requête.
+  const [busy, setBusy] = useState(false);
 
   // Erreur réseau / 403 (profil absent) / hors-ligne → message réel ; sinon QR non reconnu.
   function errorMessage(e: unknown): string {
@@ -28,6 +31,8 @@ export default function PharmaciePage() {
   }
 
   async function scan(code: string = qr) {
+    if (busy) return;
+    setBusy(true);
     setError(null);
     setResult(null);
     setDispensed(false);
@@ -38,11 +43,14 @@ export default function PharmaciePage() {
       setLineStatus(Object.fromEntries(r.items.map((it) => [it.id, 'DISPENSED' as LineStatus])));
     } catch (e) {
       setError(errorMessage(e));
+    } finally {
+      setBusy(false);
     }
   }
 
   async function dispense() {
-    if (!result) return;
+    if (!result || busy) return;
+    setBusy(true);
     try {
       await pharmacyApi.dispense(
         result.id,
@@ -51,6 +59,8 @@ export default function PharmaciePage() {
       setDispensed(true);
     } catch (e) {
       setError(errorMessage(e));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -94,7 +104,7 @@ export default function PharmaciePage() {
           aria-label={t('pharmacie.qr')}
           className="w-full bg-white/10 border border-white/20 card-pagne px-3 py-2 text-white text-[0.8125rem] focus:outline-none"
         />
-        <button type="button" onClick={() => scan()} className="w-full bg-ocre-400 text-stone-900 font-display font-extrabold card-pagne py-3" disabled={qr.length < 16}>
+        <button type="button" onClick={() => scan()} className="w-full bg-ocre-400 text-stone-900 font-display font-extrabold card-pagne py-3 disabled:opacity-50" disabled={busy || qr.length < 16}>
           {t('pharmacie.verify')}
         </button>
 
@@ -147,7 +157,7 @@ export default function PharmaciePage() {
                       {t('pharmacie.expired')}
                     </p>
                   )}
-                  <button type="button" onClick={dispense} className="w-full bg-sante-600 text-white font-display font-extrabold card-pagne py-2.5 mt-1" disabled={result.expired}>
+                  <button type="button" onClick={dispense} className="w-full bg-sante-600 text-white font-display font-extrabold card-pagne py-2.5 mt-1 disabled:opacity-50" disabled={busy || result.expired}>
                     {t('pharmacie.dispense')}
                   </button>
                 </>

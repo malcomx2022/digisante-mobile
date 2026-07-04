@@ -21,9 +21,9 @@ import { cn } from '@/lib/cn';
 //    INCHANGÉE — chaque page garde son SpaceHeader sombre.
 // ─────────────────────────────────────────────────────────────
 
-type IconKey = 'dashboard' | 'users' | 'kyc' | 'audit' | 'education' | 'support' | 'admins' | 'finance' | 'ops';
+export type IconKey = 'dashboard' | 'users' | 'kyc' | 'audit' | 'education' | 'support' | 'admins' | 'finance' | 'ops';
 
-function NavIcon({ name }: { name: IconKey }) {
+export function NavIcon({ name }: { name: IconKey }) {
   const paths: Record<IconKey, JSX.Element> = {
     dashboard: (
       <>
@@ -83,7 +83,7 @@ function NavIcon({ name }: { name: IconKey }) {
 
 // Navigation latérale (desktop) — jeu complet des destinations admin.
 // `scope` : la destination n'est visible que si l'admin possède ce scope.
-const SIDEBAR: { labelKey: string; href: string; icon: IconKey; scope?: AdminScope }[] = [
+export const ADMIN_NAV: { labelKey: string; href: string; icon: IconKey; scope?: AdminScope }[] = [
   { labelKey: 'admin.metrics', href: '/admin', icon: 'dashboard' },
   { labelKey: 'admin.users', href: '/admin/users', icon: 'users', scope: 'users:read' },
   { labelKey: 'adminkyc.title', href: '/admin/kyc', icon: 'kyc', scope: 'kyc:review' },
@@ -95,12 +95,20 @@ const SIDEBAR: { labelKey: string; href: string; icon: IconKey; scope?: AdminSco
   { labelKey: 'admin.admins', href: '/admin/admins', icon: 'admins', scope: 'admin:manage' },
 ];
 
-// Navigation basse (mobile) — 4 emplacements + FAB ; gated par scope également.
-const BOTTOM: (NavItem & { scope?: AdminScope })[] = [
+// Navigation basse (mobile) — 4 emplacements + FAB « Menu ». Les emplacements
+// sont remplis dynamiquement par PRIORITÉ parmi les destinations accessibles
+// (un admin au seul scope finance:read voit donc Finances dans la barre) ; le
+// FAB ouvre /admin/menu qui liste TOUTES les sections accessibles — aucune
+// destination n'est orpheline sur mobile, quel que soit le profil de scopes.
+const BOTTOM_PRIORITY: (NavItem & { scope?: AdminScope })[] = [
   { labelKey: 'admin.metrics', icon: 'home', href: '/admin' },
   { labelKey: 'admin.users', icon: 'user', href: '/admin/users', scope: 'users:read' },
+  { labelKey: 'adminkyc.title', icon: 'file', href: '/admin/kyc', scope: 'kyc:review' },
+  { labelKey: 'admin.finance', icon: 'calendar', href: '/admin/finance', scope: 'finance:read' },
+  { labelKey: 'admin.support', icon: 'search', href: '/admin/support', scope: 'support:write' },
   { labelKey: 'admin.audit', icon: 'file', href: '/admin/audit', scope: 'audit:read' },
   { labelKey: 'admin.education', icon: 'search', href: '/admin/education', scope: 'education:write' },
+  { labelKey: 'admin.ops', icon: 'search', href: '/admin/ops', scope: 'ops:read' },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
@@ -110,8 +118,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const scopes = me.data?.scopes;
   // Optimiste : tant que les scopes ne sont pas chargés, on n'ampute pas la nav.
   const can = (scope?: AdminScope) => !scope || !scopes || scopes.includes(scope);
-  const sidebar = SIDEBAR.filter((it) => can(it.scope));
-  const bottom = BOTTOM.filter((it) => can(it.scope));
+  const sidebar = ADMIN_NAV.filter((it) => can(it.scope));
+  const bottom = BOTTOM_PRIORITY.filter((it) => can(it.scope)).slice(0, 4);
 
   return (
     <div className="min-h-dvh-screen wax-indigo lg:flex">
@@ -178,7 +186,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           {children}
         </div>
         <div className="lg:hidden">
-          <BottomNav items={bottom} accent="indigo" fabHref="/admin/education" fabLabelKey="admin.education" />
+          <BottomNav items={bottom} accent="indigo" fabHref="/admin/menu" fabLabelKey="admin.menu" />
         </div>
       </div>
     </div>

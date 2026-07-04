@@ -40,9 +40,13 @@ export default function PrescriptionsPage() {
   const [paid, setPaid] = useState<Set<string>>(new Set());
   const [queued, setQueued] = useState<Set<string>>(new Set());
   const [payError, setPayError] = useState<Set<string>>(new Set());
+  // Garde in-flight : un double-tap initierait DEUX paiements (argent réel).
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   // ⚠️ §5 : montant/type/appel paiement inchangés — seul le feedback UI est corrigé.
   async function pay(prescriptionId: string, method: string) {
+    if (busyId || paid.has(prescriptionId) || queued.has(prescriptionId)) return;
+    setBusyId(prescriptionId);
     setPayError((s) => {
       const n = new Set(s);
       n.delete(prescriptionId);
@@ -59,6 +63,8 @@ export default function PrescriptionsPage() {
     } catch {
       // Vraie erreur (réseau/serveur) → ne PAS marquer payé.
       setPayError((s) => new Set(s).add(prescriptionId));
+    } finally {
+      setBusyId(null);
     }
   }
 
@@ -112,7 +118,8 @@ export default function PrescriptionsPage() {
                     key={m.method}
                     type="button"
                     onClick={() => pay(p.id, m.method)}
-                    className={`card-pagne ${m.cls} font-display font-bold text-[0.6875rem] py-2 px-1`}
+                    disabled={busyId === p.id || paid.has(p.id) || queued.has(p.id)}
+                    className={`card-pagne ${m.cls} font-display font-bold text-[0.6875rem] py-2 px-1 disabled:opacity-50`}
                   >
                     {m.label}
                   </button>

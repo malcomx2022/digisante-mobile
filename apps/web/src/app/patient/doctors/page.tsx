@@ -45,7 +45,7 @@ export default function DoctorsPage() {
           onChange={(e) => setQ(e.target.value)}
           placeholder={t('doctors.search')}
           aria-label={t('doctors.search')}
-          className="w-full lg:max-w-md bg-white card-pagne border-2 border-stone-900 px-4 py-3 font-body text-[0.9375rem] shadow-[4px_4px_0_rgba(33,28,22,.15)] focus:outline-none"
+          className="w-full lg:max-w-md bg-white card-pagne border-2 border-stone-900 px-4 py-3 font-body text-[0.9375rem] shadow-[4px_4px_0_rgba(33,28,22,.15)] focus:outline-none focus:border-sante-600 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sante-600"
         />
 
         {/* Filtre par langue parlée (barrière linguistique) */}

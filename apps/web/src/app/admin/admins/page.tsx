@@ -155,6 +155,22 @@ export default function AdminAdmins() {
               <p className="text-[0.625rem] text-stone-400">{a.scopes.length} {t('admin.scopes_count')}</p>
             </CardPagne>
           ))}
+          {/* Pagination mobile — sinon les admins au-delà de la 1re page sont inatteignables. */}
+          {total > PAGE_SIZE && (
+            <div className="flex items-center justify-between gap-2 pt-1">
+              <span className="text-[0.6875rem] text-stone-400">
+                {t('admin.results_range', { from: (page - 1) * PAGE_SIZE + 1, to: Math.min(page * PAGE_SIZE, total), total })}
+              </span>
+              <div className="flex gap-1.5">
+                <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="card-pagne bg-white border border-stone-200 text-stone-600 text-[0.75rem] font-display font-bold px-3 py-1.5 disabled:opacity-40">
+                  <span aria-hidden="true">‹ </span>{t('admin.prev')}
+                </button>
+                <button type="button" onClick={() => setPage((p) => p + 1)} disabled={page * PAGE_SIZE >= total} className="card-pagne bg-white border border-stone-200 text-stone-600 text-[0.75rem] font-display font-bold px-3 py-1.5 disabled:opacity-40">
+                  {t('admin.next')}<span aria-hidden="true"> ›</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Desktop : table */}

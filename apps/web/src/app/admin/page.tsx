@@ -38,10 +38,18 @@ export default function AdminMetrics() {
   const m = useApi<Metrics>(() => get('/admin/metrics'), []);
   const [tick, setTick] = useState(0);
   const queue = useApi<Paginated<KycItem>>(() => get('/kyc/submissions?pageSize=10'), [tick]);
+  // Garde in-flight : évite un double-clic = double décision sur la même soumission.
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   async function review(id: string, decision: 'APPROVED' | 'REJECTED') {
-    await post(`/kyc/submissions/${id}/review`, { decision, notes: decision === 'REJECTED' ? 'Non conforme' : 'OK' }).catch(() => {});
-    setTick((x) => x + 1);
+    if (busyId) return;
+    setBusyId(id);
+    try {
+      await post(`/kyc/submissions/${id}/review`, { decision, notes: decision === 'REJECTED' ? 'Non conforme' : 'OK' }).catch(() => {});
+      setTick((x) => x + 1);
+    } finally {
+      setBusyId(null);
+    }
   }
 
   const usersTotal = Object.values(m.data?.users ?? {}).reduce((a, b) => a + b, 0);
@@ -97,8 +105,8 @@ export default function AdminMetrics() {
                   <Badge variant="eleve">{k.status}</Badge>
                 </div>
                 <div className="flex gap-2 mt-3">
-                  <Button variant="terre" className="text-[0.75rem] px-3 py-1.5" onClick={() => review(k.id, 'APPROVED')}>{t('admin.approve')}</Button>
-                  <Button variant="sos" className="text-[0.75rem] px-3 py-1.5" onClick={() => review(k.id, 'REJECTED')}>{t('admin.reject')}</Button>
+                  <Button variant="terre" className="text-[0.75rem] px-3 py-1.5" onClick={() => review(k.id, 'APPROVED')} disabled={busyId === k.id}>{t('admin.approve')}</Button>
+                  <Button variant="sos" className="text-[0.75rem] px-3 py-1.5" onClick={() => review(k.id, 'REJECTED')} disabled={busyId === k.id}>{t('admin.reject')}</Button>
                 </div>
               </CardPagne>
             ))}
@@ -124,8 +132,8 @@ export default function AdminMetrics() {
                       <td className="px-3 py-2.5"><Badge variant="eleve">{k.status}</Badge></td>
                       <td className="px-5 py-2.5">
                         <div className="flex gap-1.5 justify-end">
-                          <Button variant="terre" className="text-[0.6875rem] px-2.5 py-1" onClick={() => review(k.id, 'APPROVED')}>{t('admin.approve')}</Button>
-                          <Button variant="sos" className="text-[0.6875rem] px-2.5 py-1" onClick={() => review(k.id, 'REJECTED')}>{t('admin.reject')}</Button>
+                          <Button variant="terre" className="text-[0.6875rem] px-2.5 py-1" onClick={() => review(k.id, 'APPROVED')} disabled={busyId === k.id}>{t('admin.approve')}</Button>
+                          <Button variant="sos" className="text-[0.6875rem] px-2.5 py-1" onClick={() => review(k.id, 'REJECTED')} disabled={busyId === k.id}>{t('admin.reject')}</Button>
                         </div>
                       </td>
                     </tr>

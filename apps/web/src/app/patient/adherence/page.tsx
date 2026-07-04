@@ -126,6 +126,7 @@ export default function AdherencePage() {
                     variant="sante"
                     className={cn('shrink-0 text-[0.75rem] px-3 py-2', busy === tr.itemId && 'opacity-60')}
                     onClick={() => take(tr.itemId, tr.medicationName)}
+                    disabled={busy === tr.itemId}
                   >
                     {t('adherence.take')}
                   </Button>
