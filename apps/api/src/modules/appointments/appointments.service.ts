@@ -88,9 +88,10 @@ export async function listMine(
     skip: (filters.page - 1) * filters.pageSize,
     take: filters.pageSize,
     include: {
-      doctor: { select: { speciality: true, user: { select: { profile: { select: { firstName: true, lastName: true } } } } } },
+      doctor: { select: { speciality: true, consultFee: true, user: { select: { profile: { select: { firstName: true, lastName: true } } } } } },
       patient: { select: { user: { select: { profile: { select: { firstName: true, lastName: true } } } } } },
       consultation: { select: { id: true, status: true } },
+      payment: { select: { status: true } },
     },
   });
 
@@ -106,6 +107,10 @@ export async function listMine(
     patientName: fullName(a.patient.user.profile),
     consultationId: a.consultation?.id ?? null,
     consultationStatus: a.consultation?.status ?? null,
+    // Paiement de la consultation : tarif du médecin + état (pour le bouton « Payer »).
+    fee: a.doctor.consultFee.toNumber(),
+    paid: a.payment?.status === 'COMPLETED',
+    paymentStatus: a.payment?.status ?? null,
   }));
 }
 

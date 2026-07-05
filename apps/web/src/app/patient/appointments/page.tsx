@@ -8,8 +8,16 @@ import { Badge, Button, CardPagne } from '@/components/ui';
 import { Empty, ErrorState, SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { appointmentsApi, type PatientAppointment } from '@/lib/api/appointments';
+import { post } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
-import { formatDateTime } from '@/i18n/format';
+import { formatDateTime, formatNumber } from '@/i18n/format';
+
+// Moyens de paiement d'une consultation (le montant est imposé par le serveur = tarif médecin).
+const PAY_METHODS: { method: string; label: string; cls: string }[] = [
+  { method: 'MTN_MOMO', label: 'MTN MoMo', cls: 'bg-sante-600 text-white' },
+  { method: 'MOOV_MONEY', label: 'Moov Money', cls: 'bg-indigo-600 text-white' },
+  { method: 'WALLET', label: 'Wallet 🇫🇷', cls: 'bg-ocre-400 text-stone-900' },
+];
 
 // Mes rendez-vous — liste (à venir / passés), annulation, rejoindre la téléconsult.
 export default function AppointmentsPage() {
@@ -18,7 +26,37 @@ export default function AppointmentsPage() {
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [reason, setReason] = useState('');
   const [cancelError, setCancelError] = useState<string | null>(null);
+  // Paiement de consultation (montant imposé serveur) : sélecteur de moyen + états.
+  const [payOpen, setPayOpen] = useState<string | null>(null);
+  const [payBusy, setPayBusy] = useState<string | null>(null);
+  const [paidLocal, setPaidLocal] = useState<Set<string>>(new Set());
+  const [queuedLocal, setQueuedLocal] = useState<Set<string>>(new Set());
+  const [payError, setPayError] = useState<Set<string>>(new Set());
   const { data, loading, error } = useApi<PatientAppointment[]>(() => appointmentsApi.listMine(), [tick]);
+
+  // Le montant N'EST PAS envoyé : le serveur impose le tarif du médecin du RDV (§5).
+  async function pay(id: string, method: string) {
+    if (payBusy) return;
+    setPayBusy(id);
+    setPayError((s) => {
+      const n = new Set(s);
+      n.delete(id);
+      return n;
+    });
+    try {
+      const res = await post('/payments', { type: 'CONSULTATION', method, appointmentId: id });
+      if (res && typeof res === 'object' && 'queued' in res) {
+        setQueuedLocal((s) => new Set(s).add(id));
+      } else {
+        setPaidLocal((s) => new Set(s).add(id));
+        setPayOpen(null);
+      }
+    } catch {
+      setPayError((s) => new Set(s).add(id));
+    } finally {
+      setPayBusy(null);
+    }
+  }
 
   async function confirmCancel(id: string) {
     setCancelError(null);
@@ -46,6 +84,7 @@ export default function AppointmentsPage() {
     const future = new Date(a.scheduledAt).getTime() > now;
     const cancellable = future && (a.status === 'PENDING' || a.status === 'CONFIRMED');
     const joinable = a.status === 'CONFIRMED' && a.type === 'TELECONSULTATION' && a.consultationId;
+    const payable = !a.paid && !paidLocal.has(a.id) && (a.status === 'PENDING' || a.status === 'CONFIRMED');
     return (
       <CardPagne key={a.id} className="p-4">
         <div className="flex items-start justify-between gap-2">
@@ -94,6 +133,40 @@ export default function AppointmentsPage() {
             {cancelError && <p className="text-sos-600 font-bold text-[0.75rem] mt-2">{cancelError}</p>}
           </div>
         )}
+
+        {/* Paiement de la consultation — montant imposé par le serveur (tarif du médecin). */}
+        {(a.paid || paidLocal.has(a.id)) ? (
+          <p className="mt-3 text-[0.75rem] text-sante-700 font-bold"><span aria-hidden="true">✓</span> {t('prescriptions.paid')}</p>
+        ) : queuedLocal.has(a.id) ? (
+          <p className="mt-3 text-[0.75rem] text-ocre-600 font-bold"><span aria-hidden="true">⏳</span> {t('prescriptions.payment_queued')}</p>
+        ) : payable ? (
+          payOpen === a.id ? (
+            <div className="mt-3">
+              <div className="grid grid-cols-3 gap-2">
+                {PAY_METHODS.map((m) => (
+                  <button
+                    key={m.method}
+                    type="button"
+                    onClick={() => pay(a.id, m.method)}
+                    disabled={payBusy === a.id}
+                    className={`card-pagne pagne-focus ${m.cls} font-display font-bold text-[0.6875rem] py-2 px-1 disabled:opacity-50`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+              {payError.has(a.id) && <p className="mt-2 text-[0.75rem] text-sos-600 font-bold">{t('auth.error')}</p>}
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => { setPayOpen(a.id); setPayError((s) => { const n = new Set(s); n.delete(a.id); return n; }); }}
+              className="mt-3 card-pagne pagne-focus bg-sante-600 text-white font-display font-extrabold text-[0.75rem] px-3 py-1.5"
+            >
+              {t('appt.pay')} · {formatNumber(a.fee)} XOF
+            </button>
+          )
+        ) : null}
       </CardPagne>
     );
   };

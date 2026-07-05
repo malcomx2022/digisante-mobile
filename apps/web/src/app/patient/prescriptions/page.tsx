@@ -1,13 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-
 import { PatientHeader } from '@/components/patient/PatientHeader';
 import { Badge, CardPagne, KenteBar } from '@/components/ui';
 import { QrImage } from '@/components/ui/QrImage';
 import { Empty, ErrorState, SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
-import { get, post } from '@/lib/api/client';
+import { get } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
 import { formatDate } from '@/i18n/format';
 
@@ -27,47 +25,11 @@ interface Prescription {
   items: Item[];
 }
 
-const PAY_METHODS: { method: string; label: string; cls: string }[] = [
-  { method: 'MTN_MOMO', label: 'MTN MoMo', cls: 'bg-sante-600 text-white' },
-  { method: 'MOOV_MONEY', label: 'Moov Money', cls: 'bg-indigo-600 text-white' },
-  { method: 'WALLET', label: 'Wallet Diaspora 🇫🇷', cls: 'bg-ocre-400 text-stone-900' },
-];
-
-// D-08 — Ordonnance + paiement.
+// D-08 — Ordonnance (QR de vérification). Le paiement d'une consultation se fait
+// désormais sur la page « Mes rendez-vous » (montant = tarif du médecin, imposé serveur).
 export default function PrescriptionsPage() {
   const { t } = useLocale();
   const { data, loading, error } = useApi<Prescription[]>(() => get('/prescriptions'), []);
-  // État de paiement PAR ordonnance : succès / mis en file (hors-ligne) / erreur.
-  const [paid, setPaid] = useState<Set<string>>(new Set());
-  const [queued, setQueued] = useState<Set<string>>(new Set());
-  const [payError, setPayError] = useState<Set<string>>(new Set());
-  // Garde in-flight : un double-tap initierait DEUX paiements (argent réel).
-  const [busyId, setBusyId] = useState<string | null>(null);
-
-  // ⚠️ §5 : montant/type/appel paiement inchangés — seul le feedback UI est corrigé.
-  async function pay(prescriptionId: string, method: string) {
-    if (busyId || paid.has(prescriptionId) || queued.has(prescriptionId)) return;
-    setBusyId(prescriptionId);
-    setPayError((s) => {
-      const n = new Set(s);
-      n.delete(prescriptionId);
-      return n;
-    });
-    try {
-      const res = await post('/payments', { type: 'CONSULTATION', method, amount: 2000 });
-      if (res && typeof res === 'object' && 'queued' in res) {
-        // Hors-ligne → mutation mise en file (rejouée au retour réseau) : pas encore « payé ».
-        setQueued((s) => new Set(s).add(prescriptionId));
-      } else {
-        setPaid((s) => new Set(s).add(prescriptionId));
-      }
-    } catch {
-      // Vraie erreur (réseau/serveur) → ne PAS marquer payé.
-      setPayError((s) => new Set(s).add(prescriptionId));
-    } finally {
-      setBusyId(null);
-    }
-  }
 
   return (
     <>
@@ -111,26 +73,6 @@ export default function PrescriptionsPage() {
                   <Badge variant={it.status === 'DISPENSED' ? 'normal' : 'eleve'}>{t(`pharmacie.line.${it.status}`)}</Badge>
                 </div>
               ))}
-
-              {/* Paiement */}
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                {PAY_METHODS.map((m) => (
-                  <button
-                    key={m.method}
-                    type="button"
-                    onClick={() => pay(p.id, m.method)}
-                    disabled={busyId === p.id || paid.has(p.id) || queued.has(p.id)}
-                    className={`card-pagne ${m.cls} font-display font-bold text-[0.6875rem] py-2 px-1 disabled:opacity-50`}
-                  >
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-              {paid.has(p.id) && <p className="mt-2 text-[0.75rem] text-sante-700 font-bold"><span aria-hidden="true">✓</span> {t('prescriptions.paid')}</p>}
-              {queued.has(p.id) && (
-                <p className="mt-2 text-[0.75rem] text-ocre-600 font-bold"><span aria-hidden="true">⏳</span> {t('prescriptions.payment_queued')}</p>
-              )}
-              {payError.has(p.id) && <p className="mt-2 text-[0.75rem] text-sos-600 font-bold">{t('auth.error')}</p>}
             </div>
           </CardPagne>
         ))}

@@ -20,7 +20,9 @@ declare module 'fastify' {
 const initiateSchema = z.object({
   type: z.enum(PAYMENT_TYPES),
   method: z.enum(PAYMENT_METHODS),
-  amount: z.number().int().positive(),
+  // Montant optionnel : pour une CONSULTATION il est IGNORÉ et imposé côté serveur
+  // (tarif du médecin du RDV, §5). Requis pour les autres types (ex. recharge wallet).
+  amount: z.number().int().positive().optional(),
   appointmentId: z.string().cuid().optional(),
 });
 
