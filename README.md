@@ -1,7 +1,7 @@
 # DigiSanté Mobile
 
 PWA e-santé pour le Bénin — programme **NEXT IMPACT** (FP2E / Sèmè City / Banque Mondiale).
-Offline-first · multilingue (FR, Fɔ̀ngbè, Yorùbá, Baatɔnum, Dendi) · téléconsultation · DMP · Mobile Money · wallet diaspora.
+Offline-first · multilingue (FR, EN, Fɔ̀ngbè, Yorùbá) · téléconsultation · DMP · Mobile Money · wallet diaspora.
 
 > Les conventions et décisions verrouillées du projet sont dans [`CLAUDE.md`](./CLAUDE.md).
 
@@ -10,8 +10,8 @@ Offline-first · multilingue (FR, Fɔ̀ngbè, Yorùbá, Baatɔnum, Dendi) · té
 Monorepo **pnpm** :
 
 ```
-apps/web      Next.js 14 (App Router, PWA) — 26 pages
-apps/api      Fastify — 112 endpoints / 20 modules + Prisma + Redis
+apps/web      Next.js 14 (App Router, PWA) — 53 pages
+apps/api      Fastify — 127 endpoints REST + 1 WebSocket / 25 modules + Prisma + Redis
 packages/shared   types, enums, schémas zod partagés
 packages/config   tsconfig de base
 infra/        docker-compose dev (Postgres 16 + Redis) · scripts deploy VPS
@@ -62,7 +62,7 @@ Vérifier l'API : `curl http://localhost:3001/api/v1/health` puis `/api/v1/ready
 
 - pages Next.js → `apps/web/src/app/`
 - modules Fastify → `apps/api/src/modules/<domaine>/` (1 dossier par domaine, fichier `*.routes.ts` enregistré dans `src/server.ts`)
-- schéma Prisma (26 modèles, 28 enums) → remplacer `apps/api/prisma/schema.prisma`
+- schéma Prisma (36 modèles, 28 enums) → remplacer `apps/api/prisma/schema.prisma`
 - types partagés → `packages/shared/src/`
 
 ## CI / Déploiement
