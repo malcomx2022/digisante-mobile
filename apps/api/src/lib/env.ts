@@ -28,6 +28,8 @@ const schema = z.object({
   // ── Chiffrement des données de santé au repos (AES-256, CLAUDE.md §4) ──
   // En production cette clé est OBLIGATOIRE ; en dev/local, fallback non chiffré.
   HEALTH_ENCRYPTION_KEY: z.string().optional(),
+  // Répertoire des fichiers KYC chiffrés (disque VPS — cf. lib/filestore.ts).
+  KYC_STORAGE_DIR: z.string().optional(),
 
   // ── FedaPay (Mobile Money / cartes) — optionnel : stub si absent ──
   FEDAPAY_SECRET_KEY: z.string().optional(),

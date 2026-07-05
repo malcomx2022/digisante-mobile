@@ -54,3 +54,7 @@ apps/web/.ds-build/_tw.css
 apps/web/.ds-build/gf.css
 apps/web/.ds-build/styles.css
 apps/web/.ds-build/fonts/
+
+# Fichiers KYC chiffrés (disque VPS — lib/filestore)
+apps/api/storage/
+storage/
