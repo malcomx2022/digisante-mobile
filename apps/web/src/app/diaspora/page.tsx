@@ -25,7 +25,6 @@ export default function DiasporaDashboard() {
 
   return (
     <>
-      {/* TODO: le sous-titre (ville d'origine/résidence) devrait venir du profil diaspora, pas codé en dur. */}
       <SpaceHeader title={t('diaspora.title')} subtitle={t('diaspora.subtitle')} headerClass="bg-ocre-900" profileHref="/diaspora/profile" />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto">
         <CardPagne stitch className="p-5 bg-ocre-900 bogolan-dark text-white">

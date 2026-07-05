@@ -611,7 +611,9 @@ model KycDocument {
   id           String          @id @default(cuid())
   submissionId String
   type         KycDocumentType
-  fileUrl      String
+  fileUrl      String // identifiant de stockage chiffré (lib/filestore) — PAS une URL publique (§4)
+  mimeType     String?
+  fileName     String?
   verified     Boolean         @default(false)
   verifiedAt   DateTime?
   createdAt    DateTime        @default(now())

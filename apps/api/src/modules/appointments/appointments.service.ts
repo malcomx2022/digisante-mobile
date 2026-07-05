@@ -100,6 +100,7 @@ export async function listMine(
     type: a.type,
     status: a.status,
     scheduledAt: a.scheduledAt,
+    patientId: a.patientId, // réf. technique (sélecteur de patient côté médecin)
     doctorName: `Dr ${fullName(a.doctor.user.profile)}`,
     speciality: a.doctor.speciality,
     patientName: fullName(a.patient.user.profile),

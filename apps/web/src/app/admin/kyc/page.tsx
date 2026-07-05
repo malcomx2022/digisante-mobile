@@ -7,6 +7,7 @@ import { SpaceHeader } from '@/components/ui/SpaceHeader';
 import { Empty, ErrorState, Loading , SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { adminKycApi, type KycDetail, type KycQueueItem } from '@/lib/api/adminKyc';
+import { getBlob } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
 
 // D-25b — Admin : file KYC enrichie (pièces justificatives + checklist + décision).
@@ -107,6 +108,19 @@ function KycDetailPanel({ id, onBack, onDone }: { id: string; onBack: () => void
     }
   }
 
+  // Aperçu de la pièce (déchiffrée côté serveur, blob authentifié — §4).
+  async function viewDoc(docId: string) {
+    setActionError(null);
+    try {
+      const blob = await getBlob(`/kyc/documents/${docId}/file`);
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      setActionError(t('auth.error'));
+    }
+  }
+
   async function decide(decision: 'APPROVED' | 'REJECTED' | 'NEEDS_REVISION') {
     setBusy(true);
     setActionError(null);
@@ -155,9 +169,14 @@ function KycDetailPanel({ id, onBack, onDone }: { id: string; onBack: () => void
             <div className="space-y-2">
               {data.documents.map((d) => (
                 <div key={d.id} className="flex items-center justify-between gap-2">
-                  <a href={d.fileUrl} target="_blank" rel="noopener noreferrer" className="text-[0.8125rem] text-indigo-700 underline decoration-dotted underline-offset-4 truncate">
+                  {/* Pièce servie par endpoint authentifié (blob) — fileUrl n'est PAS une URL (§4). */}
+                  <button
+                    type="button"
+                    onClick={() => viewDoc(d.id)}
+                    className="text-[0.8125rem] text-indigo-700 underline decoration-dotted underline-offset-4 truncate text-left"
+                  >
                     {t(`kycdoc.${d.type}`)}
-                  </a>
+                  </button>
                   <button
                     type="button"
                     onClick={() => toggleDoc(d.id, !d.verified)}

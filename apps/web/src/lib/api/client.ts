@@ -136,6 +136,18 @@ export async function get<T>(path: string, opts: number | GetOptions = {}): Prom
   }
 }
 
+/**
+ * GET binaire authentifié (pièces KYC…) : renvoie un Blob. Jamais mis en file
+ * hors-ligne ; les fichiers sont servis par endpoint authentifié uniquement (§4).
+ */
+export async function getBlob(path: string): Promise<Blob> {
+  const res = await withAuthRetry(path, () =>
+    fetch(`${BASE}${PREFIX}${path}`, { headers: headers(), credentials: 'include' }),
+  );
+  if (!res.ok) throw new ApiRequestError(res.status, { code: 'HTTP_ERROR', message: `HTTP ${res.status}` });
+  return res.blob();
+}
+
 type MutationMethod = QueuedMutation['method'];
 
 /**
