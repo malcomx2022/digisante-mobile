@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────
 // Internationalisation — structure des clés et métadonnées de langues.
-// 5 langues (CLAUDE.md §1, alignées sur l'enum Lang du schéma Prisma).
+// 4 langues — FR · EN · FON · YOR (CLAUDE.md §1/§8, alignées sur l'enum Lang du schéma Prisma).
 // Règle d'or : AUCUNE chaîne d'UI en dur ailleurs que dans les fichiers
 // de traduction. Les clés suivent le format `namespace.key`.
 // ─────────────────────────────────────────────────────────────

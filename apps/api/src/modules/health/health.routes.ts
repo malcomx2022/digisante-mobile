@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 
 /**
- * Module exemple — montre le pattern attendu pour les 20 modules métier :
+ * Module exemple — montre le pattern attendu pour les 25 modules métier :
  * un fichier *.routes.ts qui reçoit l'app et enregistre ses endpoints.
  * Les services/contrôleurs/schemas zod vivent dans le même dossier.
  */

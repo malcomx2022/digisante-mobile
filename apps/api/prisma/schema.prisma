@@ -1,13 +1,13 @@
 // ─────────────────────────────────────────────────────────────
 // DigiSanté Mobile — schéma Prisma complet
-// 26 modèles + 28 enums (cf. DocTech §5) + 1 table d'audit immuable (§4).
+// 36 modèles + 28 enums (cf. DocTech §5), dont la table d'audit immuable (§4).
 // Cible : PostgreSQL 16 natif (dev local docker, prod VPS Infomaniak).
 //
 // Décisions (arbitrées) :
 //   - Lang  : FR · EN · FON · YOR                       (source : DocTech)
 //   - Role  : PATIENT · MEDECIN · PHARMACIE · LABORATOIRE · DIASPORA · ADMIN (FR)
-//   - AuditLog (§4) ajouté en plus des 26 modèles : trail immuable append-only,
-//     hash SHA-256 chaîné (triggers anti UPDATE/DELETE posés dans la migration).
+//   - AuditLog (§4) : trail immuable append-only, hash SHA-256 chaîné
+//     (triggers anti UPDATE/DELETE/TRUNCATE posés dans les migrations).
 //
 // Conformité APDP (§4) : champs santé chiffrés (encryptedData/encryptedUrl),
 // accès DMP par partage consenti (shareToken/shareExpiry), audit immuable.

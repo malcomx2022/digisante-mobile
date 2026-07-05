@@ -57,6 +57,6 @@
 
 ---
 
-**Tout est prêt pour la production.** Le code (backend 20 modules + frontend 6 espaces) est testé
-(97 tests CI verts), l'infra scriptée, et la sécurité auditée. Reste l'exécution sur le VPS réel
+**Tout est prêt pour la production.** Le code (backend 25 modules + frontend 6 espaces) est testé
+(179 tests API verts), l'infra scriptée, et la sécurité auditée. Reste l'exécution sur le VPS réel
 (étape manuelle/CI ci-dessus).
