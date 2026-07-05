@@ -266,6 +266,13 @@ export async function verifyOtp(
   });
   if (!user) throw notFound('Compte introuvable');
 
+  // Compte suspendu : refuser la délivrance de jetons. La suspension doit bloquer
+  // la reconnexion par OTP, pas seulement l'accès en cours (§4).
+  if (user.status === 'SUSPENDED') {
+    await writeAudit(app.prisma, { action: 'AUTH_FAIL', actorId: user.id, ip, meta: { reason: 'suspended' } });
+    throw unauthorized('Compte suspendu. Contactez le support.');
+  }
+
   if (user.status === 'PENDING_VERIFICATION') {
     await app.prisma.user.update({ where: { id: user.id }, data: { status: 'ACTIVE' } });
     user.status = 'ACTIVE';
@@ -286,10 +293,25 @@ export async function refresh(app: FastifyInstance, refreshToken: string) {
   if (payload.typ !== 'refresh' || !payload.jti) throw unauthorized('Token de rafraîchissement attendu');
 
   const owner = await app.redis.get(refreshKey(payload.jti));
-  if (!owner || owner !== payload.sub) throw unauthorized('Session expirée, reconnectez-vous');
+  if (!owner || owner !== payload.sub) {
+    // jti absent de l'allowlist : refresh déjà tourné/révoqué ou rejeu → auditer.
+    await writeAudit(app.prisma, { action: 'AUTH_FAIL', actorId: payload.sub, meta: { reason: 'refresh_replay' } });
+    throw unauthorized('Session expirée, reconnectez-vous');
+  }
 
   await app.redis.del(refreshKey(payload.jti)); // rotation : l'ancien est révoqué
-  return issueTokens(app, payload.sub, payload.role);
+
+  // Re-lecture DB : statut et rôle peuvent avoir changé depuis l'émission du
+  // refresh (suspension, rétrogradation). Sans cela un compte suspendu
+  // rafraîchit des jetons pendant 30 j, et un rôle périmé survivrait (§4).
+  const user = await app.prisma.user.findUnique({
+    where: { id: payload.sub },
+    select: { status: true, role: true },
+  });
+  if (!user || user.status === 'SUSPENDED') {
+    throw unauthorized('Session révoquée. Contactez le support.');
+  }
+  return issueTokens(app, payload.sub, user.role);
 }
 
 /**

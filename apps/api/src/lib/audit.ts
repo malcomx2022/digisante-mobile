@@ -35,6 +35,10 @@ export function computeAuditHash(prevHash: string | null, entry: AuditEntry, iso
  */
 export async function writeAudit(prisma: PrismaClient, entry: AuditEntry): Promise<void> {
   await prisma.$transaction(async (tx) => {
+    // Verrou consultatif transactionnel : sérialise les écritures d'audit entre
+    // workers (cluster PM2 ×2). Sans lui, deux insertions concurrentes peuvent
+    // lire le même dernier hash et forker la chaîne d'intégrité. Libéré au commit.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(4021957)`;
     const last = await tx.auditLog.findFirst({
       orderBy: { createdAt: 'desc' },
       select: { hash: true },

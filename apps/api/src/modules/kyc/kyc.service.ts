@@ -17,6 +17,30 @@ import { verifyOrderNumber } from './kyc.cnom.js';
 /** Rôles soignants soumis à vérification KYC. */
 export const CAREGIVER_ROLES = ['MEDECIN', 'PHARMACIE', 'LABORATOIRE'] as const;
 
+/**
+ * Vérifie que les octets d'en-tête (magic bytes) du fichier correspondent au
+ * type MIME déclaré par le client. Empêche qu'un contenu actif (ex. HTML) soit
+ * stocké sous un MIME d'image et servi ensuite — le MIME déclaratif ne suffit pas.
+ */
+function contentMatchesMime(b: Buffer, mimeType: string): boolean {
+  switch (mimeType) {
+    case 'image/jpeg':
+      return b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
+    case 'image/png':
+      return (
+        b.length >= 8 &&
+        b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 &&
+        b[4] === 0x0d && b[5] === 0x0a && b[6] === 0x1a && b[7] === 0x0a
+      );
+    case 'image/webp':
+      return b.length >= 12 && b.toString('ascii', 0, 4) === 'RIFF' && b.toString('ascii', 8, 12) === 'WEBP';
+    case 'application/pdf':
+      return b.length >= 5 && b.toString('ascii', 0, 5) === '%PDF-';
+    default:
+      return false;
+  }
+}
+
 /** Statuts d'un dossier encore éditable par le professionnel. */
 const OPEN_STATUSES: Prisma.KycSubmissionWhereInput['status'] = { in: ['NOT_SUBMITTED', 'NEEDS_REVISION'] };
 
@@ -57,6 +81,9 @@ export async function addDocument(
   }
   if (content.length === 0) throw badRequest('Fichier vide');
   if (content.length > input.maxBytes) throw badRequest('Fichier trop volumineux (5 Mo maximum)');
+  if (!contentMatchesMime(content, input.mimeType)) {
+    throw badRequest('Le contenu du fichier ne correspond pas au type déclaré.');
+  }
 
   const storageId = await storeEncryptedFile(content);
   return app.prisma.kycDocument.create({

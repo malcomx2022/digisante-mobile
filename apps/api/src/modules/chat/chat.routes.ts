@@ -27,17 +27,29 @@ export default async function chatRoutes(app: FastifyInstance) {
   app.get('/ws', { websocket: true }, (socket: WebSocket, request) => {
     const token = (request.query as { token?: string }).token;
     let userId: string;
+    let expMs = 0;
     try {
-      const payload = app.jwt.verify(token ?? '') as { sub: string; typ?: string };
+      const payload = app.jwt.verify(token ?? '') as { sub: string; role?: string; typ?: string; exp?: number };
       if (payload.typ === 'refresh' || !payload.sub) throw new Error('jeton d’accès attendu');
+      // Réservé aux participants au chat (patient ↔ médecin), comme les routes REST.
+      if (payload.role !== 'PATIENT' && payload.role !== 'MEDECIN') throw new Error('rôle non autorisé');
       userId = payload.sub;
+      if (typeof payload.exp === 'number') expMs = payload.exp * 1000;
     } catch {
       socket.close(1008, 'unauthorized');
       return;
     }
     app.chatHub.add(userId, socket);
-    socket.on('close', () => app.chatHub.remove(userId, socket));
-    socket.on('error', () => app.chatHub.remove(userId, socket));
+    // Le JWT n'est vérifié qu'à l'ouverture : on ferme le socket à l'échéance du
+    // jeton pour qu'une session temps réel ne survive pas à son access token.
+    const ttl = expMs - Date.now();
+    const expiryTimer = ttl > 0 ? setTimeout(() => socket.close(1008, 'token expired'), ttl) : undefined;
+    const cleanup = () => {
+      if (expiryTimer) clearTimeout(expiryTimer);
+      app.chatHub.remove(userId, socket);
+    };
+    socket.on('close', cleanup);
+    socket.on('error', cleanup);
   });
 
   // Mes conversations (avec non-lus).
