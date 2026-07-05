@@ -59,7 +59,11 @@ export default async function kycRoutes(app: FastifyInstance) {
     const { id } = zParse(idParams, request.params);
     const { content, mimeType, fileName } = await kyc.readDocumentFile(app, request, id);
     reply.header('Cache-Control', 'no-store');
-    reply.header('Content-Disposition', `inline; filename="${(fileName ?? 'document').replace(/[^\w.\- ]/g, '_')}"`);
+    // Les PDF sont servis en `attachment` (téléchargement) plutôt qu'`inline` :
+    // un PDF peut embarquer du contenu actif — on évite tout rendu dans l'onglet.
+    const disposition = mimeType === 'application/pdf' ? 'attachment' : 'inline';
+    const safeName = (fileName ?? 'document').replace(/[^\w.\- ]/g, '_');
+    reply.header('Content-Disposition', `${disposition}; filename="${safeName}"`);
     return reply.type(mimeType).send(content);
   });
 

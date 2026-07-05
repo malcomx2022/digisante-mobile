@@ -11,7 +11,8 @@ const PHONE_DOC = '+2290196000778';
 const PHONE_DOC_KO = '+2290196000779';
 const PHONE_ADMIN = '+2290196000780';
 const PHONE_LOGOUT = '+2290196000781';
-const ALL_PHONES = [PHONE, PHONE_DOC, PHONE_DOC_KO, PHONE_ADMIN, PHONE_LOGOUT];
+const PHONE_SUSPEND = '+2290196000782';
+const ALL_PHONES = [PHONE, PHONE_DOC, PHONE_DOC_KO, PHONE_ADMIN, PHONE_LOGOUT, PHONE_SUSPEND];
 const otpKeysFor = (p: string) => [`otp:${p}`, `otp:attempts:${p}`, `otp:lock:${p}`];
 const otpKeys = otpKeysFor(PHONE);
 const allOtpKeys = ALL_PHONES.flatMap(otpKeysFor);
@@ -175,6 +176,45 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
       payload: { refreshToken },
     });
     expect(refreshed.statusCode).toBe(401);
+  });
+
+  it('compte suspendu : refresh ET reconnexion OTP refusés (401)', async () => {
+    // Inscription + activation.
+    const reg = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/register',
+      payload: { phone: PHONE_SUSPEND, role: 'PATIENT', lang: 'FR', firstName: 'Sus', lastName: 'Pendu' },
+    });
+    expect(reg.statusCode).toBe(201);
+    const verify = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/otp/verify',
+      payload: { phone: PHONE_SUSPEND, code: reg.json().otp.devCode },
+    });
+    expect(verify.statusCode).toBe(200);
+    const { refreshToken, user } = verify.json();
+
+    // L'admin suspend le compte.
+    await app.prisma.user.update({ where: { id: user.id }, data: { status: 'SUSPENDED' } });
+
+    // Le refresh ne doit plus délivrer de jetons (sinon session 30 j).
+    const refreshed = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/refresh',
+      payload: { refreshToken },
+    });
+    expect(refreshed.statusCode).toBe(401);
+
+    // La reconnexion par OTP doit aussi échouer même avec un code valide.
+    const req = await app.inject({ method: 'POST', url: '/api/v1/auth/otp/request', payload: { phone: PHONE_SUSPEND } });
+    expect(req.statusCode).toBe(200);
+    const reVerify = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/otp/verify',
+      payload: { phone: PHONE_SUSPEND, code: req.json().devCode },
+    });
+    expect(reVerify.statusCode).toBe(401);
+    await app.redis.del(...otpKeysFor(PHONE_SUSPEND));
   });
 
   it('rejette /me sans token (401)', async () => {

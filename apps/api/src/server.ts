@@ -5,8 +5,10 @@ import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
+import Redis from 'ioredis';
 
 import { env } from '@/lib/env.js';
+import { sanitizeLogUrl } from '@/lib/log-sanitize.js';
 import adherenceRoutes from '@/modules/adherence/adherence.routes.js';
 import adminRoutes from '@/modules/admin/admin.routes.js';
 import appointmentsRoutes from '@/modules/appointments/appointments.routes.js';
@@ -43,17 +45,33 @@ import requestContext from '@/plugins/request-context.js';
 let reqCounter = 0;
 
 export async function buildServer() {
+  // Sérialiseur `req` : n'émet jamais les en-têtes (Authorization) et masque le
+  // token de query (WS chat) — le JWT ne doit pas fuiter dans les journaux (§4).
+  const logBase = {
+    serializers: {
+      req(request: { method: string; url: string; ip: string; id: string }) {
+        return {
+          method: request.method,
+          url: sanitizeLogUrl(request.url),
+          remoteAddress: request.ip,
+          reqId: request.id,
+        };
+      },
+    },
+  };
   const app = Fastify({
     logger:
-      env.NODE_ENV === 'development'
-        ? { transport: { target: 'pino-pretty' } }
-        : env.NODE_ENV === 'test'
-          ? false
-          : true,
+      env.NODE_ENV === 'test'
+        ? false
+        : env.NODE_ENV === 'development'
+          ? { transport: { target: 'pino-pretty' }, ...logBase }
+          : logBase,
     // Honore un x-request-id entrant (corrélation), sinon identifiant incrémental.
+    // Borné + charset restreint : anti-injection/pollution de logs via l'en-tête.
     genReqId: (req) => {
       const incoming = req.headers['x-request-id'];
-      return typeof incoming === 'string' && incoming.length > 0 ? incoming : `req-${++reqCounter}`;
+      if (typeof incoming === 'string' && /^[\w-]{1,64}$/.test(incoming)) return incoming;
+      return `req-${++reqCounter}`;
     },
   });
 
@@ -64,8 +82,34 @@ export async function buildServer() {
   // ── Sécurité de base ──
   await app.register(helmet);
   await app.register(cors, { origin: env.CORS_ORIGIN, credentials: true });
-  await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
-  await app.register(jwt, { secret: env.JWT_SECRET });
+  // Rate-limit partagé entre workers via Redis (cluster PM2 ×2) : sinon chaque
+  // worker compte séparément et la limite effective double de façon non
+  // déterministe. Connexion dédiée (hors chemin de test).
+  const rateLimitStore =
+    env.NODE_ENV === 'test'
+      ? undefined
+      : new Redis(env.REDIS_URL, {
+          connectionName: 'digisante-ratelimit',
+          enableOfflineQueue: false,
+          maxRetriesPerRequest: 1,
+        });
+  await app.register(rateLimit, {
+    max: 100,
+    timeWindow: '1 minute',
+    ...(rateLimitStore ? { redis: rateLimitStore } : {}),
+  });
+  if (rateLimitStore) {
+    app.addHook('onClose', async () => {
+      await rateLimitStore.quit();
+    });
+  }
+  // Algorithme JWT épinglé (HS256) : refuse tout jeton signé avec un autre algo
+  // (défense anti-confusion d'algorithme).
+  await app.register(jwt, {
+    secret: env.JWT_SECRET,
+    sign: { algorithm: 'HS256' },
+    verify: { algorithms: ['HS256'] },
+  });
   await app.register(authenticate);
 
   // ── Infrastructure (décorateurs app.prisma / app.redis) ──
