@@ -10,6 +10,7 @@ import { useLocale } from '@/i18n/LocaleProvider';
 import { get, post } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
+import { formatDate } from '@/i18n/format';
 
 interface User {
   id: string;
@@ -124,7 +125,7 @@ export default function AdminUsers() {
             type="button"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={!hasPrev}
-            className="card-pagne bg-white border border-stone-200 text-stone-600 text-[0.75rem] font-display font-bold px-3 py-1.5 disabled:opacity-40"
+            className="card-pagne bg-white border border-stone-200 text-stone-600 text-[0.75rem] font-display font-bold px-4 py-2.5 disabled:opacity-40"
           >
             <span aria-hidden="true">‹ </span>{t('admin.prev')}
           </button>
@@ -132,7 +133,7 @@ export default function AdminUsers() {
             type="button"
             onClick={() => setPage((p) => p + 1)}
             disabled={!hasNext}
-            className="card-pagne bg-white border border-stone-200 text-stone-600 text-[0.75rem] font-display font-bold px-3 py-1.5 disabled:opacity-40"
+            className="card-pagne bg-white border border-stone-200 text-stone-600 text-[0.75rem] font-display font-bold px-4 py-2.5 disabled:opacity-40"
           >
             {t('admin.next')}<span aria-hidden="true"> ›</span>
           </button>
@@ -152,7 +153,7 @@ export default function AdminUsers() {
             onChange={(e) => setQ(e.target.value)}
             placeholder={t('admin.search_users')}
             aria-label={t('admin.search_users')}
-            className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 font-body text-base focus:outline-none focus:border-indigo-600"
+            className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 font-body text-base pagne-focus focus:outline-none focus:border-indigo-600"
           />
           <div className="flex flex-wrap items-center gap-1.5">
             <button
@@ -176,7 +177,7 @@ export default function AdminUsers() {
               aria-label={t('admin.col_status')}
               value={status ?? ''}
               onChange={(e) => setStatus(e.target.value || null)}
-              className="ml-auto card-pagne bg-white border border-stone-300 text-[0.6875rem] font-display font-bold px-2 py-1 focus:outline-none focus:border-indigo-600"
+              className="ml-auto card-pagne bg-white border border-stone-300 text-base font-display font-bold px-2 py-1 pagne-focus focus:outline-none focus:border-indigo-600"
             >
               <option value="">{t('admin.all_statuses')}</option>
               <option value="ACTIVE">ACTIVE</option>
@@ -218,7 +219,7 @@ export default function AdminUsers() {
 
         {/* ── Desktop : table dense + panneau détail ── */}
         <div className="hidden lg:grid grid-cols-3 gap-5 items-start">
-          <div className="col-span-2 bg-white card-pagne border border-stone-200 overflow-hidden">
+          <div className="col-span-2 bg-white card-pagne border border-stone-200 overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="bg-creme">
@@ -257,7 +258,7 @@ export default function AdminUsers() {
                       {u.lang ? <><span aria-hidden="true">🗣</span> {u.lang}</> : '—'}
                     </td>
                     <td className="px-3 py-3 text-[0.71875rem] text-stone-500 whitespace-nowrap">
-                      {new Date(u.createdAt).toLocaleDateString('fr-FR', { dateStyle: 'medium' })}
+                      {formatDate(u.createdAt, { dateStyle: 'medium' })}
                     </td>
                     <td className="px-3 py-3">{statusBadge(u.status)}</td>
                   </tr>
@@ -287,7 +288,7 @@ export default function AdminUsers() {
                     <div className="flex justify-between gap-2"><span className="text-stone-400">{t('admin.phone')}</span><span className="font-bold text-stone-900 truncate">{selected.phone}</span></div>
                     {selected.email && <div className="flex justify-between gap-2"><span className="text-stone-400">{t('admin.email')}</span><span className="font-bold text-stone-900 truncate">{selected.email}</span></div>}
                     {selected.lang && <div className="flex justify-between gap-2"><span className="text-stone-400">{t('admin.col_lang')}</span><span className="font-bold text-stone-900">🗣 {selected.lang}</span></div>}
-                    <div className="flex justify-between gap-2"><span className="text-stone-400">{t('admin.col_joined')}</span><span className="font-bold text-stone-900">{new Date(selected.createdAt).toLocaleDateString('fr-FR', { dateStyle: 'medium' })}</span></div>
+                    <div className="flex justify-between gap-2"><span className="text-stone-400">{t('admin.col_joined')}</span><span className="font-bold text-stone-900">{formatDate(selected.createdAt, { dateStyle: 'medium' })}</span></div>
                     <div className="flex justify-between gap-2 items-center"><span className="text-stone-400">{t('admin.col_status')}</span>{statusBadge(selected.status)}</div>
                   </div>
                 </CardPagne>

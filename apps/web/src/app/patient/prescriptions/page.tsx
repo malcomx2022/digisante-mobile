@@ -9,6 +9,7 @@ import { Empty, ErrorState, SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get, post } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
+import { formatDate } from '@/i18n/format';
 
 interface Item {
   id: string;
@@ -40,9 +41,13 @@ export default function PrescriptionsPage() {
   const [paid, setPaid] = useState<Set<string>>(new Set());
   const [queued, setQueued] = useState<Set<string>>(new Set());
   const [payError, setPayError] = useState<Set<string>>(new Set());
+  // Garde in-flight : un double-tap initierait DEUX paiements (argent réel).
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   // ⚠️ §5 : montant/type/appel paiement inchangés — seul le feedback UI est corrigé.
   async function pay(prescriptionId: string, method: string) {
+    if (busyId || paid.has(prescriptionId) || queued.has(prescriptionId)) return;
+    setBusyId(prescriptionId);
     setPayError((s) => {
       const n = new Set(s);
       n.delete(prescriptionId);
@@ -59,13 +64,15 @@ export default function PrescriptionsPage() {
     } catch {
       // Vraie erreur (réseau/serveur) → ne PAS marquer payé.
       setPayError((s) => new Set(s).add(prescriptionId));
+    } finally {
+      setBusyId(null);
     }
   }
 
   return (
     <>
       <PatientHeader title={t('prescriptions.title')} />
-      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto">
+      <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto lg:w-full">
         {loading && <SkeletonCards label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && (data?.length ?? 0) === 0 && <Empty label={t('common.empty')} />}
@@ -79,7 +86,7 @@ export default function PrescriptionsPage() {
                 <div>
                   <p className="font-display font-extrabold">ORD · {p.id.slice(-6).toUpperCase()}</p>
                   <p className="text-[0.75rem] text-white/80">
-                    {t('prescriptions.valid_until', { date: new Date(p.validUntil).toLocaleDateString('fr-FR') })}
+                    {t('prescriptions.valid_until', { date: formatDate(p.validUntil) })}
                   </p>
                 </div>
                 {p.qrCode ? (
@@ -101,7 +108,7 @@ export default function PrescriptionsPage() {
                       {it.dosage} · {it.frequency} · {it.duration}
                     </p>
                   </div>
-                  <Badge variant={it.status === 'DISPENSED' ? 'normal' : 'eleve'}>{it.status}</Badge>
+                  <Badge variant={it.status === 'DISPENSED' ? 'normal' : 'eleve'}>{t(`pharmacie.line.${it.status}`)}</Badge>
                 </div>
               ))}
 
@@ -112,7 +119,8 @@ export default function PrescriptionsPage() {
                     key={m.method}
                     type="button"
                     onClick={() => pay(p.id, m.method)}
-                    className={`card-pagne ${m.cls} font-display font-bold text-[0.6875rem] py-2 px-1`}
+                    disabled={busyId === p.id || paid.has(p.id) || queued.has(p.id)}
+                    className={`card-pagne ${m.cls} font-display font-bold text-[0.6875rem] py-2 px-1 disabled:opacity-50`}
                   >
                     {m.label}
                   </button>

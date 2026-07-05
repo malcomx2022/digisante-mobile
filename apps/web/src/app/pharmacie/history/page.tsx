@@ -8,6 +8,7 @@ import { HeaderLogout } from '@/components/auth/HeaderLogout';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { pharmacyApi, type Dispensation } from '@/lib/api/pharmacy';
 import { useApi } from '@/lib/api/useApi';
+import { formatDate } from '@/i18n/format';
 
 // D-22b — Pharmacie : journal des délivrances effectuées (historique local).
 export default function PharmacieHistoryPage() {
@@ -42,7 +43,7 @@ export default function PharmacieHistoryPage() {
                 {d.patient ? `${d.patient.firstName} ${d.patient.lastName}` : '—'}
               </span>
               <span className="text-[0.75rem] text-stone-500">
-                {new Date(d.dispensedAt).toLocaleDateString('fr-FR', { dateStyle: 'medium' })}
+                {formatDate(d.dispensedAt, { dateStyle: 'medium' })}
               </span>
             </div>
             <p className="text-[0.75rem] text-ocre-600 font-display font-bold mt-0.5">

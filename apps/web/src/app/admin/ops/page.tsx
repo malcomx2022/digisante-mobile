@@ -7,15 +7,17 @@ import { useLocale } from '@/i18n/LocaleProvider';
 import { opsApi, type OpsHealth } from '@/lib/api/ops';
 import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
+import { formatDateTime } from '@/i18n/format';
 
 function dt(s: string | null, fallback: string): string {
-  return s ? new Date(s).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : fallback;
+  return s ? formatDateTime(s, { dateStyle: 'short', timeStyle: 'short' }) : fallback;
 }
-function uptime(sec: number): string {
+function uptime(sec: number, t: (k: string) => string): string {
   const d = Math.floor(sec / 86400);
   const h = Math.floor((sec % 86400) / 3600);
   const m = Math.floor((sec % 3600) / 60);
-  return d > 0 ? `${d}j ${h}h` : h > 0 ? `${h}h ${m}m` : `${m}m`;
+  const [ud, uh, um] = [t('ops.unit_d'), t('ops.unit_h'), t('ops.unit_m')];
+  return d > 0 ? `${d}${ud} ${h}${uh}` : h > 0 ? `${h}${uh} ${m}${um}` : `${m}${um}`;
 }
 
 // D-25f — Ops / monitoring : santé infra, files de notifications, jobs cron,
@@ -40,7 +42,7 @@ export default function AdminOps() {
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
                 <StatusPill label="Redis" up={data.infra.redis === 'up'} t={t} />
                 <StatusPill label={t('ops.database')} up={data.infra.db === 'up'} t={t} />
-                <Mini label={t('ops.uptime')} value={uptime(data.infra.uptimeSeconds)} />
+                <Mini label={t('ops.uptime')} value={uptime(data.infra.uptimeSeconds, t)} />
                 <StatusPill label="FedaPay" up={data.infra.fedapayConfigured} t={t} okKey="ops.configured" koKey="ops.stub" />
               </div>
             </section>

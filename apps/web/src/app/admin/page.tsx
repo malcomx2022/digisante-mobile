@@ -5,11 +5,12 @@ import { useState } from 'react';
 
 import { Badge, Button, CardPagne } from '@/components/ui';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
-import { ErrorState, Loading } from '@/components/ui/States';
+import { ErrorState, Loading , SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get, post } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
+import { formatNumber } from '@/i18n/format';
 
 interface Metrics {
   users: Record<string, number>;
@@ -38,10 +39,18 @@ export default function AdminMetrics() {
   const m = useApi<Metrics>(() => get('/admin/metrics'), []);
   const [tick, setTick] = useState(0);
   const queue = useApi<Paginated<KycItem>>(() => get('/kyc/submissions?pageSize=10'), [tick]);
+  // Garde in-flight : évite un double-clic = double décision sur la même soumission.
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   async function review(id: string, decision: 'APPROVED' | 'REJECTED') {
-    await post(`/kyc/submissions/${id}/review`, { decision, notes: decision === 'REJECTED' ? 'Non conforme' : 'OK' }).catch(() => {});
-    setTick((x) => x + 1);
+    if (busyId) return;
+    setBusyId(id);
+    try {
+      await post(`/kyc/submissions/${id}/review`, { decision, notes: decision === 'REJECTED' ? 'Non conforme' : 'OK' }).catch(() => {});
+      setTick((x) => x + 1);
+    } finally {
+      setBusyId(null);
+    }
   }
 
   const usersTotal = Object.values(m.data?.users ?? {}).reduce((a, b) => a + b, 0);
@@ -49,7 +58,7 @@ export default function AdminMetrics() {
   const kpis: [string | number, string, string][] = [
     [usersTotal, t('admin.kpi_users'), 'text-indigo-700'],
     [m.data?.consultations?.total ?? 0, t('admin.kpi_consult'), 'text-stone-900'],
-    [`${Number(m.data?.payments?.completedVolume ?? 0).toLocaleString('fr-FR')}`, t('admin.kpi_revenue'), 'text-terre-600'],
+    [`${formatNumber(m.data?.payments?.completedVolume ?? 0)}`, t('admin.kpi_revenue'), 'text-terre-600'],
     [m.data?.kyc?.pendingReview ?? 0, t('admin.kpi_kyc'), 'text-ocre-500'],
   ];
 
@@ -82,7 +91,7 @@ export default function AdminMetrics() {
               {t('adminkyc.review')} →
             </Link>
           </div>
-          {queue.loading && <Loading label={t('common.loading')} />}
+          {queue.loading && <SkeletonCards label={t('common.loading')} />}
           {!queue.loading && items.length === 0 && <p className="text-[0.8125rem] text-stone-400">{t('common.empty')}</p>}
 
           {/* Mobile : cartes */}
@@ -94,11 +103,11 @@ export default function AdminMetrics() {
                     <p className="font-display font-bold text-[0.875rem] truncate">{kycName(k)}</p>
                     <p className="text-[0.75rem] text-stone-400">{k.user.role}</p>
                   </div>
-                  <Badge variant="eleve">{k.status}</Badge>
+                  <Badge variant="eleve">{t(`kyc.status.${k.status}`)}</Badge>
                 </div>
                 <div className="flex gap-2 mt-3">
-                  <Button variant="terre" className="text-[0.75rem] px-3 py-1.5" onClick={() => review(k.id, 'APPROVED')}>{t('admin.approve')}</Button>
-                  <Button variant="sos" className="text-[0.75rem] px-3 py-1.5" onClick={() => review(k.id, 'REJECTED')}>{t('admin.reject')}</Button>
+                  <Button variant="terre" className="text-[0.75rem] px-3 py-1.5" onClick={() => review(k.id, 'APPROVED')} disabled={busyId === k.id}>{t('admin.approve')}</Button>
+                  <Button variant="sos" className="text-[0.75rem] px-3 py-1.5" onClick={() => review(k.id, 'REJECTED')} disabled={busyId === k.id}>{t('admin.reject')}</Button>
                 </div>
               </CardPagne>
             ))}
@@ -106,7 +115,7 @@ export default function AdminMetrics() {
 
           {/* Desktop : table */}
           {items.length > 0 && (
-            <div className="hidden lg:block bg-white card-pagne border border-stone-200 overflow-hidden">
+            <div className="hidden lg:block bg-white card-pagne border border-stone-200 overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="bg-creme">
@@ -121,11 +130,11 @@ export default function AdminMetrics() {
                     <tr key={k.id} className="hover:bg-creme">
                       <td className="px-5 py-2.5 font-bold text-[0.8125rem] text-stone-900">{kycName(k)}</td>
                       <td className="px-3 py-2.5"><span className="px-2 py-0.5 card-pagne bg-indigo-50 text-indigo-600 text-[0.59375rem] font-extrabold">{k.user.role}</span></td>
-                      <td className="px-3 py-2.5"><Badge variant="eleve">{k.status}</Badge></td>
+                      <td className="px-3 py-2.5"><Badge variant="eleve">{t(`kyc.status.${k.status}`)}</Badge></td>
                       <td className="px-5 py-2.5">
                         <div className="flex gap-1.5 justify-end">
-                          <Button variant="terre" className="text-[0.6875rem] px-2.5 py-1" onClick={() => review(k.id, 'APPROVED')}>{t('admin.approve')}</Button>
-                          <Button variant="sos" className="text-[0.6875rem] px-2.5 py-1" onClick={() => review(k.id, 'REJECTED')}>{t('admin.reject')}</Button>
+                          <Button variant="terre" className="text-[0.6875rem] px-2.5 py-1" onClick={() => review(k.id, 'APPROVED')} disabled={busyId === k.id}>{t('admin.approve')}</Button>
+                          <Button variant="sos" className="text-[0.6875rem] px-2.5 py-1" onClick={() => review(k.id, 'REJECTED')} disabled={busyId === k.id}>{t('admin.reject')}</Button>
                         </div>
                       </td>
                     </tr>

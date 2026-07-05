@@ -2,10 +2,10 @@
    DigiSanté Mobile — Service Worker (offline-first, CLAUDE.md §3).
    App shell + motifs CSS en cache ; API (données de santé) JAMAIS en cache.
    ───────────────────────────────────────────────────────────── */
-const VERSION = 'v1';
+const VERSION = 'v2';
 const APP_SHELL = `digisante-shell-${VERSION}`;
 const RUNTIME = `digisante-runtime-${VERSION}`;
-const PRECACHE = ['/', '/offline.html', '/manifest.json', '/icon.svg', '/icon-maskable.svg'];
+const PRECACHE = ['/', '/offline.html', '/manifest.json', '/icon.svg', '/icon-maskable.svg', '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

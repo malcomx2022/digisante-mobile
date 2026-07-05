@@ -97,7 +97,7 @@ export function ProfileSettings({
     }
   }
 
-  const inputCls = 'w-full bg-white card-pagne border border-stone-300 px-4 py-3 font-body text-[0.9375rem] focus:outline-none focus:border-stone-500';
+  const inputCls = 'w-full bg-white card-pagne border border-stone-300 px-4 py-3 font-body text-base pagne-focus focus:outline-none focus:border-stone-500';
   const displayPhone = me?.phone ?? user?.phone ?? '';
 
   return (

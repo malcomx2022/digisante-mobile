@@ -9,6 +9,7 @@ import { Loading } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
+import { formatDateTime } from '@/i18n/format';
 
 interface Appointment {
   id: string;
@@ -67,7 +68,7 @@ export default function PatientDashboard() {
           ) : next ? (
             <>
               <p className="text-[0.8125rem] text-stone-500">
-                {new Date(next.scheduledAt).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
+                {formatDateTime(next.scheduledAt, { dateStyle: 'medium', timeStyle: 'short' })}
                 {next.type === 'TELECONSULTATION' ? ` · ${t('booking.type_teleconsult')}` : ` · ${t('booking.type_physical')}`}
               </p>
               <Link
@@ -87,7 +88,7 @@ export default function PatientDashboard() {
             <Link
               key={q.key}
               href={q.href}
-              className={`card-pagne ${q.bg} ${q.rotate} p-3 text-center font-display font-bold text-[0.75rem] shadow-[3px_3px_0_rgba(0,0,0,.08)]`}
+              className={`card-pagne pagne-focus ${q.bg} ${q.rotate} p-3 text-center font-display font-bold text-[0.75rem] shadow-[3px_3px_0_rgba(0,0,0,.08)]`}
             >
               {t(q.key)}
             </Link>
@@ -97,7 +98,7 @@ export default function PatientDashboard() {
         {/* SOS — écran dédié (API + repli SMS hors-ligne) */}
         <Link
           href="/patient/sos"
-          className="block w-full text-center bg-sos-500 text-white font-display font-extrabold card-pagne py-4 pulse-sos shadow-[0_10px_26px_rgba(214,69,51,.4)]"
+          className="block w-full text-center bg-sos-500 text-white font-display font-extrabold card-pagne pagne-focus py-4 pulse-sos shadow-[0_10px_26px_rgba(214,69,51,.4)]"
         >
           {t('patient.quick.sos')}
         </Link>

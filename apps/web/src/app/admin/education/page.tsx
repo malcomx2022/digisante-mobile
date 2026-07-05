@@ -1,11 +1,11 @@
 'use client';
 
 import { CONTENT_CATEGORIES, LANGS } from '@digisante/shared';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Badge, Button, CardPagne } from '@/components/ui';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
-import { SkeletonCards } from '@/components/ui/States';
+import { ErrorState, SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { educationApi, type AdminContent, type ContentStatus, type Translation } from '@/lib/api/education';
 import { useApi } from '@/lib/api/useApi';
@@ -65,7 +65,7 @@ export default function AdminEducation() {
     }
   }
 
-  const inputCls = 'w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base focus:outline-none focus:border-indigo-600';
+  const inputCls = 'w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base pagne-focus focus:outline-none focus:border-indigo-600';
 
   return (
     <>
@@ -101,7 +101,8 @@ export default function AdminEducation() {
             </div>
 
             {list.loading && !list.data && <SkeletonCards label={t('common.loading')} count={4} columns={false} />}
-            {!list.loading && items.length === 0 && <p className="text-[0.8125rem] text-stone-400">{t('common.empty')}</p>}
+            {list.error && <ErrorState label={t('auth.error')} />}
+            {!list.loading && !list.error && items.length === 0 && <p className="text-[0.8125rem] text-stone-400">{t('common.empty')}</p>}
 
             <div className="space-y-2">
               {items.map((c) => (
@@ -183,6 +184,17 @@ function TranslationEditor({ content, onClose, onSaved }: { content: AdminConten
   });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const firstInputRef = useRef<HTMLInputElement>(null);
+
+  // A11y modal (aligné sur ConfirmDialog) : focus initial + fermeture Échap.
+  useEffect(() => {
+    firstInputRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !busy) onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [busy, onClose]);
 
   function update(lang: string, field: keyof Translation, value: string) {
     setDraft((d) => ({ ...d, [lang]: { ...d[lang], [field]: value } }));
@@ -205,7 +217,7 @@ function TranslationEditor({ content, onClose, onSaved }: { content: AdminConten
     }
   }
 
-  const inputCls = 'w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base focus:outline-none focus:border-indigo-600';
+  const inputCls = 'w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base pagne-focus focus:outline-none focus:border-indigo-600';
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-nuit/60 px-4 py-6" role="dialog" aria-modal="true" aria-label={t('edu.translations')} onClick={() => !busy && onClose()}>
@@ -216,7 +228,7 @@ function TranslationEditor({ content, onClose, onSaved }: { content: AdminConten
           {TARGET_LANGS.map((lang) => (
             <div key={lang} className="space-y-1.5">
               <p className="text-[0.6875rem] font-extrabold uppercase tracking-wide text-indigo-700">{lang}</p>
-              <input className={inputCls} placeholder={t('edu.title_ph')} aria-label={`${lang} ${t('edu.title_ph')}`} value={draft[lang].title} onChange={(e) => update(lang, 'title', e.target.value)} />
+              <input ref={lang === TARGET_LANGS[0] ? firstInputRef : undefined} className={inputCls} placeholder={t('edu.title_ph')} aria-label={`${lang} ${t('edu.title_ph')}`} value={draft[lang].title} onChange={(e) => update(lang, 'title', e.target.value)} />
               <textarea className={`${inputCls} h-16`} placeholder={t('edu.body_ph')} aria-label={`${lang} ${t('edu.body_ph')}`} value={draft[lang].body} onChange={(e) => update(lang, 'body', e.target.value)} />
             </div>
           ))}

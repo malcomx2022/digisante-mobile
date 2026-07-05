@@ -86,7 +86,7 @@ export default function BeneficiariesPage() {
     }
   }
 
-  const inputCls = 'w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.875rem] focus:outline-none focus:border-ocre-500';
+  const inputCls = 'w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base pagne-focus focus:outline-none focus:border-ocre-500';
 
   return (
     <>

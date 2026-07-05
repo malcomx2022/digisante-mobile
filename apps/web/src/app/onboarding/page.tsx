@@ -32,8 +32,8 @@ export default function OnboardingPage() {
               type="button"
               onClick={() => setLang(l.code as Lang)}
               className={cn(
-                'w-full bg-white card-pagne border p-4 flex items-center justify-between text-left',
-                l.code === lang ? 'border-sante-600 ring-2 ring-sante-600/30' : 'border-stone-200',
+                'w-full bg-white card-pagne pagne-focus border p-4 flex items-center justify-between text-left',
+                l.code === lang ? 'border-sante-600 ring-2 ring-inset ring-sante-600/30' : 'border-stone-200',
               )}
             >
               <span>

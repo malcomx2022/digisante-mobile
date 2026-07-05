@@ -112,7 +112,7 @@ export default function LoginPage() {
     }
   }
 
-  const inputCls = 'w-full bg-white card-pagne border border-stone-300 px-4 py-3 font-body text-[0.9375rem] focus:outline-none focus:border-sante-600';
+  const inputCls = 'w-full bg-white card-pagne border border-stone-300 px-4 py-3 font-body text-base pagne-focus focus:outline-none focus:border-sante-600';
 
   return (
     <div className="min-h-dvh-screen wax-light flex flex-col lg:items-center lg:justify-center">
@@ -141,7 +141,7 @@ export default function LoginPage() {
                             type="button"
                             onClick={() => setRole(r)}
                             className={cn(
-                              'card-pagne px-3 py-1.5 text-[0.75rem] font-display font-bold',
+                              'card-pagne pagne-focus px-3 py-1.5 text-[0.75rem] font-display font-bold',
                               r === role ? 'bg-sante-600 text-white' : 'bg-creme-deep text-stone-600',
                             )}
                           >

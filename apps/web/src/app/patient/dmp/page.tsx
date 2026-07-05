@@ -6,12 +6,13 @@ import { useState } from 'react';
 import { DmpShareDialog } from '@/components/patient/DmpShareDialog';
 import { PatientHeader } from '@/components/patient/PatientHeader';
 import { CardPagne } from '@/components/ui';
-import { Empty, ErrorState, Loading } from '@/components/ui/States';
+import { Empty, ErrorState , SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get } from '@/lib/api/client';
 import { dmpApi, type DmpConsent, type DmpRecord } from '@/lib/api/dmp';
 import { usersApi, type MeFull } from '@/lib/api/users';
 import { useApi } from '@/lib/api/useApi';
+import { formatDate } from '@/i18n/format';
 
 // Couleur de la barre latérale selon le type d'entrée (cf. D-04).
 const BAR: Record<string, string> = {
@@ -104,7 +105,7 @@ export default function DmpPage() {
                     </p>
                     <p className="text-[0.6875rem] text-stone-400">
                       {c.active
-                        ? t('dmp.share_expires', { date: new Date(c.expiresAt).toLocaleDateString('fr-FR', { dateStyle: 'medium' }) })
+                        ? t('dmp.share_expires', { date: formatDate(c.expiresAt, { dateStyle: 'medium' }) })
                         : t('dmp.revoked_label')}
                     </p>
                   </div>
@@ -131,7 +132,7 @@ export default function DmpPage() {
           </CardPagne>
         )}
 
-        {loading && <Loading label={t('common.loading')} />}
+        {loading && <SkeletonCards label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && (data?.length ?? 0) === 0 && <Empty label={t('common.empty')} />}
 
@@ -142,7 +143,7 @@ export default function DmpPage() {
               <div className="flex-1">
                 <p className="font-display font-bold text-[0.875rem] text-stone-800">{r.title}</p>
                 <p className="text-[0.75rem] text-stone-400">
-                  {r.type} · {new Date(r.createdAt).toLocaleDateString('fr-FR', { dateStyle: 'medium' })}
+                  {t(`record.${r.type}`)} · {formatDate(r.createdAt, { dateStyle: 'medium' })}
                 </p>
               </div>
               <button

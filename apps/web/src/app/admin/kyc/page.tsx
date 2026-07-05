@@ -4,7 +4,7 @@ import { useState } from 'react';
 
 import { Badge, Button, CardPagne, Nkyinkyim } from '@/components/ui';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
-import { Empty, ErrorState, Loading } from '@/components/ui/States';
+import { Empty, ErrorState, Loading , SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { adminKycApi, type KycDetail, type KycQueueItem } from '@/lib/api/adminKyc';
 import { useApi } from '@/lib/api/useApi';
@@ -33,7 +33,7 @@ export default function AdminKycPage() {
           />
         ) : (
           <>
-            {queue.loading && <Loading label={t('common.loading')} />}
+            {queue.loading && <SkeletonCards label={t('common.loading')} />}
             {queue.error && <ErrorState label={t('auth.error')} />}
             {!queue.loading && items.length === 0 && <Empty label={t('adminkyc.empty')} />}
             {/* Mobile : cartes */}
@@ -55,7 +55,7 @@ export default function AdminKycPage() {
 
             {/* Desktop : table */}
             {items.length > 0 && (
-              <div className="hidden lg:block bg-white card-pagne border border-stone-200 overflow-hidden">
+              <div className="hidden lg:block bg-white card-pagne border border-stone-200 overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="bg-creme">
@@ -72,7 +72,7 @@ export default function AdminKycPage() {
                           {k.user.profile ? `${k.user.profile.firstName} ${k.user.profile.lastName}` : k.user.phone}
                         </td>
                         <td className="px-3 py-2.5"><span className="px-2 py-0.5 card-pagne bg-indigo-50 text-indigo-600 text-[0.59375rem] font-extrabold">{k.user.role}</span></td>
-                        <td className="px-3 py-2.5"><Badge variant="eleve">{k.status}</Badge></td>
+                        <td className="px-3 py-2.5"><Badge variant="eleve">{t(`kyc.status.${k.status}`)}</Badge></td>
                         <td className="px-5 py-2.5 text-right">
                           <Button variant="indigo" className="text-[0.6875rem] px-2.5 py-1" onClick={() => setSelected(k.id)}>{t('adminkyc.review')}</Button>
                         </td>
@@ -179,7 +179,7 @@ function KycDetailPanel({ id, onBack, onDone }: { id: string; onBack: () => void
               placeholder={t('adminkyc.notes')}
               aria-label={t('adminkyc.notes')}
               rows={2}
-              className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.875rem] focus:outline-none focus:border-indigo-600"
+              className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base pagne-focus focus:outline-none focus:border-indigo-600"
             />
             {!allVerified && <p className="text-[0.75rem] text-ocre-600 mt-1"><span aria-hidden="true">⚠ </span>{t('adminkyc.warn_unverified')}</p>}
             {actionError && <p className="text-[0.75rem] text-sos-600 font-bold mt-1">{actionError}</p>}

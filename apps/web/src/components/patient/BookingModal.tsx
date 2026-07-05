@@ -6,6 +6,7 @@ import { Badge, Button, CardPagne } from '@/components/ui';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { ApiRequestError, post } from '@/lib/api/client';
 import { cn } from '@/lib/cn';
+import { formatDate, formatDateTime, formatNumber } from '@/i18n/format';
 
 export interface BookingDoctor {
   id: string;
@@ -123,7 +124,7 @@ export function BookingModal({
               {done.status === 'QUEUED' ? t('booking.queued_title') : t('booking.success_title')}
             </p>
             <p className="text-[0.8125rem] text-stone-500 mt-1">
-              {new Date(done.scheduledAt).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' })}
+              {formatDateTime(done.scheduledAt, { dateStyle: 'full', timeStyle: 'short' })}
             </p>
             <p className="text-[0.75rem] text-stone-400 mt-1">
               {done.type === 'TELECONSULTATION' ? t('booking.type_teleconsult') : t('booking.type_physical')}
@@ -158,7 +159,7 @@ export function BookingModal({
                     )}
                   >
                     <span className="block font-display font-extrabold text-[0.6875rem] uppercase">
-                      {d.toLocaleDateString('fr-FR', { weekday: 'short' })}
+                      {formatDate(d, { weekday: 'short' })}
                     </span>
                     <span className="block font-display font-extrabold text-[1rem] leading-tight">{d.getDate()}</span>
                   </button>
@@ -212,11 +213,11 @@ export function BookingModal({
 
             <div className="flex items-center justify-between">
               <span className="font-display font-bold text-sante-700 text-[0.8125rem]">
-                {Number(doctor.consultFee).toLocaleString('fr-FR')} {t('common.fcfa')}
+                {formatNumber(doctor.consultFee)} {t('common.fcfa')}
               </span>
               {scheduledAt && (
                 <Badge variant="normal">
-                  {scheduledAt.toLocaleString('fr-FR', { weekday: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  {formatDateTime(scheduledAt, { weekday: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                 </Badge>
               )}
             </div>

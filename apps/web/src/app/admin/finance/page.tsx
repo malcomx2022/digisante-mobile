@@ -10,12 +10,13 @@ import { adminsApi } from '@/lib/api/admins';
 import { financeApi, type CompletedPayment, type FinanceOverview, type WebhookEntry } from '@/lib/api/finance';
 import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
+import { formatDateTime, formatNumber } from '@/i18n/format';
 
 function xof(v: string | number): string {
-  return Number(v).toLocaleString('fr-FR');
+  return formatNumber(v);
 }
 function dt(s: string): string {
-  return new Date(s).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' });
+  return formatDateTime(s, { dateStyle: 'short', timeStyle: 'short' });
 }
 
 // D-25e — Finances (back-office) : volumes paiements, réconciliation, wallets,
@@ -222,7 +223,7 @@ export default function AdminFinance() {
           onChange={(e) => setReason(e.target.value)}
           placeholder={t('finance.refund_reason')}
           aria-label={t('finance.refund_reason')}
-          className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base focus:outline-none focus:border-indigo-600"
+          className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base pagne-focus focus:outline-none focus:border-indigo-600"
         />
       </ConfirmDialog>
     </>
