@@ -22,6 +22,17 @@
 | `DAILY_API_KEY` / `DAILY_DOMAIN` | ✅ téléconsult | — |
 | `FIREBASE_PROJECT_ID` / `FIREBASE_CLIENT_EMAIL` / `FIREBASE_PRIVATE_KEY` | ✅ push | clé privée sur une ligne (`\n` échappés) |
 
+### Frontière des secrets (infra vs intégration) — cf. `PLAN_Gestion_API_Admin.md`
+
+- **Secrets d'infrastructure** (`DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `HEALTH_ENCRYPTION_KEY`,
+  `RECONCILE_TOKEN`) : **toujours en `.env`**, jamais en base — ils démarrent l'app et servent à
+  **déchiffrer** les secrets stockés en base (les mettre en base = dépendance circulaire).
+- **Secrets d'intégration** (`FEDAPAY_*`, `TWILIO_*`, `DAILY_*`, `FIREBASE_*`, `RESEND_*`) :
+  une fois la **gestion via l'admin** livrée (super admin, chiffrée AES-256 en base), leur présence
+  en `.env` devient **optionnelle** (fallback / bootstrap) — la valeur en base **prime**. FedaPay
+  reste **§5** (bascule = revue + re-tests webhooks). Tant que la feature n'est pas déployée,
+  ces variables restent requises en `.env` comme aujourd'hui.
+
 ## Web (`/var/www/digisante-mobile/apps/web/.env.production`)
 
 | Variable | Note |
