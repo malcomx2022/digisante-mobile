@@ -4,8 +4,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 
 import { setAccessToken, setRefreshHandler, setSessionExpiredHandler } from '@/lib/api/client';
 import { authApi, type AuthUser, type OtpInfo, type RegisterBody } from '@/lib/api/auth';
+import { isOnline } from '@/lib/offline/online';
 import { registerPushDevice } from './push';
-import { tokenStore } from './storage';
+import { sessionCache } from './storage';
 
 type Status = 'loading' | 'authed' | 'anon';
 
@@ -24,41 +25,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status>('loading');
   const [user, setUser] = useState<AuthUser | null>(null);
 
-  // Reprise de session au démarrage (access → /me ; sinon tentative de refresh).
+  // Reprise de session au démarrage. Le jeton d'accès vit en mémoire ; le refresh
+  // est un cookie HttpOnly (C6). On reprend en UN appel via /auth/refresh (qui
+  // renvoie { accessToken, user }). Hors-ligne : reprise OPTIMISTE depuis le cache
+  // (offline-first §3) — le jeton d'accès sera ré-obtenu au retour du réseau.
   useEffect(() => {
     let active = true;
     (async () => {
-      const { access, refresh } = tokenStore.get();
-      if (!access) {
+      const cached = sessionCache.get();
+      if (!cached) {
         if (active) setStatus('anon');
         return;
       }
-      setAccessToken(access);
+      // Optimiste : afficher l'app immédiatement avec le profil en cache.
+      if (active) {
+        setUser(cached);
+        setStatus('authed');
+      }
+      if (!isOnline()) return; // hors-ligne : jeton ré-obtenu au 1er appel en ligne
       try {
-        const me = await authApi.me();
-        if (active) {
-          setUser(me);
-          setStatus('authed');
-        }
+        const { accessToken, user } = await authApi.refresh();
+        setAccessToken(accessToken);
+        sessionCache.set(user);
+        if (active) setUser(user);
       } catch {
-        if (refresh) {
-          try {
-            const t = await authApi.refresh({ refreshToken: refresh });
-            tokenStore.set(t.accessToken, t.refreshToken);
-            setAccessToken(t.accessToken);
-            const me = await authApi.me();
-            if (active) {
-              setUser(me);
-              setStatus('authed');
-            }
-            return;
-          } catch {
-            /* refresh échoué */
-          }
-        }
-        tokenStore.clear();
+        // En ligne mais refresh refusé (session expirée/révoquée) → purge.
+        sessionCache.clear();
         setAccessToken(null);
-        if (active) setStatus('anon');
+        if (active) {
+          setUser(null);
+          setStatus('anon');
+        }
       }
     })();
     return () => {
@@ -68,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Purge complète de la session (utilisée par logout ET par l'expiration de session).
   const clearSession = useCallback(() => {
-    tokenStore.clear();
+    sessionCache.clear();
     setAccessToken(null);
     setUser(null);
     setStatus('anon');
@@ -80,12 +77,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // renvoie le nouvel access token (ou null → session expirée, le client purgera).
   useEffect(() => {
     setRefreshHandler(async () => {
-      const { refresh } = tokenStore.get();
-      if (!refresh) return null;
-      const tokens = await authApi.refresh({ refreshToken: refresh });
-      tokenStore.set(tokens.accessToken, tokens.refreshToken);
-      setAccessToken(tokens.accessToken);
-      return tokens.accessToken;
+      // Le refresh est lu dans le cookie HttpOnly côté serveur (aucun jeton en JS).
+      const { accessToken, user } = await authApi.refresh();
+      setAccessToken(accessToken);
+      sessionCache.set(user);
+      return accessToken;
     });
     setSessionExpiredHandler(() => clearSession());
     return () => {
@@ -99,8 +95,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const verifyOtp = useCallback<AuthContextValue['verifyOtp']>(async (phone, code) => {
     const res = await authApi.verifyOtp({ phone, code });
-    tokenStore.set(res.accessToken, res.refreshToken);
-    setAccessToken(res.accessToken);
+    setAccessToken(res.accessToken); // le refresh est posé en cookie HttpOnly par le serveur
+    sessionCache.set(res.user);
     setUser(res.user);
     setStatus('authed');
     // Enregistrement du token push après connexion (best-effort, non bloquant).
@@ -109,14 +105,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback<AuthContextValue['logout']>(async () => {
-    // 1) Révocation serveur du refresh token (best-effort — on ignore l'échec).
-    const { refresh } = tokenStore.get();
-    if (refresh) {
-      try {
-        await authApi.logout({ refreshToken: refresh });
-      } catch {
-        /* hors-ligne ou token déjà révoqué : on purge quand même localement */
-      }
+    // 1) Révocation serveur (le refresh est lu dans le cookie) — best-effort.
+    try {
+      await authApi.logout();
+    } catch {
+      /* hors-ligne ou token déjà révoqué : on purge quand même localement */
     }
     // 2) Purge locale + redirection (assurée par la garde Protected → /onboarding).
     clearSession();
