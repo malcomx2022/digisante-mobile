@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────
 // DigiSanté Mobile — schéma Prisma complet
-// 36 modèles + 28 enums (cf. DocTech §5), dont la table d'audit immuable (§4).
+// 37 modèles + 28 enums (cf. DocTech §5), dont la table d'audit immuable (§4).
 // Cible : PostgreSQL 16 natif (dev local docker, prod VPS Infomaniak).
 //
 // Décisions (arbitrées) :
@@ -456,8 +456,9 @@ model MedicalRecord {
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 
-  patient   Patient    @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  documents Document[]
+  patient        Patient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  documents      Document[]
+  consentRecords ConsentRecord[]
 
   @@index([patientId])
   @@index([type])
@@ -938,13 +939,31 @@ model Consent {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  grantee User    @relation("ConsentGrantee", fields: [granteeId], references: [id], onDelete: Cascade)
+  patient Patient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  grantee User            @relation("ConsentGrantee", fields: [granteeId], references: [id], onDelete: Cascade)
+  records ConsentRecord[]
 
   @@unique([patientId, granteeId])
   @@index([patientId])
   @@index([granteeId])
   @@map("consents")
+}
+
+// Portée PAR-ENTRÉE d'un consentement (§4 minimisation) : lie un Consent aux
+// SEULES entrées de DMP effectivement partagées avec le soignant. Un soignant ne
+// lit donc que ces entrées, pas tout le dossier. Ajouté à la réclamation du token.
+model ConsentRecord {
+  id        String   @id @default(cuid())
+  consentId String
+  recordId  String
+  createdAt DateTime @default(now())
+
+  consent Consent       @relation(fields: [consentId], references: [id], onDelete: Cascade)
+  record  MedicalRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+
+  @@unique([consentId, recordId])
+  @@index([recordId])
+  @@map("consent_records")
 }
 
 // (+5) MedicationIntake — journal d'observance : une prise déclarée par le patient
