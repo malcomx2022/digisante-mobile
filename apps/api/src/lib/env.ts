@@ -1,7 +1,9 @@
 import { z } from 'zod';
 
-const schema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+// NODE_ENV est REQUIS (aucun défaut) : un environnement qui ne le déclare pas est
+// une erreur de configuration, pas un mode « développement » silencieux (fail-safe).
+export const envSchema = z.object({
+  NODE_ENV: z.enum(['development', 'test', 'production']),
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
   API_PORT: z.coerce.number().default(3001),
@@ -26,7 +28,8 @@ const schema = z.object({
   DAILY_DOMAIN: z.string().optional(),
 
   // ── Chiffrement des données de santé au repos (AES-256, CLAUDE.md §4) ──
-  // En production cette clé est OBLIGATOIRE ; en dev/local, fallback non chiffré.
+  // OBLIGATOIRE hors `test` (développement ET production) — le chiffrement est
+  // toujours actif sur un vrai serveur ; seul l'env `test` tolère son absence.
   HEALTH_ENCRYPTION_KEY: z.string().optional(),
   // Répertoire des fichiers KYC chiffrés (disque VPS — cf. lib/filestore.ts).
   KYC_STORAGE_DIR: z.string().optional(),
@@ -48,29 +51,30 @@ const schema = z.object({
   RESEND_API_KEY: z.string().optional(),
   RESEND_FROM_EMAIL: z.string().optional(),
 })
-  // ── Durcissement production (CLAUDE.md §4) ──
-  // En prod, refuser de démarrer sans chiffrement des données de santé ni JWT solide.
-  // En dev/test : aucune exigence supplémentaire (comportement inchangé).
+  // ── Durcissement (CLAUDE.md §4) — FAIL-SAFE ──
+  // Hors `test`, refuser de démarrer sans chiffrement des données de santé ni JWT
+  // solide : un déploiement resté par erreur en NODE_ENV=development ne peut donc
+  // PAS tourner en clair. Seul l'environnement `test` reste permissif (CI).
   .superRefine((val, ctx) => {
-    if (val.NODE_ENV !== 'production') return;
+    if (val.NODE_ENV === 'test') return;
     if (!val.HEALTH_ENCRYPTION_KEY || val.HEALTH_ENCRYPTION_KEY.length < 32) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['HEALTH_ENCRYPTION_KEY'],
         message:
-          'HEALTH_ENCRYPTION_KEY est obligatoire en production (≥ 32 caractères) — chiffrement AES-256 des données de santé.',
+          'HEALTH_ENCRYPTION_KEY est obligatoire hors test (≥ 32 caractères) — chiffrement AES-256 des données de santé (§4).',
       });
     }
     if (val.JWT_SECRET.length < 32) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['JWT_SECRET'],
-        message: 'JWT_SECRET doit faire ≥ 32 caractères en production.',
+        message: 'JWT_SECRET doit faire ≥ 32 caractères hors test.',
       });
     }
   });
 
-const parsed = schema.safeParse(process.env);
+const parsed = envSchema.safeParse(process.env);
 if (!parsed.success) {
   console.error("❌ Variables d'environnement invalides :", parsed.error.flatten().fieldErrors);
   process.exit(1);
