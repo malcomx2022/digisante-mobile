@@ -95,7 +95,7 @@ ne les relit jamais.
 
 | Lot | Contenu | Zone | Dépend de |
 |---|---|---|---|
-| **A** | Modèle `IntegrationConfig` + enum + migration ; resolver `lib/integrations.ts` (chiffrement + cache Redis + fallback `.env`) ; scopes `integrations:read/write` (shared) | back | — |
+| **A** ✅ | Modèle `IntegrationConfig` + enum + migration ; resolver `lib/integrations.ts` (chiffrement `sealSecret`/`openSecret`, cache Redis du blob **chiffré** + invalidation, fallback `.env`, `maskSecrets`) ; scopes `integrations:read/write` (shared, SUPER_ADMIN) ; tests. **LIVRÉ.** | back | — |
 | **B** | API admin : `GET` (masqué) / `PUT` (rote, audit) / `PATCH` (enabled) / `POST test` — secrets jamais renvoyés | back | A |
 | **C** | Bascule des services **NON gelés** vers le resolver : **Twilio, Daily, Resend, Firebase** ; `isConfigured` dynamique ; tests | back | A |
 | **D** | Webhooks (hors FedaPay) : config `meta.webhookUrl` + rotation secret + journal (réutilise l'existant) | back | B |
