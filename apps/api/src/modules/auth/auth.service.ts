@@ -304,14 +304,16 @@ export async function refresh(app: FastifyInstance, refreshToken: string) {
   // Re-lecture DB : statut et rôle peuvent avoir changé depuis l'émission du
   // refresh (suspension, rétrogradation). Sans cela un compte suspendu
   // rafraîchit des jetons pendant 30 j, et un rôle périmé survivrait (§4).
+  // On renvoie aussi l'utilisateur public → reprise de session en UN appel.
   const user = await app.prisma.user.findUnique({
     where: { id: payload.sub },
-    select: { status: true, role: true },
+    select: { id: true, phone: true, email: true, role: true, status: true, lang: true },
   });
   if (!user || user.status === 'SUSPENDED') {
     throw unauthorized('Session révoquée. Contactez le support.');
   }
-  return issueTokens(app, payload.sub, user.role);
+  const tokens = await issueTokens(app, user.id, user.role);
+  return { ...tokens, user: publicUser(user) };
 }
 
 /**

@@ -55,7 +55,10 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
     const body = verify.json();
     expect(body.user.status).toBe('ACTIVE');
     expect(body.accessToken).toBeTruthy();
-    expect(body.refreshToken).toBeTruthy();
+    // Le refresh N'EST PLUS dans le corps : il est posé en cookie HttpOnly (C6).
+    expect(body.refreshToken).toBeUndefined();
+    const rt = verify.cookies.find((c) => c.name === 'digisante_rt');
+    expect(rt?.value).toBeTruthy();
 
     const me = await app.inject({
       method: 'GET',
@@ -68,10 +71,11 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
     const refreshed = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/refresh',
-      payload: { refreshToken: body.refreshToken },
+      cookies: { digisante_rt: rt!.value },
     });
     expect(refreshed.statusCode).toBe(200);
     expect(refreshed.json().accessToken).toBeTruthy();
+    expect(refreshed.json().user.phone).toBe(PHONE); // reprise de session en un appel
 
     // L'enregistrement de rôle DOIT exister (bug racine corrigé) :
     // un PATIENT a un Patient + un Wallet.
@@ -159,21 +163,24 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
       payload: { phone: PHONE_LOGOUT, code: devCode },
     });
     expect(verify.statusCode).toBe(200);
-    const { accessToken, refreshToken } = verify.json();
+    const accessToken = verify.json().accessToken as string;
+    const rtValue = verify.cookies.find((c) => c.name === 'digisante_rt')!.value;
 
     const logout = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/logout',
       headers: { authorization: `Bearer ${accessToken}` },
-      payload: { refreshToken },
+      cookies: { digisante_rt: rtValue },
     });
     expect(logout.statusCode).toBe(204);
+    // Le cookie de refresh est effacé (Max-Age=0).
+    expect(logout.cookies.find((c) => c.name === 'digisante_rt')?.value).toBe('');
 
-    // Le refresh révoqué ne doit plus fonctionner.
+    // Le refresh révoqué ne doit plus fonctionner (même en présentant l'ancien cookie).
     const refreshed = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/refresh',
-      payload: { refreshToken },
+      cookies: { digisante_rt: rtValue },
     });
     expect(refreshed.statusCode).toBe(401);
   });
@@ -192,7 +199,8 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
       payload: { phone: PHONE_SUSPEND, code: reg.json().otp.devCode },
     });
     expect(verify.statusCode).toBe(200);
-    const { refreshToken, user } = verify.json();
+    const user = verify.json().user;
+    const rtValue = verify.cookies.find((c) => c.name === 'digisante_rt')!.value;
 
     // L'admin suspend le compte.
     await app.prisma.user.update({ where: { id: user.id }, data: { status: 'SUSPENDED' } });
@@ -201,7 +209,7 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
     const refreshed = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/refresh',
-      payload: { refreshToken },
+      cookies: { digisante_rt: rtValue },
     });
     expect(refreshed.statusCode).toBe(401);
 
