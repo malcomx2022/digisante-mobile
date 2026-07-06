@@ -12,6 +12,7 @@ describe.skipIf(!HAS_INFRA)('Consentement DMP par soignant (intégration)', () =
   let doctor1Token: string;
   let doctor2Token: string;
   let doctor1Id: string;
+  let doctor2Id: string;
   let patientId: string;
 
   const auth = (t: string, share?: string) => ({
@@ -50,6 +51,7 @@ describe.skipIf(!HAS_INFRA)('Consentement DMP par soignant (intégration)', () =
     });
     patientId = patient.patient!.id;
     doctor1Id = doctor1.id;
+    doctor2Id = doctor2.id;
     patientToken = app.jwt.sign({ sub: patient.id, role: 'PATIENT' }, { expiresIn: '15m' });
     doctor1Token = app.jwt.sign({ sub: doctor1.id, role: 'MEDECIN' }, { expiresIn: '15m' });
     doctor2Token = app.jwt.sign({ sub: doctor2.id, role: 'MEDECIN' }, { expiresIn: '15m' });
@@ -145,5 +147,42 @@ describe.skipIf(!HAS_INFRA)('Consentement DMP par soignant (intégration)', () =
     const entry = consents.json().find((c: { granteeId: string }) => c.granteeId === doctor1Id);
     expect(entry.active).toBe(true);
     expect(entry.revokedAt).toBeNull();
+  });
+
+  it('portée PAR-ENTRÉE (§4) : partager une seule entrée n’expose QUE celle-ci', async () => {
+    // Le patient crée deux entrées distinctes.
+    const mk = (title: string) =>
+      app.inject({ method: 'POST', url: '/api/v1/dmp/records', headers: auth(patientToken), payload: { type: 'DIAGNOSIS', title, data: { note: title } } });
+    const r1 = (await mk('Entrée partagée')).json().id as string;
+    const r2 = (await mk('Entrée privée')).json().id as string;
+
+    // Il ne partage QUE r1 avec le médecin 2.
+    const share = await app.inject({ method: 'POST', url: `/api/v1/dmp/records/${r1}/share`, headers: auth(patientToken), payload: { shareType: 'QR_CODE', ttlHours: 24 } });
+    const token = share.json().shareToken as string;
+
+    // Le médecin 2 réclame via le token → sa liste ne contient QUE r1 (pas r2 ni les autres).
+    const list = await app.inject({ method: 'GET', url: `/api/v1/dmp/records?patientId=${patientId}`, headers: auth(doctor2Token, token) });
+    expect(list.statusCode).toBe(200);
+    const ids = (list.json() as { id: string }[]).map((r) => r.id);
+    expect(ids).toContain(r1);
+    expect(ids).not.toContain(r2);
+    expect(ids).toHaveLength(1);
+
+    // Accès direct à l'entrée partagée → OK ; à l'entrée NON partagée → 403.
+    const okRec = await app.inject({ method: 'GET', url: `/api/v1/dmp/records/${r1}`, headers: auth(doctor2Token) });
+    expect(okRec.statusCode).toBe(200);
+    const koRec = await app.inject({ method: 'GET', url: `/api/v1/dmp/records/${r2}`, headers: auth(doctor2Token) });
+    expect(koRec.statusCode).toBe(403);
+
+    // L'export du soignant ne contient QUE l'entrée consentie.
+    const exp = await app.inject({ method: 'GET', url: `/api/v1/dmp/export?patientId=${patientId}`, headers: auth(doctor2Token) });
+    expect(exp.statusCode).toBe(200);
+    expect(exp.json().entry).toHaveLength(1);
+    expect(exp.json().entry[0].resource.id).toBe(r1);
+
+    // Côté patient : le consentement du médecin 2 indique 1 entrée partagée.
+    const consents = await app.inject({ method: 'GET', url: '/api/v1/dmp/consents', headers: auth(patientToken) });
+    const d2 = consents.json().find((c: { granteeId: string }) => c.granteeId === doctor2Id);
+    expect(d2.recordCount).toBe(1);
   });
 });

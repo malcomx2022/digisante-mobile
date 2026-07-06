@@ -11,7 +11,7 @@ import type { FastifyInstance } from 'fastify';
 
 import { writeAudit } from '@/lib/audit.js';
 import { openMedicalData, sealMedicalData } from '@/lib/crypto.js';
-import { assertDmpAccess } from '@/lib/dmp-consent.js';
+import { assertDmpAccess, resolveDmpScope } from '@/lib/dmp-consent.js';
 import { badRequest, forbidden, notFound } from '@/lib/errors.js';
 
 interface Actor {
@@ -64,10 +64,11 @@ export async function listRecords(
   ip?: string | null,
 ) {
   const patientId = await resolveTargetPatient(app, actor, params.patientId);
-  await assertDmpAccess(app, { actorId: actor.sub, role: actor.role, patientId, shareToken: params.shareToken, ip });
+  // Portée par-entrée (§4) : un soignant ne reçoit QUE ses entrées consenties.
+  const scope = await resolveDmpScope(app, { actorId: actor.sub, role: actor.role, patientId, shareToken: params.shareToken, ip });
 
   const records = await app.prisma.medicalRecord.findMany({
-    where: { patientId },
+    where: scope.recordIds === 'ALL' ? { patientId } : { patientId, id: { in: [...scope.recordIds] } },
     orderBy: { createdAt: 'desc' },
   });
   return records.map((r) => ({
@@ -86,7 +87,12 @@ export async function getRecord(app: FastifyInstance, actor: Actor, recordId: st
     include: { documents: { select: { id: true, filename: true, mimeType: true, size: true } } },
   });
   if (!record) throw notFound('Entrée de dossier introuvable');
-  await assertDmpAccess(app, { actorId: actor.sub, role: actor.role, patientId: record.patientId, shareToken, ip });
+  // Portée par-entrée (§4) : l'accès à CETTE entrée précise doit être consenti.
+  const scope = await resolveDmpScope(app, { actorId: actor.sub, role: actor.role, patientId: record.patientId, shareToken, ip });
+  if (scope.recordIds !== 'ALL' && !scope.recordIds.has(record.id)) {
+    await writeAudit(app.prisma, { action: 'DMP_DENIED', actorId: actor.sub, targetId: record.patientId, ip, meta: { reason: 'RECORD_NOT_SHARED', recordId: record.id, role: actor.role } });
+    throw forbidden('Cette entrée n’est pas partagée avec vous');
+  }
   return {
     id: record.id,
     type: record.type,
@@ -145,6 +151,7 @@ export async function listConsents(app: FastifyInstance, patientUserId: string) 
           doctor: { select: { speciality: true } },
         },
       },
+      _count: { select: { records: true } },
     },
   });
   return consents.map((c) => ({
@@ -156,6 +163,8 @@ export async function listConsents(app: FastifyInstance, patientUserId: string) 
     grantedAt: c.createdAt,
     active: !c.revokedAt && c.expiresAt > now,
     revokedAt: c.revokedAt,
+    // Nombre d'entrées effectivement partagées avec ce soignant (portée §4).
+    recordCount: c._count.records,
   }));
 }
 
@@ -225,9 +234,14 @@ export async function revokeShare(app: FastifyInstance, patientUserId: string, r
 /** Export FHIR (Bundle JSON) du dossier — portabilité patient. Journalise DATA_EXPORT. */
 export async function exportFhir(app: FastifyInstance, actor: Actor, patientIdParam: string | undefined, ip?: string | null) {
   const patientId = await resolveTargetPatient(app, actor, patientIdParam);
-  await assertDmpAccess(app, { actorId: actor.sub, role: actor.role, patientId, ip });
+  // Portée par-entrée (§4) : un soignant n'exporte QUE ses entrées consenties ;
+  // le patient propriétaire exporte tout son dossier (portabilité).
+  const scope = await resolveDmpScope(app, { actorId: actor.sub, role: actor.role, patientId, ip });
 
-  const records = await app.prisma.medicalRecord.findMany({ where: { patientId }, orderBy: { createdAt: 'asc' } });
+  const records = await app.prisma.medicalRecord.findMany({
+    where: scope.recordIds === 'ALL' ? { patientId } : { patientId, id: { in: [...scope.recordIds] } },
+    orderBy: { createdAt: 'asc' },
+  });
   await writeAudit(app.prisma, { action: 'DATA_EXPORT', actorId: actor.sub, targetId: patientId, ip, meta: { count: records.length, format: 'FHIR' } });
 
   return {
