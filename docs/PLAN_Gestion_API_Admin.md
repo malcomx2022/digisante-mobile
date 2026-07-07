@@ -2,7 +2,10 @@
 
 > Objectif : permettre à un **super administrateur** d'ajouter/roter les **clés des API
 > tierces** et de **gérer les webhooks** depuis le back-office, sans éditer le `.env`.
-> Statut : **PLANIFIÉ** (à exécuter par lots après validation). Contraintes §3/§4/§5 ci-dessous.
+> Statut : **LIVRÉ — lots A→D, F, G** (backend + UI + docs). **Lot E (FedaPay §5) NON fait** :
+> en attente d'une décision explicite + d'un bac à sable (sandbox) FedaPay pour les re-tests
+> webhooks (HMAC ✓/✗, idempotence, crédit wallet). FedaPay reste sur `.env` d'ici là.
+> Contraintes §3/§4/§5 ci-dessous.
 
 ---
 
@@ -101,7 +104,7 @@ ne les relit jamais.
 | **D** ✅ | Webhooks (hors FedaPay) : `meta.webhookUrl` (validé HTTPS) + clé `webhookSecret` (émise par le provider, posée/rotée via `PUT` — **jamais générée/renvoyée**, §3.6 ②) ; `GET /:provider/webhooks` = **journal d'activité + webhooks entrants** dérivé de l'audit (config aujourd'hui, `WEBHOOK_RECEIVED/REJECTED` quand les récepteurs existeront) ; providers webhooks = Twilio/Daily/Resend (FedaPay §5 → `/finance/webhooks` ; Firebase sortant-seul). 3 tests. **LIVRÉ.** | back | B |
 | **E** | **FedaPay — §5 ENCADRÉ** : bascule des clés + secret webhook vers le resolver. **Revue explicite + re-tests webhooks** (HMAC valide/invalide, idempotence, crédit wallet). Isolé, dernier. | back (gelé) | A–D |
 | **F** ✅ | UI `/admin/integrations` (AdminShell) : une **carte par provider** (statut masqué `configuré/stub`, source base/`.env`, toggle actif, formulaire **write-only** de saisie/rotation, bouton **Tester** = readiness, section **Webhooks** URL+journal) ; FedaPay en **lecture seule** (§5, renvoi vers Finances) ; nav `ADMIN_NAV` gated `integrations:read` (sidebar desktop + `/admin/menu` mobile, dérivés automatiquement) ; i18n FR/EN. Build web vert. **LIVRÉ.** | front | B, D |
-| **G** | Docs & durcissement : `SECRETS_Production`, `DEPLOIEMENT_Checklist`, runbook de rotation ; tests sécurité (secret jamais renvoyé, cloisonnement scope, audit) ; mise à jour compteurs | docs/tests | tous |
+| **G** ✅ | Docs & durcissement : `SECRETS_Production` (secrets d'intégration = fallback ; FedaPay §5 `.env`-only) + **runbook de rotation** ; compteurs à jour (**133 endpoints / 54 pages**) ; tests sécurité (secret jamais renvoyé, cloisonnement scope 403, audit sans valeur, FedaPay gelé) **déjà couverts par les suites B/D** (16 tests). **LIVRÉ.** | docs/tests | tous |
 
 **Estimation** : A–B ≈ 1 lot dense, C ≈ 1, D ≈ 1, E ≈ 1 (encadré §5), F ≈ 1, G ≈ 0,5. Une PR par lot.
 

@@ -27,11 +27,28 @@
 - **Secrets d'infrastructure** (`DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `HEALTH_ENCRYPTION_KEY`,
   `RECONCILE_TOKEN`) : **toujours en `.env`**, jamais en base — ils démarrent l'app et servent à
   **déchiffrer** les secrets stockés en base (les mettre en base = dépendance circulaire).
-- **Secrets d'intégration** (`FEDAPAY_*`, `TWILIO_*`, `DAILY_*`, `FIREBASE_*`, `RESEND_*`) :
-  une fois la **gestion via l'admin** livrée (super admin, chiffrée AES-256 en base), leur présence
-  en `.env` devient **optionnelle** (fallback / bootstrap) — la valeur en base **prime**. FedaPay
-  reste **§5** (bascule = revue + re-tests webhooks). Tant que la feature n'est pas déployée,
-  ces variables restent requises en `.env` comme aujourd'hui.
+- **Secrets d'intégration** (`TWILIO_*`, `DAILY_*`, `FIREBASE_*`, `RESEND_*`) : la **gestion via
+  l'admin** est **livrée** (super admin, `/admin/integrations`, chiffrée AES-256 en base). Leur
+  présence en `.env` est désormais **optionnelle** (fallback / bootstrap) — dès qu'une clé est saisie
+  en base via l'UI, la **valeur en base prime** (résolution dynamique `resolveConfiguredSecrets`).
+- **FedaPay** (`FEDAPAY_*`) : **reste en `.env` UNIQUEMENT** (zone gelée **§5**). Sa bascule vers la
+  gestion en base est un lot isolé à venir (Lot E) = **revue explicite + re-tests des webhooks**
+  (HMAC valide/invalide, idempotence, crédit wallet). Les routes admin refusent (400) tout
+  `PUT`/`PATCH`/`test` sur `FEDAPAY`.
+
+### Runbook — rotation d'une clé d'intégration (non-FedaPay)
+
+1. Générer/roter la clé chez le fournisseur (Twilio/Daily/Resend/Firebase console).
+2. `/admin/integrations` → carte du provider → **Saisir / roter** → renseigner la **totalité**
+   des clés du provider (le `PUT` **remplace** l'ensemble, jamais partiel) → **Enregistrer**.
+   Le cache Redis du blob chiffré est **invalidé** automatiquement ; la bascule est immédiate
+   (pas de redémarrage). L'action est auditée `INTEGRATION_UPDATE` (**noms de clés seulement**).
+3. **Webhooks** : poser/roter `webhookSecret` (émis par le fournisseur) et `webhookUrl` (HTTPS)
+   via le même formulaire. Le secret webhook n'est **jamais** généré ni renvoyé par l'app.
+4. Cliquer **Tester** (readiness) puis vérifier que le provider passe `configuré`.
+5. La clé en `.env` peut ensuite être retirée (le fallback n'est plus utilisé) ; la garder ne
+   nuit pas (la base prime). Sauvegarde : la base chiffrée est incluse dans le `pg_dump` nocturne ;
+   `HEALTH_ENCRYPTION_KEY` reste hors VPS.
 
 ## Web (`/var/www/digisante-mobile/apps/web/.env.production`)
 
