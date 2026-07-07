@@ -44,7 +44,7 @@ export async function start(app: FastifyInstance, doctorUserId: string, appointm
   if (appt.status !== 'CONFIRMED') throw badRequest('Le rendez-vous doit être confirmé');
   if (appt.consultation) throw badRequest('Une consultation existe déjà pour ce rendez-vous');
 
-  const room = await createRoom({ name: `consult-${appointmentId}`, log: app.log });
+  const room = await createRoom({ app, name: `consult-${appointmentId}` });
   const consult = await app.prisma.consultation.create({
     data: {
       appointmentId,
@@ -55,7 +55,7 @@ export async function start(app: FastifyInstance, doctorUserId: string, appointm
       startedAt: new Date(),
     },
   });
-  const token = await createMeetingToken({ room: room.name, userId: doctorUserId, isOwner: true, log: app.log });
+  const token = await createMeetingToken({ app, room: room.name, userId: doctorUserId, isOwner: true });
   return { consultation: consult, roomUrl: room.url, token };
 }
 
@@ -65,10 +65,10 @@ export async function join(app: FastifyInstance, userId: string, consultationId:
   const { isDoctor } = assertParticipant(consult, userId);
   if (consult.status !== 'ACTIVE') throw badRequest('La consultation n’est pas active');
   const token = await createMeetingToken({
+    app,
     room: consult.dailyRoomName ?? `consult-${consult.appointmentId}`,
     userId,
     isOwner: isDoctor,
-    log: app.log,
   });
   return { roomUrl: consult.dailyRoomUrl, mode: consult.mode, token };
 }

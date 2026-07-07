@@ -82,21 +82,10 @@ if (!parsed.success) {
 
 export const env = parsed.data;
 
-/** Vrai si Twilio est configuré (sinon les envois SMS/voix sont des stubs). */
-export const isTwilioConfigured = Boolean(
-  env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_FROM_NUMBER,
-);
+// Twilio / Daily / Firebase / Resend : la « configuration » est désormais résolue
+// DYNAMIQUEMENT par le resolver d'intégrations (base chiffrée → `.env`, §3.6) via
+// `resolveConfiguredSecrets` — plus de booléen statique au démarrage (Lot C).
 
-/** Vrai si Daily.co est configuré (sinon les salles/jetons sont des stubs). */
-export const isDailyConfigured = Boolean(env.DAILY_API_KEY && env.DAILY_DOMAIN);
-
-/** Vrai si FedaPay est configuré (sinon création de transaction en stub). */
+/** Vrai si FedaPay est configuré (sinon création de transaction en stub). ⚠️ §5
+ *  reste sur `.env` tant que le Lot E (bascule encadrée) n'est pas livré. */
 export const isFedapayConfigured = Boolean(env.FEDAPAY_SECRET_KEY && env.FEDAPAY_PUBLIC_KEY);
-
-/** Vrai si Firebase FCM est configuré (sinon push en stub). */
-export const isFirebaseConfigured = Boolean(
-  env.FIREBASE_PROJECT_ID && env.FIREBASE_CLIENT_EMAIL && env.FIREBASE_PRIVATE_KEY,
-);
-
-/** Vrai si Resend est configuré (sinon email en stub). */
-export const isResendConfigured = Boolean(env.RESEND_API_KEY);

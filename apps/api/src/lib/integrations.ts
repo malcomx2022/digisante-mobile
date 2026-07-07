@@ -41,11 +41,14 @@ export const PROVIDER_SECRET_KEYS = {
   RESEND: ['apiKey', 'fromEmail'],
 } satisfies Record<IntegrationProvider, readonly string[]>;
 
-/** Clés OBLIGATOIRES pour qu'un provider soit « prêt » (test de complétude). */
+/**
+ * Clés OBLIGATOIRES pour qu'un provider soit « prêt » (test de complétude ET
+ * bascule stub→réel des services). Aligné sur les anciens `isXxxConfigured`.
+ */
 export const REQUIRED_SECRET_KEYS = {
-  FEDAPAY: ['secretKey'],
-  TWILIO: ['accountSid', 'authToken'],
-  DAILY: ['apiKey'],
+  FEDAPAY: ['secretKey', 'publicKey'],
+  TWILIO: ['accountSid', 'authToken', 'fromNumber'],
+  DAILY: ['apiKey', 'domain'],
   FIREBASE: ['projectId', 'clientEmail', 'privateKey'],
   RESEND: ['apiKey'],
 } satisfies Record<IntegrationProvider, readonly string[]>;
@@ -98,6 +101,19 @@ export async function getIntegration(app: FastifyInstance, provider: Integration
 export async function isConfigured(app: FastifyInstance, provider: IntegrationProvider): Promise<boolean> {
   const r = await getIntegration(app, provider);
   return r.enabled && Object.values(r.secrets).some(Boolean);
+}
+
+/**
+ * Résout les secrets d'un provider SI il est PLEINEMENT configuré (activé + toutes
+ * les clés obligatoires présentes) ; sinon `null` → le service bascule en stub.
+ * Remplace les booléens statiques `isXxxConfigured` par une résolution DYNAMIQUE
+ * (base déchiffrée puis `.env`). Réservé aux services NON gelés (§5 : pas FedaPay).
+ */
+export async function resolveConfiguredSecrets(app: FastifyInstance, provider: IntegrationProvider): Promise<Secrets | null> {
+  const r = await getIntegration(app, provider);
+  if (!r.enabled) return null;
+  const complete = REQUIRED_SECRET_KEYS[provider].every((k) => r.secrets[k]);
+  return complete ? r.secrets : null;
 }
 
 /** Invalide le cache Redis d'un provider (à appeler après toute écriture). */

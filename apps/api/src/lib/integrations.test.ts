@@ -71,4 +71,28 @@ describe.skipIf(!HAS_INFRA)('Resolver intégrations (intégration)', () => {
     const resolved = await integrations.getIntegration(app, 'RESEND'); // aucune ligne créée
     expect(resolved.source).toBe('env');
   });
+
+  // ── Lot C : resolveConfiguredSecrets (bascule stub↔réel des services) ──
+  it('resolveConfiguredSecrets : complet → secrets ; incomplet/désactivé → null', async () => {
+    // Config Twilio COMPLÈTE (accountSid + authToken + fromNumber) → secrets résolus.
+    await integrations.setIntegration(app, 'TWILIO', {
+      secrets: { accountSid: 'AC_sid', authToken: 'tok', fromNumber: '+2290100000000' },
+    });
+    const full = await integrations.resolveConfiguredSecrets(app, 'TWILIO');
+    expect(full?.authToken).toBe('tok');
+
+    // INCOMPLET (fromNumber manquant) → null (le service reste en stub).
+    await integrations.setIntegration(app, 'TWILIO', { secrets: { accountSid: 'AC_sid', authToken: 'tok' } });
+    expect(await integrations.resolveConfiguredSecrets(app, 'TWILIO')).toBeNull();
+
+    // DÉSACTIVÉ (enabled=false) → null même si les clés sont présentes.
+    await integrations.setIntegration(app, 'TWILIO', {
+      secrets: { accountSid: 'AC_sid', authToken: 'tok', fromNumber: '+2290100000000' },
+      enabled: false,
+    });
+    expect(await integrations.resolveConfiguredSecrets(app, 'TWILIO')).toBeNull();
+
+    // Aucune config + `.env` vide en CI → null (RESEND).
+    expect(await integrations.resolveConfiguredSecrets(app, 'RESEND')).toBeNull();
+  });
 });

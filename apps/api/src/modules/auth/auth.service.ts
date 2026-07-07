@@ -112,7 +112,7 @@ async function generateAndSendOtp(
   const code = generateOtp();
   await app.redis.set(otpKey(user.phone), hashOtp(user.phone, code), 'EX', OTP_TTL_SECONDS);
   await app.redis.del(attemptsKey(user.phone));
-  await sendOtp({ to: user.phone, code, channel, lang: user.lang, log: app.log });
+  await sendOtp({ app, to: user.phone, code, channel, lang: user.lang });
   return code;
 }
 
