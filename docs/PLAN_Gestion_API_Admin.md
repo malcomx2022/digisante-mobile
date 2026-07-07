@@ -96,7 +96,7 @@ ne les relit jamais.
 | Lot | Contenu | Zone | Dépend de |
 |---|---|---|---|
 | **A** ✅ | Modèle `IntegrationConfig` + enum + migration ; resolver `lib/integrations.ts` (chiffrement `sealSecret`/`openSecret`, cache Redis du blob **chiffré** + invalidation, fallback `.env`, `maskSecrets`) ; scopes `integrations:read/write` (shared, SUPER_ADMIN) ; tests. **LIVRÉ.** | back | — |
-| **B** | API admin : `GET` (masqué) / `PUT` (rote, audit) / `PATCH` (enabled) / `POST test` — secrets jamais renvoyés | back | A |
+| **B** ✅ | API admin `/admin/integrations` : `GET` liste+détail (masqué) / `PUT` (rote, audit `INTEGRATION_UPDATE` **sans valeur**, clés inconnues rejetées) / `PATCH` (enabled, audit `INTEGRATION_TOGGLE`) / `POST test` (readiness, audit `INTEGRATION_TEST`) — secrets **jamais renvoyés** ; RBAC `integrations:read/write` ; **FedaPay refusé (§5 → Lot E)**. 8 tests. **LIVRÉ.** | back | A |
 | **C** | Bascule des services **NON gelés** vers le resolver : **Twilio, Daily, Resend, Firebase** ; `isConfigured` dynamique ; tests | back | A |
 | **D** | Webhooks (hors FedaPay) : config `meta.webhookUrl` + rotation secret + journal (réutilise l'existant) | back | B |
 | **E** | **FedaPay — §5 ENCADRÉ** : bascule des clés + secret webhook vers le resolver. **Revue explicite + re-tests webhooks** (HMAC valide/invalide, idempotence, crédit wallet). Isolé, dernier. | back (gelé) | A–D |

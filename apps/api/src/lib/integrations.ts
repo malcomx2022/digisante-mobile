@@ -29,6 +29,33 @@ const ENV_FALLBACK: Record<IntegrationProvider, () => Secrets> = {
 const CACHE_TTL_SECONDS = 300;
 const cacheKey = (p: IntegrationProvider) => `integration:${p}`;
 
+/** Liste ordonnée des providers gérables (source unique pour l'API/UI admin). */
+export const INTEGRATION_PROVIDERS = ['FEDAPAY', 'TWILIO', 'DAILY', 'FIREBASE', 'RESEND'] as const satisfies readonly IntegrationProvider[];
+
+/** Clés de secret acceptées par provider (validation write-only de l'API admin). */
+export const PROVIDER_SECRET_KEYS = {
+  FEDAPAY: ['secretKey', 'publicKey', 'webhookSecret'],
+  TWILIO: ['accountSid', 'authToken', 'fromNumber'],
+  DAILY: ['apiKey', 'domain'],
+  FIREBASE: ['projectId', 'clientEmail', 'privateKey'],
+  RESEND: ['apiKey', 'fromEmail'],
+} satisfies Record<IntegrationProvider, readonly string[]>;
+
+/** Clés OBLIGATOIRES pour qu'un provider soit « prêt » (test de complétude). */
+export const REQUIRED_SECRET_KEYS = {
+  FEDAPAY: ['secretKey'],
+  TWILIO: ['accountSid', 'authToken'],
+  DAILY: ['apiKey'],
+  FIREBASE: ['projectId', 'clientEmail', 'privateKey'],
+  RESEND: ['apiKey'],
+} satisfies Record<IntegrationProvider, readonly string[]>;
+
+/** FedaPay = zone gelée §5 : sa bascule est un lot isolé (E), pas le Lot B. */
+export const FROZEN_PROVIDERS = ['FEDAPAY'] as const satisfies readonly IntegrationProvider[];
+export function isFrozenProvider(p: IntegrationProvider): boolean {
+  return (FROZEN_PROVIDERS as readonly IntegrationProvider[]).includes(p);
+}
+
 export interface ResolvedIntegration {
   provider: IntegrationProvider;
   enabled: boolean;
@@ -104,4 +131,68 @@ export function maskSecrets(secrets: Secrets): Record<string, string> {
     out[k] = !v ? '—' : v.length <= 4 ? '••••' : `••••${v.slice(-4)}`;
   }
   return out;
+}
+
+/** Vue SÛRE d'une intégration pour le client admin (secrets MASQUÉS, jamais en clair). */
+export interface IntegrationView {
+  provider: IntegrationProvider;
+  configured: boolean;
+  enabled: boolean;
+  source: 'db' | 'env';
+  frozen: boolean; // §5 : géré séparément (FedaPay)
+  secrets: Record<string, string>; // masqués (`••••1234` / `—`)
+  meta: Record<string, unknown> | null;
+  lastTestAt: Date | null;
+  lastTestOk: boolean | null;
+  updatedAt: Date | null;
+  updatedById: string | null;
+}
+
+/** Construit la vue masquée d'un provider (aucun secret déchiffré ne sort). */
+export async function describeIntegration(app: FastifyInstance, provider: IntegrationProvider): Promise<IntegrationView> {
+  const resolved = await getIntegration(app, provider);
+  const row = await app.prisma.integrationConfig.findUnique({
+    where: { provider },
+    select: { lastTestAt: true, lastTestOk: true, updatedAt: true, updatedById: true },
+  });
+  return {
+    provider,
+    configured: resolved.enabled && Object.values(resolved.secrets).some(Boolean),
+    enabled: resolved.enabled,
+    source: resolved.source,
+    frozen: isFrozenProvider(provider),
+    secrets: maskSecrets(resolved.secrets),
+    meta: resolved.meta,
+    lastTestAt: row?.lastTestAt ?? null,
+    lastTestOk: row?.lastTestOk ?? null,
+    updatedAt: row?.updatedAt ?? null,
+    updatedById: row?.updatedById ?? null,
+  };
+}
+
+/** Vue masquée de TOUS les providers (page admin). */
+export async function describeAllIntegrations(app: FastifyInstance): Promise<IntegrationView[]> {
+  return Promise.all(INTEGRATION_PROVIDERS.map((p) => describeIntegration(app, p)));
+}
+
+export interface ReadinessResult {
+  ok: boolean;
+  missing: string[]; // clés obligatoires absentes (jamais de valeur)
+}
+
+/**
+ * Test de complétude (« readiness ») d'un provider : les clés OBLIGATOIRES sont-elles
+ * toutes résolues (base ou `.env`) ? N'expose ni n'appelle aucun secret. Les sondes
+ * réseau réelles arrivent avec la bascule des services (Lot C).
+ */
+export async function testIntegration(app: FastifyInstance, provider: IntegrationProvider): Promise<ReadinessResult> {
+  const resolved = await getIntegration(app, provider);
+  const missing = REQUIRED_SECRET_KEYS[provider].filter((k) => !resolved.secrets[k]);
+  const ok = missing.length === 0;
+  // Persiste le résultat UNIQUEMENT si une ligne DB existe (ne pas matérialiser
+  // une config à partir du `.env` — les secrets d'env ne doivent pas entrer en base).
+  await app.prisma.integrationConfig
+    .update({ where: { provider }, data: { lastTestAt: new Date(), lastTestOk: ok } })
+    .catch(() => undefined); // pas de ligne (source env) → on ne persiste rien
+  return { ok, missing };
 }
