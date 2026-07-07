@@ -32,14 +32,30 @@ const cacheKey = (p: IntegrationProvider) => `integration:${p}`;
 /** Liste ordonnée des providers gérables (source unique pour l'API/UI admin). */
 export const INTEGRATION_PROVIDERS = ['FEDAPAY', 'TWILIO', 'DAILY', 'FIREBASE', 'RESEND'] as const satisfies readonly IntegrationProvider[];
 
-/** Clés de secret acceptées par provider (validation write-only de l'API admin). */
+/**
+ * Clés de secret acceptées par provider (validation write-only de l'API admin).
+ * `webhookSecret` = secret de signature des webhooks ENTRANTS (émis par le provider ;
+ * la rotation se fait chez le provider PUIS via `PUT` ici — jamais généré/renvoyé,
+ * invariant §3.6 ②). Firebase FCM est sortant-seul → pas de `webhookSecret`.
+ */
 export const PROVIDER_SECRET_KEYS = {
   FEDAPAY: ['secretKey', 'publicKey', 'webhookSecret'],
-  TWILIO: ['accountSid', 'authToken', 'fromNumber'],
-  DAILY: ['apiKey', 'domain'],
+  TWILIO: ['accountSid', 'authToken', 'fromNumber', 'webhookSecret'],
+  DAILY: ['apiKey', 'domain', 'webhookSecret'],
   FIREBASE: ['projectId', 'clientEmail', 'privateKey'],
-  RESEND: ['apiKey', 'fromEmail'],
+  RESEND: ['apiKey', 'fromEmail', 'webhookSecret'],
 } satisfies Record<IntegrationProvider, readonly string[]>;
+
+/**
+ * Providers dont on gère les webhooks ENTRANTS depuis l'admin (URL + secret + journal).
+ * FedaPay en est exclu (zone gelée §5 → Lot E) ; Firebase aussi (push sortant, aucun
+ * webhook entrant). Les récepteurs/vérification de signature de ces providers ne sont
+ * pas encore branchés — Lot D fournit la SURFACE DE GESTION (config + journal d'activité).
+ */
+export const WEBHOOK_PROVIDERS = ['TWILIO', 'DAILY', 'RESEND'] as const satisfies readonly IntegrationProvider[];
+export function supportsWebhooks(p: IntegrationProvider): boolean {
+  return (WEBHOOK_PROVIDERS as readonly IntegrationProvider[]).includes(p);
+}
 
 /**
  * Clés OBLIGATOIRES pour qu'un provider soit « prêt » (test de complétude ET

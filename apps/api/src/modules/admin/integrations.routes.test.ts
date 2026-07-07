@@ -153,4 +153,49 @@ describe.skipIf(!HAS_INFRA)('Admin intégrations API (intégration)', () => {
     expect(daily.statusCode).toBe(200);
     if (!daily.json().ok) expect(daily.json().missing).toContain('apiKey');
   });
+
+  // ── Lot D : webhooks ──
+  it('PUT valide meta.webhookUrl (HTTPS) et accepte la clé webhookSecret', async () => {
+    // URL non-HTTPS → 400.
+    const bad = await app.inject({
+      method: 'PUT', url: '/api/v1/admin/integrations/TWILIO', headers: auth(superToken),
+      payload: { secrets: { accountSid: 'AC', authToken: 't', fromNumber: '+229' }, meta: { webhookUrl: 'http://insecure.example' } },
+    });
+    expect(bad.statusCode).toBe(400);
+
+    // HTTPS OK + webhookSecret (émis par le provider) accepté et masqué.
+    const ok = await app.inject({
+      method: 'PUT', url: '/api/v1/admin/integrations/TWILIO', headers: auth(superToken),
+      payload: {
+        secrets: { accountSid: 'AC', authToken: 't', fromNumber: '+229', webhookSecret: 'whsec_twilio_5678' },
+        meta: { webhookUrl: 'https://api.digisante.bj/webhooks/twilio' },
+      },
+    });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json().meta.webhookUrl).toBe('https://api.digisante.bj/webhooks/twilio');
+    expect(ok.json().secrets.webhookSecret).toBe('••••5678');
+    expect(JSON.stringify(ok.json())).not.toContain('whsec_twilio_5678');
+  });
+
+  it('journal webhooks : Twilio (activité config) ; FedaPay/Firebase refusés', async () => {
+    const journal = await app.inject({ method: 'GET', url: '/api/v1/admin/integrations/TWILIO/webhooks', headers: auth(superToken) });
+    expect(journal.statusCode).toBe(200);
+    const data = journal.json().data as Array<{ action: string; kind: string; meta: unknown }>;
+    // Les PUT/PATCH/test précédents sur TWILIO ont laissé des entrées de config.
+    expect(data.length).toBeGreaterThan(0);
+    expect(data.every((e) => e.kind === 'config' || e.kind === 'webhook')).toBe(true);
+    // Jamais de secret dans le journal.
+    expect(JSON.stringify(data)).not.toContain('whsec_twilio_5678');
+
+    // FedaPay (§5) et Firebase (sortant-seul) → pas de webhooks entrants gérés ici.
+    const fedapay = await app.inject({ method: 'GET', url: '/api/v1/admin/integrations/FEDAPAY/webhooks', headers: auth(superToken) });
+    expect(fedapay.statusCode).toBe(400);
+    const firebase = await app.inject({ method: 'GET', url: '/api/v1/admin/integrations/FIREBASE/webhooks', headers: auth(superToken) });
+    expect(firebase.statusCode).toBe(400);
+  });
+
+  it('journal webhooks : RBAC — sans integrations:read → 403', async () => {
+    const denied = await app.inject({ method: 'GET', url: '/api/v1/admin/integrations/TWILIO/webhooks', headers: auth(restrictedToken) });
+    expect(denied.statusCode).toBe(403);
+  });
 });

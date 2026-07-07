@@ -7,12 +7,14 @@
 //   • les écritures sont auditées SANS la valeur (noms de clés uniquement) ;
 //   • FedaPay = zone gelée §5 → écritures/test REFUSÉS ici (bascule = Lot E encadré).
 // ─────────────────────────────────────────────────────────────
-import { type AdminScope } from '@digisante/shared';
+import { paginationSchema, type AdminScope } from '@digisante/shared';
+import { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
 import { writeAudit } from '@/lib/audit.js';
 import { badRequest } from '@/lib/errors.js';
+import { paginate } from '@/lib/http.js';
 import {
   describeAllIntegrations,
   describeIntegration,
@@ -22,10 +24,16 @@ import {
   isFrozenProvider,
   PROVIDER_SECRET_KEYS,
   setIntegration,
+  supportsWebhooks,
   testIntegration,
 } from '@/lib/integrations.js';
 import { requireRole, requireScope } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
+
+// Actions d'audit rattachées à un provider (journal d'activité + webhooks entrants).
+// WEBHOOK_RECEIVED/REJECTED : émis par les futurs récepteurs (Lot ultérieur) — le
+// journal les affichera dès qu'ils existeront (rétro-compatible, aucun stub émis).
+const WEBHOOK_JOURNAL_ACTIONS = ['INTEGRATION_UPDATE', 'INTEGRATION_TOGGLE', 'INTEGRATION_TEST', 'WEBHOOK_RECEIVED', 'WEBHOOK_REJECTED'] as const;
 
 const providerParams = z.object({
   provider: z.enum([...INTEGRATION_PROVIDERS] as [IntegrationProvider, ...IntegrationProvider[]]),
@@ -68,6 +76,13 @@ export default async function adminIntegrationsRoutes(app: FastifyInstance) {
     const allowed = PROVIDER_SECRET_KEYS[provider] as readonly string[];
     const unknown = Object.keys(body.secrets).filter((k) => !allowed.includes(k));
     if (unknown.length) throw badRequest(`Clés inconnues pour ${provider} : ${unknown.join(', ')} (attendues : ${allowed.join(', ')})`);
+
+    // `meta.webhookUrl` (non-secret) : si fourni, doit être une URL HTTPS valide.
+    const webhookUrl = body.meta?.webhookUrl;
+    if (webhookUrl !== undefined && webhookUrl !== null && webhookUrl !== '') {
+      const ok = typeof webhookUrl === 'string' && /^https:\/\/.+/.test(webhookUrl) && URL.canParse(webhookUrl);
+      if (!ok) throw badRequest('meta.webhookUrl doit être une URL HTTPS valide');
+    }
 
     await setIntegration(app, provider, {
       secrets: body.secrets,
@@ -115,5 +130,48 @@ export default async function adminIntegrationsRoutes(app: FastifyInstance) {
       meta: { provider, ok: result.ok, missing: result.missing },
     });
     return result;
+  });
+
+  // ── Webhooks (Lot D) — providers NON gelés (Twilio/Daily/Resend) ──
+  // Journal d'activité + webhooks ENTRANTS d'un provider, DÉRIVÉ de l'audit immuable
+  // (aucune table dédiée). Aujourd'hui : évènements de config (INTEGRATION_*) ; les
+  // évènements de réception (WEBHOOK_RECEIVED/REJECTED) apparaîtront quand les
+  // récepteurs seront branchés. FedaPay est exclu (§5) : son journal reste sous
+  // /admin/finance/webhooks. La ROTATION du secret webhook se fait via `PUT`
+  // (clé `webhookSecret`, émise par le provider) — jamais générée/renvoyée (§3.6 ②).
+  app.get('/integrations/:provider/webhooks', withScope('integrations:read'), async (request) => {
+    const { provider } = zParse(providerParams, request.params);
+    if (!supportsWebhooks(provider)) {
+      throw badRequest(
+        isFrozenProvider(provider)
+          ? 'FedaPay : journal des webhooks sous /admin/finance/webhooks (§5)'
+          : `${provider} n’expose pas de webhooks entrants gérés ici`,
+      );
+    }
+    const q = zParse(paginationSchema, request.query);
+    const where: Prisma.AuditLogWhereInput = {
+      action: { in: [...WEBHOOK_JOURNAL_ACTIONS] },
+      meta: { path: ['provider'], equals: provider },
+    };
+    const [rows, total] = await Promise.all([
+      app.prisma.auditLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (q.page - 1) * q.pageSize,
+        take: q.pageSize,
+        select: { id: true, action: true, ip: true, meta: true, createdAt: true },
+      }),
+      app.prisma.auditLog.count({ where }),
+    ]);
+    const items = rows.map((r) => ({
+      id: r.id,
+      action: r.action,
+      kind: r.action.startsWith('WEBHOOK_') ? ('webhook' as const) : ('config' as const),
+      ip: r.ip,
+      // meta ne contient jamais de secret (audit émis avec des noms de clés seulement).
+      meta: (r.meta ?? null) as Record<string, unknown> | null,
+      createdAt: r.createdAt,
+    }));
+    return paginate(items, total, q.page, q.pageSize);
   });
 }
