@@ -95,9 +95,11 @@ describe.skipIf(!HAS_INFRA)('Admin intégrations API (intégration)', () => {
     expect(JSON.stringify(body)).not.toContain(TWILIO_TOKEN);
     expect(body.meta).toEqual({ region: 'bj' });
 
-    // En base : le blob est SCELLÉ (≠ JSON clair).
+    // En base : le blob est SCELLÉ — ≠ JSON clair des secrets (marqueur `plain:` en
+    // CI sans clé, chiffré AES-256 en prod). Le chiffrement au repos lui-même est
+    // couvert par crypto.test.ts (§8 fail-safe : clé imposée hors `test`).
     const row = await app.prisma.integrationConfig.findUniqueOrThrow({ where: { provider: 'TWILIO' } });
-    expect(row.secretsEnc).not.toContain(TWILIO_TOKEN);
+    expect(row.secretsEnc).not.toBe(JSON.stringify({ accountSid: 'AC_sid_test', authToken: TWILIO_TOKEN, fromNumber: '+2290100000000' }));
 
     // Audit INTEGRATION_UPDATE écrit SANS la valeur (noms de clés uniquement).
     const audit = await app.prisma.auditLog.findFirst({ where: { action: 'INTEGRATION_UPDATE' }, orderBy: { createdAt: 'desc' } });
