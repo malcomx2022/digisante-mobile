@@ -35,6 +35,7 @@ export default function PatientDashboard() {
     .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())[0];
 
   const quick = [
+    { key: 'triage.title', href: '/patient/triage', rotate: '-rotate-1', bg: 'bg-ocre-50 text-ocre-600' },
     { key: 'patient.quick.dmp', href: '/patient/dmp', rotate: 'rotate-1', bg: 'bg-sante-50 text-sante-700' },
     { key: 'patient.quick.doctors', href: '/patient/doctors', rotate: '-rotate-1', bg: 'bg-indigo-50 text-indigo-700' },
     { key: 'appt.title', href: '/patient/appointments', rotate: 'rotate-1', bg: 'bg-indigo-50 text-indigo-700' },
