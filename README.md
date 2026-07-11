@@ -10,8 +10,8 @@ Offline-first · multilingue (FR, EN, Fɔ̀ngbè, Yorùbá) · téléconsultatio
 Monorepo **pnpm** :
 
 ```
-apps/web      Next.js 14 (App Router, PWA) — 56 pages
-apps/api      Fastify — 138 endpoints REST + 1 WebSocket / 26 modules + Prisma + Redis
+apps/web      Next.js 14 (App Router, PWA) — 57 pages
+apps/api      Fastify — 143 endpoints REST + 1 WebSocket / 27 modules + Prisma + Redis
 packages/shared   types, enums, schémas zod partagés
 packages/config   tsconfig de base
 infra/        docker-compose dev (Postgres 16 + Redis) · scripts deploy VPS
@@ -62,7 +62,7 @@ Vérifier l'API : `curl http://localhost:3001/api/v1/health` puis `/api/v1/ready
 
 - pages Next.js → `apps/web/src/app/`
 - modules Fastify → `apps/api/src/modules/<domaine>/` (1 dossier par domaine, fichier `*.routes.ts` enregistré dans `src/server.ts`)
-- schéma Prisma (40 modèles, 30 enums) → remplacer `apps/api/prisma/schema.prisma`
+- schéma Prisma (42 modèles, 30 enums) → remplacer `apps/api/prisma/schema.prisma`
 - types partagés → `packages/shared/src/`
 
 ## CI / Déploiement

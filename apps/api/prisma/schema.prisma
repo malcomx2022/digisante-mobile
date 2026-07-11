@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────
 // DigiSanté Mobile — schéma Prisma complet
-// 40 modèles + 30 enums (cf. DocTech §5), dont la table d'audit immuable (§4).
+// 42 modèles + 30 enums (cf. DocTech §5), dont la table d'audit immuable (§4).
 // Cible : PostgreSQL 16 natif (dev local docker, prod VPS Infomaniak).
 //
 // Décisions (arbitrées) :
@@ -393,6 +393,7 @@ model Patient {
   medicationReminders MedicationReminder[]
   reviews            DoctorReview[]
   vaccinationSubjects VaccinationSubject[]
+  pregnancies         Pregnancy[]
 
   @@map("patients")
 }
@@ -1114,4 +1115,41 @@ model Vaccination {
   @@index([subjectId])
   @@index([status, dueDate])
   @@map("vaccinations")
+}
+
+// (+10) Santé maternelle — suivi de grossesse + consultations prénatales (CPN).
+// À partir de la date des dernières règles (LMP), on calcule le terme (LMP+280 j)
+// et on génère le calendrier CPN (8 contacts OMS 2016). Rappels multilingues (§4)
+// via le générateur cron (Notification PENDING), idempotents par jour. Une seule
+// grossesse ACTIVE (endedAt null) à la fois par patiente. Cloisonnement §4.
+// ⚠️ Calendrier CPN à faire valider par un professionnel de santé.
+model Pregnancy {
+  id        String    @id @default(cuid())
+  patientId String
+  lmpDate   DateTime // date des dernières règles
+  dueDate   DateTime // terme prévu (LMP + 280 j)
+  endedAt   DateTime? // grossesse close (accouchement / fin de suivi)
+  createdAt DateTime  @default(now())
+
+  patient Patient          @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  visits  AntenatalVisit[]
+
+  @@index([patientId])
+  @@map("pregnancies")
+}
+
+model AntenatalVisit {
+  id             String    @id @default(cuid())
+  pregnancyId    String
+  contactNumber  Int // n° du contact CPN (1..8)
+  dueDate        DateTime
+  doneAt         DateTime?
+  lastNotifiedOn DateTime? // idempotence des rappels (au jour)
+  createdAt      DateTime  @default(now())
+
+  pregnancy Pregnancy @relation(fields: [pregnancyId], references: [id], onDelete: Cascade)
+
+  @@index([pregnancyId])
+  @@index([doneAt, dueDate])
+  @@map("antenatal_visits")
 }

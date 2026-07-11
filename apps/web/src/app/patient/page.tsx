@@ -42,6 +42,7 @@ export default function PatientDashboard() {
     { key: 'patient.quick.prescriptions', href: '/patient/prescriptions', rotate: 'rotate-2', bg: 'bg-ocre-50 text-ocre-600' },
     { key: 'adherence.title', href: '/patient/adherence', rotate: 'rotate-1', bg: 'bg-sante-50 text-sante-700' },
     { key: 'vaccinations.title', href: '/patient/vaccinations', rotate: 'rotate-2', bg: 'bg-sante-50 text-sante-700' },
+    { key: 'maternity.title', href: '/patient/maternity', rotate: '-rotate-1', bg: 'bg-ocre-50 text-ocre-600' },
     { key: 'reminders.title', href: '/patient/reminders', rotate: '-rotate-2', bg: 'bg-sante-50 text-sante-700' },
     { key: 'results.title', href: '/patient/results', rotate: 'rotate-1', bg: 'bg-indigo-50 text-indigo-700' },
     { key: 'insurance.title', href: '/patient/insurance', rotate: '-rotate-1', bg: 'bg-ocre-50 text-ocre-600' },
