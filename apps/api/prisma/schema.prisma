@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────
 // DigiSanté Mobile — schéma Prisma complet
-// 42 modèles + 30 enums (cf. DocTech §5), dont la table d'audit immuable (§4).
+// 46 modèles + 31 enums (cf. DocTech §5), dont la table d'audit immuable (§4).
 // Cible : PostgreSQL 16 natif (dev local docker, prod VPS Infomaniak).
 //
 // Décisions (arbitrées) :
@@ -32,6 +32,7 @@ enum Role {
   PHARMACIE
   LABORATOIRE
   DIASPORA
+  ASC
   ADMIN
 }
 
@@ -268,6 +269,7 @@ model User {
   patient        Patient?
   pharmacy       Pharmacy?
   lab            Lab?
+  communityWorker CommunityHealthWorker?
   wallet         Wallet?
   payments       Payment[]
   notifications  Notification[]
@@ -723,6 +725,7 @@ model Pharmacy {
 
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   dispensations Dispensation[]
+  stocks        PharmacyStock[]
 
   @@map("pharmacies")
 }
@@ -1152,4 +1155,88 @@ model AntenatalVisit {
   @@index([pregnancyId])
   @@index([doneAt, dueDate])
   @@map("antenatal_visits")
+}
+
+// (+11) Disponibilité des médicaments en pharmacie — « médicament près de moi ».
+// Chaque pharmacie déclare les médicaments qu'elle a en stock (statut + prix
+// indicatif) ; le patient cherche un médicament et voit les pharmacies qui l'ont,
+// triées par distance (si géolocalisation). Évite les trajets inutiles en zone
+// reculée. NON médical (inventaire) — pas de DMP, §4 : une pharmacie ne gère QUE
+// son propre stock ; la recherche patient est publique (statut, adresse, tél).
+enum StockStatus {
+  IN_STOCK
+  LOW
+  OUT
+}
+
+model PharmacyStock {
+  id             String      @id @default(cuid())
+  pharmacyId     String
+  medicationName String // normalisé (minuscules, sans accents) pour la recherche
+  displayName    String // libellé affiché
+  status         StockStatus @default(IN_STOCK)
+  price          Int? // prix indicatif en XOF (optionnel)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  pharmacy Pharmacy @relation(fields: [pharmacyId], references: [id], onDelete: Cascade)
+
+  @@unique([pharmacyId, medicationName])
+  @@index([medicationName, status])
+  @@map("pharmacy_stocks")
+}
+
+// (+12) Agent de Santé Communautaire (ASC / relais). Profil de rôle + carnet de
+// terrain. Modèle A « relais aveugle » (docs/PLAN_ASC.md) : l'ASC gère SON roster
+// (habitants qu'il suit) et un journal d'observations OPÉRATIONNEL (constantes,
+// triage) — ce N'EST PAS un DMP patient (§4). Cloisonnement strict par `ascId` :
+// un ASC ne voit/modifie QUE ses bénéficiaires. Le signalement partage la fiche
+// avec un médecin choisi (Notification), jamais un accès DMP.
+model CommunityHealthWorker {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  zone      String // zone / village de rattachement
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  beneficiaries AscBeneficiary[]
+
+  @@map("community_health_workers")
+}
+
+model AscBeneficiary {
+  id        String    @id @default(cuid())
+  ascId     String
+  name      String
+  phone     String?
+  village   String?
+  birthDate DateTime?
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  asc          CommunityHealthWorker @relation(fields: [ascId], references: [id], onDelete: Cascade)
+  observations AscObservation[]
+
+  @@index([ascId])
+  @@map("asc_beneficiaries")
+}
+
+model AscObservation {
+  id            String   @id @default(cuid())
+  beneficiaryId String
+  systolic      Int?
+  diastolic     Int?
+  pulse         Int?
+  temperature   Float?
+  weight        Float?
+  triageOutcome String? // EMERGENCY / CONSULT / HOME (résultat du triage embarqué)
+  note          String?
+  createdAt     DateTime @default(now())
+
+  beneficiary AscBeneficiary @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
+
+  @@index([beneficiaryId])
+  @@map("asc_observations")
 }

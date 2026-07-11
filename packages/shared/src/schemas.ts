@@ -88,6 +88,8 @@ export const registerSchema = z
     establishmentName: z.string().trim().min(1).max(160).optional(),
     /** Adresse de l'établissement (optionnelle). */
     address: z.string().trim().max(255).optional(),
+    /** Zone / village de l'agent de santé communautaire (obligatoire si role ASC). */
+    zone: z.string().trim().min(1).max(160).optional(),
   })
   .superRefine((data, ctx) => {
     // L'admin ne se crée jamais par auto-inscription (seed uniquement, CLAUDE.md §4).
@@ -124,6 +126,14 @@ export const registerSchema = z
           message: "Le nom de l'établissement est obligatoire",
         });
       }
+    }
+    // Agent de santé communautaire : zone / village obligatoire.
+    if (data.role === 'ASC' && !data.zone) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['zone'],
+        message: 'La zone / le village est obligatoire pour un agent de santé communautaire',
+      });
     }
   });
 export type RegisterInput = z.infer<typeof registerSchema>;

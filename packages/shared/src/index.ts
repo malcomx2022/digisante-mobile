@@ -3,6 +3,7 @@
 // ─────────────────────────────────────────────────────────────
 export * from './admin.js';
 export * from './enums.js';
+export * from './geo.js';
 export * from './maternity.js';
 export * from './pev.js';
 export * from './phone.js';

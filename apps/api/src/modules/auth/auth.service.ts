@@ -48,6 +48,7 @@ interface RegisterInput {
   consultFee?: number;
   establishmentName?: string;
   address?: string;
+  zone?: string;
 }
 
 const otpKey = (phone: string) => `otp:${phone}`;
@@ -188,6 +189,11 @@ export async function register(app: FastifyInstance, input: RegisterInput) {
               phone,
             },
           });
+          break;
+
+        case 'ASC':
+          // Agent de santé communautaire : profil de rôle avec sa zone / village.
+          await tx.communityHealthWorker.create({ data: { userId: created.id, zone: input.zone! } });
           break;
 
         default:

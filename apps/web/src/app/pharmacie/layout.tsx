@@ -7,6 +7,7 @@ import type { NavItem } from '@/components/ui/BottomNav';
 // Navigation de l'espace Pharmacie (accent ocre). FAB = scan d'ordonnance.
 const NAV: NavItem[] = [
   { labelKey: 'nav.home', icon: 'home', href: '/pharmacie' },
+  { labelKey: 'stock.nav', icon: 'search', href: '/pharmacie/stock' },
   { labelKey: 'pharmacie.history', icon: 'file', href: '/pharmacie/history' },
   { labelKey: 'nav.profil', icon: 'user', href: '/pharmacie/profile' },
 ];
