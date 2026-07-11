@@ -21,7 +21,7 @@ import { cn } from '@/lib/cn';
 //    INCHANGÉE — chaque page garde son SpaceHeader sombre.
 // ─────────────────────────────────────────────────────────────
 
-export type IconKey = 'dashboard' | 'users' | 'kyc' | 'audit' | 'education' | 'support' | 'admins' | 'finance' | 'ops';
+export type IconKey = 'dashboard' | 'users' | 'kyc' | 'audit' | 'education' | 'support' | 'admins' | 'finance' | 'ops' | 'integrations';
 
 export function NavIcon({ name }: { name: IconKey }) {
   const paths: Record<IconKey, JSX.Element> = {
@@ -73,6 +73,12 @@ export function NavIcon({ name }: { name: IconKey }) {
         <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
       </>
     ),
+    integrations: (
+      <>
+        <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+      </>
+    ),
   };
   return (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -92,6 +98,7 @@ export const ADMIN_NAV: { labelKey: string; href: string; icon: IconKey; scope?:
   { labelKey: 'admin.audit', href: '/admin/audit', icon: 'audit', scope: 'audit:read' },
   { labelKey: 'admin.education', href: '/admin/education', icon: 'education', scope: 'education:write' },
   { labelKey: 'admin.support', href: '/admin/support', icon: 'support', scope: 'support:write' },
+  { labelKey: 'admin.integrations', href: '/admin/integrations', icon: 'integrations', scope: 'integrations:read' },
   { labelKey: 'admin.admins', href: '/admin/admins', icon: 'admins', scope: 'admin:manage' },
 ];
 

@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────
 // DigiSanté Mobile — schéma Prisma complet
-// 37 modèles + 28 enums (cf. DocTech §5), dont la table d'audit immuable (§4).
+// 38 modèles + 29 enums (cf. DocTech §5), dont la table d'audit immuable (§4).
 // Cible : PostgreSQL 16 natif (dev local docker, prod VPS Infomaniak).
 //
 // Décisions (arbitrées) :
@@ -964,6 +964,33 @@ model ConsentRecord {
   @@unique([consentId, recordId])
   @@index([recordId])
   @@map("consent_records")
+}
+
+enum IntegrationProvider {
+  FEDAPAY
+  TWILIO
+  DAILY
+  FIREBASE
+  RESEND
+}
+
+// Configuration d'une intégration tierce gérée depuis l'admin (super admin, §3.6).
+// Les secrets sont CHIFFRÉS au repos (`secretsEnc`, AES-256-GCM) — JAMAIS en clair,
+// jamais renvoyés au client (affichage masqué). `.env` reste le fallback tant
+// qu'aucune ligne n'existe pour le provider. Les secrets d'INFRA n'y figurent JAMAIS.
+model IntegrationConfig {
+  id          String              @id @default(cuid())
+  provider    IntegrationProvider @unique
+  enabled     Boolean             @default(true)
+  secretsEnc  String // blob chiffré d'un JSON { clé: valeur } — opaque, jamais exposé
+  meta        Json? // non-secret : webhookUrl, fromNumber, domain… (affichable)
+  lastTestAt  DateTime?
+  lastTestOk  Boolean?
+  updatedById String? // admin auteur de la dernière écriture (audit)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@map("integration_configs")
 }
 
 // (+5) MedicationIntake — journal d'observance : une prise déclarée par le patient

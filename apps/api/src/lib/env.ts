@@ -82,21 +82,8 @@ if (!parsed.success) {
 
 export const env = parsed.data;
 
-/** Vrai si Twilio est configuré (sinon les envois SMS/voix sont des stubs). */
-export const isTwilioConfigured = Boolean(
-  env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN && env.TWILIO_FROM_NUMBER,
-);
-
-/** Vrai si Daily.co est configuré (sinon les salles/jetons sont des stubs). */
-export const isDailyConfigured = Boolean(env.DAILY_API_KEY && env.DAILY_DOMAIN);
-
-/** Vrai si FedaPay est configuré (sinon création de transaction en stub). */
-export const isFedapayConfigured = Boolean(env.FEDAPAY_SECRET_KEY && env.FEDAPAY_PUBLIC_KEY);
-
-/** Vrai si Firebase FCM est configuré (sinon push en stub). */
-export const isFirebaseConfigured = Boolean(
-  env.FIREBASE_PROJECT_ID && env.FIREBASE_CLIENT_EMAIL && env.FIREBASE_PRIVATE_KEY,
-);
-
-/** Vrai si Resend est configuré (sinon email en stub). */
-export const isResendConfigured = Boolean(env.RESEND_API_KEY);
+// Twilio / Daily / Firebase / Resend / FedaPay : la « configuration » est désormais
+// résolue DYNAMIQUEMENT par le resolver d'intégrations (base chiffrée → `.env`, §3.6)
+// via `resolveConfiguredSecrets`/`isConfigured` — plus AUCUN booléen statique au
+// démarrage (Lots C + E). FedaPay reste §5 (logique de paiement gelée) mais ses clés
+// sont gérables via l'admin comme les autres.

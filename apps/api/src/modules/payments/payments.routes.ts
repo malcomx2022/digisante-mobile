@@ -8,6 +8,7 @@ import { z } from 'zod';
 
 import { env } from '@/lib/env.js';
 import { unauthorized } from '@/lib/errors.js';
+import { getIntegration } from '@/lib/integrations.js';
 import { zParse } from '@/lib/validation.js';
 import * as payments from './payments.service.js';
 
@@ -45,13 +46,16 @@ export default async function paymentsRoutes(app: FastifyInstance) {
   });
 
   // Webhook FedaPay (PUBLIC — sécurisé par HMAC, pas de JWT).
+  // §5/Lot E : le secret webhook est RÉSOLU (base chiffrée → `.env`) via le resolver
+  // d'intégrations. Logique HMAC/idempotence de `handleWebhook` STRICTEMENT inchangée.
   app.post('/webhook', async (request) => {
     const signature = request.headers['x-fedapay-signature'];
+    const { secrets } = await getIntegration(app, 'FEDAPAY');
     return payments.handleWebhook(
       app,
       request.rawBody ?? '',
       typeof signature === 'string' ? signature : undefined,
-      env.FEDAPAY_WEBHOOK_SECRET,
+      secrets.webhookSecret,
       request.ip,
     );
   });

@@ -73,7 +73,7 @@ export async function triggerSos(app: FastifyInstance, input: TriggerSosInput) {
     let notified = false;
     for (const to of recipients) {
       try {
-        const res = await sendSms({ to, body, lang, log: app.log });
+        const res = await sendSms({ app, to, body, lang });
         // Stub (Twilio non configuré) compris : on considère l'alerte « notifiée »
         // dès qu'au moins un envoi a abouti (réel OU stub journalisé).
         if (res.delivered || res.stub) notified = true;

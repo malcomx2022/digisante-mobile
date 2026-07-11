@@ -19,6 +19,8 @@ export const ADMIN_SCOPES = [
   'audit:read',
   'audit:export',
   'education:write',
+  'integrations:read', // vue MASQUÉE des intégrations tierces (§3.6)
+  'integrations:write', // saisie/rotation des clés d'API + webhooks — SUPER_ADMIN
 ] as const;
 export type AdminScope = (typeof ADMIN_SCOPES)[number];
 
