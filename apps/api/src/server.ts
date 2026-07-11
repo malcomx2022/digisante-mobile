@@ -11,6 +11,7 @@ import { env } from '@/lib/env.js';
 import { sanitizeLogUrl } from '@/lib/log-sanitize.js';
 import adherenceRoutes from '@/modules/adherence/adherence.routes.js';
 import adminRoutes from '@/modules/admin/admin.routes.js';
+import adminCampaignsRoutes from '@/modules/admin/campaigns.routes.js';
 import adminIntegrationsRoutes from '@/modules/admin/integrations.routes.js';
 import appointmentsRoutes from '@/modules/appointments/appointments.routes.js';
 import ascRoutes from '@/modules/asc/asc.routes.js';
@@ -146,6 +147,7 @@ export async function buildServer() {
   await app.register(translationsRoutes, { prefix: '/api/v1/translations' });
   await app.register(adminRoutes, { prefix: '/api/v1/admin' });
   await app.register(adminIntegrationsRoutes, { prefix: '/api/v1/admin' });
+  await app.register(adminCampaignsRoutes, { prefix: '/api/v1/admin' });
   await app.register(paymentsRoutes, { prefix: '/api/v1/payments' });
   await app.register(walletRoutes, { prefix: '/api/v1/wallet' });
   await app.register(beneficiariesRoutes, { prefix: '/api/v1/beneficiaries' });

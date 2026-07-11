@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────
 // DigiSanté Mobile — schéma Prisma complet
-// 46 modèles + 31 enums (cf. DocTech §5), dont la table d'audit immuable (§4).
+// 47 modèles + 32 enums (cf. DocTech §5), dont la table d'audit immuable (§4).
 // Cible : PostgreSQL 16 natif (dev local docker, prod VPS Infomaniak).
 //
 // Décisions (arbitrées) :
@@ -281,6 +281,7 @@ model User {
   beneficiaries    Beneficiary[]
   adminProfile     AdminProfile?   @relation("AdminProfileUser")
   supportNotes     SupportNote[]   @relation("SupportNoteUser")
+  healthCampaigns  HealthCampaign[] @relation("HealthCampaignAuthor")
 
   @@index([role])
   @@index([status])
@@ -304,6 +305,37 @@ model AdminProfile {
   user User @relation("AdminProfileUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("admin_profiles")
+}
+
+// Diffusion / veille sanitaire (admin) — CLAUDE.md §1 (back-office).
+// Une campagne rédigée en plusieurs langues (source de vérité FR), ciblée par
+// rôle et/ou langue, puis DIFFUSÉE une fois : fan-out de Notification PENDING par
+// destinataire dans SA langue (§4 SMS/notif toujours dans la langue). NON médical
+// (message de santé publique) — jamais de contenu DMP. `translations` = JSON
+// { FR:{title,body}, EN:{...}, FON?:{...}, YOR?:{...} } (repli FR à la diffusion).
+model HealthCampaign {
+  id            String         @id @default(cuid())
+  category      String // ContentCategory (PREVENTION, VACCINATION, EMERGENCY…)
+  translations  Json // { <Lang>: { title, body } } — FR obligatoire (source)
+  audienceRole  Role? // null = tous les rôles
+  audienceLang  Lang? // null = toutes les langues
+  channel       NotificationChannel @default(IN_APP)
+  status        CampaignStatus @default(DRAFT)
+  audienceCount Int            @default(0)
+  createdById   String
+  sentAt        DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  createdBy User @relation("HealthCampaignAuthor", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("health_campaigns")
+}
+
+enum CampaignStatus {
+  DRAFT
+  SENT
 }
 
 // Note interne de support sur un compte (back-office). `authorId` = admin auteur.
