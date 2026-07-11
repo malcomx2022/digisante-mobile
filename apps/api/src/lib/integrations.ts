@@ -69,8 +69,14 @@ export const REQUIRED_SECRET_KEYS = {
   RESEND: ['apiKey'],
 } satisfies Record<IntegrationProvider, readonly string[]>;
 
-/** FedaPay = zone gelée §5 : sa bascule est un lot isolé (E), pas le Lot B. */
-export const FROZEN_PROVIDERS = ['FEDAPAY'] as const satisfies readonly IntegrationProvider[];
+/**
+ * Providers dont l'API admin refuse les écritures (`PUT`/`PATCH`/`test`).
+ * VIDE depuis le Lot E : FedaPay est désormais gérable via l'admin (clés + secret
+ * webhook résolus par le resolver). ⚠️ Sa LOGIQUE de paiement reste gelée §5 —
+ * seule la SOURCE des secrets a changé (re-tests webhooks HMAC/idempotence effectués).
+ * Le mécanisme est conservé pour un éventuel gel futur d'un autre provider.
+ */
+export const FROZEN_PROVIDERS = [] as const satisfies readonly IntegrationProvider[];
 export function isFrozenProvider(p: IntegrationProvider): boolean {
   return (FROZEN_PROVIDERS as readonly IntegrationProvider[]).includes(p);
 }

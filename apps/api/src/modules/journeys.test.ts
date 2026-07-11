@@ -23,6 +23,9 @@ describe.skipIf(!HAS_INFRA)('Parcours de bout en bout (intégration)', () => {
     await app.prisma.payment.deleteMany({ where: { user: { phone: { in: PHONES } } } });
     await app.prisma.prescription.deleteMany({ where: { patient: { user: { phone: { in: PHONES } } } } });
     await app.prisma.user.deleteMany({ where: { phone: { in: PHONES } } });
+    // §5/Lot E : pas de config FedaPay en base → le webhook résout le secret depuis `.env`.
+    await app.prisma.integrationConfig.deleteMany({ where: { provider: 'FEDAPAY' } });
+    await app.redis.del('integration:FEDAPAY');
   };
 
   beforeAll(async () => {

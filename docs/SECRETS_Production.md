@@ -27,14 +27,16 @@
 - **Secrets d'infrastructure** (`DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `HEALTH_ENCRYPTION_KEY`,
   `RECONCILE_TOKEN`) : **toujours en `.env`**, jamais en base — ils démarrent l'app et servent à
   **déchiffrer** les secrets stockés en base (les mettre en base = dépendance circulaire).
-- **Secrets d'intégration** (`TWILIO_*`, `DAILY_*`, `FIREBASE_*`, `RESEND_*`) : la **gestion via
-  l'admin** est **livrée** (super admin, `/admin/integrations`, chiffrée AES-256 en base). Leur
-  présence en `.env` est désormais **optionnelle** (fallback / bootstrap) — dès qu'une clé est saisie
-  en base via l'UI, la **valeur en base prime** (résolution dynamique `resolveConfiguredSecrets`).
-- **FedaPay** (`FEDAPAY_*`) : **reste en `.env` UNIQUEMENT** (zone gelée **§5**). Sa bascule vers la
-  gestion en base est un lot isolé à venir (Lot E) = **revue explicite + re-tests des webhooks**
-  (HMAC valide/invalide, idempotence, crédit wallet). Les routes admin refusent (400) tout
-  `PUT`/`PATCH`/`test` sur `FEDAPAY`.
+- **Secrets d'intégration** (`TWILIO_*`, `DAILY_*`, `FIREBASE_*`, `RESEND_*`, `FEDAPAY_*`) : la
+  **gestion via l'admin** est **livrée** (super admin, `/admin/integrations`, chiffrée AES-256 en
+  base). Leur présence en `.env` est désormais **optionnelle** (fallback / bootstrap) — dès qu'une
+  clé est saisie en base via l'UI, la **valeur en base prime** (résolution dynamique
+  `resolveConfiguredSecrets` / `getIntegration`).
+- **FedaPay** (`FEDAPAY_*`) — **§5 encadré (Lot E)** : ses clés + secret webhook sont désormais
+  gérables via l'admin **comme les autres**, MAIS la **logique de paiement reste gelée §5** (seule
+  la SOURCE des secrets a changé). Toute **rotation** du `webhookSecret` FedaPay doit être suivie
+  d'un **re-test des webhooks** (le secret en base prime sur le `.env` : synchroniser la valeur
+  côté FedaPay). Le journal des webhooks FedaPay reste sous **`/admin/finance/webhooks`**.
 
 ### Runbook — rotation d'une clé d'intégration (non-FedaPay)
 

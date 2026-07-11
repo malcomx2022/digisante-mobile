@@ -152,6 +152,13 @@ function ProviderCard({ view, onChanged }: { view: IntegrationView; onChanged: (
 
       {err && <p className="text-[0.75rem] text-sos-600 font-bold mb-2">{err}</p>}
 
+      {/* FedaPay : gérable (Lot E) mais chemin de paiement §5 — rappel + renvoi Finances. */}
+      {view.provider === 'FEDAPAY' && !view.frozen && (
+        <p className="text-[0.6875rem] text-indigo-700 bg-indigo-50 card-pagne px-3 py-2 mb-2">
+          <span aria-hidden="true">🔒 </span>{t('integrations.fedapay_note')}
+        </p>
+      )}
+
       {view.frozen ? (
         <p className="text-[0.71875rem] text-indigo-700 bg-indigo-50 card-pagne px-3 py-2">
           <span aria-hidden="true">🔒 </span>{t('integrations.frozen_note')}

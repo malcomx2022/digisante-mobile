@@ -8,8 +8,8 @@ import { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
 import { writeAudit } from '@/lib/audit.js';
-import { isFedapayConfigured } from '@/lib/env.js';
 import { badRequest, forbidden, notFound, unauthorized } from '@/lib/errors.js';
+import { resolveConfiguredSecrets } from '@/lib/integrations.js';
 import * as wallet from '@/modules/wallet/wallet.service.js';
 import {
   computeCommission,
@@ -139,11 +139,14 @@ export async function initiate(app: FastifyInstance, userId: string, input: Init
   if (amount == null || amount <= 0) throw badRequest('Montant invalide');
   const { commission, net } = computeCommission(amount);
 
+  // §5/Lot E : clé secrète résolue (base chiffrée → `.env`). Absente ⇒ stub (inchangé).
+  const cfg = await resolveConfiguredSecrets(app, 'FEDAPAY');
   const tx = await createTransaction({
     amount,
     method: input.method,
     description: `${input.type} (${amount} XOF)`,
     log: app.log,
+    secretKey: cfg?.secretKey ?? null,
   });
 
   const payment = await app.prisma.payment.create({
@@ -213,7 +216,9 @@ export async function reconcile(app: FastifyInstance) {
     select: { id: true, userId: true, type: true, status: true, fedapayId: true, amount: true },
   });
 
-  if (!isFedapayConfigured) {
+  // §5/Lot E : clé secrète résolue (base chiffrée → `.env`). Absente ⇒ balayage seul.
+  const cfg = await resolveConfiguredSecrets(app, 'FEDAPAY');
+  if (!cfg) {
     app.log.info({ job: 'reconcile', scanned: pendings.length }, 'réconciliation FedaPay (balayage — non configuré)');
     return { scanned: pendings.length, resolved: 0 };
   }
@@ -221,7 +226,7 @@ export async function reconcile(app: FastifyInstance) {
   let resolved = 0;
   for (const payment of pendings) {
     if (!payment.fedapayId) continue;
-    const raw = await getTransactionStatus(payment.fedapayId, app.log);
+    const raw = await getTransactionStatus(payment.fedapayId, app.log, cfg.secretKey);
     if (!raw) continue;
     const status = mapFedapayStatus(raw);
     if (!status || status === 'PROCESSING') continue; // on ne résout que les statuts terminaux

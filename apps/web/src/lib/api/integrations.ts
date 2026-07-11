@@ -59,8 +59,8 @@ export const PROVIDER_META: Record<IntegrationProvider, ProviderMeta> = {
       { key: 'publicKey', required: true },
       { key: 'webhookSecret', required: false },
     ],
-    supportsWebhooks: false, // journal sous /admin/finance/webhooks (§5)
-    frozen: true,
+    supportsWebhooks: false, // journal des webhooks sous /admin/finance/webhooks (§5)
+    frozen: false, // Lot E : clés gérables via l'admin (logique paiement §5 inchangée)
   },
   TWILIO: {
     fields: [

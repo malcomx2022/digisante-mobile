@@ -2,9 +2,10 @@
 
 > Objectif : permettre à un **super administrateur** d'ajouter/roter les **clés des API
 > tierces** et de **gérer les webhooks** depuis le back-office, sans éditer le `.env`.
-> Statut : **LIVRÉ — lots A→D, F, G** (backend + UI + docs). **Lot E (FedaPay §5) NON fait** :
-> en attente d'une décision explicite + d'un bac à sable (sandbox) FedaPay pour les re-tests
-> webhooks (HMAC ✓/✗, idempotence, crédit wallet). FedaPay reste sur `.env` d'ici là.
+> Statut : **LIVRÉ — lots A→G (COMPLET)**, backend + UI + docs. **Lot E (FedaPay §5) inclus** :
+> sur autorisation explicite du porteur, les clés + secret webhook FedaPay passent par le resolver
+> (base chiffrée → `.env`). La **logique de paiement reste inchangée** ; les **webhooks ont été
+> re-testés** (HMAC valide/invalide, secret base vs `.env`, idempotence, réconciliation).
 > Contraintes §3/§4/§5 ci-dessous.
 
 ---
@@ -102,7 +103,7 @@ ne les relit jamais.
 | **B** ✅ | API admin `/admin/integrations` : `GET` liste+détail (masqué) / `PUT` (rote, audit `INTEGRATION_UPDATE` **sans valeur**, clés inconnues rejetées) / `PATCH` (enabled, audit `INTEGRATION_TOGGLE`) / `POST test` (readiness, audit `INTEGRATION_TEST`) — secrets **jamais renvoyés** ; RBAC `integrations:read/write` ; **FedaPay refusé (§5 → Lot E)**. 8 tests. **LIVRÉ.** | back | A |
 | **C** ✅ | Bascule des services **NON gelés** vers le resolver : **Twilio, Daily, Resend, Firebase** consomment `resolveConfiguredSecrets` (base chiffrée → `.env`), stub↔réel **dynamique** (fin des booléens statiques `isXxxConfigured`) ; `app` threadé dans les services ; cache OAuth FCM ré-clé par `clientEmail` (rotation). Tests. **LIVRÉ.** | back | A |
 | **D** ✅ | Webhooks (hors FedaPay) : `meta.webhookUrl` (validé HTTPS) + clé `webhookSecret` (émise par le provider, posée/rotée via `PUT` — **jamais générée/renvoyée**, §3.6 ②) ; `GET /:provider/webhooks` = **journal d'activité + webhooks entrants** dérivé de l'audit (config aujourd'hui, `WEBHOOK_RECEIVED/REJECTED` quand les récepteurs existeront) ; providers webhooks = Twilio/Daily/Resend (FedaPay §5 → `/finance/webhooks` ; Firebase sortant-seul). 3 tests. **LIVRÉ.** | back | B |
-| **E** | **FedaPay — §5 ENCADRÉ** : bascule des clés + secret webhook vers le resolver. **Revue explicite + re-tests webhooks** (HMAC valide/invalide, idempotence, crédit wallet). Isolé, dernier. | back (gelé) | A–D |
+| **E** ✅ | **FedaPay — §5 ENCADRÉ (LIVRÉ)** : clés + secret webhook résolus par `resolveConfiguredSecrets`/`getIntegration` (base chiffrée → `.env`). `fedapay.ts` reçoit `secretKey` en paramètre (reste sans `app`) ; le webhook résout `webhookSecret` via le resolver ; `FROZEN_PROVIDERS` vidé (FedaPay gérable via l'admin). **Logique de paiement INCHANGÉE** (HMAC/idempotence/crédit wallet) — **re-tests webhooks effectués** (env `.env` ✓, config **base** ✓ : secret DB prime, ancien secret env rejeté 401 ; idempotence ; réconciliation). **206 tests API verts.** | back (§5) | A–D |
 | **F** ✅ | UI `/admin/integrations` (AdminShell) : une **carte par provider** (statut masqué `configuré/stub`, source base/`.env`, toggle actif, formulaire **write-only** de saisie/rotation, bouton **Tester** = readiness, section **Webhooks** URL+journal) ; FedaPay en **lecture seule** (§5, renvoi vers Finances) ; nav `ADMIN_NAV` gated `integrations:read` (sidebar desktop + `/admin/menu` mobile, dérivés automatiquement) ; i18n FR/EN. Build web vert. **LIVRÉ.** | front | B, D |
 | **G** ✅ | Docs & durcissement : `SECRETS_Production` (secrets d'intégration = fallback ; FedaPay §5 `.env`-only) + **runbook de rotation** ; compteurs à jour (**133 endpoints / 54 pages**) ; tests sécurité (secret jamais renvoyé, cloisonnement scope 403, audit sans valeur, FedaPay gelé) **déjà couverts par les suites B/D** (16 tests). **LIVRÉ.** | docs/tests | tous |
 

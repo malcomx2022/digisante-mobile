@@ -67,9 +67,8 @@ export default async function adminIntegrationsRoutes(app: FastifyInstance) {
   // Enregistre / ROTE les clés (write-only). Audit INTEGRATION_UPDATE SANS valeur.
   app.put('/integrations/:provider', withScope('integrations:write'), async (request) => {
     const { provider } = zParse(providerParams, request.params);
-    if (isFrozenProvider(provider)) {
-      throw badRequest('FedaPay est en zone gelée (§5) — bascule réservée au Lot E encadré (revue + re-tests webhooks)');
-    }
+    // Garde-fou générique (FROZEN_PROVIDERS est vide depuis le Lot E : FedaPay géré ici).
+    if (isFrozenProvider(provider)) throw badRequest(`Le provider ${provider} n'est pas modifiable via l'admin`);
     const body = zParse(putBody, request.body);
 
     // Refuse toute clé inconnue pour le provider (surface d'attaque minimale).
@@ -103,7 +102,7 @@ export default async function adminIntegrationsRoutes(app: FastifyInstance) {
   // Active / désactive sans effacer les clés. Audit INTEGRATION_TOGGLE.
   app.patch('/integrations/:provider', withScope('integrations:write'), async (request) => {
     const { provider } = zParse(providerParams, request.params);
-    if (isFrozenProvider(provider)) throw badRequest('FedaPay est en zone gelée (§5) — géré séparément (Lot E)');
+    if (isFrozenProvider(provider)) throw badRequest(`Le provider ${provider} n'est pas modifiable via l'admin`);
     const { enabled } = zParse(patchBody, request.body);
     const existing = await app.prisma.integrationConfig.findUnique({ where: { provider }, select: { id: true } });
     if (!existing) throw badRequest('Aucune configuration en base pour ce provider (enregistrez d’abord des clés)');
@@ -121,7 +120,7 @@ export default async function adminIntegrationsRoutes(app: FastifyInstance) {
   // Test de complétude (readiness) — n'expose ni n'appelle aucun secret.
   app.post('/integrations/:provider/test', withScope('integrations:write'), async (request) => {
     const { provider } = zParse(providerParams, request.params);
-    if (isFrozenProvider(provider)) throw badRequest('FedaPay est en zone gelée (§5) — test via le chemin de paiement (Lot E)');
+    if (isFrozenProvider(provider)) throw badRequest(`Le provider ${provider} n'est pas testable via l'admin`);
     const result = await testIntegration(app, provider);
     await writeAudit(app.prisma, {
       action: 'INTEGRATION_TEST',
@@ -143,7 +142,7 @@ export default async function adminIntegrationsRoutes(app: FastifyInstance) {
     const { provider } = zParse(providerParams, request.params);
     if (!supportsWebhooks(provider)) {
       throw badRequest(
-        isFrozenProvider(provider)
+        provider === 'FEDAPAY'
           ? 'FedaPay : journal des webhooks sous /admin/finance/webhooks (§5)'
           : `${provider} n’expose pas de webhooks entrants gérés ici`,
       );

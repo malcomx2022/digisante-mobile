@@ -25,6 +25,10 @@ describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
   const cleanup = async () => {
     await app.prisma.payment.deleteMany({ where: { user: { phone: { in: PHONES } } } });
     await app.prisma.user.deleteMany({ where: { phone: { in: PHONES } } });
+    // §5/Lot E : aucune config FedaPay en base → le webhook résout le secret depuis
+    // le `.env` (WHSEC). Garantit le fallback quel que soit l'ordre des fichiers.
+    await app.prisma.integrationConfig.deleteMany({ where: { provider: 'FEDAPAY' } });
+    await app.redis.del('integration:FEDAPAY');
   };
 
   // Crée un RDV CONFIRMÉ (patient → médecin), non payé. Tarif médecin = 5000 XOF.
@@ -190,5 +194,43 @@ describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
     const sub = await app.inject({ method: 'POST', url: '/api/v1/subscriptions', headers: auth(doctorToken), payload: { plan: 'PRO' } });
     expect(sub.statusCode).toBe(200);
     expect(sub.json().subscriptionPlan).toBe('PRO');
+  });
+
+  // ⚠️ §5/Lot E — re-test webhooks : quand FedaPay est configuré via l'ADMIN (base),
+  // le webhook vérifie le HMAC avec le secret EN BASE (la base prime sur le `.env`).
+  // Placé en dernier + nettoyage en `finally` → restaure le fallback `.env` (WHSEC).
+  it('Lot E : le webhook FedaPay utilise le secret webhook configuré en base (admin)', async () => {
+    const integrations = await import('@/lib/integrations.js');
+    const DBSEC = 'whsec_db_lotE';
+    try {
+      await integrations.setIntegration(app, 'FEDAPAY', { secrets: { webhookSecret: DBSEC } });
+      const pay = await app.prisma.payment.create({
+        data: { userId: patientUserId, type: 'CONSULTATION', method: 'MTN_MOMO', amount: 5000, currency: 'XOF', status: 'PENDING', fedapayId: 'fdp_lotE_db' },
+        select: { id: true },
+      });
+      const body = JSON.stringify({ fedapayId: 'fdp_lotE_db', status: 'approved' });
+
+      // Signé avec l'ANCIEN secret `.env` (WHSEC) → rejeté : la base prime.
+      const wrong = await app.inject({
+        method: 'POST', url: '/api/v1/payments/webhook',
+        headers: { 'content-type': 'application/json', 'x-fedapay-signature': createHmac('sha256', WHSEC).update(body).digest('hex') },
+        payload: body,
+      });
+      expect(wrong.statusCode).toBe(401);
+
+      // Signé avec le secret EN BASE → accepté + confirmé (idempotence/logique inchangées).
+      const ok = await app.inject({
+        method: 'POST', url: '/api/v1/payments/webhook',
+        headers: { 'content-type': 'application/json', 'x-fedapay-signature': createHmac('sha256', DBSEC).update(body).digest('hex') },
+        payload: body,
+      });
+      expect(ok.statusCode).toBe(200);
+      expect(ok.json().processed).toBe(true);
+      const p = await app.prisma.payment.findUniqueOrThrow({ where: { id: pay.id }, select: { status: true } });
+      expect(p.status).toBe('COMPLETED');
+    } finally {
+      await app.prisma.integrationConfig.deleteMany({ where: { provider: 'FEDAPAY' } });
+      await app.redis.del('integration:FEDAPAY');
+    }
   });
 });

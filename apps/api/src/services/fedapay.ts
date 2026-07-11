@@ -3,18 +3,22 @@
 // ⚠️ CLAUDE.md §5 : la logique de paiement validée est GELÉE. Vérification HMAC
 // AVANT tout traitement de webhook ; idempotence obligatoire (un même événement
 // peut arriver plusieurs fois). STUB si FedaPay non configuré.
+//
+// Lot E (§3.6) : la CLÉ SECRÈTE est désormais RÉSOLUE par l'appelant (base chiffrée
+// → `.env`, via `resolveConfiguredSecrets`) et passée en paramètre — ce module reste
+// SANS dépendance à `app` (testable). AUCUNE modification de la logique de paiement :
+// stub si pas de clé (`secretKey` absent), sinon appels HTTP v1 identiques.
 // ─────────────────────────────────────────────────────────────
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
 import type { FastifyBaseLogger } from 'fastify';
 
-import { env, isFedapayConfigured } from '@/lib/env.js';
 import { badGateway, isAppError } from '@/lib/errors.js';
 
 const FEDAPAY_BASE = 'https://api.fedapay.com/v1';
 
-function fedapayHeaders(): Record<string, string> {
-  return { Authorization: `Bearer ${env.FEDAPAY_SECRET_KEY ?? ''}`, 'Content-Type': 'application/json' };
+function fedapayHeaders(secretKey: string): Record<string, string> {
+  return { Authorization: `Bearer ${secretKey}`, 'Content-Type': 'application/json' };
 }
 
 /** Commission plateforme : 3 % (CLAUDE.md / DocTech). */
@@ -83,8 +87,10 @@ export async function createTransaction(opts: {
   method: string;
   description: string;
   log: FastifyBaseLogger;
+  /** Clé secrète résolue (base → `.env`). Absente ⇒ STUB (comportement inchangé). */
+  secretKey?: string | null;
 }): Promise<FedapayTransaction> {
-  if (!isFedapayConfigured) {
+  if (!opts.secretKey) {
     const fedapayId = `fdp_${randomBytes(12).toString('hex')}`;
     opts.log.warn({ amount: opts.amount, method: opts.method }, '[STUB FedaPay] transaction simulée');
     return { fedapayId, paymentUrl: `https://stub.fedapay.com/checkout/${fedapayId}` };
@@ -94,7 +100,7 @@ export async function createTransaction(opts: {
     // 1) Création de la transaction (montant en XOF entier).
     const txRes = await fetch(`${FEDAPAY_BASE}/transactions`, {
       method: 'POST',
-      headers: fedapayHeaders(),
+      headers: fedapayHeaders(opts.secretKey),
       body: JSON.stringify({ description: opts.description, amount: opts.amount, currency: { iso: 'XOF' } }),
     });
     if (!txRes.ok) {
@@ -109,7 +115,7 @@ export async function createTransaction(opts: {
     // 2) Génération du token → URL de paiement hébergée.
     const tokRes = await fetch(`${FEDAPAY_BASE}/transactions/${id}/token`, {
       method: 'POST',
-      headers: fedapayHeaders(),
+      headers: fedapayHeaders(opts.secretKey),
     });
     if (!tokRes.ok) {
       const detail = await tokRes.text().catch(() => '');
@@ -136,11 +142,12 @@ export async function createTransaction(opts: {
 export async function getTransactionStatus(
   fedapayId: string,
   log: FastifyBaseLogger,
+  secretKey?: string | null,
 ): Promise<string | null> {
-  if (!isFedapayConfigured) return null;
+  if (!secretKey) return null;
   try {
     const res = await fetch(`${FEDAPAY_BASE}/transactions/${encodeURIComponent(fedapayId)}`, {
-      headers: { Authorization: `Bearer ${env.FEDAPAY_SECRET_KEY ?? ''}` },
+      headers: { Authorization: `Bearer ${secretKey}` },
     });
     if (!res.ok) {
       log.error({ status: res.status, fedapayId }, '[FedaPay] lecture transaction en échec');

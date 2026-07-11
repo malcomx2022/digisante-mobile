@@ -27,7 +27,7 @@ describe.skipIf(!HAS_INFRA)('Admin intégrations API (intégration)', () => {
 
   const cleanup = async () => {
     await app.prisma.user.deleteMany({ where: { phone: { in: PHONES } } });
-    await app.prisma.integrationConfig.deleteMany({ where: { provider: { in: ['TWILIO', 'RESEND'] } } });
+    await app.prisma.integrationConfig.deleteMany({ where: { provider: { in: ['TWILIO', 'RESEND', 'FEDAPAY'] } } });
     await app.redis.del('integration:TWILIO', 'integration:RESEND', 'integration:FEDAPAY');
   };
 
@@ -61,14 +61,14 @@ describe.skipIf(!HAS_INFRA)('Admin intégrations API (intégration)', () => {
     await app.close();
   });
 
-  it('liste masquée des providers ; FedaPay marqué gelé', async () => {
+  it('liste masquée des 5 providers (FedaPay inclus, gérable depuis le Lot E)', async () => {
     const res = await app.inject({ method: 'GET', url: '/api/v1/admin/integrations', headers: auth(superToken) });
     expect(res.statusCode).toBe(200);
     const items = res.json().items as Array<{ provider: string; frozen: boolean }>;
     const providers = items.map((i) => i.provider);
     expect(providers).toEqual(expect.arrayContaining(['FEDAPAY', 'TWILIO', 'DAILY', 'FIREBASE', 'RESEND']));
-    expect(items.find((i) => i.provider === 'FEDAPAY')?.frozen).toBe(true);
-    expect(items.find((i) => i.provider === 'TWILIO')?.frozen).toBe(false);
+    // Lot E : plus aucun provider n'est gelé côté admin (FROZEN_PROVIDERS vide).
+    expect(items.every((i) => i.frozen === false)).toBe(true);
   });
 
   it('RBAC : sans integrations:read → 403 ; sans integrations:write → 403', async () => {
@@ -118,13 +118,30 @@ describe.skipIf(!HAS_INFRA)('Admin intégrations API (intégration)', () => {
     expect(res.statusCode).toBe(400);
   });
 
-  it('FedaPay est gelé §5 : PUT/PATCH/test refusés (400)', async () => {
-    const put = await app.inject({ method: 'PUT', url: '/api/v1/admin/integrations/FEDAPAY', headers: auth(superToken), payload: { secrets: { secretKey: 'sk' } } });
-    expect(put.statusCode).toBe(400);
-    const patch = await app.inject({ method: 'PATCH', url: '/api/v1/admin/integrations/FEDAPAY', headers: auth(superToken), payload: { enabled: false } });
-    expect(patch.statusCode).toBe(400);
+  it('Lot E : FedaPay est GÉRABLE via l’admin (PUT/test) ; journal webhooks en Finances', async () => {
+    const SK = 'sk_live_fedapay_1234';
+    const put = await app.inject({
+      method: 'PUT', url: '/api/v1/admin/integrations/FEDAPAY', headers: auth(superToken),
+      payload: { secrets: { secretKey: SK, publicKey: 'pk_live_x', webhookSecret: 'whsec_admin_9' } },
+    });
+    expect(put.statusCode).toBe(200);
+    expect(put.json().configured).toBe(true);
+    // Secret masqué, jamais en clair (même pour FedaPay).
+    expect(put.json().secrets.secretKey).toBe('••••1234');
+    expect(JSON.stringify(put.json())).not.toContain(SK);
+
+    // Readiness OK (clés obligatoires présentes) — aucun appel réseau.
     const test = await app.inject({ method: 'POST', url: '/api/v1/admin/integrations/FEDAPAY/test', headers: auth(superToken) });
-    expect(test.statusCode).toBe(400);
+    expect(test.statusCode).toBe(200);
+    expect(test.json().ok).toBe(true);
+
+    // Le journal des webhooks FedaPay reste sous /admin/finance/webhooks (§5) → 400 ici.
+    const wh = await app.inject({ method: 'GET', url: '/api/v1/admin/integrations/FEDAPAY/webhooks', headers: auth(superToken) });
+    expect(wh.statusCode).toBe(400);
+
+    // Nettoyage : retire la config FedaPay pour ne pas contaminer les tests paiement.
+    await app.prisma.integrationConfig.deleteMany({ where: { provider: 'FEDAPAY' } });
+    await app.redis.del('integration:FEDAPAY');
   });
 
   it('PATCH active/désactive une config existante + invalide le cache', async () => {

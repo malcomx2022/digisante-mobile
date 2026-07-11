@@ -82,10 +82,8 @@ if (!parsed.success) {
 
 export const env = parsed.data;
 
-// Twilio / Daily / Firebase / Resend : la « configuration » est désormais résolue
-// DYNAMIQUEMENT par le resolver d'intégrations (base chiffrée → `.env`, §3.6) via
-// `resolveConfiguredSecrets` — plus de booléen statique au démarrage (Lot C).
-
-/** Vrai si FedaPay est configuré (sinon création de transaction en stub). ⚠️ §5
- *  reste sur `.env` tant que le Lot E (bascule encadrée) n'est pas livré. */
-export const isFedapayConfigured = Boolean(env.FEDAPAY_SECRET_KEY && env.FEDAPAY_PUBLIC_KEY);
+// Twilio / Daily / Firebase / Resend / FedaPay : la « configuration » est désormais
+// résolue DYNAMIQUEMENT par le resolver d'intégrations (base chiffrée → `.env`, §3.6)
+// via `resolveConfiguredSecrets`/`isConfigured` — plus AUCUN booléen statique au
+// démarrage (Lots C + E). FedaPay reste §5 (logique de paiement gelée) mais ses clés
+// sont gérables via l'admin comme les autres.
