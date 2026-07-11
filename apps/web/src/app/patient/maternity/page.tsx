@@ -120,8 +120,11 @@ export default function MaternityPage() {
                       <li key={v.id} className="flex items-center gap-2 px-2 py-1.5">
                         <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', tone.dot)} aria-hidden="true" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-[0.8125rem] font-bold text-stone-800">{t('maternity.visit_n', { n: String(v.contactNumber) })}</p>
-                          <p className="text-[0.6875rem] text-stone-400">{formatDate(v.dueDate)}</p>
+                          <p className="text-[0.8125rem] font-bold text-stone-800">
+                            {t('maternity.visit_n', { n: String(v.contactNumber) })}
+                            <span className="text-stone-400 font-normal"> · {formatDate(v.dueDate)}</span>
+                          </p>
+                          <p className="text-[0.6875rem] text-stone-500 leading-snug">{t(`maternity.objective.${v.contactNumber}`)}</p>
                         </div>
                         <Badge variant={tone.badge}>{t(`vaccinations.status.${st}`)}</Badge>
                         <button
@@ -142,6 +145,7 @@ export default function MaternityPage() {
                   })}
                 </ul>
               </CardPagne>
+              <p className="mt-1.5 text-[0.6875rem] text-stone-400 leading-snug">{t('maternity.late_note')}</p>
             </section>
 
             {/* Signes de danger (réutilise le motif Grossesse du triage) */}

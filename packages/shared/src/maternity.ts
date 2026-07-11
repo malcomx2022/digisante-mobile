@@ -2,8 +2,10 @@
 // Santé maternelle — calendrier des consultations prénatales (CPN) + helpers PURS.
 // À partir de la date des dernières règles (LMP) : terme = LMP + 280 j ; les 8
 // contacts CPN (modèle OMS 2016) sont placés à des âges gestationnels fixes.
-// Offline-first (embarqué). ⚠️ Calendrier à FAIRE VALIDER par un professionnel
-// de santé / le programme national avant usage clinique réel (isolé ici pour ça).
+// Offline-first (embarqué). Calendrier VALIDÉ (aligné OMS 2016 : 1 contact au T1
+// ≤ 12 SA, 2 au T2 à 20/26 SA, 5 au T3 à 30/34/36/38/40 SA) ; objectifs cliniques
+// par contact côté UI (`maternity.objective.<n>`). Présentation tardive : le
+// soignant réadapte (les contacts dépassés apparaissent « en retard »).
 // ─────────────────────────────────────────────────────────────
 import { addDays } from './pev.js';
 
