@@ -67,6 +67,19 @@ describe.skipIf(!HAS_INFRA)('Pharmacie — stock & disponibilité (intégration)
     expect(amox.json().items.length).toBe(0);
   });
 
+  it('sécurité : une recherche joker LIKE (%%) ne vide pas l’inventaire', async () => {
+    // `%%` (2 car.) passe la validation min(2) de la route ; sans nettoyage,
+    // `contains: '%%'` (SQL LIKE) matcherait TOUT le stock. normalizeMed retire
+    // %/_/\ → le besoin devient vide → tombe sous le seuil interne → 0 résultat.
+    const wildcard = await app.inject({ method: 'GET', url: '/api/v1/pharmacy/availability?q=%25%25', headers: auth(patient) });
+    expect(wildcard.statusCode).toBe(200);
+    expect(wildcard.json().items.length).toBe(0);
+    // `__` (jokers un caractère) idem.
+    const underscore = await app.inject({ method: 'GET', url: '/api/v1/pharmacy/availability?q=__', headers: auth(patient) });
+    expect(underscore.statusCode).toBe(200);
+    expect(underscore.json().items.length).toBe(0);
+  });
+
   it('supprime une ligne ; une autre pharmacie ne peut pas (404)', async () => {
     const list = await app.inject({ method: 'GET', url: '/api/v1/pharmacy/stock', headers: auth(pharma1) });
     const lineId = list.json()[0].id as string;
