@@ -4,5 +4,6 @@
 export * from './admin.js';
 export * from './enums.js';
 export * from './phone.js';
+export * from './posology.js';
 export * from './schemas.js';
 export * from './i18n.js';
