@@ -34,6 +34,7 @@ import sosRoutes from '@/modules/sos/sos.routes.js';
 import subscriptionsRoutes from '@/modules/subscriptions/subscriptions.routes.js';
 import translationsRoutes from '@/modules/translations/translations.routes.js';
 import usersRoutes from '@/modules/users/users.routes.js';
+import vaccinationsRoutes from '@/modules/vaccinations/vaccinations.routes.js';
 import walletRoutes from '@/modules/wallet/wallet.routes.js';
 import authenticate from '@/plugins/authenticate.js';
 import errorHandler from '@/plugins/error-handler.js';
@@ -123,6 +124,7 @@ export async function buildServer() {
   await app.register(healthRoutes, { prefix: '/api/v1' });
   await app.register(authRoutes, { prefix: '/api/v1/auth' });
   await app.register(usersRoutes, { prefix: '/api/v1/users' });
+  await app.register(vaccinationsRoutes, { prefix: '/api/v1/vaccinations' });
   await app.register(professionalsRoutes, { prefix: '/api/v1/professionals' });
   await app.register(kycRoutes, { prefix: '/api/v1/kyc' });
   await app.register(appointmentsRoutes, { prefix: '/api/v1/appointments' });
