@@ -164,3 +164,6 @@ export const AUDIT_ACTIONS = [
   'USER_ACTIVATE',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
+
+export const STOCK_STATUSES = ['IN_STOCK', 'LOW', 'OUT'] as const;
+export type StockStatus = (typeof STOCK_STATUSES)[number];

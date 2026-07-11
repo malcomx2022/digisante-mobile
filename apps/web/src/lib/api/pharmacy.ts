@@ -1,5 +1,6 @@
-// Pharmacie : scan d'ordonnance, délivrance granulaire, journal de dispensation.
-import { get, post } from './client';
+// Pharmacie : scan d'ordonnance, délivrance granulaire, journal de dispensation,
+// stock & disponibilité (« médicament près de moi »).
+import { del, get, post } from './client';
 
 export type LineStatus = 'DISPENSED' | 'PARTIALLY_DISPENSED' | 'UNAVAILABLE';
 
@@ -34,9 +35,40 @@ function online<T>(result: T | { queued: true }): T {
   return result as T;
 }
 
+export type StockStatus = 'IN_STOCK' | 'LOW' | 'OUT';
+
+export interface StockItem {
+  id: string;
+  displayName: string;
+  status: StockStatus;
+  price: number | null;
+  updatedAt: string;
+}
+export interface AvailabilityItem {
+  id: string;
+  displayName: string;
+  status: StockStatus;
+  price: number | null;
+  updatedAt: string;
+  pharmacy: { id: string; name: string; address: string; phone: string };
+  distanceKm: number | null;
+}
+
 export const pharmacyApi = {
   scan: (qrCode: string) => post<ScanResult>('/pharmacy/scan', { qrCode }).then(online),
   dispense: (prescriptionId: string, items: { itemId: string; status: LineStatus }[]) =>
     post<{ prescriptionId: string; status: string }>(`/pharmacy/prescriptions/${prescriptionId}/dispense`, { items }).then(online),
   dispensations: () => get<Dispensation[]>('/pharmacy/dispensations'),
+  // Stock (pharmacie) + disponibilité (patient).
+  listStock: () => get<StockItem[]>('/pharmacy/stock'),
+  saveStock: (body: { displayName: string; status?: StockStatus; price?: number | null }) => post<StockItem>('/pharmacy/stock', body).then(online),
+  removeStock: (id: string) => del<{ removed: boolean }>(`/pharmacy/stock/${id}`).then(online),
+  availability: (q: string, pos?: { lat: number; lng: number }) => {
+    const params = new URLSearchParams({ q });
+    if (pos) {
+      params.set('lat', String(pos.lat));
+      params.set('lng', String(pos.lng));
+    }
+    return get<{ items: AvailabilityItem[] }>(`/pharmacy/availability?${params.toString()}`);
+  },
 };

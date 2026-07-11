@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────
 // DigiSanté Mobile — schéma Prisma complet
-// 42 modèles + 30 enums (cf. DocTech §5), dont la table d'audit immuable (§4).
+// 43 modèles + 31 enums (cf. DocTech §5), dont la table d'audit immuable (§4).
 // Cible : PostgreSQL 16 natif (dev local docker, prod VPS Infomaniak).
 //
 // Décisions (arbitrées) :
@@ -723,6 +723,7 @@ model Pharmacy {
 
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   dispensations Dispensation[]
+  stocks        PharmacyStock[]
 
   @@map("pharmacies")
 }
@@ -1152,4 +1153,33 @@ model AntenatalVisit {
   @@index([pregnancyId])
   @@index([doneAt, dueDate])
   @@map("antenatal_visits")
+}
+
+// (+11) Disponibilité des médicaments en pharmacie — « médicament près de moi ».
+// Chaque pharmacie déclare les médicaments qu'elle a en stock (statut + prix
+// indicatif) ; le patient cherche un médicament et voit les pharmacies qui l'ont,
+// triées par distance (si géolocalisation). Évite les trajets inutiles en zone
+// reculée. NON médical (inventaire) — pas de DMP, §4 : une pharmacie ne gère QUE
+// son propre stock ; la recherche patient est publique (statut, adresse, tél).
+enum StockStatus {
+  IN_STOCK
+  LOW
+  OUT
+}
+
+model PharmacyStock {
+  id             String      @id @default(cuid())
+  pharmacyId     String
+  medicationName String // normalisé (minuscules, sans accents) pour la recherche
+  displayName    String // libellé affiché
+  status         StockStatus @default(IN_STOCK)
+  price          Int? // prix indicatif en XOF (optionnel)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  pharmacy Pharmacy @relation(fields: [pharmacyId], references: [id], onDelete: Cascade)
+
+  @@unique([pharmacyId, medicationName])
+  @@index([medicationName, status])
+  @@map("pharmacy_stocks")
 }
