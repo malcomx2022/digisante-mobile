@@ -7,6 +7,7 @@ export const SPACE_PATH: Record<Role, string> = {
   PHARMACIE: '/pharmacie',
   LABORATOIRE: '/labo',
   DIASPORA: '/diaspora',
+  ASC: '/asc',
   ADMIN: '/admin',
 };
 

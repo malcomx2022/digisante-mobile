@@ -41,6 +41,8 @@ export interface RegisterBody {
   // Pharmacie / Laboratoire
   establishmentName?: string;
   address?: string;
+  // Agent de santé communautaire
+  zone?: string;
 }
 
 export const authApi = {

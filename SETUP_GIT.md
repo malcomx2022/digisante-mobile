@@ -3,7 +3,7 @@
 ## 1. Déposer ton code existant
 - pages Next.js  → `apps/web/src/app/`
 - modules Fastify → `apps/api/src/modules/<domaine>/`, et enregistre-les dans `apps/api/src/server.ts`
-- schéma Prisma  → remplace `apps/api/prisma/schema.prisma` par tes 43 modèles / 31 enums
+- schéma Prisma  → remplace `apps/api/prisma/schema.prisma` par tes 46 modèles / 31 enums
 - supprime l'exemple `User`/`AuditLog` du schéma squelette une fois tes modèles importés
 
 ## 2. Vérifier que ça tourne en local

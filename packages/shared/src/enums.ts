@@ -4,7 +4,7 @@
 // Déclarés en tuples `as const` pour servir directement à zod (z.enum).
 // ─────────────────────────────────────────────────────────────
 
-export const ROLES = ['PATIENT', 'MEDECIN', 'PHARMACIE', 'LABORATOIRE', 'DIASPORA', 'ADMIN'] as const;
+export const ROLES = ['PATIENT', 'MEDECIN', 'PHARMACIE', 'LABORATOIRE', 'DIASPORA', 'ASC', 'ADMIN'] as const;
 export type Role = (typeof ROLES)[number];
 
 export const USER_STATUSES = ['PENDING_VERIFICATION', 'ACTIVE', 'SUSPENDED', 'PENDING_KYC'] as const;

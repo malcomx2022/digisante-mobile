@@ -13,6 +13,7 @@ import adherenceRoutes from '@/modules/adherence/adherence.routes.js';
 import adminRoutes from '@/modules/admin/admin.routes.js';
 import adminIntegrationsRoutes from '@/modules/admin/integrations.routes.js';
 import appointmentsRoutes from '@/modules/appointments/appointments.routes.js';
+import ascRoutes from '@/modules/asc/asc.routes.js';
 import authRoutes from '@/modules/auth/auth.routes.js';
 import beneficiariesRoutes from '@/modules/beneficiaries/beneficiaries.routes.js';
 import chatRoutes from '@/modules/chat/chat.routes.js';
@@ -129,6 +130,7 @@ export async function buildServer() {
   await app.register(professionalsRoutes, { prefix: '/api/v1/professionals' });
   await app.register(kycRoutes, { prefix: '/api/v1/kyc' });
   await app.register(appointmentsRoutes, { prefix: '/api/v1/appointments' });
+  await app.register(ascRoutes, { prefix: '/api/v1/asc' });
   await app.register(consultationsRoutes, { prefix: '/api/v1/consultations' });
   await app.register(chatRoutes, { prefix: '/api/v1/chat' });
   await app.register(referralsRoutes, { prefix: '/api/v1/referrals' });
