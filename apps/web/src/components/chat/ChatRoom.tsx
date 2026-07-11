@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+import { PhrasebookPanel } from '@/components/chat/PhrasebookPanel';
 import { Empty, ErrorState, Loading } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { cn } from '@/lib/cn';
@@ -42,7 +43,7 @@ const POLL_MS = 25000;
  * ouvrir automatiquement (`doctor` côté patient, `patient` côté médecin).
  */
 export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpartParam: 'doctor' | 'patient' }) {
-  const { t } = useLocale();
+  const { t, lang } = useLocale();
   const online = useOnline();
   const params = useSearchParams();
   const ui = THEME[theme];
@@ -51,6 +52,7 @@ export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpar
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<LocalMessage[]>([]);
   const [text, setText] = useState('');
+  const [showPhrasebook, setShowPhrasebook] = useState(false);
   const [booting, setBooting] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
@@ -247,7 +249,28 @@ export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpar
         <div ref={endRef} />
       </div>
 
+      {showPhrasebook && (
+        <PhrasebookPanel
+          ownLang={lang}
+          accent={theme === 'patient' ? 'bg-sante-600' : 'bg-indigo-600'}
+          onPick={(phrase) => setText((cur) => (cur ? `${cur} ${phrase}` : phrase))}
+          onClose={() => setShowPhrasebook(false)}
+        />
+      )}
+
       <div className="flex gap-2 pt-2">
+        <button
+          type="button"
+          onClick={() => setShowPhrasebook((v) => !v)}
+          aria-label={t('phrasebook.title')}
+          aria-pressed={showPhrasebook}
+          className={cn(
+            'card-pagne border px-3 font-display font-bold text-[0.8125rem]',
+            showPhrasebook ? `${ui.send} text-white border-transparent` : 'bg-white text-stone-600 border-stone-300',
+          )}
+        >
+          🗣
+        </button>
         <input
           value={text}
           onChange={(e) => setText(e.target.value)}

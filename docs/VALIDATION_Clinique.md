@@ -23,6 +23,7 @@
 | Calendrier vaccinal PEV | `packages/shared/src/pev.ts` | ⏳ **À valider** | Confrontation au calendrier PEV officiel en vigueur au Bénin (âges, doses, vaccins) |
 | Calendrier CPN (santé maternelle) | `packages/shared/src/maternity.ts` | ✅ **Validé** (porteur, aligné OMS 2016) | — (objectifs cliniques par contact intégrés) |
 | Format matricule CNOM (KYC médecin) | `apps/api/src/lib/kyc.cnom.ts` | ⏳ **À confirmer** | Confirmer le format `BJ-XXX-#####` auprès de l'ONMB (pas d'API publique) |
+| Phrasier médical (chat) | `packages/shared/src/phrasebook.ts` | ⏳ **À valider** | Relecture des phrases FR/EN par un pro de santé ; traduction FON/YOR par locuteurs natifs avant activation |
 
 > Rappel : `sos.*`, `labo.*`, `payments.*` relèvent d'une **double validation** i18n (§4/§6) —
 > hors périmètre de ce document (contenu de messages, pas de logique clinique).
@@ -117,6 +118,27 @@ espace membre authentifié, investigué juin 2026).
 
 **À confirmer auprès de l'ONMB** : le format `BJ-XXX-#####` est une **hypothèse** ; le corriger si
 le format réel diffère. ⚠️ Ne jamais référencer l'ancien domaine `.org` (compromis).
+
+---
+
+## 5. Phrasier médical (chat) — `phrasebook.ts`
+
+**Écran** : messagerie patient↔médecin (`ChatRoom`), panneau **phrasier** 🗣. **Nature** :
+aide à la communication quand patient et soignant ne partagent pas de langue. **100 % local**
+(offline-first, §4 : aucun contenu de chat n'est envoyé à un service de traduction tiers) — ce
+sont des **phrases figées** insérées dans la langue cible, **pas** de traduction automatique.
+
+**Contenu** : ~28 phrases de **communication** (salutations, questions sur les symptômes,
+consignes, posologie, suivi, urgence), FR + EN complets.
+
+**À valider par un professionnel** :
+1. Les phrases **cliniques** (consignes, posologie, urgence) sont-elles correctes et non
+   ambiguës ? (Les phrases de pure courtoisie sont à faible risque.)
+2. Les traductions **FON/YOR** doivent être fournies par des **locuteurs natifs** avant d'activer
+   ces langues (aujourd'hui : repli FR, §6 — aucune MT publiée telle quelle).
+
+> Le fichier est isolé dans `@digisante/shared` et couvert par un test pur (FR+EN présents,
+> repli FON/YOR→FR). C'est de la **communication assistée**, jamais un diagnostic.
 
 ---
 
