@@ -10,12 +10,19 @@ import type { FastifyInstance } from 'fastify';
 
 import { notFound } from '@/lib/errors.js';
 
-/** Normalise un nom de médicament pour la recherche (minuscules, sans accents). */
+/**
+ * Normalise un nom de médicament pour la recherche (minuscules, sans accents).
+ * ⚠️ Sécurité (CSO) : Prisma `contains` compile en SQL `LIKE` et n'échappe PAS
+ * les jokers `%`/`_` ni l'échappement `\`. Sans nettoyage, une recherche `%`
+ * matcherait TOUT le stock (fuite de l'inventaire de toutes les pharmacies).
+ * On retire donc ces caractères du besoin comme des noms stockés.
+ */
 export function normalizeMed(name: string): string {
   return name
     .toLowerCase()
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
+    .replace(/[%_\\]/g, '')
     .trim();
 }
 
