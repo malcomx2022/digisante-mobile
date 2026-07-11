@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────
 // DigiSanté Mobile — schéma Prisma complet
-// 38 modèles + 29 enums (cf. DocTech §5), dont la table d'audit immuable (§4).
+// 40 modèles + 30 enums (cf. DocTech §5), dont la table d'audit immuable (§4).
 // Cible : PostgreSQL 16 natif (dev local docker, prod VPS Infomaniak).
 //
 // Décisions (arbitrées) :
@@ -392,6 +392,7 @@ model Patient {
   medicationIntakes  MedicationIntake[]
   medicationReminders MedicationReminder[]
   reviews            DoctorReview[]
+  vaccinationSubjects VaccinationSubject[]
 
   @@map("patients")
 }
@@ -1069,4 +1070,48 @@ model Beneficiary {
 
   @@index([ownerId])
   @@map("beneficiaries")
+}
+
+// (+9) Vaccination PEV — carnet de vaccination du patient ET de ses proches
+// (enfants). Le calendrier PEV Bénin (`@digisante/shared` PEV_SCHEDULE) génère
+// les échéances à partir de la date de naissance. Rappels multilingues (§4) via
+// le générateur cron (Notification PENDING), idempotents par jour (lastNotifiedOn).
+// Cloisonnement §4 : chaque patient ne voit que SES sujets ; l'admin n'accède
+// qu'à des agrégats anonymisés (couverture vaccinale), jamais au nominatif.
+enum VaccinationStatus {
+  SCHEDULED
+  DONE
+}
+
+model VaccinationSubject {
+  id        String   @id @default(cuid())
+  patientId String
+  name      String
+  birthDate DateTime
+  isSelf    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  patient      Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  vaccinations Vaccination[]
+
+  @@index([patientId])
+  @@map("vaccination_subjects")
+}
+
+model Vaccination {
+  id             String            @id @default(cuid())
+  subjectId      String
+  vaccineCode    String // code du calendrier PEV (BCG, PENTA1, VAR1…)
+  doseLabel      String // ex. « 1 », « 0 », « rappel »
+  dueDate        DateTime
+  administeredAt DateTime?
+  status         VaccinationStatus @default(SCHEDULED)
+  lastNotifiedOn DateTime? // idempotence des rappels (au jour)
+  createdAt      DateTime          @default(now())
+
+  subject VaccinationSubject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@index([subjectId])
+  @@index([status, dueDate])
+  @@map("vaccinations")
 }

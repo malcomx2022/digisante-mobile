@@ -3,6 +3,7 @@
 // ─────────────────────────────────────────────────────────────
 export * from './admin.js';
 export * from './enums.js';
+export * from './pev.js';
 export * from './phone.js';
 export * from './posology.js';
 export * from './schemas.js';
