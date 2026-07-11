@@ -1,6 +1,7 @@
 'use client';
 
 import { PatientHeader } from '@/components/patient/PatientHeader';
+import { PrescriptionPosology } from '@/components/patient/PrescriptionPosology';
 import { Badge, CardPagne, KenteBar } from '@/components/ui';
 import { QrImage } from '@/components/ui/QrImage';
 import { Empty, ErrorState, SkeletonCards } from '@/components/ui/States';
@@ -64,11 +65,8 @@ export default function PrescriptionsPage() {
               {p.items.map((it) => (
                 <div key={it.id} className="flex gap-3 py-2 border-b border-dashed border-stone-200 last:border-0">
                   <span className={`w-1.5 rounded-full ${it.status === 'DISPENSED' ? 'bg-sante-500' : 'bg-ocre-400'}`} />
-                  <div className="flex-1">
-                    <p className="font-display font-bold text-[0.875rem]">{it.medicationName}</p>
-                    <p className="text-[0.75rem] text-stone-500">
-                      {it.dosage} · {it.frequency} · {it.duration}
-                    </p>
+                  <div className="flex-1 min-w-0">
+                    <PrescriptionPosology item={it} />
                   </div>
                   <Badge variant={it.status === 'DISPENSED' ? 'normal' : 'eleve'}>{t(`pharmacie.line.${it.status}`)}</Badge>
                 </div>
