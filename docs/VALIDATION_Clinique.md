@@ -15,6 +15,23 @@
 
 ---
 
+## Dossier opposable à soumettre au professionnel de santé
+
+Un **dossier DOCX prêt à signer** est généré à partir des sources (contenu extrait verbatim,
+un bloc « Décision du relecteur » par section + page d'attestation/signature) :
+
+```bash
+export NODE_PATH=$(npm root -g)          # ou un dossier contenant la lib `docx`
+pnpm --filter @digisante/shared build    # dist à jour (source de vérité importée)
+node scripts/docs/generate-validation-dossier.js   # → docs/Dossier_Validation_Clinique.docx
+python <skill docx>/scripts/office/validate.py docs/Dossier_Validation_Clinique.docx   # obligatoire (§7)
+```
+
+Le fichier livré : **`docs/Dossier_Validation_Clinique.docx`**. La **structure** (flux de triage,
+calendrier PEV, phrasier) est importée de `@digisante/shared` (jamais re-saisie) ; seuls les
+libellés cliniques lisibles sont transcrits des i18n FR/EN dans le script. Régénérer après toute
+évolution d'un contenu clinique.
+
 ## Synthèse
 
 | Contenu | Fichier source | État | Action attendue |

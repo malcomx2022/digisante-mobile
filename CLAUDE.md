@@ -196,7 +196,8 @@ Les scripts shell complets sont dans la Documentation technique v2 (`DocTech_Dig
 | `DocTech_DigiSante_Mobile_v2.docx` | Doc technique complète (API, scripts VPS) — ⚠️ compteurs à régénérer (127 endpoints / 36 modèles réels) |
 | `Specs_UI_DigiSante_v2.docx` | Spécifications UI « Wax & Terre » (annexe NEXT IMPACT) |
 | `docs/PLAN_Gestion_API_Admin.md` | Plan — gestion des API tierces & webhooks via l'admin (super admin), chiffrées en base (PLANIFIÉ) |
-| `docs/VALIDATION_Clinique.md` | Recap des contenus cliniques à faire valider par un pro de santé (triage OMS/PCIME, PEV ; CPN validé) |
+| `docs/VALIDATION_Clinique.md` | Recap des contenus cliniques à faire valider par un pro de santé (triage OMS/PCIME, PEV, phrasier ; CPN validé) |
+| `docs/Dossier_Validation_Clinique.docx` | Dossier opposable prêt à signer (généré par `scripts/docs/generate-validation-dossier.js` — contenu verbatim + décision/signature) |
 | `docs/AUDIT_Securite_CSO_2026-07_Addendum_ASC_Pharmacie.md` | Passe CSO sur les nouveaux modules (ASC, stock pharmacie) — correctif joker `LIKE` + résiduels |
 | Skill `digisante-design-system` | Référence d'intégration frontend |
 | Prototypes `DigiSante_DesignV2_Lot1..4 + AdminDesktop_LotFinal.html` | Maquettes haute-fidélité opposables |
