@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 
 import { Button, CardPagne } from '@/components/ui';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { labApi, type SubmitResult } from '@/lib/api/laboratory';
@@ -12,6 +13,49 @@ import { labApi, type SubmitResult } from '@/lib/api/laboratory';
 interface ValueRow {
   key: string;
   value: string;
+}
+
+// Bornes physiologiques « de bon sens » pour repérer une faute de frappe (ex. un
+// zéro en trop) AVANT de publier — une valeur aberrante déclencherait à tort une
+// alerte critique (SMS/Push) au prescripteur. Les clés sont normalisées (sans
+// accents/casse) ; l'analyse étant en texte libre, on retient les plus courantes.
+// max en unité usuelle de saisie ; garde-fou générique sinon.
+const PLAUSIBLE_MAX: Record<string, number> = {
+  glucose: 30, // g/L (glycémie ; ~10 g/L déjà extrême)
+  glycemie: 30,
+  cholesterol: 15, // g/L
+  creatinine: 3000, // µmol/L
+  uree: 60, // mmol/L
+  hemoglobine: 250, // g/L
+  potassium: 15, // mmol/L
+  kaliemie: 15,
+  sodium: 200, // mmol/L
+  natremie: 200,
+  calcium: 10, // mmol/L
+  leucocytes: 500, // 10^9/L
+  plaquettes: 3000, // 10^9/L
+};
+const GENERIC_MAX = 100000; // au-delà : erreur de frappe quasi certaine
+
+function normalizeAnalyte(k: string): string {
+  return k
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
+/** Renvoie les analyses dont la valeur numérique dépasse les bornes plausibles. */
+function findImplausible(rows: ValueRow[]): string[] {
+  const out: string[] = [];
+  for (const r of rows) {
+    if (!r.key || r.value === '') continue;
+    const num = Number(r.value);
+    if (Number.isNaN(num)) continue;
+    const max = PLAUSIBLE_MAX[normalizeAnalyte(r.key)] ?? GENERIC_MAX;
+    if (Math.abs(num) > max) out.push(`${r.key} = ${r.value}`);
+  }
+  return out;
 }
 
 // D-23 — Laboratoire : saisie de résultat + détection de valeur critique.
@@ -31,13 +75,27 @@ function LaboResult() {
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [published, setPublished] = useState(false);
+  const [confirm, setConfirm] = useState<string[] | null>(null); // valeurs suspectes en attente de confirmation
 
   function setRow(i: number, key: keyof ValueRow, val: string) {
     setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, [key]: val } : r)));
   }
 
+  // Interception : si une valeur dépasse les bornes physiologiques plausibles,
+  // demander confirmation avant de publier (l'alerte critique est irréversible).
+  function requestPublish() {
+    if (published) return;
+    const suspicious = findImplausible(rows);
+    if (suspicious.length > 0) {
+      setConfirm(suspicious);
+      return;
+    }
+    void publish();
+  }
+
   async function publish() {
     if (published) return; // anti double-publication (évite une double notification patient)
+    setConfirm(null);
     setError(null);
     setResult(null);
     const values: Record<string, number | string> = {};
@@ -88,10 +146,29 @@ function LaboResult() {
         {result && (result.critical?.length ?? 0) === 0 && <p className="text-center text-sante-700 font-bold"><span aria-hidden="true">✓</span> {t('labo.published')}</p>}
         {error && <p className="text-center text-sos-600 font-bold text-[0.8125rem]">{error}</p>}
 
-        <Button variant="sos" full onClick={publish} disabled={!orderId || published}>
+        <Button variant="sos" full onClick={requestPublish} disabled={!orderId || published}>
           {t('labo.publish')}
         </Button>
       </main>
+
+      <ConfirmDialog
+        open={confirm !== null}
+        danger
+        title={t('labo.check_title')}
+        message={t('labo.check_msg')}
+        confirmLabel={t('labo.check_confirm')}
+        cancelLabel={t('labo.check_recheck')}
+        onConfirm={() => void publish()}
+        onCancel={() => setConfirm(null)}
+      >
+        {confirm && confirm.length > 0 && (
+          <ul className="list-disc pl-5 text-[0.8125rem] text-stone-700 font-bold space-y-0.5">
+            {confirm.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
+        )}
+      </ConfirmDialog>
     </>
   );
 }
