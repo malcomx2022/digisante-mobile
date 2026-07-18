@@ -70,8 +70,22 @@ export default function VitalsPage() {
     }
   }
 
+  // Bornage temporel de l'historique (réseaux/mobiles d'entrée de gamme) :
+  // par défaut 30 jours pour éviter de rendre des centaines de mesures d'un coup.
+  const [periodDays, setPeriodDays] = useState<number>(30);
+
   const readings = (data ?? []).map((r) => ({ id: r.id, when: r.createdAt, v: (r.data ?? {}) as VitalReading }));
-  const latest = readings[0];
+  const latest = readings[0]; // toujours la plus récente (indépendante du filtre)
+  const periodStart = periodDays === 0 ? 0 : Date.now() - periodDays * 24 * 60 * 60 * 1000;
+  const inPeriod = readings.filter((r) => periodDays === 0 || new Date(r.when).getTime() >= periodStart);
+  const history = inPeriod.slice(1); // exclut la « dernière mesure » déjà mise en évidence
+
+  const periods: { days: number; label: string }[] = [
+    { days: 7, label: t('vitals.period.7') },
+    { days: 30, label: t('vitals.period.30') },
+    { days: 365, label: t('vitals.period.365') },
+    { days: 0, label: t('vitals.period.all') },
+  ];
 
   const field = (label: string, value: string, set: (v: string) => void, ph: string) => (
     <label className="block">
@@ -121,19 +135,42 @@ export default function VitalsPage() {
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && readings.length === 0 && <Empty label={t('vitals.empty')} />}
 
-        {/* Historique */}
+        {/* Historique — borné par période pour limiter le rendu sur mobile */}
         {readings.length > 1 && (
           <CardPagne className="p-4">
-            <p className="font-display font-extrabold text-[0.8125rem] text-stone-700">{t('vitals.history')}</p>
-            <Nkyinkyim className="my-3" />
-            <div className="space-y-2">
-              {readings.slice(1).map((r) => (
-                <div key={r.id} className="flex items-center justify-between border-b border-dashed border-stone-200 pb-1.5">
-                  <span className="text-[0.8125rem] text-stone-700 font-bold">{summarize(r.v, t)}</span>
-                  <span className="text-[0.6875rem] text-stone-400">{formatDate(r.when, { dateStyle: 'short' })}</span>
-                </div>
-              ))}
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <p className="font-display font-extrabold text-[0.8125rem] text-stone-700">{t('vitals.history')}</p>
+              <div className="flex gap-1" role="group" aria-label={t('vitals.period_label')}>
+                {periods.map((p) => (
+                  <button
+                    key={p.days}
+                    type="button"
+                    onClick={() => setPeriodDays(p.days)}
+                    aria-pressed={periodDays === p.days}
+                    className={[
+                      'card-pagne px-2 py-1 text-[0.6875rem] font-display font-bold transition',
+                      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sante-600',
+                      periodDays === p.days ? 'bg-sante-600 text-white' : 'bg-stone-100 text-stone-600',
+                    ].join(' ')}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
             </div>
+            <Nkyinkyim className="my-3" />
+            {history.length === 0 ? (
+              <p className="text-[0.75rem] text-stone-400 text-center py-2">{t('vitals.history_empty_period')}</p>
+            ) : (
+              <div className="space-y-2">
+                {history.map((r) => (
+                  <div key={r.id} className="flex items-center justify-between border-b border-dashed border-stone-200 pb-1.5">
+                    <span className="text-[0.8125rem] text-stone-700 font-bold">{summarize(r.v, t)}</span>
+                    <span className="text-[0.6875rem] text-stone-400">{formatDate(r.when, { dateStyle: 'short' })}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardPagne>
         )}
       </main>
