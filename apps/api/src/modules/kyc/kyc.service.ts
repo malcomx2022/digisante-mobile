@@ -5,15 +5,41 @@
 // ─────────────────────────────────────────────────────────────
 import type { KycDocumentType } from '@digisante/shared';
 import { Prisma } from '@prisma/client';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 
 import { writeAudit } from '@/lib/audit.js';
 import { badRequest, forbidden, notFound } from '@/lib/errors.js';
+import { readEncryptedFile, storeEncryptedFile } from '@/lib/filestore.js';
 import { paginate } from '@/lib/http.js';
+import { loadAdminScopes } from '@/lib/rbac.js';
 import { verifyOrderNumber } from './kyc.cnom.js';
 
 /** Rôles soignants soumis à vérification KYC. */
 export const CAREGIVER_ROLES = ['MEDECIN', 'PHARMACIE', 'LABORATOIRE'] as const;
+
+/**
+ * Vérifie que les octets d'en-tête (magic bytes) du fichier correspondent au
+ * type MIME déclaré par le client. Empêche qu'un contenu actif (ex. HTML) soit
+ * stocké sous un MIME d'image et servi ensuite — le MIME déclaratif ne suffit pas.
+ */
+function contentMatchesMime(b: Buffer, mimeType: string): boolean {
+  switch (mimeType) {
+    case 'image/jpeg':
+      return b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
+    case 'image/png':
+      return (
+        b.length >= 8 &&
+        b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 &&
+        b[4] === 0x0d && b[5] === 0x0a && b[6] === 0x1a && b[7] === 0x0a
+      );
+    case 'image/webp':
+      return b.length >= 12 && b.toString('ascii', 0, 4) === 'RIFF' && b.toString('ascii', 8, 12) === 'WEBP';
+    case 'application/pdf':
+      return b.length >= 5 && b.toString('ascii', 0, 5) === '%PDF-';
+    default:
+      return false;
+  }
+}
 
 /** Statuts d'un dossier encore éditable par le professionnel. */
 const OPEN_STATUSES: Prisma.KycSubmissionWhereInput['status'] = { in: ['NOT_SUBMITTED', 'NEEDS_REVISION'] };
@@ -31,11 +57,15 @@ export async function getOrCreateSubmission(app: FastifyInstance, userId: string
   });
 }
 
-/** Ajoute une pièce justificative au dossier ouvert du professionnel. */
+/**
+ * Ajoute une pièce justificative au dossier ouvert du professionnel.
+ * Le contenu (base64) est chiffré AES-256-GCM sur le disque du VPS (filestore) ;
+ * `fileUrl` stocke l'identifiant opaque de stockage — jamais une URL publique (§4).
+ */
 export async function addDocument(
   app: FastifyInstance,
   userId: string,
-  input: { type: KycDocumentType; fileUrl: string },
+  input: { type: KycDocumentType; mimeType: string; fileName?: string; dataBase64: string; maxBytes: number },
 ) {
   const submission = await app.prisma.kycSubmission.findFirst({
     where: { userId, status: OPEN_STATUSES },
@@ -43,9 +73,53 @@ export async function addDocument(
   });
   if (!submission) throw badRequest('Aucun dossier KYC ouvert. Créez d’abord un dossier.');
 
+  let content: Buffer;
+  try {
+    content = Buffer.from(input.dataBase64, 'base64');
+  } catch {
+    throw badRequest('Contenu de fichier illisible (base64 attendu)');
+  }
+  if (content.length === 0) throw badRequest('Fichier vide');
+  if (content.length > input.maxBytes) throw badRequest('Fichier trop volumineux (5 Mo maximum)');
+  if (!contentMatchesMime(content, input.mimeType)) {
+    throw badRequest('Le contenu du fichier ne correspond pas au type déclaré.');
+  }
+
+  const storageId = await storeEncryptedFile(content);
   return app.prisma.kycDocument.create({
-    data: { submissionId: submission.id, type: input.type, fileUrl: input.fileUrl },
+    data: {
+      submissionId: submission.id,
+      type: input.type,
+      fileUrl: storageId,
+      mimeType: input.mimeType,
+      fileName: input.fileName,
+    },
+    select: { id: true, type: true, mimeType: true, fileName: true, verified: true, createdAt: true },
   });
+}
+
+/**
+ * Lit une pièce (déchiffrée) — autorisé au PROPRIÉTAIRE du dossier ou à un
+ * admin porteur du scope `kyc:review`. Tout autre appelant → 403 (§4).
+ */
+export async function readDocumentFile(app: FastifyInstance, request: FastifyRequest, documentId: string) {
+  const doc = await app.prisma.kycDocument.findUnique({
+    where: { id: documentId },
+    select: { fileUrl: true, mimeType: true, fileName: true, submission: { select: { userId: true } } },
+  });
+  if (!doc) throw notFound('Pièce introuvable');
+
+  const isOwner = doc.submission.userId === request.user.sub;
+  if (!isOwner) {
+    if (request.user.role !== 'ADMIN') throw forbidden('Accès refusé');
+    const { scopes, suspended } = await loadAdminScopes(request);
+    if (suspended || !scopes.includes('kyc:review')) throw forbidden('Accès refusé');
+  }
+
+  const content = await readEncryptedFile(doc.fileUrl).catch(() => {
+    throw notFound('Fichier indisponible');
+  });
+  return { content, mimeType: doc.mimeType ?? 'application/octet-stream', fileName: doc.fileName };
 }
 
 /** Finalise la soumission : passe le dossier en revue (UNDER_REVIEW). */

@@ -34,7 +34,7 @@ const profiles = [
     tagline: 'Espace Patient — vert « santé »',
     features: [
       'Compte : inscription et connexion par téléphone + OTP (verrouillage 30 min après 5 échecs) ; le profil Patient et le portefeuille sont créés automatiquement à l’inscription.',
-      'Profil & paramètres : nom, langues parlées, langue de l’application (FR, EN, Fɔ̀ngbè, Baatɔnum, Dendi), déconnexion.',
+      'Profil & paramètres : nom, langues parlées, langue de l’application (FR, EN, Fɔ̀ngbè, Yorùbá), déconnexion.',
       'Dossier Médical Personnel (DMP) : consultation du dossier chiffré au repos (AES-256) ; export FHIR en libre-service (portabilité).',
       'Partage consenti par soignant : génération d’un QR / lien avec date d’expiration ; liste des accès accordés, révocation persistante et ré-autorisation.',
       'Médecins & rendez-vous : annuaire vérifié (spécialité, langues, tarif) ; prise de rendez-vous présentiel ou téléconsultation.',
@@ -93,7 +93,7 @@ const profiles = [
       'Compte diaspora ; portefeuille créé automatiquement à l’inscription.',
       'Portefeuille : solde, recharge € → FCFA (taux fixe), historique des mouvements.',
       'Paiement à distance pour la famille au Bénin (Mobile Money et cartes internationales via FedaPay).',
-      'Gestion de la famille ; profil & déconnexion.',
+      'Carnet de bénéficiaires (proches au Bénin) : ajout, édition, suppression ; profil & déconnexion.',
     ],
   },
   {
@@ -113,7 +113,7 @@ const profiles = [
 
 const transverse = [
   'Conformité RGPD / APDP (Loi béninoise n°2017-20) : consentement nominatif par soignant, audit immuable chaîné, chiffrement AES-256 au repos et TLS en transit, cloisonnement de l’administration.',
-  'Offline-first : Progressive Web App, service worker, file de synchronisation des actions ; multilingue (FR, EN, Fɔ̀ngbè, Baatɔnum, Dendi).',
+  'Offline-first : Progressive Web App, service worker, file de synchronisation des actions ; multilingue (FR, EN, Fɔ̀ngbè, Yorùbá).',
   'Temps réel : messagerie par WebSocket avec heartbeat et fan-out inter-workers via Redis.',
   'Intégrations prêtes (activées par les clés des fournisseurs) : Twilio (SMS / OTP), Daily.co (téléconsultation), FedaPay (Mobile Money & cartes), Firebase (notifications push), Resend (e-mails).',
 ];

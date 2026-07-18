@@ -1,13 +1,13 @@
 // ─────────────────────────────────────────────────────────────
 // DigiSanté Mobile — schéma Prisma complet
-// 26 modèles + 28 enums (cf. DocTech §5) + 1 table d'audit immuable (§4).
+// 47 modèles + 32 enums (cf. DocTech §5), dont la table d'audit immuable (§4).
 // Cible : PostgreSQL 16 natif (dev local docker, prod VPS Infomaniak).
 //
 // Décisions (arbitrées) :
-//   - Lang  : FR · EN · FON · BARIBA · DENDI            (source : DocTech)
+//   - Lang  : FR · EN · FON · YOR                       (source : DocTech)
 //   - Role  : PATIENT · MEDECIN · PHARMACIE · LABORATOIRE · DIASPORA · ADMIN (FR)
-//   - AuditLog (§4) ajouté en plus des 26 modèles : trail immuable append-only,
-//     hash SHA-256 chaîné (triggers anti UPDATE/DELETE posés dans la migration).
+//   - AuditLog (§4) : trail immuable append-only, hash SHA-256 chaîné
+//     (triggers anti UPDATE/DELETE/TRUNCATE posés dans les migrations).
 //
 // Conformité APDP (§4) : champs santé chiffrés (encryptedData/encryptedUrl),
 // accès DMP par partage consenti (shareToken/shareExpiry), audit immuable.
@@ -32,6 +32,7 @@ enum Role {
   PHARMACIE
   LABORATOIRE
   DIASPORA
+  ASC
   ADMIN
 }
 
@@ -46,8 +47,7 @@ enum Lang {
   FR
   EN
   FON
-  BARIBA
-  DENDI
+  YOR
 }
 
 enum AppointmentType {
@@ -269,6 +269,7 @@ model User {
   patient        Patient?
   pharmacy       Pharmacy?
   lab            Lab?
+  communityWorker CommunityHealthWorker?
   wallet         Wallet?
   payments       Payment[]
   notifications  Notification[]
@@ -280,6 +281,7 @@ model User {
   beneficiaries    Beneficiary[]
   adminProfile     AdminProfile?   @relation("AdminProfileUser")
   supportNotes     SupportNote[]   @relation("SupportNoteUser")
+  healthCampaigns  HealthCampaign[] @relation("HealthCampaignAuthor")
 
   @@index([role])
   @@index([status])
@@ -303,6 +305,37 @@ model AdminProfile {
   user User @relation("AdminProfileUser", fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("admin_profiles")
+}
+
+// Diffusion / veille sanitaire (admin) — CLAUDE.md §1 (back-office).
+// Une campagne rédigée en plusieurs langues (source de vérité FR), ciblée par
+// rôle et/ou langue, puis DIFFUSÉE une fois : fan-out de Notification PENDING par
+// destinataire dans SA langue (§4 SMS/notif toujours dans la langue). NON médical
+// (message de santé publique) — jamais de contenu DMP. `translations` = JSON
+// { FR:{title,body}, EN:{...}, FON?:{...}, YOR?:{...} } (repli FR à la diffusion).
+model HealthCampaign {
+  id            String         @id @default(cuid())
+  category      String // ContentCategory (PREVENTION, VACCINATION, EMERGENCY…)
+  translations  Json // { <Lang>: { title, body } } — FR obligatoire (source)
+  audienceRole  Role? // null = tous les rôles
+  audienceLang  Lang? // null = toutes les langues
+  channel       NotificationChannel @default(IN_APP)
+  status        CampaignStatus @default(DRAFT)
+  audienceCount Int            @default(0)
+  createdById   String
+  sentAt        DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  createdBy User @relation("HealthCampaignAuthor", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("health_campaigns")
+}
+
+enum CampaignStatus {
+  DRAFT
+  SENT
 }
 
 // Note interne de support sur un compte (back-office). `authorId` = admin auteur.
@@ -393,6 +426,8 @@ model Patient {
   medicationIntakes  MedicationIntake[]
   medicationReminders MedicationReminder[]
   reviews            DoctorReview[]
+  vaccinationSubjects VaccinationSubject[]
+  pregnancies         Pregnancy[]
 
   @@map("patients")
 }
@@ -457,8 +492,9 @@ model MedicalRecord {
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 
-  patient   Patient    @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  documents Document[]
+  patient        Patient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  documents      Document[]
+  consentRecords ConsentRecord[]
 
   @@index([patientId])
   @@index([type])
@@ -612,7 +648,9 @@ model KycDocument {
   id           String          @id @default(cuid())
   submissionId String
   type         KycDocumentType
-  fileUrl      String
+  fileUrl      String // identifiant de stockage chiffré (lib/filestore) — PAS une URL publique (§4)
+  mimeType     String?
+  fileName     String?
   verified     Boolean         @default(false)
   verifiedAt   DateTime?
   createdAt    DateTime        @default(now())
@@ -719,6 +757,7 @@ model Pharmacy {
 
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   dispensations Dispensation[]
+  stocks        PharmacyStock[]
 
   @@map("pharmacies")
 }
@@ -937,13 +976,58 @@ model Consent {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
-  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  grantee User    @relation("ConsentGrantee", fields: [granteeId], references: [id], onDelete: Cascade)
+  patient Patient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  grantee User            @relation("ConsentGrantee", fields: [granteeId], references: [id], onDelete: Cascade)
+  records ConsentRecord[]
 
   @@unique([patientId, granteeId])
   @@index([patientId])
   @@index([granteeId])
   @@map("consents")
+}
+
+// Portée PAR-ENTRÉE d'un consentement (§4 minimisation) : lie un Consent aux
+// SEULES entrées de DMP effectivement partagées avec le soignant. Un soignant ne
+// lit donc que ces entrées, pas tout le dossier. Ajouté à la réclamation du token.
+model ConsentRecord {
+  id        String   @id @default(cuid())
+  consentId String
+  recordId  String
+  createdAt DateTime @default(now())
+
+  consent Consent       @relation(fields: [consentId], references: [id], onDelete: Cascade)
+  record  MedicalRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+
+  @@unique([consentId, recordId])
+  @@index([recordId])
+  @@map("consent_records")
+}
+
+enum IntegrationProvider {
+  FEDAPAY
+  TWILIO
+  DAILY
+  FIREBASE
+  RESEND
+}
+
+// Configuration d'une intégration tierce gérée depuis l'admin (super admin, §3.6).
+// Les secrets sont CHIFFRÉS au repos (`secretsEnc`, AES-256-GCM) — JAMAIS en clair,
+// jamais renvoyés au client (affichage masqué). `.env` reste le fallback tant
+// qu'aucune ligne n'existe pour le provider. Les secrets d'INFRA n'y figurent JAMAIS.
+model IntegrationConfig {
+  id          String              @id @default(cuid())
+  provider    IntegrationProvider @unique
+  enabled     Boolean             @default(true)
+  secretsEnc  String // blob chiffré d'un JSON { clé: valeur } — opaque, jamais exposé
+  meta        Json? // non-secret : webhookUrl, fromNumber, domain… (affichable)
+  lastTestAt  DateTime?
+  lastTestOk  Boolean?
+  updatedById String? // admin auteur de la dernière écriture (audit)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@map("integration_configs")
 }
 
 // (+5) MedicationIntake — journal d'observance : une prise déclarée par le patient
@@ -1022,4 +1106,169 @@ model Beneficiary {
 
   @@index([ownerId])
   @@map("beneficiaries")
+}
+
+// (+9) Vaccination PEV — carnet de vaccination du patient ET de ses proches
+// (enfants). Le calendrier PEV Bénin (`@digisante/shared` PEV_SCHEDULE) génère
+// les échéances à partir de la date de naissance. Rappels multilingues (§4) via
+// le générateur cron (Notification PENDING), idempotents par jour (lastNotifiedOn).
+// Cloisonnement §4 : chaque patient ne voit que SES sujets ; l'admin n'accède
+// qu'à des agrégats anonymisés (couverture vaccinale), jamais au nominatif.
+enum VaccinationStatus {
+  SCHEDULED
+  DONE
+}
+
+model VaccinationSubject {
+  id        String   @id @default(cuid())
+  patientId String
+  name      String
+  birthDate DateTime
+  isSelf    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  patient      Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  vaccinations Vaccination[]
+
+  @@index([patientId])
+  @@map("vaccination_subjects")
+}
+
+model Vaccination {
+  id             String            @id @default(cuid())
+  subjectId      String
+  vaccineCode    String // code du calendrier PEV (BCG, PENTA1, VAR1…)
+  doseLabel      String // ex. « 1 », « 0 », « rappel »
+  dueDate        DateTime
+  administeredAt DateTime?
+  status         VaccinationStatus @default(SCHEDULED)
+  lastNotifiedOn DateTime? // idempotence des rappels (au jour)
+  createdAt      DateTime          @default(now())
+
+  subject VaccinationSubject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@index([subjectId])
+  @@index([status, dueDate])
+  @@map("vaccinations")
+}
+
+// (+10) Santé maternelle — suivi de grossesse + consultations prénatales (CPN).
+// À partir de la date des dernières règles (LMP), on calcule le terme (LMP+280 j)
+// et on génère le calendrier CPN (8 contacts OMS 2016). Rappels multilingues (§4)
+// via le générateur cron (Notification PENDING), idempotents par jour. Une seule
+// grossesse ACTIVE (endedAt null) à la fois par patiente. Cloisonnement §4.
+// ⚠️ Calendrier CPN à faire valider par un professionnel de santé.
+model Pregnancy {
+  id        String    @id @default(cuid())
+  patientId String
+  lmpDate   DateTime // date des dernières règles
+  dueDate   DateTime // terme prévu (LMP + 280 j)
+  endedAt   DateTime? // grossesse close (accouchement / fin de suivi)
+  createdAt DateTime  @default(now())
+
+  patient Patient          @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  visits  AntenatalVisit[]
+
+  @@index([patientId])
+  @@map("pregnancies")
+}
+
+model AntenatalVisit {
+  id             String    @id @default(cuid())
+  pregnancyId    String
+  contactNumber  Int // n° du contact CPN (1..8)
+  dueDate        DateTime
+  doneAt         DateTime?
+  lastNotifiedOn DateTime? // idempotence des rappels (au jour)
+  createdAt      DateTime  @default(now())
+
+  pregnancy Pregnancy @relation(fields: [pregnancyId], references: [id], onDelete: Cascade)
+
+  @@index([pregnancyId])
+  @@index([doneAt, dueDate])
+  @@map("antenatal_visits")
+}
+
+// (+11) Disponibilité des médicaments en pharmacie — « médicament près de moi ».
+// Chaque pharmacie déclare les médicaments qu'elle a en stock (statut + prix
+// indicatif) ; le patient cherche un médicament et voit les pharmacies qui l'ont,
+// triées par distance (si géolocalisation). Évite les trajets inutiles en zone
+// reculée. NON médical (inventaire) — pas de DMP, §4 : une pharmacie ne gère QUE
+// son propre stock ; la recherche patient est publique (statut, adresse, tél).
+enum StockStatus {
+  IN_STOCK
+  LOW
+  OUT
+}
+
+model PharmacyStock {
+  id             String      @id @default(cuid())
+  pharmacyId     String
+  medicationName String // normalisé (minuscules, sans accents) pour la recherche
+  displayName    String // libellé affiché
+  status         StockStatus @default(IN_STOCK)
+  price          Int? // prix indicatif en XOF (optionnel)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  pharmacy Pharmacy @relation(fields: [pharmacyId], references: [id], onDelete: Cascade)
+
+  @@unique([pharmacyId, medicationName])
+  @@index([medicationName, status])
+  @@map("pharmacy_stocks")
+}
+
+// (+12) Agent de Santé Communautaire (ASC / relais). Profil de rôle + carnet de
+// terrain. Modèle A « relais aveugle » (docs/PLAN_ASC.md) : l'ASC gère SON roster
+// (habitants qu'il suit) et un journal d'observations OPÉRATIONNEL (constantes,
+// triage) — ce N'EST PAS un DMP patient (§4). Cloisonnement strict par `ascId` :
+// un ASC ne voit/modifie QUE ses bénéficiaires. Le signalement partage la fiche
+// avec un médecin choisi (Notification), jamais un accès DMP.
+model CommunityHealthWorker {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  zone      String // zone / village de rattachement
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  beneficiaries AscBeneficiary[]
+
+  @@map("community_health_workers")
+}
+
+model AscBeneficiary {
+  id        String    @id @default(cuid())
+  ascId     String
+  name      String
+  phone     String?
+  village   String?
+  birthDate DateTime?
+  notes     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  asc          CommunityHealthWorker @relation(fields: [ascId], references: [id], onDelete: Cascade)
+  observations AscObservation[]
+
+  @@index([ascId])
+  @@map("asc_beneficiaries")
+}
+
+model AscObservation {
+  id            String   @id @default(cuid())
+  beneficiaryId String
+  systolic      Int?
+  diastolic     Int?
+  pulse         Int?
+  temperature   Float?
+  weight        Float?
+  triageOutcome String? // EMERGENCY / CONSULT / HOME (résultat du triage embarqué)
+  note          String?
+  createdAt     DateTime @default(now())
+
+  beneficiary AscBeneficiary @relation(fields: [beneficiaryId], references: [id], onDelete: Cascade)
+
+  @@index([beneficiaryId])
+  @@map("asc_observations")
 }

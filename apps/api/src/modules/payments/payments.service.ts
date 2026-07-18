@@ -8,8 +8,8 @@ import { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
 import { writeAudit } from '@/lib/audit.js';
-import { isFedapayConfigured } from '@/lib/env.js';
-import { badRequest, notFound, unauthorized } from '@/lib/errors.js';
+import { badRequest, forbidden, notFound, unauthorized } from '@/lib/errors.js';
+import { resolveConfiguredSecrets } from '@/lib/integrations.js';
 import * as wallet from '@/modules/wallet/wallet.service.js';
 import {
   computeCommission,
@@ -100,20 +100,53 @@ export async function refund(
 interface InitiateInput {
   type: PaymentType;
   method: PaymentMethod;
-  amount: number;
+  amount?: number;
   appointmentId?: string;
 }
 
-/** Initie un paiement : crée la transaction FedaPay + l'enregistrement local. */
+/**
+ * Initie un paiement : crée la transaction FedaPay + l'enregistrement local.
+ * ⚠️ §5 — le webhook/HMAC/idempotence/crédit wallet sont inchangés. Durcissement :
+ *  - une CONSULTATION DOIT référencer un RDV du patient ; le montant est le tarif
+ *    du médecin (autoritatif serveur), jamais une valeur choisie par le client ;
+ *  - `appointmentId` est refusé pour les autres types (non applicable) ;
+ *  - le RDV doit appartenir à l'appelant et ne pas déjà porter de paiement.
+ */
 export async function initiate(app: FastifyInstance, userId: string, input: InitiateInput) {
-  if (input.amount <= 0) throw badRequest('Montant invalide');
-  const { commission, net } = computeCommission(input.amount);
+  let amount = input.amount;
 
+  if (input.type === 'CONSULTATION') {
+    if (!input.appointmentId) throw badRequest('Un rendez-vous (appointmentId) est requis pour payer une consultation');
+    const appt = await app.prisma.appointment.findUnique({
+      where: { id: input.appointmentId },
+      select: {
+        patient: { select: { userId: true } },
+        doctor: { select: { consultFee: true } },
+        payment: { select: { id: true } },
+      },
+    });
+    if (!appt) throw notFound('Rendez-vous introuvable');
+    // IDOR : on ne peut payer QUE son propre rendez-vous.
+    if (appt.patient.userId !== userId) throw forbidden('Ce rendez-vous ne vous appartient pas');
+    // Anti double-paiement (aussi garanti par l'unicité de Payment.appointmentId).
+    if (appt.payment) throw badRequest('Ce rendez-vous a déjà un paiement associé');
+    // Montant AUTORITATIF serveur : tarif du médecin, la valeur client est ignorée.
+    amount = appt.doctor.consultFee.toNumber();
+  } else if (input.appointmentId) {
+    throw badRequest('appointmentId non applicable à ce type de paiement');
+  }
+
+  if (amount == null || amount <= 0) throw badRequest('Montant invalide');
+  const { commission, net } = computeCommission(amount);
+
+  // §5/Lot E : clé secrète résolue (base chiffrée → `.env`). Absente ⇒ stub (inchangé).
+  const cfg = await resolveConfiguredSecrets(app, 'FEDAPAY');
   const tx = await createTransaction({
-    amount: input.amount,
+    amount,
     method: input.method,
-    description: `${input.type} (${input.amount} XOF)`,
+    description: `${input.type} (${amount} XOF)`,
     log: app.log,
+    secretKey: cfg?.secretKey ?? null,
   });
 
   const payment = await app.prisma.payment.create({
@@ -122,7 +155,7 @@ export async function initiate(app: FastifyInstance, userId: string, input: Init
       appointmentId: input.appointmentId,
       type: input.type,
       method: input.method,
-      amount: new Prisma.Decimal(input.amount),
+      amount: new Prisma.Decimal(amount),
       currency: 'XOF',
       status: 'PENDING',
       fedapayId: tx.fedapayId,
@@ -183,7 +216,9 @@ export async function reconcile(app: FastifyInstance) {
     select: { id: true, userId: true, type: true, status: true, fedapayId: true, amount: true },
   });
 
-  if (!isFedapayConfigured) {
+  // §5/Lot E : clé secrète résolue (base chiffrée → `.env`). Absente ⇒ balayage seul.
+  const cfg = await resolveConfiguredSecrets(app, 'FEDAPAY');
+  if (!cfg) {
     app.log.info({ job: 'reconcile', scanned: pendings.length }, 'réconciliation FedaPay (balayage — non configuré)');
     return { scanned: pendings.length, resolved: 0 };
   }
@@ -191,7 +226,7 @@ export async function reconcile(app: FastifyInstance) {
   let resolved = 0;
   for (const payment of pendings) {
     if (!payment.fedapayId) continue;
-    const raw = await getTransactionStatus(payment.fedapayId, app.log);
+    const raw = await getTransactionStatus(payment.fedapayId, app.log, cfg.secretKey);
     if (!raw) continue;
     const status = mapFedapayStatus(raw);
     if (!status || status === 'PROCESSING') continue; // on ne résout que les statuts terminaux

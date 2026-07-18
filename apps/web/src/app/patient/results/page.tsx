@@ -7,6 +7,7 @@ import { useLocale } from '@/i18n/LocaleProvider';
 import { get } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
 import { speak, speechSupported } from '@/lib/speech';
+import { formatDate } from '@/i18n/format';
 
 interface LabOrder {
   id: string;
@@ -44,9 +45,9 @@ export default function ResultsPage() {
           <CardPagne key={o.id} className="p-4">
             <div className="flex items-center justify-between">
               <p className="font-display font-extrabold text-[0.875rem] text-stone-800">{o.testType}</p>
-              <Badge variant={o.status === 'COMPLETED' ? 'normal' : 'eleve'}>{o.status}</Badge>
+              <Badge variant={o.status === 'COMPLETED' ? 'normal' : 'eleve'}>{t(`labo.status.${o.status}`)}</Badge>
             </div>
-            <p className="text-[0.75rem] text-stone-400">{new Date(o.createdAt).toLocaleDateString('fr-FR', { dateStyle: 'medium' })}</p>
+            <p className="text-[0.75rem] text-stone-400">{formatDate(o.createdAt, { dateStyle: 'medium' })}</p>
 
             {o.result && (
               <div className="mt-3 space-y-1">

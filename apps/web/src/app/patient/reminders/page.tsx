@@ -8,6 +8,7 @@ import { Empty, ErrorState, SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get, post } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
+import { formatDateTime } from '@/i18n/format';
 
 interface Reminder {
   id: string;
@@ -47,7 +48,7 @@ export default function RemindersPage() {
             <p className="text-[0.8125rem] text-stone-500">{r.body}</p>
             {r.scheduledAt && (
               <p className="text-[0.75rem] text-ocre-600 mt-1">
-                <span aria-hidden="true">⏰</span> {new Date(r.scheduledAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+                <span aria-hidden="true">⏰</span> {formatDateTime(r.scheduledAt, { dateStyle: 'short', timeStyle: 'short' })}
               </p>
             )}
             <div className="flex gap-2 mt-3">

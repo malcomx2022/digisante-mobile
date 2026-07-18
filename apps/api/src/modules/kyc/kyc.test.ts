@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 const PHONES = ['+2290195000001', '+2290195000002', '+2290195000003'];
+const PNG_B64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='; // PNG 1×1
 
 describe.skipIf(!HAS_INFRA)('KYC (intégration)', () => {
   let app: FastifyInstance;
@@ -72,7 +73,7 @@ describe.skipIf(!HAS_INFRA)('KYC (intégration)', () => {
       method: 'POST',
       url: '/api/v1/kyc/documents',
       headers: auth(caregiverToken),
-      payload: { type: 'MEDICAL_DEGREE', fileUrl: 'https://files.example.bj/diplome.pdf' },
+      payload: { type: 'MEDICAL_DEGREE', mimeType: 'image/png', fileName: 'diplome.png', dataBase64: PNG_B64 },
     });
     expect(doc.statusCode).toBe(201);
 
@@ -114,8 +115,8 @@ describe.skipIf(!HAS_INFRA)('KYC (intégration)', () => {
   it('revue enrichie : détail des pièces + aperçu CNOM + coche de vérification', async () => {
     // Nouveau dossier (le précédent est APPROVED) avec deux pièces, puis soumission.
     await app.inject({ method: 'POST', url: '/api/v1/kyc', headers: auth(caregiverToken) });
-    await app.inject({ method: 'POST', url: '/api/v1/kyc/documents', headers: auth(caregiverToken), payload: { type: 'NATIONAL_ID', fileUrl: 'https://files.example.bj/cni.pdf' } });
-    await app.inject({ method: 'POST', url: '/api/v1/kyc/documents', headers: auth(caregiverToken), payload: { type: 'ORDER_LICENSE', fileUrl: 'https://files.example.bj/ordre.pdf' } });
+    await app.inject({ method: 'POST', url: '/api/v1/kyc/documents', headers: auth(caregiverToken), payload: { type: 'NATIONAL_ID', mimeType: 'image/png', fileName: 'cni.png', dataBase64: PNG_B64 } });
+    await app.inject({ method: 'POST', url: '/api/v1/kyc/documents', headers: auth(caregiverToken), payload: { type: 'ORDER_LICENSE', mimeType: 'image/png', fileName: 'ordre.png', dataBase64: PNG_B64 } });
     const submit = await app.inject({ method: 'POST', url: '/api/v1/kyc/submit', headers: auth(caregiverToken) });
     const submissionId = submit.json().id as string;
 
@@ -154,5 +155,34 @@ describe.skipIf(!HAS_INFRA)('KYC (intégration)', () => {
     // Audit : KYC_REVISION (renvoi) + KYC_SUBMIT (soumission) bien journalisés.
     expect(await app.prisma.auditLog.count({ where: { action: 'KYC_REVISION' } })).toBeGreaterThanOrEqual(1);
     expect(await app.prisma.auditLog.count({ where: { action: 'KYC_SUBMIT' } })).toBeGreaterThanOrEqual(1);
+  });
+
+  it('pièces : upload chiffré + lecture contrôlée (propriétaire/admin oui, tiers non)', async () => {
+    // Le dossier courant est en NEEDS_REVISION (test précédent) → encore éditable.
+    const up = await app.inject({
+      method: 'POST',
+      url: '/api/v1/kyc/documents',
+      headers: auth(caregiverToken),
+      payload: { type: 'PROFESSIONAL_PHOTO', mimeType: 'image/png', fileName: 'photo.png', dataBase64: PNG_B64 },
+    });
+    expect(up.statusCode).toBe(201);
+    const docId = up.json().id as string;
+    // La réponse n'expose PAS l'identifiant de stockage interne.
+    expect(up.json().fileUrl).toBeUndefined();
+
+    // Propriétaire : lecture OK, contenu déchiffré identique à l'original.
+    const mine = await app.inject({ method: 'GET', url: `/api/v1/kyc/documents/${docId}/file`, headers: auth(caregiverToken) });
+    expect(mine.statusCode).toBe(200);
+    expect(mine.headers['content-type']).toContain('image/png');
+    expect(mine.headers['cache-control']).toBe('no-store');
+    expect(Buffer.from(mine.rawPayload).equals(Buffer.from(PNG_B64, 'base64'))).toBe(true);
+
+    // Tiers (patient) : refusé (§4).
+    const denied = await app.inject({ method: 'GET', url: `/api/v1/kyc/documents/${docId}/file`, headers: auth(patientToken) });
+    expect(denied.statusCode).toBe(403);
+
+    // Admin kyc:review : lecture OK (revue des pièces).
+    const adminRead = await app.inject({ method: 'GET', url: `/api/v1/kyc/documents/${docId}/file`, headers: auth(adminToken) });
+    expect(adminRead.statusCode).toBe(200);
   });
 });

@@ -4,10 +4,11 @@ import { useState } from 'react';
 
 import { PatientHeader } from '@/components/patient/PatientHeader';
 import { Button, CardPagne, Nkyinkyim } from '@/components/ui';
-import { Empty, ErrorState, Loading } from '@/components/ui/States';
+import { Empty, ErrorState , SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { dmpApi, type DmpRecord, type VitalReading } from '@/lib/api/dmp';
 import { useApi } from '@/lib/api/useApi';
+import { formatDate, formatDateTime } from '@/i18n/format';
 
 // Auto-mesures (constantes) — le patient enregistre tension, pouls, glycémie,
 // poids dans son DMP (chiffré au repos). Suivi chronologique pour les maladies
@@ -81,7 +82,7 @@ export default function VitalsPage() {
         value={value}
         onChange={(e) => set(e.target.value)}
         placeholder={ph}
-        className="mt-1 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.875rem] focus:outline-none focus:border-sante-600"
+        className="mt-1 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base pagne-focus focus:outline-none focus:border-sante-600"
       />
     </label>
   );
@@ -112,11 +113,11 @@ export default function VitalsPage() {
           <CardPagne stitch className="p-4">
             <p className="text-[0.75rem] text-stone-500 font-display font-bold uppercase tracking-wide">{t('vitals.latest')}</p>
             <p className="font-display font-extrabold text-[1.125rem] text-sante-700 mt-1">{summarize(latest.v, t)}</p>
-            <p className="text-[0.75rem] text-stone-400">{new Date(latest.when).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}</p>
+            <p className="text-[0.75rem] text-stone-400">{formatDateTime(latest.when, { dateStyle: 'medium', timeStyle: 'short' })}</p>
           </CardPagne>
         )}
 
-        {loading && <Loading label={t('common.loading')} />}
+        {loading && <SkeletonCards count={3} columns={false} label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && readings.length === 0 && <Empty label={t('vitals.empty')} />}
 
@@ -129,7 +130,7 @@ export default function VitalsPage() {
               {readings.slice(1).map((r) => (
                 <div key={r.id} className="flex items-center justify-between border-b border-dashed border-stone-200 pb-1.5">
                   <span className="text-[0.8125rem] text-stone-700 font-bold">{summarize(r.v, t)}</span>
-                  <span className="text-[0.6875rem] text-stone-400">{new Date(r.when).toLocaleDateString('fr-FR', { dateStyle: 'short' })}</span>
+                  <span className="text-[0.6875rem] text-stone-400">{formatDate(r.when, { dateStyle: 'short' })}</span>
                 </div>
               ))}
             </div>

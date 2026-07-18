@@ -12,7 +12,7 @@ import { beneficiariesApi, type Beneficiary } from '@/lib/api/beneficiaries';
 import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
 
-// Dérivé de l'enum Lang partagé (cohérence FR/EN/FON/BARIBA/DENDI) — code + endonyme affiché.
+// Dérivé de l'enum Lang partagé (cohérence FR/EN/FON/YOR) — code + endonyme affiché.
 const LANGS = LANGUAGE_LIST.map((l) => ({ code: l.code, label: l.nativeName }));
 const EMPTY = { name: '', relationship: '', phone: '', languagesSpoken: [] as string[], notes: '' };
 
@@ -86,7 +86,7 @@ export default function BeneficiariesPage() {
     }
   }
 
-  const inputCls = 'w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.875rem] focus:outline-none focus:border-ocre-500';
+  const inputCls = 'w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base pagne-focus focus:outline-none focus:border-ocre-500';
 
   return (
     <>

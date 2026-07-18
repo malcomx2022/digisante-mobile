@@ -23,7 +23,7 @@ async function deliver(
   let delivered = false;
   switch (n.channel) {
     case 'PUSH_FCM': {
-      const push = await sendPush({ token: n.recipient.fcmToken, title: content.title, body: content.body, log: app.log });
+      const push = await sendPush({ app, token: n.recipient.fcmToken, title: content.title, body: content.body });
       delivered = push.delivered;
       // Token périmé / appareil désinstallé : on le purge pour ne plus réessayer.
       if (push.invalidToken) {
@@ -33,10 +33,10 @@ async function deliver(
       break;
     }
     case 'SMS_TWILIO':
-      ({ delivered } = await sendSms({ to: n.recipient.phone, body: `${content.title} — ${content.body}`, lang: n.recipient.lang, log: app.log }));
+      ({ delivered } = await sendSms({ app, to: n.recipient.phone, body: `${content.title} — ${content.body}`, lang: n.recipient.lang }));
       break;
     case 'EMAIL':
-      ({ delivered } = await sendEmail({ to: n.recipient.email, subject: content.title, body: content.body, log: app.log }));
+      ({ delivered } = await sendEmail({ app, to: n.recipient.email, subject: content.title, body: content.body }));
       break;
     case 'IN_APP':
     default:

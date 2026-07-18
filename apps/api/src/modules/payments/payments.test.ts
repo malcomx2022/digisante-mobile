@@ -7,14 +7,17 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type * as PaymentsService from './payments.service.js';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
-const PHONES = ['+2290190000001', '+2290190000002'];
+const PHONES = ['+2290190000001', '+2290190000002', '+2290190000003'];
 const WHSEC = 'whsec_test_p41';
 
 describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
   let app: FastifyInstance;
   let patientToken: string;
   let doctorToken: string;
-  let patientId: string;
+  let patientUserId: string;
+  let patientRecordId: string;
+  let otherPatientRecordId: string;
+  let doctorRecordId: string;
   let payments: typeof PaymentsService;
 
   const auth = (t: string) => ({ authorization: `Bearer ${t}` });
@@ -22,7 +25,24 @@ describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
   const cleanup = async () => {
     await app.prisma.payment.deleteMany({ where: { user: { phone: { in: PHONES } } } });
     await app.prisma.user.deleteMany({ where: { phone: { in: PHONES } } });
+    // §5/Lot E : aucune config FedaPay en base → le webhook résout le secret depuis
+    // le `.env` (WHSEC). Garantit le fallback quel que soit l'ordre des fichiers.
+    await app.prisma.integrationConfig.deleteMany({ where: { provider: 'FEDAPAY' } });
+    await app.redis.del('integration:FEDAPAY');
   };
+
+  // Crée un RDV CONFIRMÉ (patient → médecin), non payé. Tarif médecin = 5000 XOF.
+  const makeAppt = (patientId: string = patientRecordId) =>
+    app.prisma.appointment.create({
+      data: {
+        patientId,
+        doctorId: doctorRecordId,
+        type: 'TELECONSULTATION',
+        status: 'CONFIRMED',
+        scheduledAt: new Date(Date.now() + 86_400_000),
+      },
+      select: { id: true },
+    });
 
   beforeAll(async () => {
     // Le secret webhook doit être présent AVANT le chargement de l'env.
@@ -33,9 +53,13 @@ describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
     await app.ready();
     await cleanup();
 
-    const patient = await app.prisma.user.create({ data: { phone: PHONES[0], role: 'PATIENT', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'P', lastName: 'D' } }, patient: { create: {} } } });
-    const doctor = await app.prisma.user.create({ data: { phone: PHONES[1], role: 'MEDECIN', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Dr', lastName: 'X' } }, doctor: { create: { speciality: 'G', licenseNumber: 'BJ-MED-3001', consultFee: 5000 } } } });
-    patientId = patient.id;
+    const patient = await app.prisma.user.create({ data: { phone: PHONES[0], role: 'PATIENT', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'P', lastName: 'D' } }, patient: { create: {} } }, include: { patient: true } });
+    const doctor = await app.prisma.user.create({ data: { phone: PHONES[1], role: 'MEDECIN', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Dr', lastName: 'X' } }, doctor: { create: { speciality: 'G', licenseNumber: 'BJ-MED-3001', consultFee: 5000 } } }, include: { doctor: true } });
+    const other = await app.prisma.user.create({ data: { phone: PHONES[2], role: 'PATIENT', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'O', lastName: 'T' } }, patient: { create: {} } }, include: { patient: true } });
+    patientUserId = patient.id;
+    patientRecordId = patient.patient!.id;
+    doctorRecordId = doctor.doctor!.id;
+    otherPatientRecordId = other.patient!.id;
     patientToken = app.jwt.sign({ sub: patient.id, role: 'PATIENT' }, { expiresIn: '15m' });
     doctorToken = app.jwt.sign({ sub: doctor.id, role: 'MEDECIN' }, { expiresIn: '15m' });
   });
@@ -45,6 +69,9 @@ describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
     await cleanup();
     await app.close();
   });
+
+  const initConsult = (token: string, appointmentId: string, extra: Record<string, unknown> = {}) =>
+    app.inject({ method: 'POST', url: '/api/v1/payments', headers: auth(token), payload: { type: 'CONSULTATION', method: 'MTN_MOMO', appointmentId, ...extra } });
 
   const webhook = (fedapayId: string, status = 'approved') => {
     const body = JSON.stringify({ fedapayId, status });
@@ -56,10 +83,13 @@ describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
     });
   };
 
-  it('initiation + webhook signé → COMPLETED (commission 3 %)', async () => {
-    const init = await app.inject({ method: 'POST', url: '/api/v1/payments', headers: auth(patientToken), payload: { type: 'CONSULTATION', method: 'MTN_MOMO', amount: 5000 } });
+  it('CONSULTATION : montant imposé serveur (tarif médecin), webhook signé → COMPLETED (commission 3 %)', async () => {
+    const appt = await makeAppt();
+    // Le client tente un montant dérisoire : il DOIT être ignoré (tarif = 5000).
+    const init = await initConsult(patientToken, appt.id, { amount: 1 });
     expect(init.statusCode).toBe(201);
-    expect(init.json().commission).toBe(150);
+    expect(Number(init.json().payment.amount)).toBe(5000); // tarif médecin, pas le montant client
+    expect(init.json().commission).toBe(150); // 3 % de 5000
     const fedapayId = init.json().payment.fedapayId as string;
 
     // Signature invalide → 401.
@@ -85,6 +115,27 @@ describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
     expect(after2).toBe(after); // pas de double confirmation
   });
 
+  it('CONSULTATION sans appointmentId → 400', async () => {
+    const res = await app.inject({ method: 'POST', url: '/api/v1/payments', headers: auth(patientToken), payload: { type: 'CONSULTATION', method: 'MTN_MOMO', amount: 5000 } });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('CONSULTATION sur le RDV d’autrui (IDOR) → 403, aucun paiement créé', async () => {
+    const foreign = await makeAppt(otherPatientRecordId);
+    const res = await initConsult(patientToken, foreign.id);
+    expect(res.statusCode).toBe(403);
+    const p = await app.prisma.payment.findFirst({ where: { appointmentId: foreign.id } });
+    expect(p).toBeNull();
+  });
+
+  it('CONSULTATION : double-paiement du même RDV → 400', async () => {
+    const appt = await makeAppt();
+    const first = await initConsult(patientToken, appt.id);
+    expect(first.statusCode).toBe(201);
+    const second = await initConsult(patientToken, appt.id);
+    expect(second.statusCode).toBe(400);
+  });
+
   it('wallet : recharge € → FCFA créditée au webhook, puis débit', async () => {
     const topup = await app.inject({ method: 'POST', url: '/api/v1/wallet/topup', headers: auth(patientToken), payload: { amountEur: 10, method: 'VISA_MC' } });
     expect(topup.statusCode).toBe(200);
@@ -102,13 +153,14 @@ describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
   });
 
   it('remboursement (reversal interne) : COMPLETED → REFUNDED, idempotent + audit', async () => {
-    const init = await app.inject({ method: 'POST', url: '/api/v1/payments', headers: auth(patientToken), payload: { type: 'CONSULTATION', method: 'MTN_MOMO', amount: 3000 } });
+    const appt = await makeAppt();
+    const init = await initConsult(patientToken, appt.id);
     const fedapayId = init.json().payment.fedapayId as string;
     await webhook(fedapayId); // → COMPLETED
     const payment = await app.prisma.payment.findUniqueOrThrow({ where: { fedapayId }, select: { id: true } });
 
     const before = await app.prisma.auditLog.count({ where: { action: 'PAYMENT_REFUND' } });
-    const r1 = await payments.refund(app, payment.id, { actorId: patientId, reason: 'test_admin' });
+    const r1 = await payments.refund(app, payment.id, { actorId: patientUserId, reason: 'test_admin' });
     expect('refunded' in r1 && r1.refunded).toBe(true);
     const refunded = await app.prisma.payment.findUniqueOrThrow({ where: { id: payment.id }, select: { status: true } });
     expect(refunded.status).toBe('REFUNDED');
@@ -116,7 +168,7 @@ describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
     expect(after).toBe(before + 1);
 
     // Idempotence : un second remboursement ne retraite pas et n'audite pas.
-    const r2 = await payments.refund(app, payment.id, { actorId: patientId });
+    const r2 = await payments.refund(app, payment.id, { actorId: patientUserId });
     expect('idempotent' in r2 && r2.idempotent).toBe(true);
     expect(await app.prisma.auditLog.count({ where: { action: 'PAYMENT_REFUND' } })).toBe(after);
   });
@@ -131,7 +183,7 @@ describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
     const balBefore = Number(w1.json().balance);
 
     const payment = await app.prisma.payment.findUniqueOrThrow({ where: { fedapayId }, select: { id: true } });
-    await payments.refund(app, payment.id, { actorId: patientId, reason: 'topup_error' });
+    await payments.refund(app, payment.id, { actorId: patientUserId, reason: 'topup_error' });
 
     const w2 = await app.inject({ method: 'GET', url: '/api/v1/wallet', headers: auth(patientToken) });
     expect(Number(w2.json().balance)).toBe(balBefore - amountXof);
@@ -142,5 +194,43 @@ describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
     const sub = await app.inject({ method: 'POST', url: '/api/v1/subscriptions', headers: auth(doctorToken), payload: { plan: 'PRO' } });
     expect(sub.statusCode).toBe(200);
     expect(sub.json().subscriptionPlan).toBe('PRO');
+  });
+
+  // ⚠️ §5/Lot E — re-test webhooks : quand FedaPay est configuré via l'ADMIN (base),
+  // le webhook vérifie le HMAC avec le secret EN BASE (la base prime sur le `.env`).
+  // Placé en dernier + nettoyage en `finally` → restaure le fallback `.env` (WHSEC).
+  it('Lot E : le webhook FedaPay utilise le secret webhook configuré en base (admin)', async () => {
+    const integrations = await import('@/lib/integrations.js');
+    const DBSEC = 'whsec_db_lotE';
+    try {
+      await integrations.setIntegration(app, 'FEDAPAY', { secrets: { webhookSecret: DBSEC } });
+      const pay = await app.prisma.payment.create({
+        data: { userId: patientUserId, type: 'CONSULTATION', method: 'MTN_MOMO', amount: 5000, currency: 'XOF', status: 'PENDING', fedapayId: 'fdp_lotE_db' },
+        select: { id: true },
+      });
+      const body = JSON.stringify({ fedapayId: 'fdp_lotE_db', status: 'approved' });
+
+      // Signé avec l'ANCIEN secret `.env` (WHSEC) → rejeté : la base prime.
+      const wrong = await app.inject({
+        method: 'POST', url: '/api/v1/payments/webhook',
+        headers: { 'content-type': 'application/json', 'x-fedapay-signature': createHmac('sha256', WHSEC).update(body).digest('hex') },
+        payload: body,
+      });
+      expect(wrong.statusCode).toBe(401);
+
+      // Signé avec le secret EN BASE → accepté + confirmé (idempotence/logique inchangées).
+      const ok = await app.inject({
+        method: 'POST', url: '/api/v1/payments/webhook',
+        headers: { 'content-type': 'application/json', 'x-fedapay-signature': createHmac('sha256', DBSEC).update(body).digest('hex') },
+        payload: body,
+      });
+      expect(ok.statusCode).toBe(200);
+      expect(ok.json().processed).toBe(true);
+      const p = await app.prisma.payment.findUniqueOrThrow({ where: { id: pay.id }, select: { status: true } });
+      expect(p.status).toBe('COMPLETED');
+    } finally {
+      await app.prisma.integrationConfig.deleteMany({ where: { provider: 'FEDAPAY' } });
+      await app.redis.del('integration:FEDAPAY');
+    }
   });
 });

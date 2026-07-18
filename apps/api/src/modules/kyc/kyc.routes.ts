@@ -12,9 +12,16 @@ import { zParse } from '@/lib/validation.js';
 import { CAREGIVER_ROLES } from './kyc.service.js';
 import * as kyc from './kyc.service.js';
 
+// Upload RÉEL d'une pièce (P1) : contenu en base64, chiffré AES-256-GCM sur le
+// disque du VPS (lib/filestore, §4). ≤ 5 Mo, formats image/PDF uniquement.
+const KYC_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'] as const;
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const documentSchema = z.object({
   type: z.enum(KYC_DOCUMENT_TYPES),
-  fileUrl: z.string().url(),
+  mimeType: z.enum(KYC_MIME_TYPES),
+  fileName: z.string().trim().max(120).optional(),
+  // 5 Mo binaires ≈ 6,9 Mo en base64.
+  dataBase64: z.string().min(1).max(Math.ceil((MAX_FILE_BYTES * 4) / 3) + 4),
 });
 
 const reviewSchema = z.object({
@@ -39,10 +46,25 @@ export default async function kycRoutes(app: FastifyInstance) {
     return reply.code(201).send(submission);
   });
 
-  app.post('/documents', caregiver, async (request, reply) => {
+  // bodyLimit relevé : 5 Mo binaires + surcoût base64 + enveloppe JSON.
+  app.post('/documents', { ...caregiver, bodyLimit: 8 * 1024 * 1024 }, async (request, reply) => {
     const input = zParse(documentSchema, request.body);
-    const doc = await kyc.addDocument(app, request.user.sub, input);
+    const doc = await kyc.addDocument(app, request.user.sub, { ...input, maxBytes: MAX_FILE_BYTES });
     return reply.code(201).send(doc);
+  });
+
+  // Lecture d'une pièce (déchiffrée à la volée) : PROPRIÉTAIRE du dossier ou
+  // admin `kyc:review`. Jamais de cache ni d'URL publique (§4).
+  app.get('/documents/:id/file', { preHandler: [app.authenticate] }, async (request, reply) => {
+    const { id } = zParse(idParams, request.params);
+    const { content, mimeType, fileName } = await kyc.readDocumentFile(app, request, id);
+    reply.header('Cache-Control', 'no-store');
+    // Les PDF sont servis en `attachment` (téléchargement) plutôt qu'`inline` :
+    // un PDF peut embarquer du contenu actif — on évite tout rendu dans l'onglet.
+    const disposition = mimeType === 'application/pdf' ? 'attachment' : 'inline';
+    const safeName = (fileName ?? 'document').replace(/[^\w.\- ]/g, '_');
+    reply.header('Content-Disposition', `${disposition}; filename="${safeName}"`);
+    return reply.type(mimeType).send(content);
   });
 
   app.post('/submit', caregiver, async (request) => {

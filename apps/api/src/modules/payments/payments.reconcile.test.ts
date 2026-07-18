@@ -15,6 +15,9 @@ describe.skipIf(!HAS_INFRA)('Réconciliation FedaPay (intégration)', () => {
   const cleanup = async () => {
     await app.prisma.payment.deleteMany({ where: { user: { phone: PHONE } } });
     await app.prisma.user.deleteMany({ where: { phone: PHONE } });
+    // §5/Lot E : pas de config FedaPay en base → balayage seul (résolu 0).
+    await app.prisma.integrationConfig.deleteMany({ where: { provider: 'FEDAPAY' } });
+    await app.redis.del('integration:FEDAPAY');
   };
 
   beforeAll(async () => {

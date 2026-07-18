@@ -14,7 +14,7 @@ import { useLocale } from '@/i18n/LocaleProvider';
 import { cn } from '@/lib/cn';
 
 // Rôles ouverts à l'auto-inscription (ADMIN exclu — seed uniquement, CLAUDE.md §4).
-const SELF_REGISTER_ROLES: Role[] = ['PATIENT', 'MEDECIN', 'PHARMACIE', 'LABORATOIRE', 'DIASPORA'];
+const SELF_REGISTER_ROLES: Role[] = ['PATIENT', 'MEDECIN', 'PHARMACIE', 'LABORATOIRE', 'DIASPORA', 'ASC'];
 
 // D-02 — Connexion / inscription par téléphone + OTP (multi-rôles).
 export default function LoginPage() {
@@ -36,6 +36,8 @@ export default function LoginPage() {
   // Champs pharmacie / laboratoire
   const [establishmentName, setEstablishmentName] = useState('');
   const [address, setAddress] = useState('');
+  // Champ agent de santé communautaire
+  const [zone, setZone] = useState('');
 
   const [code, setCode] = useState('');
   const [hint, setHint] = useState<string | null>(null);
@@ -44,6 +46,7 @@ export default function LoginPage() {
 
   const isDoctor = role === 'MEDECIN';
   const isEstablishment = role === 'PHARMACIE' || role === 'LABORATOIRE';
+  const isAsc = role === 'ASC';
 
   /** Construit le corps d'inscription selon le rôle sélectionné. */
   function buildBody(): RegisterBody {
@@ -59,6 +62,7 @@ export default function LoginPage() {
       body.establishmentName = establishmentName.trim();
       if (address.trim()) body.address = address.trim();
     }
+    if (isAsc) body.zone = zone.trim();
     return body;
   }
 
@@ -68,6 +72,7 @@ export default function LoginPage() {
     if (!firstName.trim() || !lastName.trim()) return t('auth.err_name_required');
     if (isDoctor && (!speciality.trim() || !licenseNumber.trim())) return t('auth.err_doctor_required');
     if (isEstablishment && !establishmentName.trim()) return t('auth.err_establishment_required');
+    if (isAsc && !zone.trim()) return t('auth.err_zone_required');
     return null;
   }
 
@@ -112,7 +117,7 @@ export default function LoginPage() {
     }
   }
 
-  const inputCls = 'w-full bg-white card-pagne border border-stone-300 px-4 py-3 font-body text-[0.9375rem] focus:outline-none focus:border-sante-600';
+  const inputCls = 'w-full bg-white card-pagne border border-stone-300 px-4 py-3 font-body text-base pagne-focus focus:outline-none focus:border-sante-600';
 
   return (
     <div className="min-h-dvh-screen wax-light flex flex-col lg:items-center lg:justify-center">
@@ -141,7 +146,7 @@ export default function LoginPage() {
                             type="button"
                             onClick={() => setRole(r)}
                             className={cn(
-                              'card-pagne px-3 py-1.5 text-[0.75rem] font-display font-bold',
+                              'card-pagne pagne-focus px-3 py-1.5 text-[0.75rem] font-display font-bold',
                               r === role ? 'bg-sante-600 text-white' : 'bg-creme-deep text-stone-600',
                             )}
                           >
@@ -172,6 +177,11 @@ export default function LoginPage() {
                         <input className={inputCls} placeholder={t('auth.establishment_name')} aria-label={t('auth.establishment_name')} value={establishmentName} onChange={(e) => setEstablishmentName(e.target.value)} />
                         <input className={inputCls} placeholder={t('auth.address_optional')} aria-label={t('auth.address_optional')} value={address} onChange={(e) => setAddress(e.target.value)} />
                       </>
+                    )}
+
+                    {/* Champ agent de santé communautaire */}
+                    {isAsc && (
+                      <input className={inputCls} placeholder={t('auth.zone')} aria-label={t('auth.zone')} value={zone} onChange={(e) => setZone(e.target.value)} />
                     )}
                   </>
                 )}

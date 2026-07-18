@@ -21,7 +21,7 @@
 Lis CLAUDE.md, docs/INDEX_Documentation_DigiSante.docx puis README.md.
 Fais un état des lieux du monorepo actuel (apps/web, apps/api, packages, infra) :
 ce qui est en place vs ce qui manque pour atteindre un projet complet
-(112 endpoints / 20 modules, 26 modèles Prisma, 26 écrans, 5 langues, offline-first).
+(153 endpoints REST + 1 WebSocket / 28 modules, 46 modèles Prisma, 62 pages, 4 langues, offline-first).
 Ne code rien encore. Propose-moi un PLAN DE CONSTRUCTION par lots, avec l'ordre
 des dépendances (données → API → intégrations → frontend → tests). Liste les
 risques et les points à clarifier.
@@ -30,7 +30,7 @@ risques et les points à clarifier.
 ### P0.2 — Package partagé (types, enums, i18n)
 ```
 En respectant CLAUDE.md, complète packages/shared : définis en TypeScript tous les
-enums métier (rôles, langues FR/FON/YO/BAATONUM/DENDI, statuts RDV/paiement/KYC…)
+enums métier (rôles, langues FR/EN/FON/YOR, statuts RDV/paiement/KYC…)
 et les schémas zod partagés entre web et api. Prépare aussi la structure des clés
 i18n (namespaces : onboarding, dmp, sos, payments, labo, education…).
 Aucune chaîne d'UI en dur ailleurs que dans les fichiers de traduction.
@@ -44,14 +44,14 @@ Vérifie le typecheck. Commit : "feat(shared): enums, schémas zod et clés i18n
 ### P1.1 — Schéma Prisma complet
 ```
 Lis docs/technique/DocTech_DigiSante_Mobile_v2.docx et docs/ui/Specs_UI_DigiSante_v2.docx.
-Conçois le schéma Prisma complet dans apps/api/prisma/schema.prisma : les 26 modèles
+Conçois le schéma Prisma complet dans apps/api/prisma/schema.prisma : les 36 modèles
 et 28 enums du domaine (User, Patient, Professional, Consultation, Appointment, DMP,
 Prescription, Pharmacy, Laboratory, Payment, Wallet, DiasporaLink, Reminder,
 Notification, EducationArticle, Translation, KycDossier, AuditLog, Subscription, etc.),
 avec relations, index et contraintes.
 Contraintes : PostgreSQL 16 natif ; l'AuditLog est APPEND-ONLY (hash SHA-256 chaîné).
 Supprime les modèles d'exemple du squelette. Génère la 1re migration.
-Commit : "feat(db): schéma Prisma complet (26 modèles)".
+Commit : "feat(db): schéma Prisma complet (36 modèles)".
 ```
 
 ### P1.2 — Trigger d'immuabilité de l'audit + seed
@@ -154,7 +154,7 @@ Tests des deux flux. Commit : "feat(api): pharmacie, laboratoire".
 Implémente les modules education, translations et admin.
 - éducation : articles avec workflow Brouillon → Relecture médicale → Traductions →
   Publié, validation par professionnel vérifié, publication par langue, audio,
-- translations : gestion des clés i18n des 5 langues, double validation des clés
+- translations : gestion des clés i18n des 4 langues, double validation des clés
   critiques (sos.*, labo.*, payments.*),
 - admin : métriques (utilisateurs, consultations, volume FedaPay, uptime), file KYC,
   gestion utilisateurs (sans accès au contenu DMP), consultation de l'audit trail.
@@ -205,12 +205,12 @@ Crée les composants de base (Button, CardPagne, Badge, StatusBar, BottomNav, Ke
 fidèles aux prototypes docs/ui/prototypes/. Commit : "feat(web): design system Wax & Terre".
 ```
 
-### P5.2 — i18n 5 langues + sélecteur
+### P5.2 — i18n 4 langues + sélecteur
 ```
-Mets en place l'internationalisation (5 langues) dans apps/web à partir des clés de
+Mets en place l'internationalisation (4 langues) dans apps/web à partir des clés de
 packages/shared : provider i18n, sélecteur de langue présent sur chaque écran,
 salutations natives, support des contenus audio (Fɔ̀ngbè). 
-Aucune chaîne en dur. Commit : "feat(web): i18n 5 langues".
+Aucune chaîne en dur. Commit : "feat(web): i18n 4 langues".
 ```
 
 ### P5.3 — PWA & offline-first

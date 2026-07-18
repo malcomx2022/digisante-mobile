@@ -4,11 +4,12 @@ import { useState } from 'react';
 
 import { PatientHeader } from '@/components/patient/PatientHeader';
 import { Badge, Button, CardPagne, ConfirmDialog, Nkyinkyim } from '@/components/ui';
-import { Empty, ErrorState, Loading } from '@/components/ui/States';
+import { Empty, ErrorState , SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { insuranceApi, type Coverage, type InsuranceProvider } from '@/lib/api/insurance';
 import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
+import { formatDate } from '@/i18n/format';
 
 const STATUS_VARIANT: Record<string, 'normal' | 'eleve' | 'pro'> = {
   ACTIVE: 'normal',
@@ -79,7 +80,7 @@ export default function InsurancePage() {
       <PatientHeader title={t('insurance.title')} subtitle={t('insurance.subtitle')} />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto lg:w-full">
         {/* Mes couvertures */}
-        {loading && <Loading label={t('common.loading')} />}
+        {loading && <SkeletonCards label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && (coverages?.length ?? 0) === 0 && <Empty label={t('insurance.none')} />}
         {err && <p className="text-terre-600 font-bold text-[0.8125rem]">{err}</p>}
@@ -98,7 +99,7 @@ export default function InsurancePage() {
                   )}
                   {c.expiresAt && (
                     <p className="text-[0.75rem] text-ocre-600 mt-1">
-                      {t('insurance.expires', { date: new Date(c.expiresAt).toLocaleDateString('fr-FR') })}
+                      {t('insurance.expires', { date: formatDate(c.expiresAt) })}
                     </p>
                   )}
                 </div>
@@ -143,7 +144,7 @@ export default function InsurancePage() {
             onChange={(e) => setMemberNumber(e.target.value)}
             placeholder={t('insurance.member_number')}
             aria-label={t('insurance.member_number')}
-            className="mt-3 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.875rem] focus:outline-none focus:border-sante-600"
+            className="mt-3 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base pagne-focus focus:outline-none focus:border-sante-600"
           />
           <label className="block text-[0.75rem] text-stone-500 mt-2">{t('insurance.expires_at')}</label>
           <input
@@ -151,7 +152,7 @@ export default function InsurancePage() {
             value={expiresAt}
             onChange={(e) => setExpiresAt(e.target.value)}
             aria-label={t('insurance.expires_at')}
-            className="mt-1 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.875rem] focus:outline-none focus:border-sante-600"
+            className="mt-1 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base pagne-focus focus:outline-none focus:border-sante-600"
           />
 
           {err && <p className="text-terre-600 text-[0.8125rem] mt-2">{err}</p>}

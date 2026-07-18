@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 
 import { DEFAULT_LANG, type Lang } from '@digisante/shared';
 
+import { setFormatLang } from './format';
 import { messages } from './messages';
 
 const STORAGE_KEY = 'digisante.lang';
@@ -31,6 +32,10 @@ export function LocaleProvider({ children, initialLang = DEFAULT_LANG }: { child
     const stored = window.localStorage.getItem(STORAGE_KEY) as Lang | null;
     if (stored && messages[stored]) setLangState(stored);
   }, []);
+
+  // Synchronise les helpers de format (dates/nombres localisés) AVANT le rendu
+  // des enfants — les composants re-rendent via le contexte au changement.
+  setFormatLang(lang);
 
   const setLang = useCallback((next: Lang) => {
     setLangState(next);

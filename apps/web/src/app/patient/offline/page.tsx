@@ -32,7 +32,7 @@ export default function OfflinePage() {
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto lg:w-full">
         <div className="bg-ocre-400 trame-tissee text-stone-900 card-pagne px-4 py-2 text-center text-[0.8125rem] font-display font-bold">
           {online ? (
-            <><span aria-hidden="true">🟢</span> En ligne</>
+            <><span aria-hidden="true">🟢</span> {t('offline.online')}</>
           ) : (
             <><span aria-hidden="true">🟠</span> {t('offline.banner')}</>
           )}

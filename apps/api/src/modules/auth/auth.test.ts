@@ -11,7 +11,8 @@ const PHONE_DOC = '+2290196000778';
 const PHONE_DOC_KO = '+2290196000779';
 const PHONE_ADMIN = '+2290196000780';
 const PHONE_LOGOUT = '+2290196000781';
-const ALL_PHONES = [PHONE, PHONE_DOC, PHONE_DOC_KO, PHONE_ADMIN, PHONE_LOGOUT];
+const PHONE_SUSPEND = '+2290196000782';
+const ALL_PHONES = [PHONE, PHONE_DOC, PHONE_DOC_KO, PHONE_ADMIN, PHONE_LOGOUT, PHONE_SUSPEND];
 const otpKeysFor = (p: string) => [`otp:${p}`, `otp:attempts:${p}`, `otp:lock:${p}`];
 const otpKeys = otpKeysFor(PHONE);
 const allOtpKeys = ALL_PHONES.flatMap(otpKeysFor);
@@ -54,7 +55,10 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
     const body = verify.json();
     expect(body.user.status).toBe('ACTIVE');
     expect(body.accessToken).toBeTruthy();
-    expect(body.refreshToken).toBeTruthy();
+    // Le refresh N'EST PLUS dans le corps : il est posé en cookie HttpOnly (C6).
+    expect(body.refreshToken).toBeUndefined();
+    const rt = verify.cookies.find((c) => c.name === 'digisante_rt');
+    expect(rt?.value).toBeTruthy();
 
     const me = await app.inject({
       method: 'GET',
@@ -67,10 +71,11 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
     const refreshed = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/refresh',
-      payload: { refreshToken: body.refreshToken },
+      cookies: { digisante_rt: rt!.value },
     });
     expect(refreshed.statusCode).toBe(200);
     expect(refreshed.json().accessToken).toBeTruthy();
+    expect(refreshed.json().user.phone).toBe(PHONE); // reprise de session en un appel
 
     // L'enregistrement de rôle DOIT exister (bug racine corrigé) :
     // un PATIENT a un Patient + un Wallet.
@@ -158,23 +163,66 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
       payload: { phone: PHONE_LOGOUT, code: devCode },
     });
     expect(verify.statusCode).toBe(200);
-    const { accessToken, refreshToken } = verify.json();
+    const accessToken = verify.json().accessToken as string;
+    const rtValue = verify.cookies.find((c) => c.name === 'digisante_rt')!.value;
 
     const logout = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/logout',
       headers: { authorization: `Bearer ${accessToken}` },
-      payload: { refreshToken },
+      cookies: { digisante_rt: rtValue },
     });
     expect(logout.statusCode).toBe(204);
+    // Le cookie de refresh est effacé (Max-Age=0).
+    expect(logout.cookies.find((c) => c.name === 'digisante_rt')?.value).toBe('');
 
-    // Le refresh révoqué ne doit plus fonctionner.
+    // Le refresh révoqué ne doit plus fonctionner (même en présentant l'ancien cookie).
     const refreshed = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/refresh',
-      payload: { refreshToken },
+      cookies: { digisante_rt: rtValue },
     });
     expect(refreshed.statusCode).toBe(401);
+  });
+
+  it('compte suspendu : refresh ET reconnexion OTP refusés (401)', async () => {
+    // Inscription + activation.
+    const reg = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/register',
+      payload: { phone: PHONE_SUSPEND, role: 'PATIENT', lang: 'FR', firstName: 'Sus', lastName: 'Pendu' },
+    });
+    expect(reg.statusCode).toBe(201);
+    const verify = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/otp/verify',
+      payload: { phone: PHONE_SUSPEND, code: reg.json().otp.devCode },
+    });
+    expect(verify.statusCode).toBe(200);
+    const user = verify.json().user;
+    const rtValue = verify.cookies.find((c) => c.name === 'digisante_rt')!.value;
+
+    // L'admin suspend le compte.
+    await app.prisma.user.update({ where: { id: user.id }, data: { status: 'SUSPENDED' } });
+
+    // Le refresh ne doit plus délivrer de jetons (sinon session 30 j).
+    const refreshed = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/refresh',
+      cookies: { digisante_rt: rtValue },
+    });
+    expect(refreshed.statusCode).toBe(401);
+
+    // La reconnexion par OTP doit aussi échouer même avec un code valide.
+    const req = await app.inject({ method: 'POST', url: '/api/v1/auth/otp/request', payload: { phone: PHONE_SUSPEND } });
+    expect(req.statusCode).toBe(200);
+    const reVerify = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/otp/verify',
+      payload: { phone: PHONE_SUSPEND, code: req.json().devCode },
+    });
+    expect(reVerify.statusCode).toBe(401);
+    await app.redis.del(...otpKeysFor(PHONE_SUSPEND));
   });
 
   it('rejette /me sans token (401)', async () => {

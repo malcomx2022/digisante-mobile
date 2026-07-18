@@ -19,6 +19,9 @@ export const ADMIN_SCOPES = [
   'audit:read',
   'audit:export',
   'education:write',
+  'campaigns:write', // diffusion / veille sanitaire (broadcast ciblé aux utilisateurs)
+  'integrations:read', // vue MASQUÉE des intégrations tierces (§3.6)
+  'integrations:write', // saisie/rotation des clés d'API + webhooks — SUPER_ADMIN
 ] as const;
 export type AdminScope = (typeof ADMIN_SCOPES)[number];
 
@@ -29,7 +32,7 @@ export const ADMIN_PRESETS = {
   FINANCE: ['finance:read', 'webhooks:read', 'audit:read'],
   SUPPORT: ['support:write', 'users:read', 'otp:write'],
   MODERATION: ['kyc:review', 'users:write', 'audit:read'],
-  CONTENT: ['education:write'],
+  CONTENT: ['education:write', 'campaigns:write'],
 } satisfies Record<string, readonly AdminScope[]>;
 export type AdminPreset = keyof typeof ADMIN_PRESETS;
 export const ADMIN_PRESET_NAMES = Object.keys(ADMIN_PRESETS) as AdminPreset[];

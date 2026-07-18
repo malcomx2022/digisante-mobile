@@ -7,6 +7,8 @@
 import type { FastifyInstance } from 'fastify';
 import fp from 'fastify-plugin';
 
+import { sanitizeLogUrl } from '@/lib/log-sanitize.js';
+
 const SLOW_REQUEST_MS = 1000;
 
 export default fp(async (app: FastifyInstance) => {
@@ -17,7 +19,7 @@ export default fp(async (app: FastifyInstance) => {
   app.addHook('onResponse', async (request, reply) => {
     if (reply.elapsedTime > SLOW_REQUEST_MS) {
       request.log.warn(
-        { reqId: request.id, method: request.method, url: request.url, ms: Math.round(reply.elapsedTime) },
+        { reqId: request.id, method: request.method, url: sanitizeLogUrl(request.url), ms: Math.round(reply.elapsedTime) },
         'requête lente',
       );
     }

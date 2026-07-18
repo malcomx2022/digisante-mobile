@@ -12,11 +12,6 @@ export interface AuthUser {
   lang: Lang;
 }
 
-export interface AuthTokens {
-  accessToken: string;
-  refreshToken: string;
-}
-
 export interface OtpInfo {
   channel: string;
   expiresInSec: number;
@@ -46,6 +41,8 @@ export interface RegisterBody {
   // Pharmacie / Laboratoire
   establishmentName?: string;
   address?: string;
+  // Agent de santé communautaire
+  zone?: string;
 }
 
 export const authApi = {
@@ -53,12 +50,14 @@ export const authApi = {
     api.post<{ user: AuthUser; otp: OtpInfo }>('/auth/register', body).then(online),
   requestOtp: (body: { phone: string; channel?: 'SMS' | 'VOICE' }) =>
     api.post<OtpInfo>('/auth/otp/request', body).then(online),
+  // Le refresh token n'est plus dans le corps : il est posé en cookie HttpOnly (C6).
   verifyOtp: (body: { phone: string; code: string }) =>
-    api.post<{ user: AuthUser } & AuthTokens>('/auth/otp/verify', body).then(online),
-  refresh: (body: { refreshToken: string }) => api.post<AuthTokens>('/auth/refresh', body).then(online),
+    api.post<{ user: AuthUser; accessToken: string }>('/auth/otp/verify', body).then(online),
+  // Rotation via le cookie HttpOnly (aucun corps) → { accessToken, user }.
+  refresh: () => api.post<{ accessToken: string; user: AuthUser }>('/auth/refresh').then(online),
   me: () => get<AuthUser & { profile?: { firstName: string; lastName: string } | null }>('/auth/me'),
-  /** Révocation côté serveur du refresh token (best-effort avant purge locale). */
-  logout: (body: { refreshToken: string }) => post<void>('/auth/logout', body),
+  /** Révocation côté serveur du refresh (cookie) — best-effort avant purge locale. */
+  logout: () => post<void>('/auth/logout'),
   /** Enregistre le token push FCM de l'appareil courant. */
   registerDevice: (body: { fcmToken: string }) => post<unknown>('/users/me/device', body),
 };

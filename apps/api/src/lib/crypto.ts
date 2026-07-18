@@ -73,3 +73,21 @@ export function openSensitiveText(record: { plain: string | null; encrypted: str
   }
   return record.plain ?? '';
 }
+
+/**
+ * Scelle un secret d'INTÉGRATION tierce (clé d'API) pour stockage en base (§3.6) :
+ * chiffré AES-256-GCM si une clé est configurée (prod : `HEALTH_ENCRYPTION_KEY`
+ * imposée hors test, §8), sinon marqueur `plain:` (dev/test sans clé — JAMAIS en
+ * prod). Le résultat est opaque et ne doit JAMAIS être renvoyé au client.
+ */
+export function sealSecret(value: unknown): string {
+  if (KEY) return encryptWithKey(KEY, value);
+  return `plain:${JSON.stringify(value)}`;
+}
+
+/** Ouvre un secret scellé par `sealSecret` (usage EN PROCESS uniquement). */
+export function openSecret(payload: string): unknown {
+  if (payload.startsWith('plain:')) return JSON.parse(payload.slice('plain:'.length));
+  if (!KEY) throw new Error('HEALTH_ENCRYPTION_KEY requise pour déchiffrer ce secret');
+  return decryptWithKey(KEY, payload);
+}

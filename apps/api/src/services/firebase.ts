@@ -2,12 +2,13 @@
 // Firebase Cloud Messaging (FCM) — notifications push, API HTTP v1.
 // Sans dépendance externe : JWT du compte de service signé via node:crypto,
 // jeton OAuth2 mis en cache, envoi via fetch. STUB si Firebase non configuré.
+// Config résolue DYNAMIQUEMENT via le resolver d'intégrations (base → `.env`, §3.6).
 // ─────────────────────────────────────────────────────────────
 import { createSign } from 'node:crypto';
 
-import type { FastifyBaseLogger } from 'fastify';
+import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 
-import { env, isFirebaseConfigured } from '@/lib/env.js';
+import { resolveConfiguredSecrets } from '@/lib/integrations.js';
 
 const OAUTH_TOKEN_URI = 'https://oauth2.googleapis.com/token';
 const FCM_SCOPE = 'https://www.googleapis.com/auth/firebase.messaging';
@@ -60,17 +61,15 @@ function base64url(input: string): string {
   return Buffer.from(input).toString('base64url');
 }
 
-// Jeton OAuth2 mis en cache (module) : ~1 h, réutilisé entre les envois.
-let cachedToken: { value: string; expiresAt: number } | null = null;
+// Jeton OAuth2 mis en cache (module) : ~1 h, réutilisé entre les envois. Clé de
+// cache = clientEmail → une rotation vers un AUTRE compte de service invalide le
+// jeton précédent (on ne réutilise pas un token émis pour une autre identité).
+let cachedToken: { key: string; value: string; expiresAt: number } | null = null;
 
 /** Obtient un access token OAuth2 pour FCM (JWT service-account signé RS256). */
-async function getAccessToken(log: FastifyBaseLogger): Promise<string | null> {
-  const clientEmail = env.FIREBASE_CLIENT_EMAIL;
-  const privateKey = env.FIREBASE_PRIVATE_KEY;
-  if (!clientEmail || !privateKey) return null;
-
+async function getAccessToken(clientEmail: string, privateKey: string, log: FastifyBaseLogger): Promise<string | null> {
   const now = Date.now();
-  if (cachedToken && cachedToken.expiresAt > now + 60_000) return cachedToken.value;
+  if (cachedToken && cachedToken.key === clientEmail && cachedToken.expiresAt > now + 60_000) return cachedToken.value;
 
   const iat = Math.floor(now / 1000);
   const header = base64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
@@ -103,7 +102,7 @@ async function getAccessToken(log: FastifyBaseLogger): Promise<string | null> {
     }
     const json = (await res.json()) as { access_token?: string; expires_in?: number };
     if (!json.access_token) return null;
-    cachedToken = { value: json.access_token, expiresAt: now + (json.expires_in ?? 3600) * 1000 };
+    cachedToken = { key: clientEmail, value: json.access_token, expiresAt: now + (json.expires_in ?? 3600) * 1000 };
     return cachedToken.value;
   } catch (err) {
     log.error({ err }, '[FCM] erreur réseau OAuth2');
@@ -117,25 +116,25 @@ async function getAccessToken(log: FastifyBaseLogger): Promise<string | null> {
  * caller de purger le token côté utilisateur.
  */
 export async function sendPush(opts: {
+  app: FastifyInstance;
   token: string | null;
   title: string;
   body: string;
-  log: FastifyBaseLogger;
   data?: Record<string, string>;
 }): Promise<{ delivered: boolean; stub: boolean; invalidToken?: boolean }> {
+  const log = opts.app.log;
   if (!opts.token) {
-    opts.log.warn('[FCM] aucun token d’appareil — push ignoré');
+    log.warn('[FCM] aucun token d’appareil — push ignoré');
     return { delivered: false, stub: true };
   }
-  if (!isFirebaseConfigured) {
-    opts.log.warn({ title: opts.title }, `[STUB FCM] push: ${opts.body}`);
+  const secrets = await resolveConfiguredSecrets(opts.app, 'FIREBASE');
+  if (!secrets) {
+    log.warn({ title: opts.title }, `[STUB FCM] push: ${opts.body}`);
     return { delivered: false, stub: true };
   }
 
-  const projectId = env.FIREBASE_PROJECT_ID;
-  if (!projectId) return { delivered: false, stub: true };
-
-  const accessToken = await getAccessToken(opts.log);
+  const projectId = secrets.projectId!;
+  const accessToken = await getAccessToken(secrets.clientEmail!, secrets.privateKey!, log);
   if (!accessToken) return { delivered: false, stub: false };
 
   try {
@@ -148,10 +147,10 @@ export async function sendPush(opts: {
 
     const json = (await res.json().catch(() => ({}))) as { error?: { status?: string } };
     const { invalidToken } = classifyFcmError(res.status, json.error?.status);
-    opts.log.warn({ status: res.status, fcm: json.error?.status }, '[FCM] envoi non abouti');
+    log.warn({ status: res.status, fcm: json.error?.status }, '[FCM] envoi non abouti');
     return { delivered: false, stub: false, invalidToken };
   } catch (err) {
-    opts.log.error({ err }, '[FCM] erreur réseau lors de l’envoi push');
+    log.error({ err }, '[FCM] erreur réseau lors de l’envoi push');
     return { delivered: false, stub: false };
   }
 }

@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────
 // Internationalisation — structure des clés et métadonnées de langues.
-// 5 langues (CLAUDE.md §1, alignées sur l'enum Lang du schéma Prisma).
+// 4 langues — FR · EN · FON · YOR (CLAUDE.md §1/§8, alignées sur l'enum Lang du schéma Prisma).
 // Règle d'or : AUCUNE chaîne d'UI en dur ailleurs que dans les fichiers
 // de traduction. Les clés suivent le format `namespace.key`.
 // ─────────────────────────────────────────────────────────────
@@ -62,8 +62,7 @@ export const LANGUAGE_META: Record<Lang, LanguageMeta> = {
   FR: { code: 'FR', name: 'Français', nativeName: 'Français', dir: 'ltr', hasAudio: false },
   EN: { code: 'EN', name: 'Anglais', nativeName: 'English', dir: 'ltr', hasAudio: false },
   FON: { code: 'FON', name: 'Fon', nativeName: 'Fɔ̀ngbè', dir: 'ltr', hasAudio: true },
-  BARIBA: { code: 'BARIBA', name: 'Bariba', nativeName: 'Baatɔnum', dir: 'ltr', hasAudio: false },
-  DENDI: { code: 'DENDI', name: 'Dendi', nativeName: 'Dɛndi', dir: 'ltr', hasAudio: false },
+  YOR: { code: 'YOR', name: 'Yoruba', nativeName: 'Yorùbá', dir: 'ltr', hasAudio: false },
 };
 
 /** Liste ordonnée des langues pour l'affichage du sélecteur. */

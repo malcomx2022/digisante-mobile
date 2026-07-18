@@ -8,6 +8,7 @@ import { useLocale } from '@/i18n/LocaleProvider';
 import { notificationsApi, type AppNotification } from '@/lib/api/notifications';
 import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
+import { formatDateTime } from '@/i18n/format';
 
 // Centre de notifications du patient (rappels, RDV, résultats, paiements…).
 export default function NotificationsPage() {
@@ -60,7 +61,7 @@ export default function NotificationsPage() {
                 </p>
                 <p className="text-[0.8125rem] text-stone-500">{n.body}</p>
                 <p className="text-[0.6875rem] text-stone-400 mt-0.5">
-                  {new Date(n.createdAt).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}
+                  {formatDateTime(n.createdAt, { dateStyle: 'short', timeStyle: 'short' })}
                 </p>
               </div>
             </button>

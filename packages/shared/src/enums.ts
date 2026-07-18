@@ -4,13 +4,13 @@
 // Déclarés en tuples `as const` pour servir directement à zod (z.enum).
 // ─────────────────────────────────────────────────────────────
 
-export const ROLES = ['PATIENT', 'MEDECIN', 'PHARMACIE', 'LABORATOIRE', 'DIASPORA', 'ADMIN'] as const;
+export const ROLES = ['PATIENT', 'MEDECIN', 'PHARMACIE', 'LABORATOIRE', 'DIASPORA', 'ASC', 'ADMIN'] as const;
 export type Role = (typeof ROLES)[number];
 
 export const USER_STATUSES = ['PENDING_VERIFICATION', 'ACTIVE', 'SUSPENDED', 'PENDING_KYC'] as const;
 export type UserStatus = (typeof USER_STATUSES)[number];
 
-export const LANGS = ['FR', 'EN', 'FON', 'BARIBA', 'DENDI'] as const;
+export const LANGS = ['FR', 'EN', 'FON', 'YOR'] as const;
 export type Lang = (typeof LANGS)[number];
 
 export const APPOINTMENT_TYPES = ['PHYSICAL', 'TELECONSULTATION'] as const;
@@ -162,5 +162,14 @@ export const AUDIT_ACTIONS = [
   'LAB_CRITICAL',
   'USER_SUSPEND',
   'USER_ACTIVATE',
+  'CAMPAIGN_SENT',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
+
+export const STOCK_STATUSES = ['IN_STOCK', 'LOW', 'OUT'] as const;
+export type StockStatus = (typeof STOCK_STATUSES)[number];
+
+// Diffusion / veille sanitaire (admin) : une campagne est rédigée (DRAFT) puis
+// diffusée une seule fois (SENT) — fan-out de Notification par destinataire.
+export const CAMPAIGN_STATUSES = ['DRAFT', 'SENT'] as const;
+export type CampaignStatus = (typeof CAMPAIGN_STATUSES)[number];

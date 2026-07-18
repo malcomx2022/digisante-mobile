@@ -163,7 +163,7 @@ export default function EmergencyCardPage() {
                 value={allergies}
                 onChange={(e) => setAllergies(e.target.value)}
                 placeholder={t('emergency.list_hint')}
-                className="mt-1 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.875rem] focus:outline-none focus:border-sante-600"
+                className="mt-1 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base pagne-focus focus:outline-none focus:border-sante-600"
               />
             </label>
 
@@ -173,7 +173,7 @@ export default function EmergencyCardPage() {
                 value={chronic}
                 onChange={(e) => setChronic(e.target.value)}
                 placeholder={t('emergency.list_hint')}
-                className="mt-1 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.875rem] focus:outline-none focus:border-sante-600"
+                className="mt-1 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base pagne-focus focus:outline-none focus:border-sante-600"
               />
             </label>
 
@@ -183,7 +183,7 @@ export default function EmergencyCardPage() {
                 value={contact}
                 onChange={(e) => setContact(e.target.value)}
                 placeholder="+229 01 96 46 67 77"
-                className="mt-1 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.875rem] focus:outline-none focus:border-sante-600"
+                className="mt-1 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base pagne-focus focus:outline-none focus:border-sante-600"
               />
             </label>
 

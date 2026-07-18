@@ -60,72 +60,81 @@ interface AssertDmpParams {
   ip?: string | null;
 }
 
+/** Portée d'accès résolue : tout le dossier (propriétaire) ou un sous-ensemble d'entrées. */
+export type DmpScope = { recordIds: 'ALL' } | { recordIds: Set<string> };
+
 /**
- * Vérifie l'accès au DMP d'un patient, journalise (DMP_ACCESS/DMP_DENIED),
- * et lève 403 si refusé. Résout la propriété et la validité du partage en base.
+ * Résout la PORTÉE d'accès au DMP d'un patient, journalise (DMP_ACCESS/DMP_DENIED)
+ * et lève 403 si refusé. Minimisation §4 :
+ *   - patient propriétaire → 'ALL' (tout son dossier) ;
+ *   - soignant → l'ensemble des SEULES entrées effectivement partagées avec lui
+ *     (pas tout le dossier). La présentation d'un token de partage valide RÉCLAME
+ *     le consentement en le SCOPANT à l'entrée partagée (via `ConsentRecord`) ;
+ *   - admin / autre patient → refus.
+ * Révocation persistante : un soignant révoqué ne peut pas re-réclamer via l'ancien token.
  */
-export async function assertDmpAccess(app: FastifyInstance, params: AssertDmpParams): Promise<void> {
+export async function resolveDmpScope(app: FastifyInstance, params: AssertDmpParams): Promise<DmpScope> {
   const { actorId, role, patientId, shareToken, ip } = params;
 
-  // L'acteur est-il le patient propriétaire ?
   let isOwner = false;
   if (role === 'PATIENT') {
-    const own = await app.prisma.patient.findUnique({
-      where: { userId: actorId },
-      select: { id: true },
-    });
+    const own = await app.prisma.patient.findUnique({ where: { userId: actorId }, select: { id: true } });
     isOwner = own?.id === patientId;
   }
+  if (isOwner) {
+    await writeAudit(app.prisma, { action: 'DMP_ACCESS', actorId, targetId: patientId, ip, meta: { reason: 'OWNER', role } });
+    return { recordIds: 'ALL' };
+  }
 
-  // Consentement par SOIGNANT (§4) : le bénéficiaire (grantee) est l'utilisateur
-  // authentifié. Un consentement actif non expiré autorise l'accès. À défaut, la
-  // présentation d'un token de partage valide RÉCLAME le consentement pour CE
-  // soignant. La révocation est persistante : un soignant révoqué ne peut pas
-  // re-réclamer via l'ancien token.
-  let hasValidShare = false;
-  if (!isOwner && role !== 'ADMIN') {
-    const now = new Date();
-    const consent = await app.prisma.consent.findUnique({
-      where: { patientId_granteeId: { patientId, granteeId: actorId } },
-      select: { expiresAt: true, revokedAt: true },
+  const deny = async (reason: DmpDecision['reason']): Promise<never> => {
+    await writeAudit(app.prisma, { action: 'DMP_DENIED', actorId, targetId: patientId, ip, meta: { reason, role } });
+    throw forbidden(DENY_MESSAGE[reason]);
+  };
+  if (role === 'ADMIN') return deny('ADMIN_FORBIDDEN');
+  if (role === 'PATIENT') return deny('NOT_OWNER');
+
+  // Soignant : consentement actif → portée = ses entrées consenties.
+  const now = new Date();
+  const consent = await app.prisma.consent.findUnique({
+    where: { patientId_granteeId: { patientId, granteeId: actorId } },
+    select: { id: true, expiresAt: true, revokedAt: true, records: { select: { recordId: true } } },
+  });
+  const active = Boolean(consent && !consent.revokedAt && consent.expiresAt > now);
+  const recordIds = new Set<string>(active ? consent!.records.map((r) => r.recordId) : []);
+
+  // Réclamation d'un token présenté → scopée à l'entrée partagée (bloquée si révoqué).
+  if (shareToken && !(consent && consent.revokedAt)) {
+    const record = await app.prisma.medicalRecord.findUnique({
+      where: { shareToken },
+      select: { id: true, patientId: true, shareExpiry: true },
     });
-
-    if (consent && !consent.revokedAt && consent.expiresAt > now) {
-      hasValidShare = true;
-    } else if (shareToken && !(consent && consent.revokedAt)) {
-      const record = await app.prisma.medicalRecord.findUnique({
-        where: { shareToken },
-        select: { patientId: true, shareExpiry: true },
+    if (record && record.patientId === patientId && record.shareExpiry && record.shareExpiry > now) {
+      const c = await app.prisma.consent.upsert({
+        where: { patientId_granteeId: { patientId, granteeId: actorId } },
+        create: { patientId, granteeId: actorId, expiresAt: record.shareExpiry, grantedVia: 'share-token' },
+        update: { expiresAt: record.shareExpiry, grantedVia: 'share-token' },
+        select: { id: true },
       });
-      if (record && record.patientId === patientId && record.shareExpiry && record.shareExpiry > now) {
-        await app.prisma.consent.upsert({
-          where: { patientId_granteeId: { patientId, granteeId: actorId } },
-          create: { patientId, granteeId: actorId, expiresAt: record.shareExpiry, grantedVia: 'share-token' },
-          update: { expiresAt: record.shareExpiry, grantedVia: 'share-token' },
-        });
-        hasValidShare = true;
-        await writeAudit(app.prisma, {
-          action: 'DMP_CONSENT_GRANT',
-          actorId,
-          targetId: patientId,
-          ip,
-          meta: { via: 'share-token' },
-        });
-      }
+      await app.prisma.consentRecord.upsert({
+        where: { consentId_recordId: { consentId: c.id, recordId: record.id } },
+        create: { consentId: c.id, recordId: record.id },
+        update: {},
+      });
+      recordIds.add(record.id);
+      await writeAudit(app.prisma, { action: 'DMP_CONSENT_GRANT', actorId, targetId: patientId, ip, meta: { via: 'share-token', recordId: record.id } });
     }
   }
 
-  const decision = decideDmpAccess({ role, isOwner, hasValidShare });
+  if (recordIds.size === 0) return deny('NO_CONSENT');
 
-  await writeAudit(app.prisma, {
-    action: decision.allowed ? 'DMP_ACCESS' : 'DMP_DENIED',
-    actorId,
-    targetId: patientId,
-    ip,
-    meta: { reason: decision.reason, role },
-  });
+  await writeAudit(app.prisma, { action: 'DMP_ACCESS', actorId, targetId: patientId, ip, meta: { reason: 'CONSENT', role, records: recordIds.size } });
+  return { recordIds };
+}
 
-  if (!decision.allowed) {
-    throw forbidden(DENY_MESSAGE[decision.reason]);
-  }
+/**
+ * Assure un accès au DMP (portée ignorée) — pour les opérations niveau patient
+ * (ex. création d'une entrée par un soignant consenti). Journalise + lève 403.
+ */
+export async function assertDmpAccess(app: FastifyInstance, params: AssertDmpParams): Promise<void> {
+  await resolveDmpScope(app, params);
 }

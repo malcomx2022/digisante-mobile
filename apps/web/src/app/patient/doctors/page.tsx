@@ -12,13 +12,14 @@ import { LANGUAGE_LIST } from '@digisante/shared';
 import { professionalsApi, type DoctorListItem } from '@/lib/api/professionals';
 import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
+import { formatNumber } from '@/i18n/format';
 
 // Liste des langues dérivée de l'enum canonique partagé (source de vérité, parité garantie).
 const LANGS = LANGUAGE_LIST.map((l) => l.code);
 
 // D-05 — Recherche de médecin (annuaire vérifié) : recherche texte + filtre langue.
 export default function DoctorsPage() {
-  const { t } = useLocale();
+  const { t, lang: myLang } = useLocale();
   const [q, setQ] = useState('');
   const [debouncedQ, setDebouncedQ] = useState('');
   const [lang, setLang] = useState<string | null>(null);
@@ -34,7 +35,12 @@ export default function DoctorsPage() {
     () => professionalsApi.list({ q: debouncedQ || undefined, lang: lang ?? undefined }),
     [debouncedQ, lang],
   );
-  const doctors: DoctorListItem[] = data?.data ?? [];
+  // Barrière linguistique : on remonte en tête les médecins qui parlent MA langue
+  // (sans masquer les autres tant qu'aucun filtre explicite n'est posé).
+  const speaksMine = (d: DoctorListItem) => Boolean(d.profile?.spokenLangs?.includes(myLang));
+  const doctors: DoctorListItem[] = [...(data?.data ?? [])].sort(
+    (a, b) => Number(speaksMine(b)) - Number(speaksMine(a)),
+  );
 
   return (
     <>
@@ -45,7 +51,7 @@ export default function DoctorsPage() {
           onChange={(e) => setQ(e.target.value)}
           placeholder={t('doctors.search')}
           aria-label={t('doctors.search')}
-          className="w-full lg:max-w-md bg-white card-pagne border-2 border-stone-900 px-4 py-3 font-body text-[0.9375rem] shadow-[4px_4px_0_rgba(33,28,22,.15)] focus:outline-none"
+          className="w-full lg:max-w-md bg-white card-pagne border-2 border-stone-900 px-4 py-3 font-body text-base shadow-[4px_4px_0_rgba(33,28,22,.15)] pagne-focus focus:outline-none focus:border-sante-600 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sante-600"
         />
 
         {/* Filtre par langue parlée (barrière linguistique) */}
@@ -53,16 +59,24 @@ export default function DoctorsPage() {
           <button
             type="button"
             onClick={() => setLang(null)}
-            className={cn('shrink-0 card-pagne px-3 py-1.5 text-[0.75rem] font-display font-bold', lang === null ? 'bg-sante-600 text-white' : 'bg-creme-deep text-stone-600')}
+            className={cn('shrink-0 card-pagne pagne-focus px-3 py-1.5 text-[0.75rem] font-display font-bold', lang === null ? 'bg-sante-600 text-white' : 'bg-creme-deep text-stone-600')}
           >
 <span aria-hidden="true">🗣</span> {t('doctors.all_langs')}
+          </button>
+          {/* Raccourci « parle ma langue » (barrière linguistique) */}
+          <button
+            type="button"
+            onClick={() => setLang(myLang === lang ? null : myLang)}
+            className={cn('shrink-0 card-pagne pagne-focus px-3 py-1.5 text-[0.75rem] font-display font-bold', myLang === lang ? 'bg-sante-600 text-white' : 'bg-creme-deep text-stone-700')}
+          >
+            <span aria-hidden="true">🗣</span> {t('doctors.my_lang')}
           </button>
           {LANGS.map((l) => (
             <button
               key={l}
               type="button"
               onClick={() => setLang(l === lang ? null : l)}
-              className={cn('shrink-0 card-pagne px-3 py-1.5 text-[0.75rem] font-display font-bold', l === lang ? 'bg-sante-600 text-white' : 'bg-creme-deep text-stone-600')}
+              className={cn('shrink-0 card-pagne pagne-focus px-3 py-1.5 text-[0.75rem] font-display font-bold', l === lang ? 'bg-sante-600 text-white' : 'bg-creme-deep text-stone-600')}
             >
               {l}
             </button>
@@ -71,7 +85,17 @@ export default function DoctorsPage() {
 
         {loading && <SkeletonCards label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
-        {!loading && !error && doctors.length === 0 && <Empty label={t('common.empty')} />}
+        {!loading && !error && doctors.length === 0 && (
+          <div className="space-y-2">
+            <Empty label={t('common.empty')} />
+            {lang && (
+              // Aucun médecin ne parle la langue filtrée : on rappelle le phrasier du chat.
+              <p className="text-[0.75rem] text-stone-600 bg-ocre-50 card-pagne px-3 py-2">
+                <span aria-hidden="true">🗣</span> {t('doctors.none_lang_hint')}
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
           {doctors.map((d) => (
@@ -86,6 +110,11 @@ export default function DoctorsPage() {
                     {d.isVerified && <Badge variant="normal"><span aria-hidden="true">✓</span> {t('doctors.verified')}</Badge>}
                   </Link>
                   <p className="text-[0.8125rem] text-stone-500">{d.speciality}</p>
+                  {speaksMine(d) && (
+                    <p className="inline-block text-[0.6875rem] font-bold text-sante-700 bg-sante-50 card-pagne px-2 py-0.5 mt-1">
+                      <span aria-hidden="true">🗣</span> {t('doctors.speaks_your_lang')}
+                    </p>
+                  )}
                   {d.profile?.spokenLangs?.length ? (
                     <p className="text-[0.75rem] text-stone-400 mt-0.5"><span aria-hidden="true">🗣</span> {d.profile.spokenLangs.join(' · ')}</p>
                   ) : null}
@@ -94,7 +123,7 @@ export default function DoctorsPage() {
                   )}
                   <div className="flex items-center justify-between mt-2">
                     <span className="font-display font-bold text-sante-700 text-[0.8125rem]">
-                      {Number(d.consultFee).toLocaleString('fr-FR')} {t('common.fcfa')}
+                      {formatNumber(d.consultFee)} {t('common.fcfa')}
                     </span>
                     <div className="flex items-center gap-2">
                       <Link

@@ -56,7 +56,7 @@ function LaboResult() {
     }
   }
 
-  const inputCls = 'bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.8125rem] focus:outline-none focus:border-ocre-500';
+  const inputCls = 'bg-white card-pagne border border-stone-300 px-3 py-2 text-base pagne-focus focus:outline-none focus:border-ocre-500';
 
   return (
     <>
@@ -70,8 +70,8 @@ function LaboResult() {
         <CardPagne className="p-4 space-y-2">
           {rows.map((r, i) => (
             <div key={i} className="grid grid-cols-2 gap-2">
-              <input className={inputCls} placeholder="Analyse (ex. glucose)" aria-label="Analyse (ex. glucose)" value={r.key} onChange={(e) => setRow(i, 'key', e.target.value)} /> {/* TODO i18n */}
-              <input className={`${inputCls} border-2 border-sos-500`} placeholder="Valeur" aria-label="Valeur" value={r.value} onChange={(e) => setRow(i, 'value', e.target.value)} /> {/* TODO i18n */}
+              <input className={inputCls} placeholder={t('labo.analysis_ph')} aria-label={t('labo.analysis_ph')} value={r.key} onChange={(e) => setRow(i, 'key', e.target.value)} />
+              <input className={`${inputCls} border-2 border-sos-500`} placeholder={t('labo.value_ph')} aria-label={t('labo.value_ph')} value={r.value} onChange={(e) => setRow(i, 'value', e.target.value)} />
             </div>
           ))}
           <button type="button" onClick={() => setRows((rs) => [...rs, { key: '', value: '' }])} className="text-[0.8125rem] text-ocre-600 underline decoration-dotted underline-offset-4">

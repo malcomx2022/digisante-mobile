@@ -9,6 +9,7 @@ import { Loading } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
+import { formatDateTime } from '@/i18n/format';
 
 interface Appointment {
   id: string;
@@ -34,11 +35,15 @@ export default function PatientDashboard() {
     .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())[0];
 
   const quick = [
+    { key: 'triage.title', href: '/patient/triage', rotate: '-rotate-1', bg: 'bg-ocre-50 text-ocre-600' },
     { key: 'patient.quick.dmp', href: '/patient/dmp', rotate: 'rotate-1', bg: 'bg-sante-50 text-sante-700' },
     { key: 'patient.quick.doctors', href: '/patient/doctors', rotate: '-rotate-1', bg: 'bg-indigo-50 text-indigo-700' },
     { key: 'appt.title', href: '/patient/appointments', rotate: 'rotate-1', bg: 'bg-indigo-50 text-indigo-700' },
     { key: 'patient.quick.prescriptions', href: '/patient/prescriptions', rotate: 'rotate-2', bg: 'bg-ocre-50 text-ocre-600' },
+    { key: 'pharma_find.title', href: '/patient/pharmacy', rotate: 'rotate-1', bg: 'bg-ocre-50 text-ocre-600' },
     { key: 'adherence.title', href: '/patient/adherence', rotate: 'rotate-1', bg: 'bg-sante-50 text-sante-700' },
+    { key: 'vaccinations.title', href: '/patient/vaccinations', rotate: 'rotate-2', bg: 'bg-sante-50 text-sante-700' },
+    { key: 'maternity.title', href: '/patient/maternity', rotate: '-rotate-1', bg: 'bg-ocre-50 text-ocre-600' },
     { key: 'reminders.title', href: '/patient/reminders', rotate: '-rotate-2', bg: 'bg-sante-50 text-sante-700' },
     { key: 'results.title', href: '/patient/results', rotate: 'rotate-1', bg: 'bg-indigo-50 text-indigo-700' },
     { key: 'insurance.title', href: '/patient/insurance', rotate: '-rotate-1', bg: 'bg-ocre-50 text-ocre-600' },
@@ -67,7 +72,7 @@ export default function PatientDashboard() {
           ) : next ? (
             <>
               <p className="text-[0.8125rem] text-stone-500">
-                {new Date(next.scheduledAt).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
+                {formatDateTime(next.scheduledAt, { dateStyle: 'medium', timeStyle: 'short' })}
                 {next.type === 'TELECONSULTATION' ? ` · ${t('booking.type_teleconsult')}` : ` · ${t('booking.type_physical')}`}
               </p>
               <Link
@@ -87,7 +92,7 @@ export default function PatientDashboard() {
             <Link
               key={q.key}
               href={q.href}
-              className={`card-pagne ${q.bg} ${q.rotate} p-3 text-center font-display font-bold text-[0.75rem] shadow-[3px_3px_0_rgba(0,0,0,.08)]`}
+              className={`card-pagne pagne-focus ${q.bg} ${q.rotate} p-3 text-center font-display font-bold text-[0.75rem] shadow-[3px_3px_0_rgba(0,0,0,.08)]`}
             >
               {t(q.key)}
             </Link>
@@ -97,7 +102,7 @@ export default function PatientDashboard() {
         {/* SOS — écran dédié (API + repli SMS hors-ligne) */}
         <Link
           href="/patient/sos"
-          className="block w-full text-center bg-sos-500 text-white font-display font-extrabold card-pagne py-4 pulse-sos shadow-[0_10px_26px_rgba(214,69,51,.4)]"
+          className="block w-full text-center bg-sos-500 text-white font-display font-extrabold card-pagne pagne-focus py-4 pulse-sos shadow-[0_10px_26px_rgba(214,69,51,.4)]"
         >
           {t('patient.quick.sos')}
         </Link>

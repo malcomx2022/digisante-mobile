@@ -1,32 +1,47 @@
 // ─────────────────────────────────────────────────────────────
 // Service Daily.co — salles de téléconsultation WebRTC + jetons de réunion.
-// STUB tant que DAILY_API_KEY/DOMAIN ne sont pas configurés (dev/local).
+// Config résolue DYNAMIQUEMENT via le resolver d'intégrations (base → `.env`, §3.6) :
+// STUB tant que apiKey/domain ne sont pas configurés.
 // Piège (CLAUDE.md §8) : prévoir la bascule auto téléconsultation → chat (D-10)
 // quand la bande passante chute — gérée côté contrat via le mode de consultation.
 // ─────────────────────────────────────────────────────────────
-import type { FastifyBaseLogger } from 'fastify';
+import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 
-import { env, isDailyConfigured } from '@/lib/env.js';
+import { resolveConfiguredSecrets } from '@/lib/integrations.js';
 
 export interface DailyRoom {
   name: string;
   url: string;
 }
 
+interface DailyCreds {
+  apiKey: string;
+  domain: string;
+}
+
+/** Résout apiKey/domain Daily (base → `.env`) ou null si config incomplète. */
+async function resolveCreds(app: FastifyInstance): Promise<DailyCreds | null> {
+  const secrets = await resolveConfiguredSecrets(app, 'DAILY');
+  if (!secrets) return null;
+  return { apiKey: secrets.apiKey!, domain: secrets.domain! };
+}
+
 /** Crée (ou réutilise) une salle de téléconsultation. */
-export async function createRoom(opts: { name: string; log: FastifyBaseLogger }): Promise<DailyRoom> {
-  if (!isDailyConfigured) {
-    opts.log.warn({ room: opts.name }, '[STUB Daily] salle simulée (Daily.co non configuré)');
+export async function createRoom(opts: { app: FastifyInstance; name: string }): Promise<DailyRoom> {
+  const log: FastifyBaseLogger = opts.app.log;
+  const creds = await resolveCreds(opts.app);
+  if (!creds) {
+    log.warn({ room: opts.name }, '[STUB Daily] salle simulée (Daily.co non configuré)');
     return { name: opts.name, url: `https://stub.daily.co/${opts.name}` };
   }
   // Appel réel : POST https://api.daily.co/v1/rooms (privée). Si la salle existe
   // déjà (409) ou en cas d'erreur réseau, on retombe sur l'URL déterministe.
-  const fallbackUrl = `https://${env.DAILY_DOMAIN}.daily.co/${opts.name}`;
+  const fallbackUrl = `https://${creds.domain}.daily.co/${opts.name}`;
   try {
     const res = await fetch('https://api.daily.co/v1/rooms', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${env.DAILY_API_KEY!}`,
+        Authorization: `Bearer ${creds.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ name: opts.name, privacy: 'private' }),
@@ -36,22 +51,24 @@ export async function createRoom(opts: { name: string; log: FastifyBaseLogger })
       return { name: room.name ?? opts.name, url: room.url ?? fallbackUrl };
     }
     if (res.status !== 409) {
-      opts.log.error({ status: res.status }, '[Daily] création salle en échec');
+      log.error({ status: res.status }, '[Daily] création salle en échec');
     }
   } catch (err) {
-    opts.log.error({ err }, '[Daily] erreur réseau création salle');
+    log.error({ err }, '[Daily] erreur réseau création salle');
   }
   return { name: opts.name, url: fallbackUrl };
 }
 
 /** Émet un jeton de réunion pour un participant donné. */
 export async function createMeetingToken(opts: {
+  app: FastifyInstance;
   room: string;
   userId: string;
   isOwner: boolean;
-  log: FastifyBaseLogger;
 }): Promise<string> {
-  if (!isDailyConfigured) {
+  const log: FastifyBaseLogger = opts.app.log;
+  const creds = await resolveCreds(opts.app);
+  if (!creds) {
     return `stub-token.${opts.room}.${opts.userId}${opts.isOwner ? '.owner' : ''}`;
   }
   // Appel réel : POST https://api.daily.co/v1/meeting-tokens. En cas d'échec
@@ -60,7 +77,7 @@ export async function createMeetingToken(opts: {
     const res = await fetch('https://api.daily.co/v1/meeting-tokens', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${env.DAILY_API_KEY!}`,
+        Authorization: `Bearer ${creds.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -71,10 +88,10 @@ export async function createMeetingToken(opts: {
       const data = (await res.json()) as { token?: string };
       if (data.token) return data.token;
     } else {
-      opts.log.error({ status: res.status }, '[Daily] émission jeton en échec');
+      log.error({ status: res.status }, '[Daily] émission jeton en échec');
     }
   } catch (err) {
-    opts.log.error({ err }, '[Daily] erreur réseau émission jeton');
+    log.error({ err }, '[Daily] erreur réseau émission jeton');
   }
   return `daily-token.${opts.room}.${opts.userId}`;
 }

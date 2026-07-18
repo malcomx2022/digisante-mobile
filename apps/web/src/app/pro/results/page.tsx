@@ -4,7 +4,7 @@ import { useState } from 'react';
 
 import { ProHeader } from '@/components/pro/ProHeader';
 import { Badge, Button, CardPagne, Nkyinkyim } from '@/components/ui';
-import { Empty, ErrorState, Loading } from '@/components/ui/States';
+import { Empty, ErrorState , SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { labResultsApi, type DoctorLabResult } from '@/lib/api/labResults';
 import { useApi } from '@/lib/api/useApi';
@@ -38,16 +38,16 @@ export default function ProResultsPage() {
     <>
       <ProHeader title={t('proresults.title')} subtitle={t('proresults.sub')} wide />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-5xl lg:mx-auto lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0 lg:items-start">
-        {loading && <Loading label={t('common.loading')} />}
+        {loading && <SkeletonCards label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && (data?.length ?? 0) === 0 && <Empty label={t('proresults.empty')} />}
 
         {(data ?? []).map((r) => (
           <CardPagne key={r.id} stitch={r.critical.length > 0} className="p-4">
             <div className="flex items-start justify-between gap-2">
-              <div>
-                <p className="font-display font-extrabold text-[0.875rem] text-stone-800">{r.testType}</p>
-                <p className="text-[0.8125rem] text-stone-500">{r.patient ? `${r.patient.firstName} ${r.patient.lastName}` : '—'}</p>
+              <div className="min-w-0">
+                <p className="font-display font-extrabold text-[0.875rem] text-stone-800 truncate">{r.testType}</p>
+                <p className="text-[0.8125rem] text-stone-500 truncate">{r.patient ? `${r.patient.firstName} ${r.patient.lastName}` : '—'}</p>
               </div>
               {r.critical.length > 0 ? (
                 <Badge className="bg-sos-500 text-white"><span aria-hidden="true">⚠</span> {t('labo.critical_short')}</Badge>
@@ -86,7 +86,7 @@ export default function ProResultsPage() {
                   placeholder={t('proresults.placeholder')}
                   aria-label={t('proresults.placeholder')}
                   rows={2}
-                  className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.875rem] focus:outline-none focus:border-indigo-600"
+                  className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base pagne-focus focus:outline-none focus:border-indigo-600"
                 />
                 <Button variant="indigo" full className="mt-2" onClick={() => sign(r.id)} disabled={busy === r.id || !(drafts[r.id] ?? '').trim()}>
                   {t('proresults.sign')}

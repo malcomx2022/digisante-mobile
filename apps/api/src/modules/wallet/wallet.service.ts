@@ -2,6 +2,8 @@
 // Service Wallet (portefeuille diaspora) : solde, recharge (créditée au webhook),
 // paiement (débit, ex. soins de la famille). Devise : FCFA (XOF).
 // ─────────────────────────────────────────────────────────────
+import { randomUUID } from 'node:crypto';
+
 import { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
@@ -59,13 +61,24 @@ export async function debit(
   input: { amount: number; description?: string; beneficiaryUserId?: string },
 ) {
   if (input.amount <= 0) throw badRequest('Montant invalide');
-  const wallet = await app.prisma.wallet.findUnique({ where: { userId } });
+  const wallet = await app.prisma.wallet.findUnique({ where: { userId }, select: { id: true } });
   if (!wallet) throw notFound('Portefeuille introuvable');
-  if (wallet.balance.lessThan(input.amount)) throw badRequest('Solde insuffisant');
 
-  const reference = `pay_${Date.now()}`;
-  const [, updated] = await app.prisma.$transaction([
-    app.prisma.walletTransaction.create({
+  // Référence unique et non collisionnable (Date.now() pouvait doublonner sous
+  // charge concurrente).
+  const reference = `pay_${randomUUID()}`;
+
+  // Débit atomique : le décrément est CONDITIONNÉ au solde suffisant dans la même
+  // transaction que l'écriture au registre. Empêche la double-dépense (TOCTOU)
+  // où deux débits concurrents (cluster PM2 ×2) liraient le même solde avant
+  // d'écrire — le second `updateMany` ne matche plus si le premier a déjà débité.
+  const balance = await app.prisma.$transaction(async (tx) => {
+    const guarded = await tx.wallet.updateMany({
+      where: { id: wallet.id, balance: { gte: input.amount } },
+      data: { balance: { decrement: input.amount } },
+    });
+    if (guarded.count === 0) throw badRequest('Solde insuffisant');
+    await tx.walletTransaction.create({
       data: {
         walletId: wallet.id,
         type: input.beneficiaryUserId ? 'TRANSFER' : 'DEBIT',
@@ -73,8 +86,9 @@ export async function debit(
         reference,
         description: input.description,
       },
-    }),
-    app.prisma.wallet.update({ where: { id: wallet.id }, data: { balance: { decrement: input.amount } } }),
-  ]);
-  return { balance: updated.balance, reference };
+    });
+    const updated = await tx.wallet.findUniqueOrThrow({ where: { id: wallet.id }, select: { balance: true } });
+    return updated.balance;
+  });
+  return { balance, reference };
 }

@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 import { PatientHeader } from '@/components/patient/PatientHeader';
 import { Button, CardPagne, Nkyinkyim } from '@/components/ui';
-import { Empty, ErrorState, Loading } from '@/components/ui/States';
+import { Empty, ErrorState , SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { adherenceApi, type AdherenceToday } from '@/lib/api/adherence';
 import { remindersApi, type MedicationReminder } from '@/lib/api/reminders';
@@ -76,7 +76,7 @@ export default function AdherencePage() {
     <>
       <PatientHeader title={t('adherence.title')} subtitle={t('adherence.subtitle')} />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto lg:w-full">
-        {loading && <Loading label={t('common.loading')} />}
+        {loading && <SkeletonCards label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {actionError && <ErrorState label={t('auth.error')} />}
 
@@ -126,6 +126,7 @@ export default function AdherencePage() {
                     variant="sante"
                     className={cn('shrink-0 text-[0.75rem] px-3 py-2', busy === tr.itemId && 'opacity-60')}
                     onClick={() => take(tr.itemId, tr.medicationName)}
+                    disabled={busy === tr.itemId}
                   >
                     {t('adherence.take')}
                   </Button>
@@ -141,7 +142,7 @@ export default function AdherencePage() {
                     type="button"
                     onClick={() => removeTime(r.id)}
                     aria-label={`${t('common.delete')} ${r.time}`}
-                    className="card-pagne bg-creme-deep text-stone-700 text-[0.75rem] font-bold px-2.5 py-1"
+                    className="card-pagne pagne-focus bg-creme-deep text-stone-700 text-[0.75rem] font-bold px-2.5 py-1"
                   >
                     {r.time} <span aria-hidden="true">✕</span>
                   </button>
@@ -151,13 +152,13 @@ export default function AdherencePage() {
                   value={timeInputs[tr.itemId] ?? ''}
                   onChange={(e) => setTimeInputs((m) => ({ ...m, [tr.itemId]: e.target.value }))}
                   aria-label={t('adherence.add_time')}
-                  className="bg-white card-pagne border border-stone-300 px-2 py-1 text-[0.75rem] focus:outline-none focus:border-sante-600"
+                  className="bg-white card-pagne border border-stone-300 px-2 py-1 text-base pagne-focus focus:outline-none focus:border-sante-600"
                 />
                 <button
                   type="button"
                   onClick={() => addTime(tr.itemId, tr.medicationName)}
                   aria-label={t('adherence.add_time')}
-                  className="card-pagne bg-sante-600 text-white font-display font-extrabold text-[0.8125rem] px-2.5 py-1"
+                  className="card-pagne pagne-focus bg-sante-600 text-white font-display font-extrabold text-[0.8125rem] px-2.5 py-1"
                 >
                   <span aria-hidden="true">+</span>
                 </button>
