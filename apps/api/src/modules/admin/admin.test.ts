@@ -187,4 +187,23 @@ describe.skipIf(!HAS_INFRA)('Admin RBAC (intégration)', () => {
     const denied = await app.inject({ method: 'GET', url: '/api/v1/admin/ops/health', headers: auth(modToken) });
     expect(denied.statusCode).toBe(403);
   });
+
+  it('métriques : agrégats mis en cache Redis, uptime vivant hors cache', async () => {
+    // Assertions insensibles aux suites parallèles : on ne fige pas les comptes,
+    // on vérifie le mécanisme (clé amorcée + contenu = réponse sans l'uptime).
+    await app.redis.del('admin:metrics');
+    const res = await app.inject({ method: 'GET', url: '/api/v1/admin/metrics', headers: auth(superToken) });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(typeof body.uptimeSeconds).toBe('number');
+
+    const cached = await app.redis.get('admin:metrics');
+    expect(cached).not.toBeNull();
+    const parsed = JSON.parse(cached!);
+    // L'uptime n'est PAS mis en cache (donnée vivante, propre au worker).
+    expect(parsed.uptimeSeconds).toBeUndefined();
+    const expected = { ...body };
+    delete expected.uptimeSeconds;
+    expect(parsed).toEqual(expected);
+  });
 });
