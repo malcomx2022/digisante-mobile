@@ -1,0 +1,12 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["packages/shared/src/index.ts"],
+  "tsconfig": "packages/shared/tsconfig.json",
+  "out": "docs/api-shared",
+  "name": "@digisante/shared — API",
+  "readme": "none",
+  "excludeInternal": true,
+  "excludePrivate": true,
+  "githubPages": false,
+  "hideGenerator": true
+}

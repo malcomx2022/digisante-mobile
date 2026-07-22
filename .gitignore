@@ -42,6 +42,9 @@ Thumbs.db
 docs/i18n/todo.*.csv
 docs/i18n/draft.*.csv
 
+# Documentation d'API générée par TypeDoc (artefact — régénérable via `pnpm docs:generate`)
+docs/api-shared/
+
 # design-sync (claude.ai/design) — scripts stagés + sorties régénérables
 .ds-sync/
 ds-bundle/
