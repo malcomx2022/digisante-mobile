@@ -7,11 +7,24 @@ import type { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
+import { getCached } from '@/lib/cache.js';
 import { forbidden, notFound } from '@/lib/errors.js';
 import { paginate } from '@/lib/http.js';
 import { requireRole } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
 import * as reviews from './professionals.reviews.js';
+
+// ── Cache de l'annuaire (endpoint patient le plus sollicité : 3 requêtes DB/hit) ──
+// Uniquement les pages de NAVIGATION (sans filtre libre) : les valeurs de `q`/
+// `speciality` sont non bornées → les mettre en clé laisserait n'importe quel
+// utilisateur gonfler Redis de clés poubelles. La clé (lang×page×pageSize) est
+// bornée, la réponse est IDENTIQUE pour tous (le tri « parle ma langue » est
+// côté client, §8) et ne contient que la fiche professionnelle PUBLIQUE des
+// médecins vérifiés (annuaire assumé — aucune donnée patient/santé, §4).
+// TTL court : pas d'invalidation croisée (édition de fiche, avis, KYC) — une
+// modification apparaît sous ≤ 60 s, imperceptible pour un annuaire.
+const LIST_CACHE_TTL = 60;
+const LIST_CACHE_MAX_PAGE = 10; // profondeur réaliste de navigation (borne les clés)
 
 const updateProSchema = z.object({
   speciality: z.string().trim().min(2).max(120).optional(),
@@ -37,43 +50,51 @@ export default async function professionalsRoutes(app: FastifyInstance) {
   // Annuaire des professionnels VÉRIFIÉS (D-05), paginé + filtres.
   app.get('/', { preHandler: [app.authenticate] }, async (request) => {
     const q = zParse(listSchema, request.query);
-    const and: Prisma.DoctorWhereInput[] = [{ verifiedAt: { not: null } }];
-    if (q.speciality) and.push({ speciality: { contains: q.speciality, mode: 'insensitive' } });
-    if (q.lang) and.push({ user: { profile: { spokenLangs: { has: q.lang } } } });
-    if (q.q) {
-      and.push({
-        OR: [
-          { speciality: { contains: q.q, mode: 'insensitive' } },
-          { user: { profile: { OR: [{ firstName: { contains: q.q, mode: 'insensitive' } }, { lastName: { contains: q.q, mode: 'insensitive' } }] } } },
-        ],
-      });
-    }
-    const where: Prisma.DoctorWhereInput = { AND: and };
-    const [items, total] = await Promise.all([
-      app.prisma.doctor.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip: (q.page - 1) * q.pageSize,
-        take: q.pageSize,
-        select: {
-          id: true,
-          speciality: true,
-          consultFee: true,
-          user: { select: { profile: { select: { firstName: true, lastName: true, spokenLangs: true, avatarUrl: true } } } },
-        },
-      }),
-      app.prisma.doctor.count({ where }),
-    ]);
-    const ratings = await reviews.ratingByDoctor(app, items.map((d) => d.id));
-    const data = items.map((d) => ({
-      id: d.id,
-      speciality: d.speciality,
-      consultFee: d.consultFee,
-      isVerified: true,
-      profile: d.user.profile,
-      rating: ratings.get(d.id) ?? { average: null, count: 0 },
-    }));
-    return paginate(data, total, q.page, q.pageSize);
+
+    const build = async () => {
+      const and: Prisma.DoctorWhereInput[] = [{ verifiedAt: { not: null } }];
+      if (q.speciality) and.push({ speciality: { contains: q.speciality, mode: 'insensitive' } });
+      if (q.lang) and.push({ user: { profile: { spokenLangs: { has: q.lang } } } });
+      if (q.q) {
+        and.push({
+          OR: [
+            { speciality: { contains: q.q, mode: 'insensitive' } },
+            { user: { profile: { OR: [{ firstName: { contains: q.q, mode: 'insensitive' } }, { lastName: { contains: q.q, mode: 'insensitive' } }] } } },
+          ],
+        });
+      }
+      const where: Prisma.DoctorWhereInput = { AND: and };
+      const [items, total] = await Promise.all([
+        app.prisma.doctor.findMany({
+          where,
+          orderBy: { createdAt: 'desc' },
+          skip: (q.page - 1) * q.pageSize,
+          take: q.pageSize,
+          select: {
+            id: true,
+            speciality: true,
+            consultFee: true,
+            user: { select: { profile: { select: { firstName: true, lastName: true, spokenLangs: true, avatarUrl: true } } } },
+          },
+        }),
+        app.prisma.doctor.count({ where }),
+      ]);
+      const ratings = await reviews.ratingByDoctor(app, items.map((d) => d.id));
+      const data = items.map((d) => ({
+        id: d.id,
+        speciality: d.speciality,
+        consultFee: d.consultFee,
+        isVerified: true,
+        profile: d.user.profile,
+        rating: ratings.get(d.id) ?? { average: null, count: 0 },
+      }));
+      return paginate(data, total, q.page, q.pageSize);
+    };
+
+    // Recherches libres (`q`/`speciality`) et pages profondes : jamais en cache
+    // (clés non bornées) — exécution directe.
+    if (q.q || q.speciality || q.page > LIST_CACHE_MAX_PAGE) return build();
+    return getCached(app, `professionals:list:${q.lang ?? 'all'}:${q.page}:${q.pageSize}`, LIST_CACHE_TTL, build);
   });
 
   // Fiche publique d'un professionnel (authentifié).
