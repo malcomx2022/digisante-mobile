@@ -33,6 +33,14 @@ const securityHeaders = [
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ['@digisante/shared'],
+  // Sécurité (CLAUDE.md §4) : retirer les appels `console.*` du bundle de
+  // production livré aux navigateurs — ils pourraient exposer des données
+  // sensibles (identifiants, chemins, jetons) dans la console cliente. Seul
+  // `console.error` est conservé (diagnostic d'erreur, sans fuite volontaire).
+  // En développement, tous les logs restent disponibles.
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error'] } : false,
+  },
   // PWA / offline-first : brancher next-pwa ou un service worker custom ici.
   // L'offline-first n'est pas optionnel (cf. CLAUDE.md §3).
   async headers() {
