@@ -1,3 +1,5 @@
+import bundleAnalyzer from '@next/bundle-analyzer';
+
 /** @type {import('next').NextConfig} */
 
 // En-têtes de sécurité (défense clickjacking / MIME-sniffing / fuite de referrer)
@@ -30,6 +32,11 @@ const securityHeaders = [
   { key: 'Permissions-Policy', value: 'camera=(self), microphone=(self), geolocation=(self), payment=()' },
 ];
 
+// Analyseur de bundle (opt-in) : `ANALYZE=true pnpm --filter @digisante/web analyze`
+// produit un rapport HTML dans .next/analyze. Désactivé par défaut → AUCUN impact
+// sur les builds normaux (dev, CI, production).
+const withBundleAnalyzer = bundleAnalyzer({ enabled: process.env.ANALYZE === 'true' });
+
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ['@digisante/shared'],
@@ -47,4 +54,4 @@ const nextConfig = {
     return [{ source: '/:path*', headers: securityHeaders }];
   },
 };
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);
