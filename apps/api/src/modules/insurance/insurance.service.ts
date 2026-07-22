@@ -6,7 +6,14 @@
 // ─────────────────────────────────────────────────────────────
 import type { FastifyInstance } from 'fastify';
 
+import { getCached, invalidateCache } from '@/lib/cache.js';
 import { conflict, forbidden, notFound } from '@/lib/errors.js';
+
+// Référentiel assureurs = données PUBLIQUES et NON personnelles (§4-safe),
+// quasi statiques (peuplées au seed). Bonne cible de cache read-through pour
+// épargner à la DB une lecture à chaque ouverture de l'espace assurance.
+export const PROVIDERS_CACHE_KEY = 'insurance:providers';
+const PROVIDERS_CACHE_TTL = 300; // 5 min
 
 async function patientIdOf(app: FastifyInstance, userId: string): Promise<string> {
   const p = await app.prisma.patient.findUnique({ where: { userId }, select: { id: true } });
@@ -22,10 +29,21 @@ function effectiveStatus(status: string, expiresAt: Date | null, now: Date): str
 
 /** Catalogue des assureurs disponibles (référentiel public, trié par nom). */
 export async function listProviders(app: FastifyInstance) {
-  return app.prisma.insurance.findMany({
-    select: { id: true, name: true, code: true, coverageTypes: true },
-    orderBy: { name: 'asc' },
-  });
+  return getCached(app, PROVIDERS_CACHE_KEY, PROVIDERS_CACHE_TTL, () =>
+    app.prisma.insurance.findMany({
+      select: { id: true, name: true, code: true, coverageTypes: true },
+      orderBy: { name: 'asc' },
+    }),
+  );
+}
+
+/**
+ * Invalide le cache du référentiel assureurs. À appeler après TOUTE écriture du
+ * catalogue (aujourd'hui : seed ; demain : un éventuel endpoint admin de gestion
+ * du catalogue). Sans cela, une modification resterait masquée jusqu'au TTL.
+ */
+export async function invalidateProviders(app: FastifyInstance) {
+  await invalidateCache(app, PROVIDERS_CACHE_KEY);
 }
 
 /** Couvertures déclarées par le patient courant (assureur joint, statut effectif). */

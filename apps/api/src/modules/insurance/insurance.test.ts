@@ -2,6 +2,8 @@
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { invalidateProviders } from './insurance.service.js';
+
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 const PHONES = ['+2290195410001'];
 
@@ -23,6 +25,10 @@ describe.skipIf(!HAS_INFRA)('Assurance patient (intégration)', () => {
       create: { name: 'ARCH Test', code: 'TEST-ARCH', coverageTypes: ['CONSULTATION', 'PHARMACIE'] },
     });
     insuranceId = ins.id;
+    // Le catalogue est mis en cache (read-through) : purger la clé après l'upsert
+    // pour que la première lecture de ce run reflète bien l'assureur de test,
+    // indépendamment de l'ordre d'exécution des suites.
+    await invalidateProviders(app);
 
     const patient = await app.prisma.user.create({
       data: { phone: PHONES[0], role: 'PATIENT', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'P', lastName: 'A' } }, patient: { create: {} } },
@@ -81,5 +87,27 @@ describe.skipIf(!HAS_INFRA)('Assurance patient (intégration)', () => {
     expect(add.statusCode).toBe(201);
     const mine = await app.inject({ method: 'GET', url: '/api/v1/insurance/me', headers: auth(patientToken) });
     expect(mine.json()[0].status).toBe('EXPIRED');
+  });
+
+  it('le catalogue est servi depuis le cache Redis et invalidable', async () => {
+    // 1) Amorce le cache (lecture read-through).
+    await app.inject({ method: 'GET', url: '/api/v1/insurance/providers', headers: auth(patientToken) });
+
+    // 2) Écriture DIRECTE en base (contourne le cache) d'un nouvel assureur.
+    await app.prisma.insurance.create({
+      data: { name: 'Cache Test', code: 'TEST-CACHE', coverageTypes: ['CONSULTATION'] },
+    });
+
+    // 3) Nouvelle lecture : encore servie depuis le cache → n'inclut PAS le nouvel
+    //    assureur (preuve du hit cache, pas d'aller-retour DB).
+    const cachedRes = await app.inject({ method: 'GET', url: '/api/v1/insurance/providers', headers: auth(patientToken) });
+    expect(cachedRes.json().map((p: { code: string }) => p.code)).not.toContain('TEST-CACHE');
+
+    // 4) Invalidation via le service → la lecture suivante reflète l'état réel.
+    await invalidateProviders(app);
+    const freshRes = await app.inject({ method: 'GET', url: '/api/v1/insurance/providers', headers: auth(patientToken) });
+    expect(freshRes.json().map((p: { code: string }) => p.code)).toContain('TEST-CACHE');
+
+    await app.prisma.insurance.deleteMany({ where: { code: 'TEST-CACHE' } });
   });
 });
