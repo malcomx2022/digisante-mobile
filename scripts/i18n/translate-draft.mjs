@@ -79,7 +79,7 @@ const MODEL = arg('model', 'facebook/nllb-200-distilled-600M');
 
 /** Traduit un lot de chaînes via le service Python local (modèle chargé 1×). */
 function translateLocal(texts, tgtFlores) {
-  const res = spawnSync('python3', [PY_HELPER], {
+  const res = spawnSync('python', [PY_HELPER], {
     input: JSON.stringify({ model: MODEL, src_lang: FLORES.fr, tgt_lang: tgtFlores, texts }),
     encoding: 'utf8',
     maxBuffer: 256 * 1024 * 1024,
