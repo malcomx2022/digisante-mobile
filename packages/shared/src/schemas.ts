@@ -41,8 +41,19 @@ export const roleSchema = z.enum(ROLES);
 
 // ── Pagination & tri (réutilisé par les listes) ──
 
+// Borne la profondeur d'offset (`skip = (page-1) * pageSize`). Le coût d'un
+// OFFSET Postgres croît avec sa valeur : sur une table volumineuse (ex. AuditLog,
+// rétention 5 ans) une page profonde forcerait le scan/rejet de N lignes.
+// L'UI ne dépasse JAMAIS `ceil(total/pageSize)` (le bouton « suivant » se
+// désactive en fin de données) → ce plafond ne rejette que des requêtes
+// FORGÉES (page hors données), sans jamais gêner la navigation légitime.
+// (Choisi comme `.max()` sur le champ pour que `paginationSchema` reste un
+// ZodObject `.extend()`-able par les modules ; un `.superRefine` casserait
+// les nombreux `paginationSchema.extend({...})`.)
+export const MAX_PAGE = 10_000;
+
 export const paginationSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
+  page: z.coerce.number().int().min(1).max(MAX_PAGE).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   sort: z.string().optional(),
   order: z.enum(['asc', 'desc']).default('desc'),
