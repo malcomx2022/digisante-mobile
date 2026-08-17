@@ -61,9 +61,21 @@ function tx<T>(
   );
 }
 
+// `Date.now()` a une résolution de la milliseconde : plusieurs mutations mises en
+// file dans la même milliseconde (rafale programmatique — plusieurs champs d'un
+// formulaire, marquages de prises enchaînés) partageraient le même `ts`, et leur
+// ordre de rejeu deviendrait arbitraire. Or rejouer DANS L'ORDRE est toute la
+// raison d'être de cette file (un PATCH puis un DELETE ne commutent pas).
+// On force donc un horodatage STRICTEMENT croissant dans la session.
+let lastTs = 0;
+function nextTs(): number {
+  lastTs = Math.max(Date.now(), lastTs + 1);
+  return lastTs;
+}
+
 /** Ajoute une mutation à la file. L'`id` sert aussi de clé d'idempotence (point 2). */
 export async function enqueue(item: Omit<QueuedMutation, 'id' | 'ts'>): Promise<QueuedMutation> {
-  const entry: QueuedMutation = { ...item, id: crypto.randomUUID(), ts: Date.now() };
+  const entry: QueuedMutation = { ...item, id: crypto.randomUUID(), ts: nextTs() };
   await tx('readwrite', (s) => s.add(entry));
   return entry;
 }
