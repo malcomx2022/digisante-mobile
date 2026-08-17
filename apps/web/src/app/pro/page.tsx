@@ -68,6 +68,12 @@ export default function ProDashboard() {
 
         <div className="grid grid-cols-2 gap-3">
           <Link
+            href="/pro/referrals"
+            className="flex items-center gap-2 bg-white card-pagne border border-stone-200 px-4 py-3 font-display font-bold text-[0.8125rem] text-indigo-700"
+          >
+            <span aria-hidden>↗</span> {t('referrals.title')}
+          </Link>
+          <Link
             href="/pro/messages"
             className="flex items-center gap-2 bg-white card-pagne border border-stone-200 px-4 py-3 font-display font-bold text-[0.8125rem] text-indigo-700"
           >

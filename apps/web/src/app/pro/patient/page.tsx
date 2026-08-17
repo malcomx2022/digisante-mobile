@@ -140,6 +140,14 @@ function Patient360Inner() {
           >
             <span aria-hidden>℞</span> {t('pro.prescribe')}
           </Link>
+          {/* Orienter vers un confrère : ne dépend pas non plus du partage DMP —
+              seul le patientId est requis, et l'orientation n'ouvre aucun dossier. */}
+          <Link
+            href={`/pro/referrals?patientId=${encodeURIComponent(patientId)}`}
+            className="col-span-2 flex items-center justify-center gap-2 bg-white border border-indigo-600 text-indigo-700 card-pagne px-4 py-2.5 font-display font-bold text-[0.875rem]"
+          >
+            <span aria-hidden>↗</span> {t('referrals.refer')}
+          </Link>
         </div>
 
         {/* Partage requis (pas de jeton) OU refusé (jeton invalide/expiré) → saisie du jeton. */}

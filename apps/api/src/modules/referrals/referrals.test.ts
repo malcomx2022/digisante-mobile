@@ -125,6 +125,58 @@ describe.skipIf(!HAS_INFRA)('Référencement médecins (intégration — cas lim
     expect(res.statusCode).toBe(403);
   });
 
+  // ── C3 : le destinataire est notifié, et l'audit ne porte pas le motif clinique ──
+  it('notifie le médecin destinataire dans SA langue', async () => {
+    const notif = await app.prisma.notification.findFirst({
+      where: { recipient: { phone: PHONES[1] } },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(notif).not.toBeNull();
+    expect(notif!.title).toBe('Nouvelle orientation de patient');
+    // Le motif est destiné au confrère : il a bien sa place dans la notification.
+    expect(notif!.body).toContain('Suspicion HTA');
+  });
+
+  it('journalise REFERRAL_CREATE SANS le motif clinique (§4)', async () => {
+    const log = await app.prisma.auditLog.findFirst({
+      where: { action: 'REFERRAL_CREATE', targetId: referralId },
+    });
+    expect(log).not.toBeNull();
+    // L'admin lit l'audit : il doit y trouver des identifiants, jamais de clinique.
+    expect(JSON.stringify(log!.meta)).not.toContain('Suspicion HTA');
+    expect(JSON.stringify(log!.meta)).toContain(patientId);
+  });
+
+  // ── C6 : machine à états complète ──
+  it('terminer une orientation encore PENDING → 400', async () => {
+    const created = await app.inject({
+      method: 'POST', url: '/api/v1/referrals', headers: auth(drAToken),
+      payload: { toDoctorId: drBId, patientId, reason: 'Orientation à annuler.' },
+    });
+    const pendingId = created.json().id;
+
+    const res = await app.inject({
+      method: 'POST', url: `/api/v1/referrals/${pendingId}/respond`, headers: auth(drBToken),
+      payload: { action: 'COMPLETE' },
+    });
+    expect(res.statusCode).toBe(400);
+
+    // Depuis PENDING, l'annulation reste légitime.
+    const cancel = await app.inject({
+      method: 'POST', url: `/api/v1/referrals/${pendingId}/respond`, headers: auth(drBToken),
+      payload: { action: 'CANCEL' },
+    });
+    expect(cancel.statusCode).toBe(200);
+    expect(cancel.json().status).toBe('CANCELLED');
+
+    // CANCELLED est TERMINAL : plus aucune transition.
+    const reopen = await app.inject({
+      method: 'POST', url: `/api/v1/referrals/${pendingId}/respond`, headers: auth(drBToken),
+      payload: { action: 'COMPLETE' },
+    });
+    expect(reopen.statusCode).toBe(400);
+  });
+
   it('le destinataire accepte → 200 (ACCEPTED)', async () => {
     const res = await app.inject({
       method: 'POST', url: `/api/v1/referrals/${referralId}/respond`, headers: auth(drBToken),
@@ -140,6 +192,36 @@ describe.skipIf(!HAS_INFRA)('Référencement médecins (intégration — cas lim
       payload: { action: 'ACCEPT' },
     });
     expect(res.statusCode).toBe(400);
+  });
+
+  it('ACCEPTED → COMPLETED, puis COMPLETED est terminal → 400', async () => {
+    const done = await app.inject({
+      method: 'POST', url: `/api/v1/referrals/${referralId}/respond`, headers: auth(drBToken),
+      payload: { action: 'COMPLETE' },
+    });
+    expect(done.statusCode).toBe(200);
+    expect(done.json().status).toBe('COMPLETED');
+
+    const cancelAfter = await app.inject({
+      method: 'POST', url: `/api/v1/referrals/${referralId}/respond`, headers: auth(drBToken),
+      payload: { action: 'CANCEL' },
+    });
+    expect(cancelAfter.statusCode).toBe(400);
+  });
+
+  // ── C1 : la liste doit être affichable (noms + sens), pas des cuid bruts ──
+  it('liste les orientations avec noms et direction', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/v1/referrals', headers: auth(drAToken) });
+    expect(res.statusCode).toBe(200);
+    const sent = res.json().find((r: { id: string }) => r.id === referralId);
+    expect(sent.direction).toBe('SENT');
+    expect(sent.patientName).toBe('Yao Adjo');
+    expect(sent.toDoctorName).toBe('Kofi Mensah');
+    expect(sent.toSpeciality).toBe('Cardiologie');
+
+    // Le même enregistrement est « reçu » du point de vue du destinataire.
+    const asB = await app.inject({ method: 'GET', url: '/api/v1/referrals', headers: auth(drBToken) });
+    expect(asB.json().find((r: { id: string }) => r.id === referralId).direction).toBe('RECEIVED');
   });
 
   it('répondre à une orientation inexistante → 404', async () => {

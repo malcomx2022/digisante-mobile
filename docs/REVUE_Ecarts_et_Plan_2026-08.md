@@ -51,7 +51,12 @@ Ce n'est pas un bug de code — c'est un piège d'onboarding (cf. **C7**).
 
 Classées par impact fonctionnel réel, pas par facilité.
 
-### C1 — 🔴 MAJEUR · Le référencement médecin → médecin n'a aucune interface
+> **État d'avancement au 17/08/2026** — lots 1 et 2 livrés (branche `feat/lot1-lot2-referrals`) :
+> **C1 ✅ · C3 ✅ · C6 ✅ · C7 ✅ · C8 ✅ · C9 ✅** — restent **C2**, **C4**, **C5** (lots 3, 4, 5).
+> Les sections ci-dessous conservent l'énoncé d'origine du constat ; le statut est rappelé en tête
+> de chacune.
+
+### C1 — ✅ LIVRÉ (lot 2) · 🔴 MAJEUR · Le référencement médecin → médecin n'a aucune interface
 
 Le module `apps/api/src/modules/referrals/` est **complet et testé** (3 endpoints, 10 tests verts) :
 un médecin oriente un patient vers un confrère, le destinataire accepte / termine / annule.
@@ -83,7 +88,13 @@ Résultat : un patient ne peut pas joindre un compte-rendu scanné, une radio ou
 **Le chemin technique existe déjà** : `lib/filestore.ts` + le contrôle de *magic bytes* du KYC
 (`POST /kyc/documents`) font exactement ce travail. Il manque le branchement côté DMP, pas la brique.
 
-### C3 — 🟠 MOYEN · `referrals.create` : ni notification, ni audit, ni consentement (§4)
+### C3 — ✅ LIVRÉ (lot 2) · 🟠 MOYEN · `referrals.create` : ni notification, ni audit, ni consentement (§4)
+
+> **Arbitrage rendu par le porteur (17/08/2026) : journalisation seule.** L'orientation vaut acte de
+> soin coordonné — aucun `Consent` créé, aucun accès DMP ouvert, mais `Notification` systématique au
+> destinataire dans SA langue et audit `REFERRAL_CREATE`. L'audit ne porte **que des identifiants** :
+> le motif clinique (`reason`) en est exclu, l'admin n'ayant pas à le lire (§4). Consigné en §8 de
+> CLAUDE.md.
 
 Trois manques dans `referrals.routes.ts` (lignes 32-48) :
 
@@ -128,7 +139,7 @@ Le risque n'est pas technique (une table vide ne fuit rien) mais **auditable** :
 qui ouvre le schéma trouve deux registres d'audit, dont un sans chaînage cryptographique, et devra
 se faire expliquer lequel fait foi. Sur une surface de conformité, l'ambiguïté coûte.
 
-### C6 — 🟡 FAIBLE · Machine à états laxiste sur `referrals.respond`
+### C6 — ✅ LIVRÉ (lot 2) · 🟡 FAIBLE · Machine à états laxiste sur `referrals.respond`
 
 `referrals.routes.ts:68` ne garde que `ACCEPT` :
 
@@ -140,13 +151,13 @@ if (referral.status !== 'PENDING' && action === 'ACCEPT') throw badRequest('Orie
 une orientation annulée, ou annuler une orientation déjà terminée. Sans conséquence de sécurité,
 mais les statistiques d'orientation deviennent non fiables.
 
-### C7 — 🟡 FAIBLE · Le typecheck est rouge sur un clone frais
+### C7 — ✅ LIVRÉ (lot 1) · 🟡 FAIBLE · Le typecheck est rouge sur un clone frais
 
 Pas de `postinstall` dans `apps/api/package.json`. Un développeur qui clone et lance `pnpm typecheck`
 obtient 34 erreurs qui ressemblent à des bugs et n'en sont pas (§1.1). Coût direct pour Viviane
 (dev junior) et pour tout futur contributeur.
 
-### C8 — 🟡 FAIBLE · Compteurs faux dans la documentation
+### C8 — ✅ LIVRÉ (lot 1) · 🟡 FAIBLE · Compteurs faux dans la documentation
 
 Cf. §1.2. Concerne `CLAUDE.md`, `docs/DEPLOIEMENT_Checklist.md`, `docs/REVUE_FONCTIONNELLE.md`
 et les `.docx` opposables (`DocTech` porte déjà la mention « compteurs à régénérer »).
@@ -154,11 +165,26 @@ et les `.docx` opposables (`DocTech` porte déjà la mention « compteurs à ré
 Sur un projet à redevabilité bailleur (NEXT IMPACT / Banque Mondiale), les chiffres cités dans les
 livrables doivent être reproductibles à la commande près.
 
-### C9 — 🟡 FAIBLE · 5 branches distantes obsolètes
+### C9 — ✅ LIVRÉ (lot 1) · 🟡 FAIBLE · 5 branches distantes obsolètes
 
 `claude/app-design-corrections-0si9u9`, `claude/cool-dijkstra-r7peec`,
 `claude/remove-console-logs-prod-j03eyr`, `docs-revue-fonctionnelle-9322362368973895115`,
-`feat/design-sync-wax-terre` — toutes fusionnées ou abandonnées, 0 PR ouverte.
+`feat/design-sync-wax-terre` — 0 PR ouverte.
+
+**Résolution (17/08/2026)** : 4 branches vérifiées à **0 commit non fusionné** dans `main` →
+supprimées. La cinquième, `docs-revue-fonctionnelle-…`, a été **conservée** : elle porte 2 commits
+jamais fusionnés, soit deux documents de revue inédits —
+`docs/REVUE_DESIGN_RESPONSIVITE_BUGS.md` (120 l.) et `docs/REVUE_I18N_TRADUCTIONS.md` (83 l.).
+
+⚠️ **Ne pas les fusionner tels quels** : la revue i18n est **factuellement périmée** par rapport à
+`main`. Elle annonce « FON ~15 % / YOR ~5 % » alors que les deux langues ont été portées à 100 %
+(commit `6290ca4`), et situe les clés dans `packages/shared/src/i18n.ts` avec « 18 namespaces »,
+alors qu'elles vivent dans `apps/web/src/i18n/messages.ts` en dictionnaire **plat**. La revue
+design, elle, contient des points de vigilance encore valables (pagination des graphes de
+constantes, TTS absent sur Android bas de gamme, repli SOS sans GPS).
+
+**Décision à prendre** : corriger puis fusionner la revue design, réécrire ou abandonner la revue
+i18n. En attendant, la branche reste en place — rien n'est perdu.
 
 ---
 
@@ -185,12 +211,21 @@ assumés**. Ils ne sont pas des défauts d'implémentation.
 Six lots, ordonnés pour que rien ne bloque le déploiement VPS en cours. Les lots 1 et 5 sont sans
 risque et peuvent partir immédiatement ; les lots 2 à 4 sont du développement à part entière.
 
-### Lot 1 — Hygiène (≈ 0,5 j) · **sans risque**
+### Lot 1 — ✅ LIVRÉ · Hygiène (≈ 0,5 j) · **sans risque**
 - **C7** : `"postinstall": "prisma generate"` dans `apps/api/package.json`.
 - **C8** : compteurs synchronisés (49 modèles, 289 tests) dans `CLAUDE.md` + `DEPLOIEMENT_Checklist.md`.
 - **C9** : purge des 5 branches distantes fusionnées.
 
-### Lot 2 — Fermeture du référencement (≈ 2 j) · **valeur métier la plus haute**
+### Lot 2 — ✅ LIVRÉ · Fermeture du référencement (≈ 2 j) · **valeur métier la plus haute**
+
+> **Dette i18n ouverte par ce lot** : les 26 clés `referrals.*` sont livrées en **FR/EN** seulement.
+> FON et YOR sont **volontairement laissées vides** — le repli FR est automatique
+> (`LocaleProvider`, chaîne `langue → FR → clé brute`), donc l'utilisateur voit du français plutôt
+> qu'une traduction automatique non relue (§6 : la MT n'est jamais publiée telle quelle).
+> Conséquence assumée : la couverture FON/YOR passe de 100 % à **97 %**, et les 26 clés
+> apparaissent dans `pnpm i18n:export` pour la relecture par locuteurs natifs. **Aucune clé
+> critique** (`sos.` / `labo.` / `payments.`) concernée. Remplir un FR déguisé en FON aurait
+> maintenu un 100 % trompeur — c'est précisément ce qu'il fallait éviter.
 - **C1** : client `lib/api/referrals.ts` + écran `/pro/referrals` (liste envoyées / reçues, création
   depuis la fiche patient, réponse) + entrée de navigation PRO + i18n FR/EN (`referrals.*`,
   FON/YOR en repli FR).
