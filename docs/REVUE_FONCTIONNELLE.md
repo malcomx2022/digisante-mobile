@@ -2,7 +2,8 @@
 
 > **Projet** : DigiSanté Mobile — Progressive Web App (PWA) de e-santé pour le Bénin
 > **Cadre** : Programme **NEXT IMPACT** (FP2E / Sèmè City / Banque Mondiale) — Convention `FP2E/NI/IDÉ/2025`
-> **Statut de la codebase** : Feature-complete (160 endpoints REST, 1 canal WebSocket, 63 pages frontend, 47 modèles Prisma, 32 enums, 26 migrations).
+> **Statut de la codebase** : Feature-complete (160 endpoints REST, 1 canal WebSocket, 63 pages frontend, 49 modèles Prisma, 32 enums, 26 migrations, 289 tests API).
+> **Portée de ce document** : description du **périmètre livré**. Les écarts restants et leur plan de correction sont dans `docs/REVUE_Ecarts_et_Plan_2026-08.md`.
 > **Auteur de la revue** : Jules (Software Engineer)
 > **Date de rédaction** : Juillet 2026
 

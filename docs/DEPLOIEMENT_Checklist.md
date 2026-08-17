@@ -57,6 +57,9 @@
 
 ---
 
-**Tout est prêt pour la production.** Le code (backend 25 modules + frontend 6 espaces) est testé
-(179 tests API verts), l'infra scriptée, et la sécurité auditée. Reste l'exécution sur le VPS réel
-(étape manuelle/CI ci-dessus).
+**Tout est prêt pour la production.** Le code (backend **28 modules** + frontend **7 espaces**,
+63 pages) est testé (**289 tests API verts** — vérifié le 17/08/2026), l'infra scriptée, et la
+sécurité auditée. Reste l'exécution sur le VPS réel (étape manuelle/CI ci-dessus).
+
+> Les écarts fonctionnels restants (référencement sans UI, pièces jointes DMP) sont listés dans
+> `docs/REVUE_Ecarts_et_Plan_2026-08.md`. **Aucun ne bloque cette mise en production.**
