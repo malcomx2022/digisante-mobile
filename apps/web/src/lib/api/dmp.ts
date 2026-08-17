@@ -1,14 +1,29 @@
 // Dossier médical partagé (DMP). L'accès soignant à un dossier patient passe par
 // un partage consenti PAR SOIGNANT (§4) : réclamé via le jeton `x-share-token`,
 // puis géré (liste/révocation) côté patient.
-import { del, get, post } from './client';
+import { del, get, getBlob, post } from './client';
 
 export interface DmpRecord {
   id: string;
   type: string;
   title: string;
   data?: unknown;
+  /** Nombre de pièces jointes (fourni par la liste, évite un appel par entrée). */
+  documentCount?: number;
   createdAt: string;
+}
+
+/** Pièce jointe d'une entrée (compte-rendu scanné, radio, ordonnance papier). */
+export interface DmpDocument {
+  id: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  createdAt: string;
+}
+
+export interface DmpRecordDetail extends DmpRecord {
+  documents: DmpDocument[];
 }
 
 /** Auto-mesure (constantes) saisie par le patient. */
@@ -71,4 +86,20 @@ export const dmpApi = {
   /** Ré-autorise un soignant précédemment révoqué (action délibérée du patient). */
   regrantConsent: (granteeId: string, ttlHours = 72) =>
     post<{ granteeId: string; expiresAt: string }>(`/dmp/consents/${granteeId}/regrant`, { ttlHours }).then(online),
+
+  // ── Pièces jointes ──────────────────────────────────────────────────────────
+  /** Détail d'une entrée, pièces jointes comprises. */
+  getRecord: (recordId: string) => get<DmpRecordDetail>(`/dmp/records/${recordId}`),
+
+  /** Joint un fichier à une entrée (chiffré au repos côté serveur). */
+  addDocument: (recordId: string, filename: string, mimeType: string, dataBase64: string) =>
+    post<DmpDocument>(`/dmp/records/${recordId}/documents`, { filename, mimeType, dataBase64 }).then(online),
+
+  removeDocument: (documentId: string) => del<{ removed: boolean }>(`/dmp/documents/${documentId}`).then(online),
+
+  /**
+   * Télécharge une pièce. Passe par un blob authentifié : le fichier n'est
+   * JAMAIS servi par une URL publique (§4), l'endpoint exige le jeton d'accès.
+   */
+  documentBlob: (documentId: string) => getBlob(`/dmp/documents/${documentId}/file`),
 };

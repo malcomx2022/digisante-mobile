@@ -51,8 +51,8 @@ Ce n'est pas un bug de code — c'est un piège d'onboarding (cf. **C7**).
 
 Classées par impact fonctionnel réel, pas par facilité.
 
-> **État d'avancement au 17/08/2026** — lots 1 et 2 livrés (branche `feat/lot1-lot2-referrals`) :
-> **C1 ✅ · C3 ✅ · C6 ✅ · C7 ✅ · C8 ✅ · C9 ✅** — restent **C2**, **C4**, **C5** (lots 3, 4, 5).
+> **État d'avancement au 17/08/2026** — lots 1, 2 et 3 livrés :
+> **C1 ✅ · C2 ✅ · C3 ✅ · C6 ✅ · C7 ✅ · C8 ✅ · C9 ✅** — restent **C4** et **C5** (lots 4 et 5).
 > Les sections ci-dessous conservent l'énoncé d'origine du constat ; le statut est rappelé en tête
 > de chacune.
 
@@ -72,7 +72,7 @@ C'est le seul module API dans ce cas : `subscriptions`, `consultations`, `paymen
 médicale béninoise rend difficile — c'est un des défis cibles du projet (§1 CLAUDE.md). Le backend
 répond au besoin, l'utilisateur ne peut pas s'en servir.
 
-### C2 — 🔴 MAJEUR · Les pièces jointes du DMP sont lisibles mais non téléversables
+### C2 — ✅ LIVRÉ (lot 3) · 🔴 MAJEUR · Les pièces jointes du DMP sont lisibles mais non téléversables
 
 `model Document` (fichier chiffré rattaché à un `MedicalRecord`) est **lu** par le DMP —
 `dmp.service.ts:87` fait `include: { documents: { select: { id, filename, mimeType, size } } }` et
@@ -234,7 +234,14 @@ risque et peuvent partir immédiatement ; les lots 2 à 4 sont du développement
 - **C6** : garde d'état complète sur `respond` + test de non-régression.
 - Réutilise `ProHeader`, `SkeletonCards`, `ConfirmDialog` — aucune dépendance nouvelle.
 
-### Lot 3 — Pièces jointes du DMP (≈ 2 j)
+### Lot 3 — ✅ LIVRÉ · Pièces jointes du DMP (≈ 2 j)
+
+> **Découverte d'exploitation faite pendant ce lot** : les fichiers chiffrés vivent dans
+> `KYC_STORAGE_DIR`, **hors de `pg_dump`**. Jusqu'ici ce répertoire ne contenait que des pièces
+> d'identité KYC ; il porte désormais des **données de santé**. Une restauration à partir du seul
+> dump PostgreSQL laisserait des entrées de dossier pointant vers des fichiers disparus.
+> → Ligne ajoutée à `docs/DEPLOIEMENT_Checklist.md` §7 et avertissement en tête de `lib/filestore.ts`.
+> **À vérifier avant le premier patient réel.**
 - **C2** : `POST /dmp/records/:id/documents` + `GET /dmp/documents/:id/file`, en **réutilisant**
   `lib/filestore.ts` et le contrôle de *magic bytes* du KYC.
 - Chiffrement au repos (§4) et respect de `resolveDmpScope` sur la lecture — un soignant ne
