@@ -3,10 +3,15 @@
 // stockage objet externe, cohérent §3). Format sur disque : iv(12) | tag(16) |
 // ciphertext — AES-256-GCM, clé dérivée de HEALTH_ENCRYPTION_KEY (repli
 // JWT_SECRET en dev ; en production HEALTH_ENCRYPTION_KEY est obligatoire,
-// cf. env.ts). Usage : pièces KYC (documents d'identité, §4 — jamais servies
-// en clair ni via URL publique ; lecture par endpoint authentifié uniquement).
-// ⚠️ Les fichiers ne sont PAS dans pg_dump : ajouter KYC_STORAGE_DIR au cron
-// de sauvegarde du VPS.
+// cf. env.ts). Usages : pièces KYC (documents d'identité) ET pièces jointes du
+// DMP (comptes-rendus, radios — §4). Jamais servies en clair ni via URL
+// publique ; lecture par endpoint authentifié uniquement.
+//
+// ⚠️ SAUVEGARDE — les fichiers ne sont PAS dans pg_dump. Depuis l'ajout des
+// pièces jointes du DMP (août 2026), ce répertoire contient des DONNÉES DE
+// SANTÉ : une restauration à partir du seul dump PostgreSQL rendrait des
+// entrées de dossier pointant vers des fichiers disparus. `KYC_STORAGE_DIR`
+// DOIT être inclus dans le cron de sauvegarde du VPS.
 // ─────────────────────────────────────────────────────────────
 import { createCipheriv, createDecipheriv, randomBytes, randomUUID } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';

@@ -5,6 +5,7 @@ import { useState } from 'react';
 
 import { DmpShareDialog } from '@/components/patient/DmpShareDialog';
 import { PatientHeader } from '@/components/patient/PatientHeader';
+import { RecordDocuments } from '@/components/patient/RecordDocuments';
 import { CardPagne } from '@/components/ui';
 import { Empty, ErrorState , SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
@@ -140,11 +141,12 @@ export default function DmpPage() {
           {(data ?? []).map((r) => (
             <CardPagne key={r.id} className="p-4 flex gap-3">
               <span className={`w-1.5 rounded-full ${BAR[r.type] ?? 'bg-stone-300'}`} />
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <p className="font-display font-bold text-[0.875rem] text-stone-800">{r.title}</p>
                 <p className="text-[0.75rem] text-stone-400">
                   {t(`record.${r.type}`)} · {formatDate(r.createdAt, { dateStyle: 'medium' })}
                 </p>
+                <RecordDocuments recordId={r.id} initialCount={r.documentCount ?? 0} />
               </div>
               <button
                 type="button"

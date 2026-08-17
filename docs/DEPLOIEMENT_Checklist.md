@@ -48,6 +48,10 @@
 - [ ] PWA installable, `/onboarding` accessible, SOS (SMS) opérationnel hors-ligne.
 - [ ] Webhook FedaPay : URL `https://…/api/v1/payments/webhook` configurée côté FedaPay (HMAC).
 - [ ] Sauvegarde : lancer `pg_dump_encrypted.sh` une fois et vérifier `/var/backups/digisante/`.
+- [ ] ⚠️ **Sauvegarder aussi `KYC_STORAGE_DIR`** (fichiers chiffrés hors base). Il contient les
+      pièces KYC **et, depuis août 2026, les pièces jointes du DMP — donc des données de santé**.
+      Une restauration à partir du seul `pg_dump` laisserait des entrées de dossier pointant vers
+      des fichiers disparus.
 - [ ] Audit : trigger anti UPDATE/DELETE actif (tester un UPDATE sur `audit_logs` → rejet).
 
 ## 8. Conformité (rappels release)

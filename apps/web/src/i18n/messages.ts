@@ -447,6 +447,16 @@ const fr: Messages = {
   'proresults.normal': 'Normal',
   'proresults.interpreted': 'Votre interprétation',
   'proresults.placeholder': 'Interprétation clinique…',
+  // Pièces jointes d'une entrée du DMP (compte-rendu scanné, radio, ordonnance papier).
+  'dmpdoc.title': 'Pièces jointes',
+  'dmpdoc.empty': 'Aucune pièce jointe',
+  'dmpdoc.add': 'Ajouter une pièce',
+  'dmpdoc.hint': 'Photo ou PDF, 5 Mo maximum. Le fichier est chiffré sur nos serveurs.',
+  'dmpdoc.delete': 'Supprimer',
+  'dmpdoc.delete_title': 'Supprimer cette pièce ?',
+  'dmpdoc.delete_desc': 'Le fichier ne sera plus accessible, ni pour vous ni pour les soignants à qui vous avez partagé cette entrée.',
+  'dmpdoc.bad_format': 'Format non accepté (photo JPG/PNG/WEBP ou PDF).',
+  'dmpdoc.too_big': 'Fichier trop volumineux (5 Mo maximum).',
   'proresults.sign': 'Signer l’interprétation',
   // Référencement entre médecins (orientation vers un confrère).
   'referrals.title': 'Orientations',
@@ -1519,6 +1529,16 @@ const en: Messages = {
   'proresults.normal': 'Normal',
   'proresults.interpreted': 'Your interpretation',
   'proresults.placeholder': 'Clinical interpretation…',
+  // DMP record attachments (scanned report, X-ray, paper prescription).
+  'dmpdoc.title': 'Attachments',
+  'dmpdoc.empty': 'No attachment',
+  'dmpdoc.add': 'Add a file',
+  'dmpdoc.hint': 'Photo or PDF, 5 MB maximum. The file is encrypted on our servers.',
+  'dmpdoc.delete': 'Delete',
+  'dmpdoc.delete_title': 'Delete this attachment?',
+  'dmpdoc.delete_desc': 'The file will no longer be available, neither to you nor to the caregivers you shared this record with.',
+  'dmpdoc.bad_format': 'Format not accepted (JPG/PNG/WEBP photo or PDF).',
+  'dmpdoc.too_big': 'File too large (5 MB maximum).',
   'proresults.sign': 'Sign interpretation',
   // Doctor-to-doctor referrals.
   'referrals.title': 'Referrals',

@@ -6,6 +6,7 @@ import { MEDICAL_RECORD_TYPES, SHARE_TYPES } from '@digisante/shared';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
+import { UPLOAD_MIME_TYPES } from '@/lib/upload.js';
 import { zParse } from '@/lib/validation.js';
 import * as dmp from './dmp.service.js';
 
@@ -22,6 +23,16 @@ const shareSchema = z.object({
   ttlHours: z.number().int().min(1).max(720).default(72),
 });
 const exportSchema = z.object({ patientId: z.string().cuid().optional() });
+
+// Pièce jointe : contenu en base64, ≤ 5 Mo, images et PDF uniquement (le MIME
+// déclaré est recoupé avec les magic bytes côté service).
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
+const documentSchema = z.object({
+  mimeType: z.enum(UPLOAD_MIME_TYPES),
+  filename: z.string().trim().min(1).max(120),
+  // 5 Mo binaires ≈ 6,9 Mo en base64.
+  dataBase64: z.string().min(1).max(Math.ceil((MAX_FILE_BYTES * 4) / 3) + 4),
+});
 
 /** Jeton de partage présenté par un soignant (en-tête dédié). */
 const shareToken = (req: FastifyRequest): string | undefined => {
@@ -57,6 +68,33 @@ export default async function dmpRoutes(app: FastifyInstance) {
   app.delete('/records/:id/share', authed, async (request) => {
     const { id } = zParse(idParams, request.params);
     return dmp.revokeShare(app, request.user.sub, id);
+  });
+
+  // ── Pièces jointes d'une entrée (compte-rendu scanné, radio, ordonnance papier) ──
+  // Même contrôle d'accès que l'entrée porteuse (portée par-entrée §4).
+  // bodyLimit relevé : 5 Mo binaires + surcoût base64 + enveloppe JSON.
+  app.post('/records/:id/documents', { ...authed, bodyLimit: 8 * 1024 * 1024 }, async (request, reply) => {
+    const { id } = zParse(idParams, request.params);
+    const input = zParse(documentSchema, request.body);
+    const doc = await dmp.addDocument(app, request.user, id, { ...input, maxBytes: MAX_FILE_BYTES, shareToken: shareToken(request) }, request.ip);
+    return reply.code(201).send(doc);
+  });
+
+  // Téléchargement d'une pièce (déchiffrée à la volée). Jamais d'URL publique (§4).
+  app.get('/documents/:id/file', authed, async (request, reply) => {
+    const { id } = zParse(idParams, request.params);
+    const { content, mimeType, filename } = await dmp.readDocumentFile(app, request.user, id, shareToken(request), request.ip);
+    reply.header('Cache-Control', 'no-store');
+    // Un PDF peut embarquer du contenu actif : téléchargement forcé, jamais de
+    // rendu dans l'onglet (même règle que les pièces KYC).
+    const disposition = mimeType === 'application/pdf' ? 'attachment' : 'inline';
+    reply.header('Content-Disposition', `${disposition}; filename="${filename.replace(/[^\w.\- ]/g, '_')}"`);
+    return reply.type(mimeType).send(content);
+  });
+
+  app.delete('/documents/:id', authed, async (request) => {
+    const { id } = zParse(idParams, request.params);
+    return dmp.removeDocument(app, request.user.sub, id, request.ip);
   });
 
   // Consentement par soignant : le patient liste qui a accès à son dossier.

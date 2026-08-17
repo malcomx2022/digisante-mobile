@@ -13,6 +13,8 @@ import { writeAudit } from '@/lib/audit.js';
 import { openMedicalData, sealMedicalData } from '@/lib/crypto.js';
 import { assertDmpAccess, resolveDmpScope } from '@/lib/dmp-consent.js';
 import { badRequest, forbidden, notFound } from '@/lib/errors.js';
+import { readEncryptedFile, storeEncryptedFile } from '@/lib/filestore.js';
+import { checksumOf, decodeUpload } from '@/lib/upload.js';
 
 interface Actor {
   sub: string;
@@ -70,12 +72,15 @@ export async function listRecords(
   const records = await app.prisma.medicalRecord.findMany({
     where: scope.recordIds === 'ALL' ? { patientId } : { patientId, id: { in: [...scope.recordIds] } },
     orderBy: { createdAt: 'desc' },
+    // Le décompte évite un appel par entrée juste pour savoir s'il y a des pièces.
+    include: { _count: { select: { documents: true } } },
   });
   return records.map((r) => ({
     id: r.id,
     type: r.type,
     title: r.title,
     data: openMedicalData(r),
+    documentCount: r._count.documents,
     createdAt: r.createdAt,
   }));
 }
@@ -101,6 +106,117 @@ export async function getRecord(app: FastifyInstance, actor: Actor, recordId: st
     documents: record.documents,
     createdAt: record.createdAt,
   };
+}
+
+// ── Pièces jointes d'une entrée de DMP (§4) ──────────────────────────────────
+// Le fichier est chiffré AES-256-GCM sur le disque du VPS (même filestore que
+// les pièces KYC) ; `encryptedUrl` ne stocke qu'un identifiant de stockage
+// opaque — jamais une URL publique. `checksum` porte le SHA-256 du contenu EN
+// CLAIR : il permet de détecter une altération après déchiffrement.
+//
+// Contrôle d'accès : STRICTEMENT le même que pour l'entrée qui les porte
+// (`resolveDmpScope` + appartenance à la portée). Un soignant qui n'a pas
+// l'entrée dans sa portée ne peut ni joindre ni télécharger ses pièces —
+// sinon la minimisation par-entrée serait contournable par les fichiers.
+
+/** Résout l'entrée et vérifie qu'elle est DANS la portée de l'acteur, ou lève 403. */
+async function assertRecordInScope(app: FastifyInstance, actor: Actor, recordId: string, shareToken: string | undefined, ip?: string | null) {
+  const record = await app.prisma.medicalRecord.findUnique({ where: { id: recordId }, select: { id: true, patientId: true } });
+  if (!record) throw notFound('Entrée de dossier introuvable');
+
+  const scope = await resolveDmpScope(app, { actorId: actor.sub, role: actor.role, patientId: record.patientId, shareToken, ip });
+  if (scope.recordIds !== 'ALL' && !scope.recordIds.has(record.id)) {
+    await writeAudit(app.prisma, {
+      action: 'DMP_DENIED',
+      actorId: actor.sub,
+      targetId: record.patientId,
+      ip,
+      meta: { reason: 'RECORD_NOT_SHARED', recordId: record.id, role: actor.role },
+    });
+    throw forbidden('Cette entrée n’est pas partagée avec vous');
+  }
+  return record;
+}
+
+interface AddDocumentInput {
+  mimeType: string;
+  filename: string;
+  dataBase64: string;
+  maxBytes: number;
+  shareToken?: string;
+}
+
+/** Joint un fichier (chiffré au repos) à une entrée du dossier. */
+export async function addDocument(app: FastifyInstance, actor: Actor, recordId: string, input: AddDocumentInput, ip?: string | null) {
+  const record = await assertRecordInScope(app, actor, recordId, input.shareToken, ip);
+
+  const content = decodeUpload(input.dataBase64, input.mimeType, input.maxBytes);
+  const storageId = await storeEncryptedFile(content);
+
+  const doc = await app.prisma.document.create({
+    data: {
+      medicalRecordId: record.id,
+      filename: input.filename,
+      mimeType: input.mimeType,
+      size: content.length,
+      encryptedUrl: storageId,
+      checksum: checksumOf(content),
+    },
+    select: { id: true, filename: true, mimeType: true, size: true, createdAt: true },
+  });
+
+  await writeAudit(app.prisma, {
+    action: 'DMP_DOCUMENT_ADD',
+    actorId: actor.sub,
+    targetId: record.patientId,
+    ip,
+    // Métadonnées seulement : ni le contenu, ni le titre de l'entrée (§4).
+    meta: { recordId: record.id, documentId: doc.id, mimeType: doc.mimeType, size: doc.size },
+  });
+  return doc;
+}
+
+/** Lit une pièce jointe (déchiffrée) — portée identique à celle de son entrée. */
+export async function readDocumentFile(app: FastifyInstance, actor: Actor, documentId: string, shareToken: string | undefined, ip?: string | null) {
+  const doc = await app.prisma.document.findUnique({
+    where: { id: documentId },
+    select: { filename: true, mimeType: true, encryptedUrl: true, checksum: true, medicalRecordId: true },
+  });
+  if (!doc) throw notFound('Pièce jointe introuvable');
+
+  await assertRecordInScope(app, actor, doc.medicalRecordId, shareToken, ip);
+
+  const content = await readEncryptedFile(doc.encryptedUrl).catch(() => {
+    throw notFound('Fichier indisponible');
+  });
+  // Le tag GCM couvre déjà l'altération du fichier chiffré ; le checksum protège
+  // en plus contre une substitution d'enregistrement en base (mauvais storageId).
+  if (checksumOf(content) !== doc.checksum) throw notFound('Fichier indisponible');
+
+  return { content, mimeType: doc.mimeType, filename: doc.filename };
+}
+
+/** Supprime une pièce jointe. Réservé au PATIENT PROPRIÉTAIRE de l'entrée. */
+export async function removeDocument(app: FastifyInstance, patientUserId: string, documentId: string, ip?: string | null) {
+  const doc = await app.prisma.document.findUnique({
+    where: { id: documentId },
+    select: { id: true, medicalRecord: { select: { id: true, patient: { select: { userId: true } } } } },
+  });
+  if (!doc) throw notFound('Pièce jointe introuvable');
+  if (doc.medicalRecord.patient.userId !== patientUserId) throw forbidden('Seul le patient propriétaire peut supprimer');
+
+  await app.prisma.document.delete({ where: { id: doc.id } });
+  await writeAudit(app.prisma, {
+    action: 'DMP_DOCUMENT_REMOVE',
+    actorId: patientUserId,
+    targetId: doc.medicalRecord.id,
+    ip,
+    meta: { documentId: doc.id },
+  });
+  // Le fichier chiffré reste sur disque (aucun secret n'en sort : sans la ligne
+  // en base, plus personne ne peut le retrouver). La purge disque relève du cron
+  // de maintenance du VPS.
+  return { removed: true };
 }
 
 /** Partage consenti d'une entrée par le patient propriétaire (token + expiration). */

@@ -9,6 +9,7 @@ import { ErrorState, Loading } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { ApiRequestError, get, getBlob, post } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
+import { fileToBase64 } from '@/lib/file';
 
 interface Submission {
   id: string;
@@ -27,18 +28,6 @@ const FILL: Record<string, string> = {
 // Upload réel (P1) : ≤ 5 Mo, image/PDF — chiffré côté serveur (§4).
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const ACCEPTED_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const url = String(reader.result); // data:<mime>;base64,<data>
-      resolve(url.slice(url.indexOf(',') + 1));
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
 
 // D-19 — KYC professionnel (progression tissée + upload réel des pièces).
 export default function ProKycPage() {
