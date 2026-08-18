@@ -19,7 +19,20 @@ interface AgendaItem {
   patient?: { user?: { profile?: { firstName: string; lastName: string } | null } | null };
   /** Salle déjà ouverte pour ce RDV (sinon `null`) → rejoindre au lieu de démarrer. */
   consultation?: { id: string; status: string } | null;
+  /** Priorisation posée par le médecin (écart D5) — `null` tant qu'aucun tri. */
+  triage?: { level: TriageLevel; note?: string } | null;
 }
+
+const TRIAGE_LEVELS = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const;
+type TriageLevel = (typeof TRIAGE_LEVELS)[number];
+
+// Le tri se lit d'un coup d'œil sur une file : une pastille par niveau.
+const TRIAGE_CLS: Record<TriageLevel, string> = {
+  LOW: 'bg-stone-100 text-stone-600',
+  MEDIUM: 'bg-ocre-50 text-ocre-600',
+  HIGH: 'bg-ocre-400 text-stone-900',
+  URGENT: 'bg-sos-500 text-white',
+};
 
 // D-15 — Agenda (7 jours) + démarrage de la téléconsultation.
 export default function AgendaPage() {
@@ -27,6 +40,10 @@ export default function AgendaPage() {
   const router = useRouter();
   const [startingId, setStartingId] = useState<string | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
+  // Tri appliqué localement après un POST réussi : évite de recharger tout
+  // l'agenda pour une pastille (réseaux lents).
+  const [triaged, setTriaged] = useState<Record<string, TriageLevel>>({});
+  const [triageOpen, setTriageOpen] = useState<string | null>(null);
   // Fenêtre 7 jours calculée à chaque montage (et non figée au chargement du
   // bundle) — sinon en PWA persistante l'agenda resterait bloqué sur le jour
   // d'ouverture de l'app.
@@ -62,6 +79,25 @@ export default function AgendaPage() {
     }
   }
 
+  // Priorisation d'une demande (écart D5) : l'endpoint existait sans appelant.
+  async function setTriage(appointmentId: string, level: TriageLevel) {
+    setTriageOpen(null);
+    const previous = triaged[appointmentId];
+    setTriaged((s) => ({ ...s, [appointmentId]: level })); // optimiste
+    try {
+      await post(`/appointments/${appointmentId}/triage`, { level });
+    } catch {
+      // Rollback : ne pas laisser une pastille qui ment sur l'état serveur.
+      setTriaged((s) => {
+        const next = { ...s };
+        if (previous) next[appointmentId] = previous;
+        else delete next[appointmentId];
+        return next;
+      });
+      setStartError(t('triage.error'));
+    }
+  }
+
   return (
     <>
       <ProHeader title={t('pro.agenda')} wide />
@@ -76,6 +112,7 @@ export default function AgendaPage() {
           const canStart = a.type === 'TELECONSULTATION' && a.status === 'CONFIRMED' && !a.consultation;
           // Salle déjà ouverte et toujours active → le médecin la rejoint.
           const canRejoin = a.consultation?.status === 'ACTIVE';
+          const level = triaged[a.id] ?? a.triage?.level ?? null;
           return (
             <CardPagne key={a.id} className="p-4 flex items-center gap-3 flex-wrap">
               <div className="text-center w-14 shrink-0">
@@ -101,6 +138,34 @@ export default function AgendaPage() {
                   {canRejoin ? t('teleconsult.rejoin') : t('teleconsult.start')}
                 </Button>
               )}
+
+              {/* Priorisation (écart D5) : le niveau courant sert de bouton. */}
+              <div className="w-full">
+                <button
+                  type="button"
+                  onClick={() => setTriageOpen((id) => (id === a.id ? null : a.id))}
+                  aria-expanded={triageOpen === a.id}
+                  className={`card-pagne px-2 py-0.5 font-display font-extrabold text-[0.59375rem] focus-visible:ring-inset ${
+                    level ? TRIAGE_CLS[level] : 'bg-white border border-dashed border-stone-300 text-stone-500'
+                  }`}
+                >
+                  {level ? t(`triage.level.${level}`) : t('triage.set')}
+                </button>
+                {triageOpen === a.id && (
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    {TRIAGE_LEVELS.map((l) => (
+                      <button
+                        key={l}
+                        type="button"
+                        onClick={() => void setTriage(a.id, l)}
+                        className={`card-pagne px-2 py-0.5 font-display font-extrabold text-[0.59375rem] focus-visible:ring-inset ${TRIAGE_CLS[l]}`}
+                      >
+                        {t(`triage.level.${l}`)}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </CardPagne>
           );
         })}

@@ -214,7 +214,7 @@ il n'aurait eu aucune donnée à afficher. Il fallait un endpoint de lecture cô
 
 ---
 
-### D4 — 🟠 MOYEN · Le médecin ne peut pas éditer son profil professionnel
+### D4 — ✅ LIVRÉ (lot 10, 18/08/2026) · 🟠 MOYEN · Le médecin ne peut pas éditer son profil professionnel
 
 `PATCH /api/v1/professionals/me` (`professionals.routes.ts:150`, `requireRole('MEDECIN')`) n'a aucun
 appelant. `/pro/profile` ne rend que le composant générique `ProfileSettings` (nom, langue,
@@ -224,21 +224,38 @@ Ce qui est donc **figé à la valeur du seed / de la saisie KYC**, sans moyen de
 
 - `consultFee` — et c'est le montant **autoritatif serveur** du paiement d'une consultation
   (`payments.service.ts:134`, durcissement CSO v1.12). Un médecin ne peut pas changer son tarif.
-- `spokenLangs` — utilisé par l'appariement linguistique et le filtre « parle ma langue » de
-  l'annuaire patient (item #6). Une langue non déclarée ne peut pas être ajoutée.
-- Spécialité, biographie, disponibilités.
+- Spécialité, durée de créneau, biographie.
+
+> **Correction apportée à ce constat au moment du lot 10** : l'énoncé initial citait aussi
+> `spokenLangs` et les « disponibilités ». **C'était faux sur les deux points.** `spokenLangs` vit sur
+> `Profile`, pas sur `Doctor`, et il est **déjà éditable** via `PATCH /users/me` — le composant
+> `ProfileSettings`, présent sur `/pro/profile`, le fait. Quant aux « disponibilités », **le champ
+> n'existe pas** dans le schéma : `Doctor` ne porte qu'un `slotDuration`. L'écart réel est donc plus
+> étroit qu'annoncé — mais son cœur, le tarif figé, tient.
+
+**✅ Livré au lot 10 :** composant `DoctorProfileCard` sur `/pro/profile` (spécialité, **tarif**,
+durée de créneau, biographie) branché sur `PATCH /professionals/me`. `GET /users/me` expose
+désormais `consultFee`/`slotDuration`/`bio` du médecin — ses **propres** champs — pour préremplir le
+formulaire, plutôt que d'ajouter un endpoint de lecture. `licenseNumber` et `verifiedAt` restent hors
+d'atteinte : ils relèvent du KYC, pas de l'auto-déclaration. Test : le tarif modifié est bien celui
+que `payments.initiate` imposera ; un patient reçoit 403.
 
 ---
 
-### D5 — 🟠 MOYEN · `POST /appointments/:id/triage` orphelin
+### D5 — ✅ LIVRÉ (lot 10, 18/08/2026) · 🟠 MOYEN · `POST /appointments/:id/triage` orphelin
 
 Endpoint `doctorOnly` de tri/priorisation d'une demande de rendez-vous : aucun appelant.
 Combiné à D1 (agenda en lecture seule), le médecin ne dispose d'**aucune action** sur sa file de
 rendez-vous en dehors du bouton « confirmer » du tableau de bord.
 
+**✅ Livré au lot 10 :** pastille de priorité sur chaque carte de `/pro/agenda`
+(faible / moyen / élevé / **urgent**), pose optimiste avec rollback en cas d'échec — une pastille ne
+doit jamais mentir sur l'état serveur. Le niveau posé remonte dans l'agenda (test dédié) ; un patient
+ne peut pas trier son propre rendez-vous (403).
+
 ---
 
-### D6 — 🟠 MOYEN · Une alerte SOS ne se clôt jamais
+### D6 — ✅ LIVRÉ (lot 10, 18/08/2026) · 🟠 MOYEN · Une alerte SOS ne se clôt jamais
 
 `model Sos` (`schema.prisma:602`) porte `status SosStatus @default(ACTIVE)` et `resolvedAt`.
 Le module n'expose que deux endpoints, **tous deux patient** : créer une alerte, lister les siennes.
@@ -248,6 +265,18 @@ Conséquence : toute alerte reste `ACTIVE` indéfiniment. Ni le patient (« faus
 bien »), ni un opérateur ne peut la clore ; aucune console SOS n'existe côté PRO ou ADMIN.
 Le SMS vers le contact d'urgence et le numéro public part bien (`sos.service.ts:69`) — c'est le
 **suivi** de l'alerte qui manque, pas le déclenchement.
+
+**✅ Livré au lot 10 :** `POST /sos/:id/resolve` (patient propriétaire) → `RESOLVED` ou
+`FALSE_ALARM` + `resolvedAt`, **journalisé** `SOS_RESOLVED` (la clôture d'une urgence est un
+événement de traçabilité au même titre que son déclenchement). Sur `/patient/sos` : bloc « alerte en
+cours » avec **« Je vais bien »** / **« Fausse alerte »**, plus l'historique des alertes closes.
+Cloisonnement §4 : **404** sur l'alerte d'autrui — pas 403, on ne confirme pas son existence.
+Une clôture non confirmée par le réseau ne modifie pas l'affichage : une urgence non close est moins
+grave qu'une urgence affichée close à tort.
+
+> ⚠️ **Console SOS admin : toujours hors périmètre**, comme prévu. Une alerte SOS est géolocalisée
+> et nominative ; l'exposer à l'admin frôle la frontière du §4. À rouvrir seulement avec une décision
+> explicite sur qui, côté opérateur, a le droit de voir quoi.
 
 ---
 
@@ -313,7 +342,7 @@ Les lots 1→5 de la revue précédente sont **tous livrés**. La suite reprend 
 | ~~7~~ | ~~**D1** — geste médecin de téléconsultation~~ | ✅ **LIVRÉ** | — | — |
 | **8** | **D2** — paiement wallet (**§5**) | ≈ 1,5 j | **élevé** | revue §5 + sandbox |
 | ~~9~~ | ~~**D3** — écran de relecture médicale~~ | ✅ **LIVRÉ** | — | — |
-| **10** | **D4 + D5 + D6** — actions métier manquantes | ≈ 2 j | faible | lot 7 (agenda) |
+| ~~10~~ | ~~**D4 + D5 + D6** — actions métier manquantes~~ | ✅ **LIVRÉ** | — | — |
 | **11** | **D7** — trancher `translations` | ≈ 0,5 j | nul | décision produit |
 | **6** | Déploiement VPS Infomaniak | — | — | **indépendant** |
 
@@ -358,7 +387,7 @@ brouillon (`POST /education/:id/medical-review { approve }`) + **notification au
 soumission (sinon personne ne sait qu'il y a quelque chose à relire) + entrée de navigation PRO
 gated sur médecin vérifié. i18n FR/EN.
 
-### Lot 10 — Actions métier manquantes (≈ 2 j)
+### Lot 10 — ✅ LIVRÉ · Actions métier manquantes
 
 - **D4** : formulaire de profil professionnel (`PATCH /professionals/me`) — tarif, spécialité,
   langues parlées, bio, disponibilités. Contrôler que le tarif reste **imposé serveur** au paiement.
@@ -407,8 +436,19 @@ Les trois écarts majeurs (**D1** téléconsultation, **D2** wallet, **D3** rele
 même forme que ceux de la revue de juillet : **le backend est là, l'écran ne l'est pas**.
 
 **Les trois sont traités** : **D1** livré (lot 7), **D3** livré (lot 9), **D2** neutralisé (bouton
-retiré). Reste le lot 10 (D4/D5/D6, ≈ 2 j), le lot 11 (D7, ≈ 0,5 j) et le lot 8 (wallet, ≈ 1,5 j) —
-ce dernier n'étant plus une réparation mais une addition, conditionnée à un feu vert §5.
+retiré). **D4, D5 et D6** livrés au lot 10. Il ne reste que le **lot 11** (D7, ≈ 0,5 j — décision
+produit) et le **lot 8** (wallet, ≈ 1,5 j), ce dernier n'étant plus une réparation mais une addition
+conditionnée à un feu vert §5.
+
+⚠️ **Une dette ouverte par le lot 10, à traiter avant les premiers patients réels** : les 6 libellés
+de clôture SOS (`sos.active_title`, `sos.im_ok`, `sos.false_alarm`, `sos.history`,
+`sos.status.RESOLVED`, `sos.status.FALSE_ALARM`) sont livrés en **FR/EN seulement**. Ce sont les
+**premières clés CRITIQUES** manquantes en FON/YOR (`sos.*` = double validation, §6) : jusqu'ici le
+compteur affichait « 0 critique ». Le repli FR fonctionne, donc rien ne casse — mais un locuteur
+FON/YOR verra du **français sur un écran d'urgence**, ce qui est précisément ce que la règle des
+namespaces critiques cherche à éviter. Les clés sont exportées dans `docs/i18n/todo.{fon,yor}.csv`,
+marquées `CRITIQUE`, prêtes pour la relecture par locuteurs natifs. **Ne pas les remplir par
+traduction machine** (§6).
 
 **D2 a été tranché le 18/08/2026** : le bouton « Wallet » est retiré. Ce n'était pas une
 fonctionnalité manquante mais une promesse affichée que le code ne tenait pas — et, vérification

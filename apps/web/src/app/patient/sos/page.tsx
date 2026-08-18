@@ -4,10 +4,21 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 import { PatientHeader } from '@/components/patient/PatientHeader';
-import { CardPagne } from '@/components/ui';
+import { Badge, Button, CardPagne } from '@/components/ui';
 import { useLocale } from '@/i18n/LocaleProvider';
-import { post } from '@/lib/api/client';
+import { formatDateTime } from '@/i18n/format';
+import { get, post } from '@/lib/api/client';
+import { useApi } from '@/lib/api/useApi';
 import { buildSosSmsLink, SOS_NUMBER } from '@/lib/sos';
+
+interface SosAlert {
+  id: string;
+  status: 'ACTIVE' | 'RESOLVED' | 'FALSE_ALARM';
+  latitude: number;
+  longitude: number;
+  createdAt: string;
+  resolvedAt: string | null;
+}
 
 // D-07 — SOS : bouton octogonal, géoloc, alerte API en ligne + repli SMS hors-ligne.
 // 'sent' = alerte transmise au serveur ; 'failed' = échec POST → seul le SMS de secours reste.
@@ -15,6 +26,12 @@ export default function SosPage() {
   const { t } = useLocale();
   const [status, setStatus] = useState<'idle' | 'locating' | 'sent' | 'failed'>('idle');
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  // Historique + clôture (écart D6) : `Sos.status`/`resolvedAt` n'étaient écrits
+  // NULLE PART après la création — toute alerte restait ACTIVE indéfiniment.
+  const [tick, setTick] = useState(0);
+  const [closingId, setClosingId] = useState<string | null>(null);
+  const { data: alerts } = useApi<SosAlert[]>(() => get('/sos'), [tick]);
+  const active = (alerts ?? []).filter((a) => a.status === 'ACTIVE');
 
   // Récupère la position dès le montage : le lien SMS de secours doit déjà porter
   // la position même si l'utilisateur n'a pas encore appuyé sur SOS.
@@ -28,6 +45,21 @@ export default function SosPage() {
       { timeout: 8000 },
     );
   }, []);
+
+  async function resolve(id: string, falseAlarm: boolean) {
+    if (closingId) return;
+    setClosingId(id);
+    try {
+      await post(`/sos/${id}/resolve`, { falseAlarm });
+      setTick((n) => n + 1);
+    } catch {
+      // Sans réseau la clôture n'est pas confirmée : on ne modifie pas
+      // l'affichage. Une urgence non close est moins grave qu'une urgence
+      // affichée close à tort.
+    } finally {
+      setClosingId(null);
+    }
+  }
 
   function trigger() {
     setStatus('locating');
@@ -82,6 +114,46 @@ export default function SosPage() {
             </p>
           )}
         </div>
+
+        {/* Alertes encore ouvertes : le patient les clôt lui-même. Sans ça,
+            aucune alerte ne se refermait jamais (écart D6). */}
+        {active.length > 0 && (
+          <CardPagne className="p-4 space-y-3">
+            <p className="font-display font-extrabold text-[0.8125rem] text-sos-600">{t('sos.active_title')}</p>
+            {active.map((a) => (
+              <div key={a.id} className="space-y-2 border-b border-dashed border-stone-200 last:border-0 pb-2 last:pb-0">
+                <p className="text-[0.75rem] text-stone-500">
+                  {formatDateTime(a.createdAt, { dateStyle: 'short', timeStyle: 'short' })}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="sante" className="text-[0.6875rem] px-2.5 py-1" disabled={closingId === a.id} onClick={() => void resolve(a.id, false)}>
+                    {t('sos.im_ok')}
+                  </Button>
+                  <Button variant="outline" className="text-[0.6875rem] px-2.5 py-1" disabled={closingId === a.id} onClick={() => void resolve(a.id, true)}>
+                    {t('sos.false_alarm')}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardPagne>
+        )}
+
+        {/* Historique des alertes closes — traçabilité pour le patient. */}
+        {(alerts ?? []).some((a) => a.status !== 'ACTIVE') && (
+          <CardPagne className="p-4">
+            <p className="font-display font-extrabold text-[0.8125rem] text-stone-700 mb-2">{t('sos.history')}</p>
+            {(alerts ?? [])
+              .filter((a) => a.status !== 'ACTIVE')
+              .map((a) => (
+                <div key={a.id} className="flex items-center justify-between py-1.5 border-b border-dashed border-stone-200 last:border-0">
+                  <span className="text-[0.75rem] text-stone-500">
+                    {formatDateTime(a.createdAt, { dateStyle: 'short', timeStyle: 'short' })}
+                  </span>
+                  <Badge variant={a.status === 'RESOLVED' ? 'normal' : 'indigo'}>{t(`sos.status.${a.status}`)}</Badge>
+                </div>
+              ))}
+          </CardPagne>
+        )}
 
         {/* Repli SMS — toujours disponible, même hors-ligne. §4 : message dans la langue de l'utilisateur. */}
         <a

@@ -38,7 +38,9 @@ const updateMeSchema = z.object({
 const meInclude = {
   profile: true,
   patient: { select: { id: true, bloodGroup: true } },
-  doctor: { select: { id: true, speciality: true, verifiedAt: true } },
+  // consultFee/slotDuration/bio : ses PROPRES champs éditables — nécessaires pour
+  // préremplir la fiche professionnelle (`PATCH /professionals/me`, écart D4).
+  doctor: { select: { id: true, speciality: true, verifiedAt: true, consultFee: true, slotDuration: true, bio: true } },
 } as const;
 
 export default async function usersRoutes(app: FastifyInstance) {

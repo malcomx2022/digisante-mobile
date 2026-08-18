@@ -14,6 +14,7 @@ import type { FastifyInstance } from 'fastify';
 
 import { env } from '@/lib/env.js';
 import { writeAudit } from '@/lib/audit.js';
+import { badRequest, notFound } from '@/lib/errors.js';
 import { sendSms } from '@/services/twilio.js';
 
 /** Gabarits SMS SOS, dans la langue du destinataire (FR/EN/FON au minimum). */
@@ -129,4 +130,52 @@ export async function triggerSos(app: FastifyInstance, input: TriggerSosInput) {
     app.log.error({ err, sosId: alert.id }, '[SOS] alerte serveur en échec — alerte conservée');
     return alert;
   }
+}
+
+/**
+ * Clôture d'une alerte par le patient qui l'a déclenchée (écart D6).
+ *
+ * `Sos.status` et `resolvedAt` n'étaient écrits NULLE PART après la création :
+ * toute alerte restait `ACTIVE` indéfiniment, et le champ `resolvedAt` était mort.
+ * Un patient doit pouvoir dire « je vais bien » ou « fausse alerte » — sans quoi
+ * l'historique ne distingue pas une urgence en cours d'une urgence passée.
+ *
+ * Cloisonnement §4 : on ne clôt QUE sa propre alerte (404 sinon, pas 403 — on ne
+ * confirme pas l'existence de l'alerte d'autrui). Journalisé : la clôture d'une
+ * urgence est un événement de traçabilité au même titre que son déclenchement.
+ */
+export async function resolveSos(
+  app: FastifyInstance,
+  ctx: { patientId: string; userId: string; ip?: string },
+  sosId: string,
+  falseAlarm: boolean,
+) {
+  const alert = await app.prisma.sos.findFirst({
+    where: { id: sosId, patientId: ctx.patientId },
+    select: { id: true, status: true },
+  });
+  if (!alert) throw notFound('Alerte introuvable');
+  if (alert.status !== 'ACTIVE') throw badRequest('Alerte déjà clôturée');
+
+  const status = falseAlarm ? 'FALSE_ALARM' : 'RESOLVED';
+  const updated = await app.prisma.sos.update({
+    where: { id: sosId },
+    data: { status, resolvedAt: new Date() },
+  });
+
+  try {
+    await writeAudit(app.prisma, {
+      action: 'SOS_RESOLVED',
+      actorId: ctx.userId,
+      targetId: sosId,
+      ip: ctx.ip,
+      meta: { status },
+    });
+  } catch (err) {
+    // Comme au déclenchement : l'urgence prime, un échec d'audit ne fait pas
+    // échouer la clôture.
+    app.log.error({ err, sosId }, '[SOS] échec écriture audit clôture');
+  }
+
+  return updated;
 }

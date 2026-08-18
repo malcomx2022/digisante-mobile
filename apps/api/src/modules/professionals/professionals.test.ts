@@ -12,6 +12,7 @@ describe.skipIf(!HAS_INFRA)('Annuaire médecins (intégration)', () => {
   let patientToken: string;
   let patientId: string;
   let drFonId: string;
+  let drFonToken: string;
   const auth = (t: string) => ({ authorization: `Bearer ${t}` });
 
   // L'annuaire (pages de navigation) est servi via un cache Redis TTL : purge
@@ -45,6 +46,7 @@ describe.skipIf(!HAS_INFRA)('Annuaire médecins (intégration)', () => {
       include: { doctor: true },
     });
     drFonId = drFon.doctor!.id;
+    drFonToken = app.jwt.sign({ sub: drFon.id, role: 'MEDECIN' }, { expiresIn: '15m' });
 
     await app.prisma.user.create({
       data: {
@@ -59,6 +61,41 @@ describe.skipIf(!HAS_INFRA)('Annuaire médecins (intégration)', () => {
     if (!app) return;
     await app.prisma.user.deleteMany({ where: { phone: { in: [...PHONES, PHONES_EXTRA] } } });
     await app.close();
+  });
+
+  // Lot 10 / écart D4 : `PATCH /professionals/me` n'avait AUCUN appelant. Le tarif,
+  // qui est le montant IMPOSÉ PAR LE SERVEUR au paiement d'une consultation, était
+  // donc figé à la valeur du KYC — un médecin ne pouvait jamais le changer.
+  it('le médecin met à jour sa fiche (tarif, spécialité, bio) et la valeur fait foi', async () => {
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/professionals/me',
+      headers: auth(drFonToken),
+      payload: { consultFee: 7500, speciality: 'Cardiologie interventionnelle', bio: 'Mise à jour.' },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(Number(res.json().consultFee)).toBe(7500);
+
+    // La valeur est bien persistée — c'est elle que `payments.initiate` imposera.
+    const doctor = await app.prisma.doctor.findUnique({ where: { id: drFonId }, select: { consultFee: true, speciality: true } });
+    expect(Number(doctor?.consultFee)).toBe(7500);
+    expect(doctor?.speciality).toBe('Cardiologie interventionnelle');
+
+    // Et elle est relisible par le médecin pour préremplir son formulaire.
+    const me = await app.inject({ method: 'GET', url: '/api/v1/users/me', headers: auth(drFonToken) });
+    expect(Number(me.json().doctor.consultFee)).toBe(7500);
+
+    // Un patient ne peut pas modifier une fiche professionnelle (403).
+    const denied = await app.inject({ method: 'PATCH', url: '/api/v1/professionals/me', headers: auth(patientToken), payload: { consultFee: 1 } });
+    expect(denied.statusCode).toBe(403);
+
+    // Remise en état pour les autres tests de la suite : TOUS les champs touchés,
+    // bio comprise (une suite ne doit pas dépendre de l'ordre d'exécution).
+    await app.prisma.doctor.update({
+      where: { id: drFonId },
+      data: { consultFee: 3000, speciality: 'Cardiologie', bio: 'Cardiologue à Cotonou.' },
+    });
+    await purgeDirectoryCache();
   });
 
   it('filtre par langue parlée : ?lang=FON ne renvoie que le médecin parlant FON', async () => {

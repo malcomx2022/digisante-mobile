@@ -152,6 +152,37 @@ describe.skipIf(!HAS_INFRA)('RDV & téléconsultation (intégration)', () => {
     expect(closed?.status).toBe('COMPLETED');
   });
 
+  // Lot 10 / écart D5 : l'endpoint de tri existait sans appelant côté web.
+  it('le médecin priorise une demande (triage) — le patient ne peut pas', async () => {
+    const at = new Date(Date.now() + 8 * 3600_000);
+    const book = await app.inject({
+      method: 'POST', url: '/api/v1/appointments', headers: auth(patientToken),
+      payload: { doctorId, type: 'PHYSICAL', scheduledAt: at.toISOString() },
+    });
+    const apptId = book.json().id as string;
+
+    const triage = await app.inject({
+      method: 'POST', url: `/api/v1/appointments/${apptId}/triage`, headers: auth(doctorToken),
+      payload: { level: 'URGENT', note: 'Douleur thoracique' },
+    });
+    expect(triage.statusCode).toBe(200);
+
+    // Le tri remonte dans l'agenda du médecin (c'est là qu'il se lit).
+    const agenda = await app.inject({
+      method: 'GET',
+      url: `/api/v1/appointments/agenda?from=${new Date(Date.now() - 3600_000).toISOString()}&to=${new Date(Date.now() + 24 * 3600_000).toISOString()}`,
+      headers: auth(doctorToken),
+    });
+    const slot = agenda.json().find((a: { id: string }) => a.id === apptId);
+    expect(slot.triage.level).toBe('URGENT');
+
+    // RBAC : le patient ne trie pas son propre rendez-vous.
+    const denied = await app.inject({
+      method: 'POST', url: `/api/v1/appointments/${apptId}/triage`, headers: auth(patientToken), payload: { level: 'LOW' },
+    });
+    expect(denied.statusCode).toBe(403);
+  });
+
   it('RBAC : un médecin ne peut pas réserver (403)', async () => {
     const res = await app.inject({
       method: 'POST',
