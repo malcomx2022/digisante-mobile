@@ -214,7 +214,11 @@ export async function agenda(app: FastifyInstance, doctorUserId: string, range: 
   return app.prisma.appointment.findMany({
     where: { doctorId, scheduledAt: { gte: range.from, lte: range.to } },
     orderBy: { scheduledAt: 'asc' },
-    include: { patient: { select: { user: { select: { profile: { select: { firstName: true, lastName: true } } } } } } },
+    include: {
+      patient: { select: { user: { select: { profile: { select: { firstName: true, lastName: true } } } } } },
+      // Le médecin doit savoir si la salle existe déjà : démarrer vs rejoindre.
+      consultation: { select: { id: true, status: true } },
+    },
   });
 }
 

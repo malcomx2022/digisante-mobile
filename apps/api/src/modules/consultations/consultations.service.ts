@@ -5,6 +5,7 @@
 import type { FastifyInstance } from 'fastify';
 
 import { badRequest, forbidden, notFound } from '@/lib/errors.js';
+import { localize } from '@/modules/notifications/notifications.templates.js';
 import { createMeetingToken, createRoom } from '@/services/daily.js';
 import { nextMode } from './consultations.rules.js';
 
@@ -36,7 +37,12 @@ function assertParticipant(
 export async function start(app: FastifyInstance, doctorUserId: string, appointmentId: string) {
   const appt = await app.prisma.appointment.findUnique({
     where: { id: appointmentId },
-    include: { doctor: { select: { userId: true } }, consultation: { select: { id: true } } },
+    include: {
+      doctor: { select: { userId: true } },
+      consultation: { select: { id: true } },
+      // Destinataire de la notification d'ouverture de salle, dans SA langue (§4).
+      patient: { select: { user: { select: { id: true, lang: true } } } },
+    },
   });
   if (!appt) throw notFound('Rendez-vous introuvable');
   if (appt.doctor.userId !== doctorUserId) throw forbidden('Seul le médecin du RDV peut démarrer la consultation');
@@ -55,6 +61,24 @@ export async function start(app: FastifyInstance, doctorUserId: string, appointm
       startedAt: new Date(),
     },
   });
+  // Le patient ne surveille pas son agenda en continu : sans notification, la
+  // salle s'ouvre dans le vide. Gabarit CONSULTATION_START déjà présent (FR/EN),
+  // `localize` replie sur FR pour FON/YOR.
+  const { title, body } = localize('CONSULTATION_START', appt.patient.user.lang, {
+    title: 'Téléconsultation',
+    body: 'Votre téléconsultation va commencer.',
+  });
+  await app.prisma.notification.create({
+    data: {
+      recipientId: appt.patient.user.id,
+      type: 'CONSULTATION_START',
+      channel: 'IN_APP',
+      title,
+      body,
+      status: 'PENDING',
+    },
+  });
+
   const token = await createMeetingToken({ app, room: room.name, userId: doctorUserId, isOwner: true });
   return { consultation: consult, roomUrl: room.url, token };
 }

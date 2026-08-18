@@ -89,6 +89,69 @@ describe.skipIf(!HAS_INFRA)('RDV & téléconsultation (intégration)', () => {
     expect(end.json().status).toBe('COMPLETED');
   });
 
+  // Lot 7 / écart D1 : jusqu'ici RIEN ne créait de Consultation depuis l'interface,
+  // donc `consultationId` restait null et le bouton « Rejoindre » du patient ne
+  // s'affichait jamais. Ce test verrouille la boucle complète côté serveur.
+  it('démarrage médecin → patient notifié dans SA langue + RDV devenu rejoignable', async () => {
+    const at = new Date(Date.now() + 5 * 3600_000);
+    const book = await app.inject({
+      method: 'POST', url: '/api/v1/appointments', headers: auth(patientToken),
+      payload: { doctorId, type: 'TELECONSULTATION', scheduledAt: at.toISOString() },
+    });
+    const apptId = book.json().id as string;
+    await app.inject({ method: 'POST', url: `/api/v1/appointments/${apptId}/confirm`, headers: auth(doctorToken) });
+
+    // Le patient parle anglais : la notification doit partir en anglais (§4).
+    await app.prisma.user.update({ where: { id: patientUserId }, data: { lang: 'EN' } });
+    const before = await app.prisma.notification.count({
+      where: { recipientId: patientUserId, type: 'CONSULTATION_START' },
+    });
+
+    const start = await app.inject({
+      method: 'POST', url: '/api/v1/consultations', headers: auth(doctorToken), payload: { appointmentId: apptId },
+    });
+    expect(start.statusCode).toBe(201);
+    const consultId = start.json().consultation.id as string;
+
+    const notif = await app.prisma.notification.findFirst({
+      where: { recipientId: patientUserId, type: 'CONSULTATION_START' },
+      orderBy: { createdAt: 'desc' },
+    });
+    expect(await app.prisma.notification.count({ where: { recipientId: patientUserId, type: 'CONSULTATION_START' } })).toBe(before + 1);
+    expect(notif?.title).toBe('Teleconsultation'); // gabarit EN, pas le repli FR
+    expect(notif?.status).toBe('PENDING');
+    await app.prisma.user.update({ where: { id: patientUserId }, data: { lang: 'FR' } });
+
+    // La boucle : le patient voit désormais un consultationId → bouton « Rejoindre ».
+    const list = await app.inject({ method: 'GET', url: '/api/v1/appointments', headers: auth(patientToken) });
+    const mine = list.json().find((a: { id: string }) => a.id === apptId);
+    expect(mine.consultationId).toBe(consultId);
+
+    // Et l'agenda du médecin sait que la salle existe (rejoindre au lieu de démarrer).
+    const agenda = await app.inject({
+      method: 'GET',
+      url: `/api/v1/appointments/agenda?from=${new Date(Date.now() - 3600_000).toISOString()}&to=${new Date(Date.now() + 24 * 3600_000).toISOString()}`,
+      headers: auth(doctorToken),
+    });
+    const slot = agenda.json().find((a: { id: string }) => a.id === apptId);
+    expect(slot.consultation.id).toBe(consultId);
+    expect(slot.consultation.status).toBe('ACTIVE');
+
+    // Un second démarrage sur le même RDV est refusé (pas de salle en double).
+    const again = await app.inject({
+      method: 'POST', url: '/api/v1/consultations', headers: auth(doctorToken), payload: { appointmentId: apptId },
+    });
+    expect(again.statusCode).toBe(400);
+
+    // Clôture réservée au médecin.
+    const byPatient = await app.inject({ method: 'POST', url: `/api/v1/consultations/${consultId}/end`, headers: auth(patientToken), payload: {} });
+    expect(byPatient.statusCode).toBe(403);
+    const end = await app.inject({ method: 'POST', url: `/api/v1/consultations/${consultId}/end`, headers: auth(doctorToken), payload: {} });
+    expect(end.statusCode).toBe(200);
+    const closed = await app.prisma.appointment.findUnique({ where: { id: apptId }, select: { status: true } });
+    expect(closed?.status).toBe('COMPLETED');
+  });
+
   it('RBAC : un médecin ne peut pas réserver (403)', async () => {
     const res = await app.inject({
       method: 'POST',

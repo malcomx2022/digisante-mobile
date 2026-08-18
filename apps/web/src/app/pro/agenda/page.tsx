@@ -1,12 +1,13 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { ProHeader } from '@/components/pro/ProHeader';
-import { CardPagne } from '@/components/ui';
+import { Button, CardPagne } from '@/components/ui';
 import { Empty, ErrorState , SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
-import { get } from '@/lib/api/client';
+import { get, post } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
 import { formatDate, formatTime } from '@/i18n/format';
 
@@ -16,11 +17,16 @@ interface AgendaItem {
   status: string;
   scheduledAt: string;
   patient?: { user?: { profile?: { firstName: string; lastName: string } | null } | null };
+  /** Salle déjà ouverte pour ce RDV (sinon `null`) → rejoindre au lieu de démarrer. */
+  consultation?: { id: string; status: string } | null;
 }
 
-// D-15 — Agenda (7 jours).
+// D-15 — Agenda (7 jours) + démarrage de la téléconsultation.
 export default function AgendaPage() {
   const { t } = useLocale();
+  const router = useRouter();
+  const [startingId, setStartingId] = useState<string | null>(null);
+  const [startError, setStartError] = useState<string | null>(null);
   // Fenêtre 7 jours calculée à chaque montage (et non figée au chargement du
   // bundle) — sinon en PWA persistante l'agenda resterait bloqué sur le jour
   // d'ouverture de l'app.
@@ -36,6 +42,26 @@ export default function AgendaPage() {
     [from, to],
   );
 
+  // Ouvre la salle Daily puis y entre. Le patient est notifié côté serveur —
+  // sans quoi la salle s'ouvrirait dans le vide (il ne surveille pas son agenda).
+  async function startConsultation(appointmentId: string) {
+    if (startingId) return;
+    setStartingId(appointmentId);
+    setStartError(null);
+    try {
+      const res = await post<{ consultation: { id: string } }>('/consultations', { appointmentId });
+      if ('queued' in res) {
+        setStartError(t('teleconsult.needs_network'));
+        return;
+      }
+      router.push(`/pro/teleconsult?id=${res.consultation.id}`);
+    } catch {
+      setStartError(t('teleconsult.start_error'));
+    } finally {
+      setStartingId(null);
+    }
+  }
+
   return (
     <>
       <ProHeader title={t('pro.agenda')} wide />
@@ -46,8 +72,12 @@ export default function AgendaPage() {
 
         {(data ?? []).map((a) => {
           const p = a.patient?.user?.profile;
+          // Salle ouvrable : téléconsultation confirmée, pas encore de consultation.
+          const canStart = a.type === 'TELECONSULTATION' && a.status === 'CONFIRMED' && !a.consultation;
+          // Salle déjà ouverte et toujours active → le médecin la rejoint.
+          const canRejoin = a.consultation?.status === 'ACTIVE';
           return (
-            <CardPagne key={a.id} className="p-4 flex items-center gap-3">
+            <CardPagne key={a.id} className="p-4 flex items-center gap-3 flex-wrap">
               <div className="text-center w-14 shrink-0">
                 <p className="font-display font-extrabold text-indigo-700 text-[0.9375rem]">{formatTime(a.scheduledAt, { hour: '2-digit', minute: '2-digit' })}</p>
                 <p className="text-[0.625rem] text-stone-400">{formatDate(a.scheduledAt, { day: '2-digit', month: '2-digit' })}</p>
@@ -57,9 +87,28 @@ export default function AgendaPage() {
                 <p className="font-display font-bold text-[0.875rem] truncate">{p ? `${p.firstName} ${p.lastName}` : t('role.PATIENT')}</p>
                 <p className="text-[0.75rem] text-stone-400">{t(`appt.type.${a.type}`)} · {t(`appt.status.${a.status}`)}</p>
               </div>
+              {(canStart || canRejoin) && (
+                <Button
+                  variant="indigo"
+                  className="text-[0.6875rem] px-2.5 py-1.5 shrink-0"
+                  disabled={startingId === a.id}
+                  onClick={() =>
+                    canRejoin
+                      ? router.push(`/pro/teleconsult?id=${a.consultation!.id}`)
+                      : void startConsultation(a.id)
+                  }
+                >
+                  {canRejoin ? t('teleconsult.rejoin') : t('teleconsult.start')}
+                </Button>
+              )}
             </CardPagne>
           );
         })}
+        {startError && (
+          <p className="text-[0.75rem] text-sos-500 font-bold lg:col-span-2" role="alert">
+            {startError}
+          </p>
+        )}
       </main>
     </>
   );
