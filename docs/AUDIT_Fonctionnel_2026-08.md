@@ -167,7 +167,7 @@ idempotence, crédit wallet, réconciliation). **Ne pas patcher à la volée.**
 
 ---
 
-### D3 — 🔴 MAJEUR · Le pipeline éditorial « éducation » est bloqué à `MEDICAL_REVIEW`
+### D3 — ✅ LIVRÉ (lot 9, 18/08/2026) · 🔴 MAJEUR à l'origine · Le pipeline éditorial « éducation » est bloqué à `MEDICAL_REVIEW`
 
 **Constat.** `POST /api/v1/education/:id/medical-review` (réservé aux **médecins vérifiés**, ce qui
 est correct au regard de §4 : l'admin n'a pas à valider un contenu médical) n'a **aucun appelant**.
@@ -181,6 +181,36 @@ affiche « ⏳ En attente de relecture » — **définitivement**. La transition
 **Conséquence.** **Aucun contenu de prévention ne peut être publié par le pipeline.** Les trois
 contenus visibles en démo viennent du seed, déjà en `PUBLISHED`. Le CMS livré au lot H du
 back-office est fonctionnellement inerte au-delà de la première étape.
+
+**Cause racine trouvée au lot 9 — il manquait aussi une lecture, pas seulement un écran.**
+`GET /education/manage` est réservée à l'**admin** (`requireRole('ADMIN')` + `education:write`). Le
+médecin n'avait donc **aucun moyen de lister** les contenus en attente : même en construisant l'écran,
+il n'aurait eu aucune donnée à afficher. Il fallait un endpoint de lecture côté médecin.
+
+**✅ Livré au lot 9 :**
+
+- **`GET /education/review-queue`** (médecin **vérifié**) — file des contenus en `MEDICAL_REVIEW`,
+  déléguée à `listForAdmin` avec le statut forcé. `/manage` reste admin : le médecin n'a pas à voir
+  les brouillons ni l'avancement éditorial.
+- Garde **`assertVerifiedDoctor`** extraite et partagée par la file et la relecture — sans quoi un
+  médecin non vérifié aurait vu une file dont chaque action renvoie 403.
+- Écran **`/pro/education`** : lecture du **corps** du contenu (dépliage à la demande — on ne relit
+  pas un article médical sur son titre, et on ne charge pas 20 articles ouverts sur un réseau 2G),
+  **valider médicalement** (→ `TRANSLATION`) ou **renvoyer en brouillon** (→ `DRAFT`).
+- **Tuile sur le tableau de bord PRO** avec le **compteur** de contenus en attente, masquée pour un
+  médecin non vérifié (le 403 est traité comme « pas concerné », pas comme une erreur).
+- Tests : la file ne contient que du `MEDICAL_REVIEW` ; **403 pour le médecin non vérifié, pour le
+  patient et pour l'admin** (§4 — l'admin ne valide jamais un contenu médical) ; le contenu **sort de
+  la file** après validation comme après refus.
+
+> **Arbitrage : file « pull », pas de notification poussée.** Le plan initial (§3) prévoyait une
+> notification au médecin à la soumission. Écarté après examen : **aucun modèle d'assignation
+> n'existe**, donc une notification signifierait un fan-out vers **tous** les médecins vérifiés à
+> chaque contenu soumis — le même `createMany` non borné que CLAUDE.md signale déjà comme dette v2
+> pour les campagnes — pour une tâche qu'**un seul** médecin effectuera. Le dépôt a déjà son motif
+> pour ce cas : le **pool** des demandes de laboratoire (`GET /lab/orders/available`), qui ne notifie
+> personne et que le professionnel consulte. La tuile compteur joue le rôle de signal. Une
+> notification ciblée redeviendra pertinente le jour où un contenu sera **assigné** à un relecteur.
 
 ---
 
@@ -282,7 +312,7 @@ Les lots 1→5 de la revue précédente sont **tous livrés**. La suite reprend 
 |---|---|---|---|---|
 | ~~7~~ | ~~**D1** — geste médecin de téléconsultation~~ | ✅ **LIVRÉ** | — | — |
 | **8** | **D2** — paiement wallet (**§5**) | ≈ 1,5 j | **élevé** | revue §5 + sandbox |
-| **9** | **D3** — écran de relecture médicale | ≈ 1 j | faible | aucune |
+| ~~9~~ | ~~**D3** — écran de relecture médicale~~ | ✅ **LIVRÉ** | — | — |
 | **10** | **D4 + D5 + D6** — actions métier manquantes | ≈ 2 j | faible | lot 7 (agenda) |
 | **11** | **D7** — trancher `translations` | ≈ 0,5 j | nul | décision produit |
 | **6** | Déploiement VPS Infomaniak | — | — | **indépendant** |
@@ -321,7 +351,7 @@ wallet sur `WALLET_TOPUP`, remboursement, cron de réconciliation. **Fait le 18/
 été **retirée** de la liste des moyens de paiement. Le lot 8 ne corrige donc plus une régression
 active, il **ajoute** une fonctionnalité — ce qui le sort du chemin critique du déploiement.
 
-### Lot 9 — Relecture médicale des contenus (≈ 1 j)
+### Lot 9 — ✅ LIVRÉ · Relecture médicale des contenus
 
 Écran `/pro/education` : liste des `HealthContent` en `MEDICAL_REVIEW` → approuver / renvoyer en
 brouillon (`POST /education/:id/medical-review { approve }`) + **notification au médecin** à la
@@ -376,9 +406,9 @@ orphelin, zéro `TODO` en attente. Le lot 5 clôt la série C1→C9.
 Les trois écarts majeurs (**D1** téléconsultation, **D2** wallet, **D3** relecture médicale) ont la
 même forme que ceux de la revue de juillet : **le backend est là, l'écran ne l'est pas**.
 
-**D1 est livré (lot 7)** et **D2 est neutralisé** (bouton retiré). Reste **D3** (≈ 1 j), puis le
-lot 10 (D4/D5/D6, ≈ 2 j) et le lot 8 (wallet, ≈ 1,5 j) qui n'est plus une réparation mais une
-addition, conditionnée à un feu vert §5.
+**Les trois sont traités** : **D1** livré (lot 7), **D3** livré (lot 9), **D2** neutralisé (bouton
+retiré). Reste le lot 10 (D4/D5/D6, ≈ 2 j), le lot 11 (D7, ≈ 0,5 j) et le lot 8 (wallet, ≈ 1,5 j) —
+ce dernier n'étant plus une réparation mais une addition, conditionnée à un feu vert §5.
 
 **D2 a été tranché le 18/08/2026** : le bouton « Wallet » est retiré. Ce n'était pas une
 fonctionnalité manquante mais une promesse affichée que le code ne tenait pas — et, vérification

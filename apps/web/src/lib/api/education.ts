@@ -48,6 +48,16 @@ export const educationApi = {
     if (status) p.set('status', status);
     return get<ManageList>(`/education/manage?${p.toString()}`);
   },
+  /**
+   * File de relecture médicale (médecin VÉRIFIÉ). Modèle « pool » : rien n'est
+   * assigné, le premier médecin disponible relit — comme les demandes de labo.
+   */
+  reviewQueue: (page = 1, pageSize = 20) =>
+    get<ManageList>(`/education/review-queue?page=${page}&pageSize=${pageSize}`),
+  /** Approuve (→ TRANSLATION) ou renvoie en brouillon (→ DRAFT). */
+  medicalReview: (id: string, approve: boolean) =>
+    post<AdminContent>(`/education/${id}/medical-review`, { approve }),
+
   create: (input: { title: string; body: string; category: string; tags?: string[] }) => post<AdminContent>('/education', input),
   submitReview: (id: string) => post<AdminContent>(`/education/${id}/submit-review`),
   setTranslations: (id: string, translations: Record<string, Translation>) => patch<AdminContent>(`/education/${id}/translations`, { translations }),

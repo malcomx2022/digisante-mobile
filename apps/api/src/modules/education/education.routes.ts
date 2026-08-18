@@ -50,6 +50,14 @@ export default async function educationRoutes(app: FastifyInstance) {
     return education.submitForReview(app, id);
   });
 
+  // File de relecture (médecin vérifié) : sans elle, le médecin n'avait AUCUN
+  // moyen de savoir quels contenus attendent sa validation — `/manage` est
+  // réservée à l'admin — et le pipeline restait bloqué en MEDICAL_REVIEW (D3).
+  app.get('/review-queue', doctor, async (request) => {
+    const q = zParse(paginationSchema, request.query);
+    return education.listForReview(app, request.user.sub, { page: q.page, pageSize: q.pageSize });
+  });
+
   app.post('/:id/medical-review', doctor, async (request) => {
     const { id } = zParse(idParams, request.params);
     const { approve } = zParse(reviewSchema, request.body);

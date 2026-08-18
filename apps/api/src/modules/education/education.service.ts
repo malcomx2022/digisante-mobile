@@ -39,11 +39,38 @@ export async function submitForReview(app: FastifyInstance, id: string) {
   return app.prisma.healthContent.update({ where: { id }, data: { status: 'MEDICAL_REVIEW' } });
 }
 
-/** Relecture médicale par un professionnel VÉRIFIÉ (approbation/rejet). */
-export async function medicalReview(app: FastifyInstance, reviewerUserId: string, id: string, approve: boolean) {
-  const doctor = await app.prisma.doctor.findUnique({ where: { userId: reviewerUserId }, select: { id: true, verifiedAt: true } });
+/**
+ * Garde « professionnel vérifié » (§4) — la validation d'un contenu médical est
+ * réservée aux médecins dont le KYC est approuvé, jamais à l'admin.
+ * Partagée par la file de relecture et la relecture elle-même : sans ça, un
+ * médecin non vérifié verrait une file sur laquelle chaque action ferait 403.
+ */
+async function assertVerifiedDoctor(app: FastifyInstance, userId: string) {
+  const doctor = await app.prisma.doctor.findUnique({ where: { userId }, select: { id: true, verifiedAt: true } });
   if (!doctor) throw forbidden('Profil médecin requis');
   if (!doctor.verifiedAt) throw forbidden('Seul un professionnel vérifié peut valider un contenu médical');
+  return doctor;
+}
+
+/**
+ * File de relecture médicale (médecin vérifié) : les contenus en attente.
+ * Modèle « pool » comme les demandes de laboratoire (`lab/orders/available`) —
+ * aucun contenu n'est assigné à un médecin en particulier, le premier disponible
+ * relit. La liste de gestion `/manage` reste réservée à l'admin : le médecin n'a
+ * pas à voir les brouillons ni l'état d'avancement éditorial.
+ */
+export async function listForReview(
+  app: FastifyInstance,
+  reviewerUserId: string,
+  params: { page: number; pageSize: number },
+) {
+  await assertVerifiedDoctor(app, reviewerUserId);
+  return listForAdmin(app, { status: 'MEDICAL_REVIEW', page: params.page, pageSize: params.pageSize });
+}
+
+/** Relecture médicale par un professionnel VÉRIFIÉ (approbation/rejet). */
+export async function medicalReview(app: FastifyInstance, reviewerUserId: string, id: string, approve: boolean) {
+  const doctor = await assertVerifiedDoctor(app, reviewerUserId);
 
   const c = await load(app, id);
   const to: ContentStatus = approve ? 'TRANSLATION' : 'DRAFT';
