@@ -98,7 +98,7 @@ Daily.co + dégradation `VIDEO→AUDIO→CHAT` sont **complets et testés** ; le
 
 ---
 
-### D2 — 🔴 MAJEUR · Le paiement « Wallet » ne débite jamais le portefeuille (zone §5)
+### D2 — 🟠 ATTÉNUÉ (bouton retiré le 18/08/2026) · 🔴 à l'origine · Le paiement « Wallet » ne débite jamais le portefeuille (zone §5)
 
 **Constat.** L'interface propose trois moyens de paiement d'une consultation
 (`apps/web/src/app/patient/appointments/page.tsx:16-19`) : MTN MoMo, Moov Money et
@@ -119,9 +119,25 @@ crédite, rien ne le débite jamais. L'utilisateur qui choisit « Wallet » croi
 en réalité une transaction FedaPay est initiée (ou un stub, sans clés) et le solde reste intact.
 C'est la proposition de valeur « wallet diaspora » qui ne se referme pas.
 
-**⚠️ Zone gelée §5.** `payments.initiate` est sur le chemin de paiement gelé. La correction exige une
-**revue explicite + re-tests des webhooks** (HMAC valide/invalide, idempotence, crédit wallet,
-réconciliation). **Ne pas patcher à la volée** — d'où son classement en lot dédié (§3, lot 8).
+**Aggravant mesuré après coup — ce n'était pas qu'une promesse cosmétique.** `Payment.appointmentId`
+est `@unique` (`schema.prisma:561`) et `initiate` refuse un rendez-vous qui a **déjà** un paiement,
+*quel que soit son statut* (`payments.service.ts:132`). Un seul appui sur « Wallet » créait donc un
+`Payment` **PENDING** qui **verrouillait définitivement le rendez-vous** : plus aucun autre moyen de
+paiement n'était accepté pour lui. Impasse de données, pas seulement un libellé trompeur.
+
+À noter aussi : `method` **n'est jamais transmis à FedaPay** — `services/fedapay.ts` ne le met pas
+dans le corps de la requête, il se contente de le journaliser. C'est un libellé purement local
+stocké dans `Payment.method`, ce qui **fausse en plus les volumes par méthode** de `/admin/finance`
+(un règlement MoMo effectué sur le checkout FedaPay était compté « WALLET »).
+
+**✅ Atténuation appliquée (18/08/2026)** : l'entrée « Wallet 🇫🇷 » est **retirée** de `PAY_METHODS`
+(`patient/appointments/page.tsx`) — frontend seul, **§5 non touché**, aucun re-test de webhook requis.
+Un commentaire en tête de la liste interdit de la remettre avant le lot 8. Les paiements `WALLET`
+déjà en base continuent de s'afficher (l'admin rend `method` tel quel).
+
+**⚠️ Zone gelée §5.** La *vraie* correction — débiter le portefeuille depuis `payments.initiate` —
+reste le **lot 8** : elle exige une **revue explicite + re-tests des webhooks** (HMAC valide/invalide,
+idempotence, crédit wallet, réconciliation). **Ne pas patcher à la volée.**
 
 ---
 
@@ -275,9 +291,9 @@ Deux options, à arbitrer **avant** d'écrire la moindre ligne :
   les finances admin et dans la réconciliation. **À écarter** sauf raison contraire.
 
 **Re-tests obligatoires** (§5) : HMAC valide **et** invalide, idempotence sur événement rejoué, crédit
-wallet sur `WALLET_TOPUP`, remboursement, cron de réconciliation. Tant que le lot n'est pas livré,
-**retirer « Wallet 🇫🇷 » de la liste des moyens de paiement** est un correctif d'une ligne qui
-supprime la promesse fausse — à faire immédiatement si le lot 8 est repoussé.
+wallet sur `WALLET_TOPUP`, remboursement, cron de réconciliation. **Fait le 18/08/2026** : l'entrée « Wallet 🇫🇷 » a
+été **retirée** de la liste des moyens de paiement. Le lot 8 ne corrige donc plus une régression
+active, il **ajoute** une fonctionnalité — ce qui le sort du chemin critique du déploiement.
 
 ### Lot 9 — Relecture médicale des contenus (≈ 1 j)
 
@@ -311,9 +327,9 @@ Lot 8 (wallet §5) ── conditionné à la décision porteur
 Lot 11 (translations) ── conditionné à la décision produit
 ```
 
-**Rien dans cette liste ne bloque la mise en production**, à une nuance près : **D2** fait apparaître
-un moyen de paiement qui ne fait pas ce qu'il annonce. Si le lot 8 n'est pas livré avant les premiers
-patients réels, retirer le bouton « Wallet » est **impératif**.
+**Rien dans cette liste ne bloque la mise en production.** La seule nuance qui existait — **D2**, un
+moyen de paiement qui ne faisait pas ce qu'il annonçait et **verrouillait le rendez-vous** — a été
+levée le 18/08/2026 par le retrait du bouton.
 
 ---
 
@@ -336,5 +352,8 @@ même forme que ceux de la revue de juillet : **le backend est là, l'écran ne 
 ils représentent environ **4,5 jours** — dont 1,5 sur la zone gelée §5, qui demande un feu vert
 explicite avant d'être touchée.
 
-**D2 est le seul point qui mérite une décision immédiate** : ce n'est pas une fonctionnalité
-manquante, c'est une promesse affichée à l'utilisateur que le code ne tient pas.
+**D2 a été tranché le 18/08/2026** : le bouton « Wallet » est retiré. Ce n'était pas une
+fonctionnalité manquante mais une promesse affichée que le code ne tenait pas — et, vérification
+faite, une **impasse** qui verrouillait le rendez-vous pour tout autre moyen de paiement. Le
+portefeuille reste rechargeable (`topup`) ; le rendre dépensable est le lot 8, désormais une
+**addition** et non plus une réparation.
