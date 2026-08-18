@@ -13,10 +13,19 @@ import { useApi } from '@/lib/api/useApi';
 import { formatDateTime, formatNumber } from '@/i18n/format';
 
 // Moyens de paiement d'une consultation (le montant est imposé par le serveur = tarif médecin).
+//
+// ⚠️ « Wallet » RETIRÉ (18/08/2026, écart D2 de docs/AUDIT_Fonctionnel_2026-08.md).
+// `payments.initiate` traite `method:'WALLET'` comme n'importe quelle méthode FedaPay :
+// il ouvre le checkout hébergé et NE DÉBITE PAS le portefeuille (`wallet.debit` n'est
+// atteignable que par `POST /wallet/pay`, sans appelant). Le patient croyait payer avec
+// son solde ; en pratique son solde restait intact et on lui redemandait de l'argent.
+// Aggravant : `Payment.appointmentId` est @unique et `initiate` refuse un RDV qui a déjà
+// un paiement — un seul appui verrouillait donc le RDV, qu'aucun autre moyen ne pouvait
+// plus payer. Ne PAS remettre cette entrée avant le lot 8 (zone gelée §5 : revue
+// explicite + re-tests des webhooks).
 const PAY_METHODS: { method: string; label: string; cls: string }[] = [
   { method: 'MTN_MOMO', label: 'MTN MoMo', cls: 'bg-sante-600 text-white' },
   { method: 'MOOV_MONEY', label: 'Moov Money', cls: 'bg-indigo-600 text-white' },
-  { method: 'WALLET', label: 'Wallet 🇫🇷', cls: 'bg-ocre-400 text-stone-900' },
 ];
 
 // Mes rendez-vous — liste (à venir / passés), annulation, rejoindre la téléconsult.
