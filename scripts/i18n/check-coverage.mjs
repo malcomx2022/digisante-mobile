@@ -20,6 +20,11 @@ const MESSAGES = resolve(ROOT, 'apps/web/src/i18n/messages.ts');
 const OUT_DIR = resolve(ROOT, 'docs/i18n');
 
 const LOCALES = ['fr', 'en', 'fon', 'yor'];
+// SEULE définition des namespaces critiques du projet depuis le lot 11 (août 2026) :
+// la constante `CRITICAL_NAMESPACES` de @digisante/shared a été supprimée avec le module
+// API `translations` qui était son unique consommateur. Une erreur de traduction y est
+// potentiellement dangereuse (urgence, résultats, argent) → double validation, CLAUDE.md §6.
+// Ne pas dupliquer cette liste ailleurs : deux définitions finissent par diverger.
 const CRITICAL_PREFIXES = ['sos.', 'labo.', 'payments.'];
 
 const isCritical = (key) => CRITICAL_PREFIXES.some((p) => key.startsWith(p));

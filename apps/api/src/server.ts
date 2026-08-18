@@ -35,7 +35,6 @@ import referralsRoutes from '@/modules/referrals/referrals.routes.js';
 import remindersRoutes from '@/modules/reminders/reminders.routes.js';
 import sosRoutes from '@/modules/sos/sos.routes.js';
 import subscriptionsRoutes from '@/modules/subscriptions/subscriptions.routes.js';
-import translationsRoutes from '@/modules/translations/translations.routes.js';
 import usersRoutes from '@/modules/users/users.routes.js';
 import vaccinationsRoutes from '@/modules/vaccinations/vaccinations.routes.js';
 import walletRoutes from '@/modules/wallet/wallet.routes.js';
@@ -144,7 +143,6 @@ export async function buildServer() {
   await app.register(laboratoryRoutes, { prefix: '/api/v1/lab' });
   await app.register(maternityRoutes, { prefix: '/api/v1/maternity' });
   await app.register(educationRoutes, { prefix: '/api/v1/education' });
-  await app.register(translationsRoutes, { prefix: '/api/v1/translations' });
   await app.register(adminRoutes, { prefix: '/api/v1/admin' });
   await app.register(adminIntegrationsRoutes, { prefix: '/api/v1/admin' });
   await app.register(adminCampaignsRoutes, { prefix: '/api/v1/admin' });
