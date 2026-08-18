@@ -51,8 +51,9 @@ Ce n'est pas un bug de code — c'est un piège d'onboarding (cf. **C7**).
 
 Classées par impact fonctionnel réel, pas par facilité.
 
-> **État d'avancement au 18/08/2026** — lots 1, 2, 3 et 4 livrés :
-> **C1 ✅ · C2 ✅ · C3 ✅ · C4 ✅ · C6 ✅ · C7 ✅ · C8 ✅ · C9 ✅** — reste **C5** (lot 5).
+> **État d'avancement au 18/08/2026 — SÉRIE CLOSE** : lots 1 à 5 livrés.
+> **C1 ✅ · C2 ✅ · C3 ✅ · C4 ✅ · C5 ✅ · C6 ✅ · C7 ✅ · C8 ✅ · C9 ✅**.
+> La suite est ouverte par `docs/AUDIT_Fonctionnel_2026-08.md` (écarts **D1→D10**, lots **7→11**).
 > Les sections ci-dessous conservent l'énoncé d'origine du constat ; le statut est rappelé en tête
 > de chacune.
 
@@ -125,7 +126,7 @@ fichier Playwright n'existe dans le dépôt.
 (triage → téléconsultation → ordonnance → dispensation) ne sont validés à aucun niveau
 au-dessus de l'unité. Une régression de routing, de garde de rôle ou de rendu passe la CI.
 
-### C5 — 🟡 FAIBLE · `AdminAuditLog` : table morte sur une surface de conformité
+### C5 — ✅ LIVRÉ (lot 5) · 🟡 FAIBLE · `AdminAuditLog` : table morte sur une surface de conformité
 
 `model AdminAuditLog` (table `admin_audit_logs`) porte une FK vers `users`, 3 index et
 **3 triggers de durcissement** (anti UPDATE / DELETE / TRUNCATE). Elle n'est **jamais écrite** :
@@ -306,10 +307,18 @@ Reste à décider : le coût CI (binaires de navigateur + démarrage de l'API *e
 services Postgres/Redis déjà présents) justifie un **job séparé** dans `.github/workflows/ci.yml`,
 pas un ajout au job `build-and-test`.
 
-### Lot 5 — Nettoyage du schéma (≈ 0,5 j)
-- **C5** : migration de suppression de `AdminAuditLog` (table + FK + index + triggers), ou
-  décision inverse **écrite dans CLAUDE.md §4** si on la conserve comme registre distinct.
-  Trancher, ne pas laisser en l'état.
+### Lot 5 — ✅ LIVRÉ · Nettoyage du schéma (≈ 0,5 j)
+
+**Tranché : registre d'audit UNIQUE = `AuditLog`.** `AdminAuditLog` supprimé (table, FK, 3 index,
+3 triggers) avec l'enum `AdminAction` et la constante `ADMIN_ACTIONS` de `@digisante/shared` —
+la liste fermée doublonnait `AuditLog.action` (String libre) tout en étant déjà périmée
+(elle ignorait `KYC_REVISION`, `OTP_RESET`, `INTEGRATION_*`, `CAMPAIGN_SENT`…).
+
+> La migration `..._drop_admin_audit_log` porte un **garde-fou** : elle **échoue** si la table
+> contient autre chose que les lignes du seed. On ne détruit jamais de l'audit en silence — s'il y
+> a des lignes réelles, il faut les exporter et les reprendre dans `audit_logs` avant de rejouer.
+
+**48 modèles / 31 enums / 27 migrations.** Décision consignée en §8 de CLAUDE.md.
 
 ### Lot 6 — Déploiement VPS Infomaniak (déjà scripté)
 Exécuter `docs/DEPLOIEMENT_Checklist.md` (provisioning → secrets → Nginx/SSL → crons →
