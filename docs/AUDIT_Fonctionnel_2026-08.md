@@ -280,7 +280,7 @@ grave qu'une urgence affichée close à tort.
 
 ---
 
-### D7 — 🟡 FAIBLE · Le module `translations` n'a aucun consommateur
+### D7 — ✅ LIVRÉ (lot 11, 19/08/2026) · 🟡 FAIBLE · Le module `translations` n'a aucun consommateur
 
 `GET /translations/namespaces` et `POST /translations/validate` exposent la cartographie i18n et la
 règle de double validation des namespaces critiques (§6). Aucun des deux n'est appelé, et le module
@@ -289,6 +289,35 @@ La gouvernance i18n se fait en réalité **hors application** (`pnpm i18n:check`
 
 **Trancher** : soit brancher un écran `/admin` de suivi des traductions, soit supprimer le module
 (2 endpoints, 1 fichier de règles + ses 4 tests). Ne pas laisser un troisième « module vitrine ».
+
+**✅ Tranché au lot 11 : suppression.** Le module ne persistait rien — il renvoyait des constantes
+partagées et le résultat d'une fonction pure —, et l'outillage CLI (`pnpm i18n:check` /
+`i18n:export`) couvre déjà le besoin réel de gouvernance. Un module registré que rien n'appelle est
+un piège pour le prochain contributeur.
+
+Ce qui a été retiré avec lui, après vérification d'usage fichier par fichier :
+
+- `apps/api/src/modules/translations/` (routes + règles + 4 tests) et son enregistrement ;
+- de `@digisante/shared` : `NAMESPACES`, `Namespace`, `CRITICAL_NAMESPACES`, `CriticalNamespace` et
+  `tKey` — tous sans consommateur hors du module supprimé (`tKey` n'était appelé **nulle part**).
+
+> **`NAMESPACES` était en prime PÉRIMÉ** : il listait 18 namespaces alors que l'UI utilise un
+> dictionnaire **plat** (`apps/web/src/i18n/messages.ts`) dont les préfixes réels sont bien plus
+> nombreux (`teleconsult.`, `referrals.`, `edureview.`, `triage.`, `maternity.`, `campaigns.`,
+> `integrations.`…). Même signature que `ADMIN_ACTIONS` au lot 5 : une liste fermée qui se périme
+> pendant que la vraie source grossit à côté.
+
+⚠️ **La règle §6 n'est pas perdue.** Les namespaces critiques (`sos.` / `labo.` / `payments.` =
+double validation) étaient définis **deux fois** : dans `CRITICAL_NAMESPACES` (constante morte) et,
+en dur, dans `scripts/i18n/check-coverage.mjs` — le seul des deux qui **s'exécute** réellement, et
+qui marque ces clés `CRITIQUE` dans les CSV de relecture. Après le lot 11 il en reste **une seule**,
+celle qui vit, avec un commentaire qui l'annonce comme telle. Une définition vivante vaut mieux
+qu'une vivante plus une morte qui divergent.
+>
+> Le script **n'importe pas** la constante de `@digisante/shared` : c'est un `.mjs` autonome, et lui
+> faire dépendre du `dist/` du paquet partagé le casserait sur un clone frais — exactement le piège
+> d'onboarding déjà corrigé en C7 puis D8. Trois chaînes dupliquées coûtent moins qu'un script qui
+> exige un build préalable.
 
 ---
 
@@ -343,7 +372,7 @@ Les lots 1→5 de la revue précédente sont **tous livrés**. La suite reprend 
 | **8** | **D2** — paiement wallet (**§5**) | ≈ 1,5 j | **élevé** | revue §5 + sandbox |
 | ~~9~~ | ~~**D3** — écran de relecture médicale~~ | ✅ **LIVRÉ** | — | — |
 | ~~10~~ | ~~**D4 + D5 + D6** — actions métier manquantes~~ | ✅ **LIVRÉ** | — | — |
-| **11** | **D7** — trancher `translations` | ≈ 0,5 j | nul | décision produit |
+| ~~11~~ | ~~**D7** — trancher `translations`~~ | ✅ **LIVRÉ** (supprimé) | — | — |
 | **6** | Déploiement VPS Infomaniak | — | — | **indépendant** |
 
 ### Lot 7 — ✅ LIVRÉ · Fermeture de la téléconsultation · *valeur métier la plus haute*
@@ -396,7 +425,7 @@ gated sur médecin vérifié. i18n FR/EN.
   `RESOLVED` + `resolvedAt`) ; une console SOS ADMIN est une v2, à ne pas ouvrir ici — l'admin n'a
   pas à voir de contenu médical (§4), une alerte SOS géolocalisée en est à la frontière.
 
-### Lot 11 — Trancher `translations` (≈ 0,5 j)
+### Lot 11 — ✅ LIVRÉ · Trancher `translations` → suppression
 
 Décision produit, puis soit un écran `/admin/translations` (état de couverture + traçabilité de la
 double validation), soit la suppression du module. **Recommandé** : suppression — l'outillage CLI
@@ -436,9 +465,9 @@ Les trois écarts majeurs (**D1** téléconsultation, **D2** wallet, **D3** rele
 même forme que ceux de la revue de juillet : **le backend est là, l'écran ne l'est pas**.
 
 **Les trois sont traités** : **D1** livré (lot 7), **D3** livré (lot 9), **D2** neutralisé (bouton
-retiré). **D4, D5 et D6** livrés au lot 10. Il ne reste que le **lot 11** (D7, ≈ 0,5 j — décision
-produit) et le **lot 8** (wallet, ≈ 1,5 j), ce dernier n'étant plus une réparation mais une addition
-conditionnée à un feu vert §5.
+retiré). **D4, D5 et D6** livrés au lot 10, **D7** au lot 11 (suppression). **Il ne reste que le lot 8**
+(wallet, ≈ 1,5 j), qui n'est plus une réparation mais une **addition**, conditionnée à un feu vert
+§5 explicite et à un bac à sable FedaPay.
 
 ⚠️ **Une dette ouverte par le lot 10, à traiter avant les premiers patients réels** : les 6 libellés
 de clôture SOS (`sos.active_title`, `sos.im_ok`, `sos.false_alarm`, `sos.history`,

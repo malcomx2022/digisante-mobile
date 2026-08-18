@@ -6,36 +6,17 @@
 // ─────────────────────────────────────────────────────────────
 import type { Lang } from './enums.js';
 
-/** Namespaces i18n. Un fichier de traduction par namespace et par langue. */
-export const NAMESPACES = [
-  'common',
-  'onboarding',
-  'auth',
-  'dashboard',
-  'profile',
-  'dmp',
-  'appointments',
-  'consultation',
-  'prescriptions',
-  'pharmacy',
-  'labo',
-  'payments',
-  'wallet',
-  'sos',
-  'notifications',
-  'education',
-  'admin',
-  'errors',
-] as const;
-export type Namespace = (typeof NAMESPACES)[number];
-
-/**
- * Namespaces à DOUBLE VALIDATION des clés critiques (cf. CLAUDE.md §6, vue DT-3) :
- * une erreur de traduction y est potentiellement dangereuse (urgence, résultats,
- * argent). Toute clé de ces namespaces doit être relue par un second valideur.
- */
-export const CRITICAL_NAMESPACES = ['sos', 'labo', 'payments'] as const;
-export type CriticalNamespace = (typeof CRITICAL_NAMESPACES)[number];
+// (supprimés en août 2026, lot 11) `NAMESPACES`, `Namespace`, `CRITICAL_NAMESPACES`,
+// `CriticalNamespace` et `tKey` vivaient ici pour le module API `translations`, lui-même
+// supprimé faute de consommateur. `NAMESPACES` était de surcroît PÉRIMÉ : il listait
+// 18 namespaces alors que l'UI utilise un dictionnaire PLAT (`apps/web/src/i18n/messages.ts`)
+// dont les préfixes réels sont bien plus nombreux (teleconsult., referrals., edureview.,
+// triage., maternity., campaigns., integrations.…).
+//
+// ⚠️ La règle §6 des namespaces CRITIQUES (`sos.` / `labo.` / `payments.` = double
+// validation) n'est pas perdue : elle est appliquée par `scripts/i18n/check-coverage.mjs`,
+// qui en est désormais la SEULE définition (il marque ces clés `CRITIQUE` dans les CSV de
+// relecture). Ne pas réintroduire une seconde liste ici : deux définitions divergent.
 
 /** Langue par défaut de l'application. */
 export const DEFAULT_LANG: Lang = 'FR';
@@ -67,8 +48,3 @@ export const LANGUAGE_META: Record<Lang, LanguageMeta> = {
 
 /** Liste ordonnée des langues pour l'affichage du sélecteur. */
 export const LANGUAGE_LIST: readonly LanguageMeta[] = Object.values(LANGUAGE_META);
-
-/** Construit une clé i18n typée `namespace.key`. */
-export function tKey(namespace: Namespace, key: string): string {
-  return `${namespace}.${key}`;
-}
