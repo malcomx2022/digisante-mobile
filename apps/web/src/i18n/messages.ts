@@ -894,6 +894,12 @@ const fr: Messages = {
   'teleconsult.needs_network': 'Connexion requise pour rejoindre',
   'teleconsult.chat_mode': 'Mode chat (réseau faible)',
   'teleconsult.open_chat': 'Ouvrir le chat',
+  // Lot 7 — geste médecin (démarrage / clôture de la salle).
+  'teleconsult.start': 'Démarrer la téléconsultation',
+  'teleconsult.rejoin': 'Rejoindre la salle',
+  'teleconsult.start_error': 'Impossible d’ouvrir la salle',
+  'teleconsult.end': 'Terminer la consultation',
+  'teleconsult.end_confirm': 'La salle sera fermée et le rendez-vous marqué terminé.',
   'chat.empty': 'Aucun message pour l’instant',
   'pro.no_patient_title': 'Aucun patient sélectionné',
   'pro.no_patient_desc':
@@ -1331,6 +1337,11 @@ const en: Messages = {
   'teleconsult.needs_network': 'Network required to join',
   'teleconsult.chat_mode': 'Chat mode (low network)',
   'teleconsult.open_chat': 'Open chat',
+  'teleconsult.start': 'Start teleconsultation',
+  'teleconsult.rejoin': 'Rejoin the room',
+  'teleconsult.start_error': 'Unable to open the room',
+  'teleconsult.end': 'End consultation',
+  'teleconsult.end_confirm': 'The room will close and the appointment will be marked completed.',
   'chat.empty': 'No messages yet',
   'pro.no_patient_title': 'No patient selected',
   'pro.no_patient_desc':

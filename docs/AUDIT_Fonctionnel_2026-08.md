@@ -68,7 +68,7 @@ FedaPay, WebSocket, `getBlob` de pièces jointes, lectures unitaires REST non ut
 
 ---
 
-### D1 — 🔴 MAJEUR · Téléconsultation : aucune interface médecin, la boucle est cassée
+### D1 — ✅ LIVRÉ (lot 7, 18/08/2026) · 🔴 MAJEUR à l'origine · Téléconsultation : aucune interface médecin, la boucle est cassée
 
 **Constat.** Deux endpoints réservés au médecin n'ont **aucun appelant** dans `apps/web` :
 
@@ -95,6 +95,32 @@ n'existe que sur le tableau de bord `/pro`), n'y trie pas une demande (cf. D5).
 **Portée métier.** La téléconsultation est la fonctionnalité phare du cahier des charges et la
 réponse directe au défi « infrastructure médicale limitée » (§1 CLAUDE.md). Backend + intégration
 Daily.co + dégradation `VIDEO→AUDIO→CHAT` sont **complets et testés** ; le geste médecin manque.
+
+**✅ Livré au lot 7 (18/08/2026), 0 endpoint ajouté — que du branchement :**
+
+- `/pro/agenda` : bouton **« Démarrer la téléconsultation »** sur un RDV `CONFIRMED` de type
+  `TELECONSULTATION`, **« Rejoindre la salle »** si elle est déjà ouverte (l'agenda expose désormais
+  `consultation { id, status }`).
+- Nouvel écran **`/pro/teleconsult`** : la salle, plus la **clôture** (`POST /consultations/:id/end`,
+  sous `ConfirmDialog`) qui passe consultation *et* rendez-vous en `COMPLETED`.
+- La salle est **extraite** dans `components/consult/ConsultationRoom` et partagée par les deux
+  espaces : patient et médecin rejoignent la même salle par le même endpoint, avec la même bascule
+  réseau faible. Dupliquer aurait imposé de tenir deux copies synchronisées de la file hors-ligne,
+  du repli chat et de la liste `allow` de l'iframe.
+- **Notification `CONSULTATION_START`** au patient dans **SA** langue à l'ouverture de la salle — le
+  gabarit FR/EN existait déjà dans `notifications.templates.ts`, `localize` replie sur FR pour
+  FON/YOR. Sans elle la salle s'ouvrait dans le vide : le patient ne surveille pas son agenda.
+- Test d'intégration qui verrouille **toute la boucle** : démarrage → notification en anglais pour un
+  patient anglophone → `consultationId` non nul dans la liste du patient → salle visible dans
+  l'agenda → second démarrage refusé → clôture réservée au médecin (403 pour le patient) → RDV
+  `COMPLETED`.
+
+> **e2e Playwright volontairement non fait**, et ce n'est pas un arbitrage de confort : le répertoire
+> des médecins ne liste que les praticiens **vérifiés** (`professionals.routes.ts:55`,
+> `verifiedAt: { not: null }`). Un médecin inscrit via l'interface e2e est donc invisible, et le
+> patient ne peut pas prendre rendez-vous avec lui — il faudrait passer par un dossier KYC approuvé
+> par un admin porteur de scopes. Le coût dépasse largement la valeur, la boucle étant déjà
+> verrouillée côté serveur. Même arbitrage que pour ordonnance→dispensation (lot 4b).
 
 ---
 
@@ -254,14 +280,14 @@ Les lots 1→5 de la revue précédente sont **tous livrés**. La suite reprend 
 
 | Lot | Contenu | Charge | Risque | Dépendances |
 |---|---|---|---|---|
-| **7** | **D1** — geste médecin de téléconsultation | ≈ 2 j | faible | aucune |
+| ~~7~~ | ~~**D1** — geste médecin de téléconsultation~~ | ✅ **LIVRÉ** | — | — |
 | **8** | **D2** — paiement wallet (**§5**) | ≈ 1,5 j | **élevé** | revue §5 + sandbox |
 | **9** | **D3** — écran de relecture médicale | ≈ 1 j | faible | aucune |
 | **10** | **D4 + D5 + D6** — actions métier manquantes | ≈ 2 j | faible | lot 7 (agenda) |
 | **11** | **D7** — trancher `translations` | ≈ 0,5 j | nul | décision produit |
 | **6** | Déploiement VPS Infomaniak | — | — | **indépendant** |
 
-### Lot 7 — Fermeture de la téléconsultation (≈ 2 j) · *valeur métier la plus haute*
+### Lot 7 — ✅ LIVRÉ · Fermeture de la téléconsultation · *valeur métier la plus haute*
 
 1. `/pro/agenda` : bouton **« Démarrer la téléconsultation »** sur un RDV `CONFIRMED` de type
    `TELECONSULTATION` → `POST /consultations { appointmentId }`, puis redirection vers la salle.
@@ -348,9 +374,11 @@ La codebase est **saine** : 337 tests verts, typage et lint propres, aucun modè
 orphelin, zéro `TODO` en attente. Le lot 5 clôt la série C1→C9.
 
 Les trois écarts majeurs (**D1** téléconsultation, **D2** wallet, **D3** relecture médicale) ont la
-même forme que ceux de la revue de juillet : **le backend est là, l'écran ne l'est pas**. Ensemble,
-ils représentent environ **4,5 jours** — dont 1,5 sur la zone gelée §5, qui demande un feu vert
-explicite avant d'être touchée.
+même forme que ceux de la revue de juillet : **le backend est là, l'écran ne l'est pas**.
+
+**D1 est livré (lot 7)** et **D2 est neutralisé** (bouton retiré). Reste **D3** (≈ 1 j), puis le
+lot 10 (D4/D5/D6, ≈ 2 j) et le lot 8 (wallet, ≈ 1,5 j) qui n'est plus une réparation mais une
+addition, conditionnée à un feu vert §5.
 
 **D2 a été tranché le 18/08/2026** : le bouton « Wallet » est retiré. Ce n'était pas une
 fonctionnalité manquante mais une promesse affichée que le code ne tenait pas — et, vérification
