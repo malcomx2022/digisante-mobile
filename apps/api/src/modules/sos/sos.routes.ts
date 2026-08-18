@@ -4,11 +4,15 @@
 // ─────────────────────────────────────────────────────────────
 import { geoPointSchema } from '@digisante/shared';
 import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 
 import { forbidden } from '@/lib/errors.js';
 import { requireRole } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
-import { triggerSos } from './sos.service.js';
+import { resolveSos, triggerSos } from './sos.service.js';
+
+const idParams = z.object({ id: z.string().cuid() });
+const resolveSchema = z.object({ falseAlarm: z.boolean().default(false) });
 
 export default async function sosRoutes(app: FastifyInstance) {
   const patient = { preHandler: [app.authenticate, requireRole('PATIENT')] };
@@ -38,5 +42,19 @@ export default async function sosRoutes(app: FastifyInstance) {
       orderBy: { createdAt: 'desc' },
       take: 20,
     });
+  });
+
+  // Clôture par le patient (« je vais bien » / « fausse alerte »). Sans elle,
+  // `status` et `resolvedAt` n'étaient JAMAIS écrits : toute alerte restait
+  // ACTIVE pour toujours (écart D6).
+  app.post('/:id/resolve', patient, async (request) => {
+    const { id } = zParse(idParams, request.params);
+    const { falseAlarm } = zParse(resolveSchema, request.body);
+    return resolveSos(
+      app,
+      { patientId: await patientId(request.user.sub), userId: request.user.sub, ip: request.ip },
+      id,
+      falseAlarm,
+    );
   });
 }

@@ -40,7 +40,15 @@ export interface MeFull {
   lang: Lang;
   profile: UserProfile | null;
   patient?: { id: string; bloodGroup: string | null } | null;
-  doctor?: { id: string; speciality: string | null; verifiedAt: string | null } | null;
+  doctor?: {
+    id: string;
+    speciality: string | null;
+    verifiedAt: string | null;
+    /** Decimal Prisma → sérialisé en chaîne. */
+    consultFee?: string | number | null;
+    slotDuration?: number | null;
+    bio?: string | null;
+  } | null;
 }
 
 /** Champs acceptés par PATCH /users/me. */
