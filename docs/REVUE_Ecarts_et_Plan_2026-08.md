@@ -248,11 +248,35 @@ risque et peuvent partir immédiatement ; les lots 2 à 4 sont du développement
   télécharge que les pièces des entrées qu'il a le droit de voir.
 - UI d'ajout dans `/patient/dmp` + affichage dans la fiche PRO.
 
-### Lot 4 — Filet de test frontend (≈ 2-3 j)
-- **C4** : script `test` dans `apps/web` (sinon la CI continue de sauter l'app en silence),
-  Vitest + Testing Library sur les helpers et gardes de rôle, puis Playwright sur **3 parcours** —
-  triage → orientation, ordonnance → dispensation, recharge wallet → paiement.
-- À câbler dans `.github/workflows/ci.yml`.
+### Lot 4a — ✅ LIVRÉ · Tests unitaires frontend
+
+Script `test` dans `apps/web` (le trou principal : `pnpm -r test` **sautait l'app en silence**),
+Vitest en environnement `node`, **29 tests** sur les deux chemins à vrai risque — file hors-ligne
+et intercepteur de refresh — plus le routage par rôle et les formats localisés.
+
+> **Un défaut réel trouvé et corrigé au passage** : `enqueue` horodatait avec `Date.now()`, dont la
+> résolution est la milliseconde. Deux mutations mises en file dans la même milliseconde partageaient
+> le même `ts`, et `allQueued()` les rejouait dans un ordre **arbitraire** — alors que rejouer dans
+> l'ordre est toute la raison d'être de cette file (un `PATCH` puis un `DELETE` ne commutent pas).
+> Corrigé par un horodatage strictement croissant, avec test de régression.
+> C'est exactement le genre de bug qu'aucun test API ne pouvait attraper.
+
+**Volontairement non fait** : jsdom + Testing Library. Le seul composant qui méritait un test est la
+garde `Protected`, or l'enforcement réel du RBAC est côté serveur et **déjà couvert** (403 dans la
+suite API) ; la garde frontend n'est que de la défense en profondeur. À ajouter le jour où un
+composant portera de la logique métier non testable autrement.
+
+### Lot 4b — Playwright (e2e) — à faire
+Playwright sur les parcours traversants — triage → orientation, ordonnance → dispensation,
+recharge wallet → paiement.
+
+**L'authentification n'est PAS un obstacle** (vérifié) : `auth.service.ts:74` renvoie `devCode`
+dans la réponse dès que `NODE_ENV !== 'production'`, donc un test e2e peut s'inscrire puis valider
+son OTP sans passer par Twilio.
+
+Reste à décider : le coût CI (binaires de navigateur + démarrage de l'API *et* du web en plus des
+services Postgres/Redis déjà présents) justifie un **job séparé** dans `.github/workflows/ci.yml`,
+pas un ajout au job `build-and-test`.
 
 ### Lot 5 — Nettoyage du schéma (≈ 0,5 j)
 - **C5** : migration de suppression de `AdminAuditLog` (table + FK + index + triggers), ou
