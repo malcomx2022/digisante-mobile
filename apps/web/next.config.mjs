@@ -53,5 +53,18 @@ const nextConfig = {
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },
+  // Proxy /api → API Fastify, activé UNIQUEMENT si E2E_API_PROXY est défini
+  // (tests e2e). Objectif : reproduire la topologie de PRODUCTION, où Nginx sert
+  // le web et l'API sous UNE SEULE origine. Sans ça, un e2e en http sur deux
+  // ports distincts se fait bloquer par notre propre CSP (`connect-src 'self'`),
+  // et le cookie de refresh `SameSite=Strict` devient cross-site.
+  // Absent des builds normaux (dev, CI classique, production) → aucun impact.
+  ...(process.env.E2E_API_PROXY
+    ? {
+        async rewrites() {
+          return [{ source: '/api/:path*', destination: `${process.env.E2E_API_PROXY}/api/:path*` }];
+        },
+      }
+    : {}),
 };
 export default withBundleAnalyzer(nextConfig);

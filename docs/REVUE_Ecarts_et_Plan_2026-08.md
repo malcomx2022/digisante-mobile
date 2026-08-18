@@ -51,8 +51,8 @@ Ce n'est pas un bug de code — c'est un piège d'onboarding (cf. **C7**).
 
 Classées par impact fonctionnel réel, pas par facilité.
 
-> **État d'avancement au 17/08/2026** — lots 1, 2 et 3 livrés :
-> **C1 ✅ · C2 ✅ · C3 ✅ · C6 ✅ · C7 ✅ · C8 ✅ · C9 ✅** — restent **C4** et **C5** (lots 4 et 5).
+> **État d'avancement au 18/08/2026** — lots 1, 2, 3 et 4 livrés :
+> **C1 ✅ · C2 ✅ · C3 ✅ · C4 ✅ · C6 ✅ · C7 ✅ · C8 ✅ · C9 ✅** — reste **C5** (lot 5).
 > Les sections ci-dessous conservent l'énoncé d'origine du constat ; le statut est rappelé en tête
 > de chacune.
 
@@ -113,7 +113,7 @@ Trois manques dans `referrals.routes.ts` (lignes 32-48) :
 de journaliser, soit elle requiert un consentement patient. Les deux se défendent ; l'absence de
 choix documenté, non.
 
-### C4 — 🟠 MOYEN · Aucun test frontend, aucun e2e
+### C4 — ✅ LIVRÉ (lots 4a + 4b) · 🟠 MOYEN · Aucun test frontend, aucun e2e
 
 63 pages, **0 test**. `apps/web/package.json` n'a pas de script `test`, donc `pnpm -r test`
 **saute l'application web en silence** : la suite affiche « 289 passed » et paraît complète.
@@ -266,7 +266,35 @@ garde `Protected`, or l'enforcement réel du RBAC est côté serveur et **déjà
 suite API) ; la garde frontend n'est que de la défense en profondeur. À ajouter le jour où un
 composant portera de la logique métier non testable autrement.
 
-### Lot 4b — Playwright (e2e) — à faire
+### Lot 4b — ✅ LIVRÉ · Playwright (e2e)
+
+**8 scénarios** sur la pile réelle (web + API + Postgres + Redis), job CI séparé qui garde aussi la
+porte du déploiement. Parcours couverts : inscription → OTP → espace, atterrissage par rôle, garde
+de rôle (`/pro` forcé), visiteur anonyme, réinscription refusée, et **triage hors-ligne** (réseau
+réellement coupé via `context.setOffline`) — signe ROUGE → URGENCE, aucun signe → domicile,
+avertissement clinique toujours affiché.
+
+> **Un défaut majeur trouvé dès le premier scénario** : le client API déclarait
+> `content-type: application/json` sur **toutes** les requêtes, y compris sans corps. Fastify rejette
+> alors en **400** (`FST_ERR_CTP_EMPTY_JSON_BODY`). Conséquence : **tous les POST sans corps de
+> l'application étaient cassés** (≈20 sites d'appel) — dont `/auth/refresh`, ce qui **déconnectait
+> l'utilisateur à chaque rechargement de page**, et `/auth/logout`, dont le refresh n'était donc
+> jamais révoqué côté serveur.
+>
+> Ni les tests unitaires (fetch simulé) ni les tests d'API (`app.inject` ne pose pas ce content-type)
+> ne pouvaient l'attraper. C'est précisément la raison d'être de ce lot.
+
+**Topologie retenue** : le web proxifie l'API (rewrite Next activée par `E2E_API_PROXY`), ce qui
+reproduit la production (Nginx, une seule origine). Deux contraintes l'imposent — notre propre CSP
+`connect-src 'self'` bloque un appel `http://` cross-origine, et le cookie `SameSite=Strict`
+deviendrait cross-site. Détails et pièges (inlining au build, `127.0.0.1` vs `localhost`) en §8 de
+CLAUDE.md.
+
+**Non couvert** : le parcours ordonnance → dispensation, qui passe par un **scan de QR par la
+caméra** — non pilotable de façon réaliste depuis Playwright. À traiter par des tests d'API sur la
+délivrance (déjà en place) plutôt que par un e2e artificiel.
+
+### Reliquat — parcours e2e non retenus
 Playwright sur les parcours traversants — triage → orientation, ordonnance → dispensation,
 recharge wallet → paiement.
 

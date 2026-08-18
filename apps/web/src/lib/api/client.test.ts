@@ -128,6 +128,37 @@ describe('client API — intercepteur de refresh', () => {
   });
 });
 
+// Régression : le client déclarait toujours `content-type: application/json`,
+// y compris sans corps. Fastify rejette alors en 400 (FST_ERR_CTP_EMPTY_JSON_BODY),
+// ce qui cassait TOUS les POST sans corps — /auth/refresh en tête, donc une
+// déconnexion à chaque rechargement de page. Trouvé par les e2e.
+describe('client API — content-type', () => {
+  it('n’annonce PAS un corps JSON quand il n’y en a pas', async () => {
+    fetchMock.mockResolvedValue(res(200, {}));
+    await post('/auth/logout');
+
+    const sent = fetchMock.mock.calls[0][1].headers as Record<string, string>;
+    expect(sent['content-type']).toBeUndefined();
+    expect(fetchMock.mock.calls[0][1].body).toBeUndefined();
+  });
+
+  it('annonce le JSON dès qu’un corps est envoyé', async () => {
+    fetchMock.mockResolvedValue(res(200, {}));
+    await post('/dmp/records', { type: 'VITAL_SIGNS' });
+
+    const sent = fetchMock.mock.calls[0][1].headers as Record<string, string>;
+    expect(sent['content-type']).toBe('application/json');
+  });
+
+  it('n’annonce pas de corps JSON sur un GET', async () => {
+    fetchMock.mockResolvedValue(res(200, {}));
+    await get('/users/me');
+
+    const sent = fetchMock.mock.calls[0][1].headers as Record<string, string>;
+    expect(sent['content-type']).toBeUndefined();
+  });
+});
+
 describe('client API — résilience réseau', () => {
   it('réessaie un GET après une coupure réseau (2G instable)', async () => {
     fetchMock.mockRejectedValueOnce(new Error('network')).mockResolvedValueOnce(res(200, { ok: true }));
