@@ -744,32 +744,9 @@ async function main() {
     },
   });
 
-  // Journaux d'audit admin
-  await prisma.adminAuditLog.upsert({
-    where: { id: 'seed-admin-audit-1' },
-    update: {},
-    create: {
-      id: 'seed-admin-audit-1',
-      adminId: adminUser.id,
-      action: 'CONFIG_UPDATE',
-      targetType: 'System',
-      details: { note: 'Initialisation des données de démonstration' },
-    },
-  });
-  await prisma.adminAuditLog.upsert({
-    where: { id: 'seed-admin-audit-2' },
-    update: {},
-    create: {
-      id: 'seed-admin-audit-2',
-      adminId: adminUser.id,
-      action: 'CONTENT_MODERATE',
-      targetType: 'HealthContent',
-      targetId: 'seed-content-1',
-      details: { note: 'Publication d’un contenu de prévention' },
-    },
-  });
-
-  // Audit trail immuable (hash chaîné) — entrées de démo
+  // Audit trail immuable (hash chaîné) — entrées de démo.
+  // Registre UNIQUE depuis août 2026 : les actions d'administration y sont
+  // journalisées comme le reste (`AdminAuditLog` supprimé).
   await prisma.auditLog.upsert({
     where: { hash: 'seed-hash-genesis' },
     update: {},
@@ -886,7 +863,7 @@ async function main() {
   console.log('  • Pharmacie : 1 ordonnance à délivrer + 1 dispensation journalisée');
   console.log('  • Labo      : LabOrder pool (PENDING) + PROCESSING + COMPLETED, 1 LabResult publié+interprété, notif patient');
   console.log('  • Diaspora  : wallet 50000 XOF, 2 transactions, 2 bénéficiaires');
-  console.log('  • Admin     : 1 KYC (3 pièces en attente), 2 AdminAuditLog, 2 AuditLog, 3 HealthContent publiés');
+  console.log('  • Admin     : 1 KYC (3 pièces en attente), 2 AuditLog, 3 HealthContent publiés');
   console.log('  • Chat      : 1 fil patient↔médecin, 2 messages');
   console.log(`  • Assureurs : ${insurers.length} organismes`);
 }

@@ -232,14 +232,8 @@ enum ContentCategory {
   OTHER
 }
 
-enum AdminAction {
-  KYC_APPROVE
-  KYC_REJECT
-  USER_SUSPEND
-  USER_ACTIVATE
-  CONFIG_UPDATE
-  CONTENT_MODERATE
-}
+// (enum AdminAction supprimée avec AdminAuditLog — les actions d'administration
+// sont journalisées dans `AuditLog.action`, un String libre et extensible.)
 
 enum ShareType {
   QR_CODE
@@ -275,7 +269,6 @@ model User {
   notifications  Notification[]
   kycSubmissions KycSubmission[]
   kycReviews       KycReview[]     @relation("KycReviewer")
-  adminAuditLogs   AdminAuditLog[] @relation("AdminAuditLogs")
   chatMessages     ChatMessage[]   @relation("ChatSender")
   consentsReceived Consent[]       @relation("ConsentGrantee")
   beneficiaries    Beneficiary[]
@@ -880,26 +873,13 @@ model HealthContent {
   @@map("health_contents")
 }
 
-// 26 — AdminAuditLog : journal des actions d'administration (immuable, §4).
-model AdminAuditLog {
-  id            String      @id @default(cuid())
-  adminId       String
-  action        AdminAction
-  targetType    String?
-  targetId      String?
-  details       Json?
-  previousState Json?
-  newState      Json?
-  ipAddress     String?
-  createdAt     DateTime    @default(now())
-
-  admin User @relation("AdminAuditLogs", fields: [adminId], references: [id])
-
-  @@index([adminId])
-  @@index([action])
-  @@index([createdAt])
-  @@map("admin_audit_logs")
-}
+// 26 — (supprimé, août 2026) AdminAuditLog était un SECOND journal d'audit,
+// jamais écrit par l'application et dépourvu de chaîne de hachage. Le plan du
+// back-office (docs/ADMIN_Backoffice_Proposal.md §9-2) laissait la question du
+// « journal unique » ouverte ; les lots A→H ont tranché de fait en écrivant
+// TOUTES les actions d'administration dans `AuditLog`. Décision actée ici :
+// registre d'audit UNIQUE = `AuditLog` (append-only, SHA-256 chaîné).
+// Migration `..._drop_admin_audit_log`.
 
 // (+1) AuditLog — trail immuable transverse (§4) : DMP_ACCESS, KYC_*, PAYMENT_*,
 // AUTH_FAIL, DATA_EXPORT, LAB_CRITICAL, USER_SUSPEND… Hash SHA-256 chaîné.

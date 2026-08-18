@@ -156,16 +156,10 @@ export const CONTENT_CATEGORIES = [
 ] as const;
 export type ContentCategory = (typeof CONTENT_CATEGORIES)[number];
 
-/** Actions d'administration journalisées dans `AdminAuditLog`. */
-export const ADMIN_ACTIONS = [
-  'KYC_APPROVE',
-  'KYC_REJECT',
-  'USER_SUSPEND',
-  'USER_ACTIVATE',
-  'CONFIG_UPDATE',
-  'CONTENT_MODERATE',
-] as const;
-export type AdminAction = (typeof ADMIN_ACTIONS)[number];
+// (ADMIN_ACTIONS / AdminAction supprimés en août 2026 avec le modèle
+// `AdminAuditLog`. Registre d'audit UNIQUE = `AuditLog`, dont le champ `action`
+// est un String libre : la liste fermée devenait un doublon partiel et périmé
+// — elle ignorait KYC_REVISION, OTP_RESET, INTEGRATION_*, CAMPAIGN_SENT, etc.)
 
 /** Mode de partage d'une entrée du DMP (QR, lien, accès temporaire). */
 export const SHARE_TYPES = ['QR_CODE', 'LINK', 'TEMPORARY_ACCESS'] as const;
