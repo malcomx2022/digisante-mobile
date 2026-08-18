@@ -22,6 +22,12 @@ apps/api/prisma/*.db-journal
 coverage/
 .vitest/
 
+# Playwright (e2e) — rapports, traces et captures d'échec, tous régénérables
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+
 # Caches
 .turbo/
 .cache/

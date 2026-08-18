@@ -76,9 +76,19 @@ function refreshOnce(): Promise<string | null> {
   return refreshInFlight;
 }
 
-function headers(extra?: HeadersInit): HeadersInit {
+/**
+ * En-têtes d'une requête. `json` n'est vrai QUE si un corps est réellement envoyé.
+ *
+ * ⚠️ Ne JAMAIS déclarer `content-type: application/json` sans corps : Fastify
+ * rejette alors la requête en 400 (`FST_ERR_CTP_EMPTY_JSON_BODY`). C'est ce qui
+ * cassait tous les POST sans corps de l'application — `/auth/refresh` et
+ * `/auth/logout` (jeton dans le cookie), confirmation de RDV, soumission KYC,
+ * prise en charge d'une analyse, publication d'un contenu… Symptôme visible :
+ * l'utilisateur était déconnecté à chaque rechargement de page.
+ */
+function headers(extra?: HeadersInit, json = false): HeadersInit {
   return {
-    'content-type': 'application/json',
+    ...(json ? { 'content-type': 'application/json' } : {}),
     ...(accessToken ? { authorization: `Bearer ${accessToken}` } : {}),
     ...extra,
   };
@@ -166,7 +176,7 @@ export async function mutate<T>(
   const res = await withAuthRetry(path, () =>
     fetch(`${BASE}${PREFIX}${path}`, {
       method,
-      headers: headers(),
+      headers: headers(undefined, body !== undefined),
       credentials: 'include',
       body: body === undefined ? undefined : JSON.stringify(body),
     }),
@@ -186,7 +196,7 @@ export async function flushQueue(): Promise<{ flushed: number; failed: number }>
     const res = await withAuthRetry(m.path, () =>
       fetch(`${BASE}${PREFIX}${m.path}`, {
         method: m.method,
-        headers: headers({ 'Idempotency-Key': m.id }),
+        headers: headers({ 'Idempotency-Key': m.id }, m.body !== undefined),
         credentials: 'include',
         body: m.body === undefined ? undefined : JSON.stringify(m.body),
       }),

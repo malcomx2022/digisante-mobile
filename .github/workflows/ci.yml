@@ -48,13 +48,73 @@ jobs:
       - run: pnpm test
       - run: pnpm build
 
+  # ── Tests e2e (Playwright) ──
+  # Job SÉPARÉ : il démarre la pile complète (API + web) et télécharge un
+  # navigateur, ce qui n'a pas sa place dans `build-and-test`.
+  #
+  # Le web est PROXIFIÉ vers l'API (`E2E_API_PROXY`) pour reproduire la topologie
+  # de production — une seule origine derrière Nginx. Sans ça, la CSP de
+  # l'application (`connect-src 'self'`) bloque ses propres appels en http, et le
+  # cookie de refresh `SameSite=Strict` devient cross-site.
+  # `NEXT_PUBLIC_API_URL` vide ⇒ le client appelle `/api/v1/...` en relatif.
+  # Ces deux variables doivent être posées AU BUILD (inlining Next).
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: digisante
+          POSTGRES_PASSWORD: devpassword
+          POSTGRES_DB: digisante_e2e
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+    env:
+      DATABASE_URL: postgresql://digisante:devpassword@localhost:5432/digisante_e2e?schema=public
+      REDIS_URL: redis://localhost:6379/2
+      NODE_ENV: test
+      JWT_SECRET: e2e-secret-at-least-32-characters-long-xx
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @digisante/api prisma generate
+      - run: pnpm --filter @digisante/api prisma migrate deploy
+      - name: Build (proxy API activé, URL d'API relative)
+        run: pnpm build
+        env:
+          E2E_API_PROXY: http://127.0.0.1:3011
+          NEXT_PUBLIC_API_URL: ""
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
+      - name: Rapport Playwright (en cas d'échec)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
   # ── Déploiement VPS Infomaniak (SSH) ──
   # Opt-in : ne s'exécute QUE si la variable de dépôt DEPLOY_ENABLED == 'true'
   # (Settings → Secrets and variables → Actions → Variables). Tant qu'elle est
   # absente, main reste verte. Activer une fois le VPS prêt + les secrets posés.
   # Secrets requis : VPS_HOST · VPS_USER · VPS_SSH_KEY (clé privée) · VPS_SSH_PORT (optionnel)
   deploy:
-    needs: build-and-test
+    # Les e2e gardent aussi la porte : inutile de déployer une application dont
+    # le parcours d'inscription ou le triage hors-ligne est cassé.
+    needs: [build-and-test, e2e]
     if: >-
       github.ref == 'refs/heads/main'
       && github.event_name == 'push'
