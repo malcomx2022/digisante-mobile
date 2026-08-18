@@ -8,6 +8,7 @@ import { Badge, Button, CardPagne } from '@/components/ui';
 import { Empty, ErrorState , SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get, post } from '@/lib/api/client';
+import { educationApi } from '@/lib/api/education';
 import { useApi } from '@/lib/api/useApi';
 import { formatDateTime } from '@/i18n/format';
 
@@ -22,6 +23,11 @@ interface Appointment {
 export default function ProDashboard() {
   const { t } = useLocale();
   const { data, loading, error } = useApi<Appointment[]>(() => get('/appointments?pageSize=30'), []);
+  // File de relecture médicale : modèle « pool », rien n'est assigné — la tuile
+  // est le seul signal que du travail attend (cf. lot 9 / écart D3).
+  // Un médecin NON vérifié reçoit 403 : on masque alors la tuile au lieu
+  // d'afficher une entrée qui mènerait à un écran en erreur.
+  const review = useApi<{ total: number }>(() => educationApi.reviewQueue(1, 1), []);
   const [confirmed, setConfirmed] = useState<Set<string>>(new Set());
 
   const [confirmError, setConfirmError] = useState(false);
@@ -85,6 +91,15 @@ export default function ProDashboard() {
           >
             <span aria-hidden>🧪</span> {t('proresults.title')}
           </Link>
+          {review.data && (
+            <Link
+              href="/pro/education"
+              className="flex items-center gap-2 bg-white card-pagne border border-stone-200 px-4 py-3 font-display font-bold text-[0.8125rem] text-indigo-700"
+            >
+              <span aria-hidden>📖</span> {t('edureview.title')}
+              {review.data.total > 0 && <Badge variant="priorite">{review.data.total}</Badge>}
+            </Link>
+          )}
         </div>
 
         <h2 className="font-display font-extrabold text-[0.875rem] text-stone-700">{t('pro.queue')}</h2>
