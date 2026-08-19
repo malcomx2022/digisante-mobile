@@ -16,6 +16,7 @@ describe.skipIf(!HAS_INFRA)('Parcours de bout en bout (intégration)', () => {
   let pharmaToken: string;
   let patientId: string;
   let patientUserId: string;
+  let doctorRecordId: string;
 
   const auth = (t: string, share?: string) => ({ authorization: `Bearer ${t}`, ...(share ? { 'x-share-token': share } : {}) });
   const sign = (b: string) => buildWebhookSignatureHeader(b, WHSEC);
@@ -41,10 +42,12 @@ describe.skipIf(!HAS_INFRA)('Parcours de bout en bout (intégration)', () => {
     });
     const doctor = await app.prisma.user.create({
       data: { phone: PHONES[1], role: 'MEDECIN', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Awa', lastName: 'K' } }, doctor: { create: { speciality: 'G', licenseNumber: 'BJ-MED-2001', consultFee: 5000, verifiedAt: new Date() } } },
+      include: { doctor: true },
     });
     const pharma = await app.prisma.user.create({ data: { phone: PHONES[2], role: 'PHARMACIE', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Ph', lastName: 'X' } }, pharmacy: { create: { name: 'Pharmacie Test', address: 'Cotonou', phone: PHONES[2] } } } });
 
     patientId = patient.patient!.id;
+    doctorRecordId = doctor.doctor!.id;
     patientUserId = patient.id;
     patientToken = app.jwt.sign({ sub: patient.id, role: 'PATIENT' }, { expiresIn: '15m' });
     doctorToken = app.jwt.sign({ sub: doctor.id, role: 'MEDECIN' }, { expiresIn: '15m' });
@@ -89,7 +92,7 @@ describe.skipIf(!HAS_INFRA)('Parcours de bout en bout (intégration)', () => {
     expect(mine.json()[0].status).toBe('FULLY_DISPENSED');
   });
 
-  it('Chaîne 3 : recharge wallet (webhook) → paiement → solde', async () => {
+  it('Chaîne 3 : recharge wallet (webhook) → paiement de consultation par portefeuille → solde', async () => {
     const topup = await app.inject({ method: 'POST', url: '/api/v1/wallet/topup', headers: auth(patientToken), payload: { amountEur: 10, method: 'VISA_MC' } });
     const fedapayId = topup.json().payment.fedapayId as string;
 
@@ -100,8 +103,17 @@ describe.skipIf(!HAS_INFRA)('Parcours de bout en bout (intégration)', () => {
     const w = await app.inject({ method: 'GET', url: '/api/v1/wallet', headers: auth(patientToken) });
     expect(Number(w.json().balance)).toBe(6560);
 
-    const pay = await app.inject({ method: 'POST', url: '/api/v1/wallet/pay', headers: auth(patientToken), payload: { amount: 1000, description: 'Soins famille' } });
-    expect(Number(pay.json().balance)).toBe(5560);
+    // Le règlement passe par le CHEMIN DE PRODUCTION (`POST /payments`, méthode
+    // WALLET) et non plus par `POST /wallet/pay`, retirée (écart E2) : elle
+    // débitait sans rien régler, donc la chaîne « recharge → paiement » ne
+    // testait pas le paiement réel. Le tarif est imposé par le serveur (5000).
+    const appt = await app.prisma.appointment.create({
+      data: { patientId, doctorId: doctorRecordId, type: 'TELECONSULTATION', status: 'CONFIRMED', scheduledAt: new Date(Date.now() + 86_400_000) },
+      select: { id: true },
+    });
+    const pay = await app.inject({ method: 'POST', url: '/api/v1/payments', headers: auth(patientToken), payload: { type: 'CONSULTATION', method: 'WALLET', appointmentId: appt.id } });
+    expect(pay.statusCode).toBe(201);
+    expect(Number(pay.json().walletBalance)).toBe(1560);
 
     const audited = await app.prisma.auditLog.count({ where: { action: 'PAYMENT_CONFIRMED', actorId: patientUserId } });
     expect(audited).toBeGreaterThanOrEqual(1);

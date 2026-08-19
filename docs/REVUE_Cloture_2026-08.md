@@ -78,7 +78,7 @@ Les balayages de contrôle consignés dans CLAUDE.md renvoient tous **0 violatio
 
 ## 2. Écarts NOUVEAUX — non catalogués par les revues précédentes
 
-Quatre trouvailles. La première est bloquante.
+Quatre trouvailles. La première était bloquante. **E1, E2 et E4 sont corrigés ; E3 reste ouvert.**
 
 ### E1 — ✅ CORRIGÉ (19/08/2026) · 🔴 MAJEUR · La recharge du portefeuille diaspora ne redirige jamais vers le paiement
 
@@ -114,7 +114,17 @@ réconciliation de 02:30 ne rattrapera rien puisque aucun paiement n'a réelleme
 **Correctif** : une ligne, strictement symétrique à celle du lot 8, **hors logique de paiement**
 (§5 non touché — on ne modifie pas `payments.initiate`, on consomme sa réponse).
 
-### E2 — 🟠 MOYEN · `POST /wallet/pay` : orphelin *et* sémantiquement incomplet
+### E2 — ✅ CORRIGÉ (19/08/2026) · 🟠 MOYEN · `POST /wallet/pay` : orphelin *et* sémantiquement incomplet
+
+> **Arbitrage du porteur : suppression.** La route est retirée, avec `paySchema`, le champ
+> `beneficiaryUserId` et la branche `TRANSFER` devenue inatteignable. `wallet.debit` est
+> **conservé** — `payments.initiate` (méthode WALLET) l'appelle, avec la garde de solde
+> anti-TOCTOU. La valeur `TRANSFER` reste dans l'enum Prisma (aucune migration, pour ne pas
+> invalider d'éventuelles lignes historiques). Un test exige désormais **404** sur la route,
+> et la « Chaîne 3 » des parcours règle sa consultation par le **chemin de production**
+> (`POST /payments`) au lieu de la route fantôme : elle teste enfin un paiement réel.
+> Même signature que le module `translations` au lot 11 — un endpoint que rien n'appelle est
+> un piège pour le prochain contributeur.
 
 **Seul endpoint du produit sans aucun appelant** (vérifié par appariement des 164 déclarations
 de routes aux URL réellement appelées par le web + les e2e).
@@ -136,7 +146,12 @@ voyant un endpoint « paiement pour un proche » déjà écrit et testé, le bra
 lot 8, le débit du portefeuille passe par `payments.initiate` (méthode `WALLET`), qui est le
 chemin gardé, atomique et testé.
 
-### E3 — 🟠 MOYEN · Le parcours diaspora ne se referme pas
+### E3 — ⏳ OUVERT · 🟠 MOYEN · Le parcours diaspora ne se referme pas
+
+> **Toujours ouvert, et désormais seul.** La suppression de E2 retire le faux-semblant, elle
+> n'ajoute pas la fonctionnalité : payer les soins d'un proche reste **non implémenté**, et le
+> carnet `Beneficiary` reste un CRUD sans débouché. Le rebrancher exige un vrai règlement
+> (à quoi l'argent se rattache) et un contrôle d'appartenance — pas une route de débit.
 
 Conséquence conjointe de E1 et E2, mais c'est un écart **fonctionnel** à part entière.
 
@@ -241,7 +256,7 @@ Ordonné par ce qui **bloque** la mise en service, pas par facilité.
 |---|---|---|---|
 | ~~1~~ | ✅ **E1 fait** — règle partagée `paymentOutcome` + 5 tests de non-régression | — | §5 non touché |
 | ~~2~~ | ✅ **E4 fait** — `.env.example` aligné sur 5434/6380 | — | — |
-| 3 | **E2** — trancher : brancher `POST /wallet/pay` correctement, ou le supprimer | 0,5 j | §5 si branchement |
+| ~~3~~ | ✅ **E2 fait** — route supprimée (arbitrage porteur) + test de non-régression 404 | — | §5 non touché |
 | 4 | **E3** — écran « payer les soins d'un proche » (dépend de la décision E2) | 1 j | §5 |
 | 5 | **B1** — faire relire les 6 clés `sos.*` par des locuteurs natifs FON et YOR | externe | — |
 | 6 | **B2** — obtenir le contreseing médical (`Dossier_Validation_Clinique.docx`) | externe | — |

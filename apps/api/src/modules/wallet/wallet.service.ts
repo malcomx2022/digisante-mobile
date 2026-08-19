@@ -1,6 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 // Service Wallet (portefeuille diaspora) : solde, recharge (créditée au webhook),
-// paiement (débit, ex. soins de la famille). Devise : FCFA (XOF).
+// débit (paiement d'un soin, via `payments.initiate` méthode WALLET).
+// Devise : FCFA (XOF).
 // ─────────────────────────────────────────────────────────────
 import { randomUUID } from 'node:crypto';
 
@@ -57,7 +58,6 @@ export async function refund(app: FastifyInstance, userId: string, amount: numbe
 interface DebitInput {
   amount: number;
   description?: string;
-  beneficiaryUserId?: string;
 }
 
 /**
@@ -83,7 +83,13 @@ async function debitWithin(
   await client.walletTransaction.create({
     data: {
       walletId,
-      type: input.beneficiaryUserId ? 'TRANSFER' : 'DEBIT',
+      // Toujours DEBIT : le seul appelant est le paiement d'un soin par le
+      // titulaire du portefeuille. Le type TRANSFER n'était produit que par
+      // l'ancienne route `POST /wallet/pay` (retirée, écart E2), qui débitait
+      // sans créditer quiconque — un « transfert » qui n'en était pas un. La
+      // valeur reste dans l'enum Prisma pour ne pas invalider d'éventuelles
+      // lignes historiques.
+      type: 'DEBIT',
       amount: new Prisma.Decimal(input.amount),
       reference,
       description: input.description,

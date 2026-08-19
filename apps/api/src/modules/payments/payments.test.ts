@@ -137,7 +137,10 @@ describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
     expect(second.statusCode).toBe(400);
   });
 
-  it('wallet : recharge € → FCFA créditée au webhook, puis débit', async () => {
+  // Le DÉBIT n'est plus testé ici : `POST /wallet/pay` a été retirée (écart E2)
+  // et le seul chemin de dépense du portefeuille est `POST /payments` méthode
+  // WALLET, couvert par le test « WALLET : la consultation est débitée… » ci-dessous.
+  it('wallet : recharge € → FCFA créditée au webhook', async () => {
     const topup = await app.inject({ method: 'POST', url: '/api/v1/wallet/topup', headers: auth(patientToken), payload: { amountEur: 10, method: 'VISA_MC' } });
     expect(topup.statusCode).toBe(200);
     expect(topup.json().amountXof).toBe(6560);
@@ -147,10 +150,13 @@ describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
 
     const w1 = await app.inject({ method: 'GET', url: '/api/v1/wallet', headers: auth(patientToken) });
     expect(Number(w1.json().balance)).toBe(6560);
+  });
 
-    const pay = await app.inject({ method: 'POST', url: '/api/v1/wallet/pay', headers: auth(patientToken), payload: { amount: 1000, description: 'Consultation proche' } });
-    expect(pay.statusCode).toBe(200);
-    expect(Number(pay.json().balance)).toBe(5560);
+  // Non-régression E2 : la route retirée ne doit pas réapparaître. Elle débitait
+  // le payeur sans rien régler ni créditer personne, et n'avait aucun appelant.
+  it('la route de paiement direct du portefeuille n’existe plus (E2)', async () => {
+    const gone = await app.inject({ method: 'POST', url: '/api/v1/wallet/pay', headers: auth(patientToken), payload: { amount: 1000 } });
+    expect(gone.statusCode).toBe(404);
   });
 
   // ── Lot 8 / écart D2 : le paiement par PORTEFEUILLE ────────────────────────
