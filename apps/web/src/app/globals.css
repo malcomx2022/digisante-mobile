@@ -29,6 +29,14 @@
   .pb-safe {
     padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
   }
+  /* Padding HAUT respectant la zone sûre (encoche / Dynamic Island).
+     `viewportFit: 'cover'` + `statusBarStyle: 'black-translucent'` (layout.tsx)
+     étendent le contenu SOUS la barre d'état iOS : sans ce décalage, l'heure
+     système et la batterie se superposent au contenu de l'en-tête en mode
+     installé. Le pendant bas (`.pb-safe`) existait déjà, le haut manquait. */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
   /* Pleine hauteur fiable sur mobile : 100dvh tient compte de la barre d'URL
      dynamique ; repli 100vh pour les navigateurs sans unités dynamiques. */
   .min-h-dvh-screen {

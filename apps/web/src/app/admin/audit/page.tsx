@@ -60,10 +60,10 @@ export default function AdminAudit() {
       <div className="flex items-center justify-between gap-2">
         <span className="text-[0.6875rem] text-stone-400">{t('admin.results_range', { from, to, total })}</span>
         <div className="flex gap-1.5">
-          <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="card-pagne bg-white border border-stone-200 text-stone-600 text-[0.75rem] font-display font-bold px-4 py-2.5 disabled:opacity-40">
+          <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="card-pagne bg-white border border-stone-200 text-stone-600 text-[0.75rem] font-display font-bold px-4 py-2.5 disabled:opacity-40 pagne-focus">
             <span aria-hidden="true">‹ </span>{t('admin.prev')}
           </button>
-          <button type="button" onClick={() => setPage((p) => p + 1)} disabled={page * PAGE_SIZE >= total} className="card-pagne bg-white border border-stone-200 text-stone-600 text-[0.75rem] font-display font-bold px-4 py-2.5 disabled:opacity-40">
+          <button type="button" onClick={() => setPage((p) => p + 1)} disabled={page * PAGE_SIZE >= total} className="card-pagne bg-white border border-stone-200 text-stone-600 text-[0.75rem] font-display font-bold px-4 py-2.5 disabled:opacity-40 pagne-focus">
             {t('admin.next')}<span aria-hidden="true"> ›</span>
           </button>
         </div>

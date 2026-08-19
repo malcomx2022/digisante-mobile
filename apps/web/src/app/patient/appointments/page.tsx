@@ -133,7 +133,7 @@ export default function AppointmentsPage() {
               </Link>
             )}
             {cancellable && cancelling !== a.id && (
-              <button type="button" onClick={() => { setCancelling(a.id); setReason(''); setCancelError(null); }} className="card-pagne bg-sos-50 text-sos-700 font-display font-extrabold text-[0.75rem] px-3 py-1.5">
+              <button type="button" onClick={() => { setCancelling(a.id); setReason(''); setCancelError(null); }} className="card-pagne bg-sos-50 text-sos-700 font-display font-extrabold text-[0.75rem] px-3 py-1.5 pagne-focus">
                 {t('appt.cancel')}
               </button>
             )}
