@@ -1,16 +1,17 @@
 'use client';
 
 import { LANGUAGE_LIST } from '@digisante/shared';
-import Link from 'next/link';
 import { useState } from 'react';
 
 import { Button, CardPagne, ConfirmDialog, Nkyinkyim } from '@/components/ui';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
 import { Empty, ErrorState, SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
+import { ApiRequestError } from '@/lib/api/client';
 import { beneficiariesApi, type Beneficiary } from '@/lib/api/beneficiaries';
 import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
+import { formatNumber } from '@/i18n/format';
 
 // Dérivé de l'enum Lang partagé (cohérence FR/EN/FON/YOR) — code + endonyme affiché.
 const LANGS = LANGUAGE_LIST.map((l) => ({ code: l.code, label: l.nativeName }));
@@ -26,6 +27,12 @@ export default function BeneficiariesPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [pendingRemove, setPendingRemove] = useState<string | null>(null);
   const [removing, setRemoving] = useState(false);
+  // Envoi d'argent (écart E3) : saisie du montant sur la fiche, puis confirmation.
+  const [sendFor, setSendFor] = useState<Beneficiary | null>(null);
+  const [sendAmount, setSendAmount] = useState('');
+  const [pendingSend, setPendingSend] = useState<Beneficiary | null>(null);
+  const [sending, setSending] = useState(false);
+  const [sentMsg, setSentMsg] = useState<string | null>(null);
 
   const { data, loading, error } = useApi<Beneficiary[]>(() => beneficiariesApi.list(), [tick]);
 
@@ -65,6 +72,28 @@ export default function BeneficiariesPage() {
   }
 
   // Suppression d'un proche → confirmation explicite via dialogue stylé.
+  async function confirmSend() {
+    const target = pendingSend;
+    const amount = Number(sendAmount);
+    if (!target || !Number.isFinite(amount) || amount <= 0) return;
+    setSending(true);
+    setActionError(null);
+    try {
+      const res = await beneficiariesApi.send(target.id, Math.trunc(amount));
+      setSentMsg(t('beneficiaries.sent', { name: target.name, amount: formatNumber(amount) }));
+      setSendFor(null);
+      setSendAmount('');
+      setTick((x) => x + 1);
+      return res;
+    } catch (e) {
+      // Solde insuffisant / proche sans compte : le serveur explique, on relaie.
+      setActionError(e instanceof ApiRequestError && e.status === 400 ? e.error.message : t('auth.error'));
+    } finally {
+      setSending(false);
+      setPendingSend(null);
+    }
+  }
+
   function remove(id: string) {
     setActionError(null);
     setPendingRemove(id);
@@ -128,6 +157,7 @@ export default function BeneficiariesPage() {
         )}
 
         {actionError && !editing && <p className="text-[0.75rem] text-sos-600 font-bold">{actionError}</p>}
+        {sentMsg && <p className="text-[0.75rem] text-sante-700 font-bold">✓ {sentMsg}</p>}
         {loading && <SkeletonCards label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && (data?.length ?? 0) === 0 && !editing && <Empty label={t('beneficiaries.empty')} />}
@@ -147,13 +177,51 @@ export default function BeneficiariesPage() {
                   <button type="button" onClick={() => remove(b.id)} className="text-[0.75rem] text-terre-600 font-display font-bold">{t('common.delete')}</button>
                 </div>
               </div>
-              <Link href="/diaspora/wallet" className="mt-3 inline-block bg-ocre-400 text-stone-900 font-display font-bold card-pagne px-3 py-1.5 text-[0.75rem]">
-                {t('beneficiaries.send_money')}
-              </Link>
+              {b.canReceive ? (
+                sendFor?.id === b.id ? (
+                  <div className="mt-3 flex gap-2">
+                    <input
+                      className={inputCls}
+                      type="number"
+                      min="1"
+                      inputMode="numeric"
+                      placeholder={t('beneficiaries.amount_xof')}
+                      aria-label={t('beneficiaries.amount_xof')}
+                      value={sendAmount}
+                      onChange={(e) => setSendAmount(e.target.value)}
+                    />
+                    <Button variant="ocre" onClick={() => setPendingSend(b)} disabled={sending || !(Number(sendAmount) > 0)}>
+                      {t('beneficiaries.send_money')}
+                    </Button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => { setSendFor(b); setSendAmount(''); setSentMsg(null); }}
+                    className="mt-3 inline-block bg-ocre-400 text-stone-900 font-display font-bold card-pagne pagne-focus px-3 py-1.5 text-[0.75rem]"
+                  >
+                    {t('beneficiaries.send_money')}
+                  </button>
+                )
+              ) : (
+                // Sans compte DigiSanté, il n'y a pas de portefeuille à créditer :
+                // on le dit plutôt que d'afficher un bouton qui échouera.
+                <p className="mt-3 text-[0.75rem] text-stone-400">{t('beneficiaries.no_account')}</p>
+              )}
             </CardPagne>
           ))}
         </div>
       </main>
+
+      <ConfirmDialog
+        open={!!pendingSend}
+        busy={sending}
+        title={t('beneficiaries.send_money')}
+        message={pendingSend ? t('beneficiaries.send_confirm', { name: pendingSend.name, amount: formatNumber(Number(sendAmount) || 0) }) : ''}
+        confirmLabel={t('beneficiaries.send_money')}
+        onConfirm={confirmSend}
+        onCancel={() => setPendingSend(null)}
+      />
 
       <ConfirmDialog
         open={!!pendingRemove}

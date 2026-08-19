@@ -74,6 +74,10 @@ async function debitWithin(
   walletId: string,
   input: DebitInput,
   reference: string,
+  // Nature du mouvement sortant. DEBIT = paiement d'un soin (`payments.initiate`
+  // méthode WALLET) ; TRANSFER = envoi à un proche (`transfer`). Paramétré plutôt
+  // que dupliqué : la garde de solde ci-dessous doit rester définie UNE SEULE FOIS.
+  type: 'DEBIT' | 'TRANSFER' = 'DEBIT',
 ) {
   const guarded = await client.wallet.updateMany({
     where: { id: walletId, balance: { gte: input.amount } },
@@ -83,13 +87,7 @@ async function debitWithin(
   await client.walletTransaction.create({
     data: {
       walletId,
-      // Toujours DEBIT : le seul appelant est le paiement d'un soin par le
-      // titulaire du portefeuille. Le type TRANSFER n'était produit que par
-      // l'ancienne route `POST /wallet/pay` (retirée, écart E2), qui débitait
-      // sans créditer quiconque — un « transfert » qui n'en était pas un. La
-      // valeur reste dans l'enum Prisma pour ne pas invalider d'éventuelles
-      // lignes historiques.
-      type: 'DEBIT',
+      type,
       amount: new Prisma.Decimal(input.amount),
       reference,
       description: input.description,
@@ -126,5 +124,47 @@ export async function debit(
   const balance = tx
     ? await debitWithin(tx, wallet.id, input, reference)
     : await app.prisma.$transaction((c) => debitWithin(c, wallet.id, input, reference));
+  return { balance, reference };
+}
+
+/**
+ * Envoie de l'argent à un proche : débit de l'expéditeur ET crédit du
+ * destinataire dans **UNE SEULE transaction**. C'est ce qui distingue ce
+ * transfert de l'ancienne route `POST /wallet/pay` (retirée, écart E2), qui
+ * débitait sans jamais créditer personne : ici l'argent arrive quelque part,
+ * ou rien ne se passe.
+ *
+ * La garde de solde anti-TOCTOU est celle de `debitWithin` — pas une copie.
+ *
+ * ⚠️ §5 non concerné : mouvement **interne** au registre, aucun appel FedaPay,
+ * aucun `Payment` créé. Même nature que `refund`.
+ */
+export async function transfer(
+  app: FastifyInstance,
+  fromUserId: string,
+  toUserId: string,
+  amount: number,
+  description?: string,
+) {
+  if (!Number.isInteger(amount) || amount <= 0) throw badRequest('Montant invalide');
+  // Un transfert vers soi-même serait un no-op qui gonfle le registre de deux
+  // lignes contradictoires sur le MÊME portefeuille.
+  if (fromUserId === toUserId) throw badRequest('Transfert vers soi-même impossible');
+
+  const sender = await app.prisma.wallet.findUnique({ where: { userId: fromUserId }, select: { id: true } });
+  if (!sender) throw notFound('Portefeuille introuvable');
+  // Le destinataire peut n'avoir jamais ouvert son portefeuille : on le crée
+  // plutôt que de refuser l'envoi.
+  const receiver = await getOrCreateWallet(app, toUserId);
+
+  const reference = `trf_${randomUUID()}`;
+  const balance = await app.prisma.$transaction(async (tx) => {
+    const remaining = await debitWithin(tx, sender.id, { amount, description }, reference, 'TRANSFER');
+    await tx.walletTransaction.create({
+      data: { walletId: receiver.id, type: 'TRANSFER_IN', amount: new Prisma.Decimal(amount), reference, description },
+    });
+    await tx.wallet.update({ where: { id: receiver.id }, data: { balance: { increment: amount } } });
+    return remaining;
+  });
   return { balance, reference };
 }

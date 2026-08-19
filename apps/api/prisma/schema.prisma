@@ -204,7 +204,11 @@ enum WalletTransactionType {
   TOPUP
   DEBIT
   REFUND
+  // Sortant : envoi d'argent à un proche (carnet Beneficiary).
   TRANSFER
+  // Entrant : réception d'un envoi d'un proche. Distinct de TOPUP (recharge
+  // FedaPay) pour que l'historique du destinataire dise d'où vient l'argent.
+  TRANSFER_IN
 }
 
 enum SubscriptionPlan {
