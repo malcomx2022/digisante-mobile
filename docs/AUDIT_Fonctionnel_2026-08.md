@@ -124,7 +124,7 @@ Daily.co + dégradation `VIDEO→AUDIO→CHAT` sont **complets et testés** ; le
 
 ---
 
-### D2 — 🟠 ATTÉNUÉ (bouton retiré le 18/08/2026) · 🔴 à l'origine · Le paiement « Wallet » ne débite jamais le portefeuille (zone §5)
+### D2 — ✅ LIVRÉ (lot 8, 19/08/2026) · 🔴 MAJEUR à l'origine · Le paiement « Wallet » ne débite jamais le portefeuille (zone §5)
 
 **Constat.** L'interface propose trois moyens de paiement d'une consultation
 (`apps/web/src/app/patient/appointments/page.tsx:16-19`) : MTN MoMo, Moov Money et
@@ -161,9 +161,24 @@ stocké dans `Payment.method`, ce qui **fausse en plus les volumes par méthode*
 Un commentaire en tête de la liste interdit de la remettre avant le lot 8. Les paiements `WALLET`
 déjà en base continuent de s'afficher (l'admin rend `method` tel quel).
 
-**⚠️ Zone gelée §5.** La *vraie* correction — débiter le portefeuille depuis `payments.initiate` —
-reste le **lot 8** : elle exige une **revue explicite + re-tests des webhooks** (HMAC valide/invalide,
-idempotence, crédit wallet, réconciliation). **Ne pas patcher à la volée.**
+**✅ Lot 8 livré (19/08/2026) — sur autorisation explicite du porteur, gel §5 levé de façon encadrée.**
+
+- `payments.initiate` traite `method: 'WALLET'` **avant** tout appel FedaPay : `wallet.debit` et la
+  création du `Payment` (statut **COMPLETED**, sans `fedapayId`) sont validés ou annulés **ensemble**
+  dans une seule transaction. Un solde insuffisant annule tout — donc **aucun `Payment` orphelin**, et
+  le rendez-vous reste payable par un autre moyen (c'était l'impasse identifiée plus haut).
+- `wallet.debit` accepte désormais une transaction ouverte par l'appelant. La garde de solde
+  conditionnelle (anti double-dépense TOCTOU) reste **définie une seule fois** — elle n'a pas été
+  recopiée dans `payments`.
+- Paiement journalisé `PAYMENT_CONFIRMED`, comme la voie webhook. Sans `fedapayId`, il sort
+  naturellement du périmètre de la réconciliation (qui ne balaie que les PENDING porteurs d'un id).
+- Bouton « Wallet 🇫🇷 » **rétabli** dans l'interface.
+
+**Re-tests des webhooks effectués** (exigence §5) : HMAC valide/invalide, corps falsifié, en-tête
+malformé, anti-rejeu par horodatage, signatures multiples, idempotence, crédit wallet sur
+`WALLET_TOPUP`, remboursement, secret en base primant sur le `.env`, réconciliation.
+
+> 🔴 **Ce lot a mis au jour un défaut bien plus grave que D2 lui-même** — cf. l'encadré ci-dessous.
 
 ---
 
@@ -369,7 +384,7 @@ Les lots 1→5 de la revue précédente sont **tous livrés**. La suite reprend 
 | Lot | Contenu | Charge | Risque | Dépendances |
 |---|---|---|---|---|
 | ~~7~~ | ~~**D1** — geste médecin de téléconsultation~~ | ✅ **LIVRÉ** | — | — |
-| **8** | **D2** — paiement wallet (**§5**) | ≈ 1,5 j | **élevé** | revue §5 + sandbox |
+| ~~8~~ | ~~**D2** — paiement wallet (**§5**)~~ | ✅ **LIVRÉ** | — | — |
 | ~~9~~ | ~~**D3** — écran de relecture médicale~~ | ✅ **LIVRÉ** | — | — |
 | ~~10~~ | ~~**D4 + D5 + D6** — actions métier manquantes~~ | ✅ **LIVRÉ** | — | — |
 | ~~11~~ | ~~**D7** — trancher `translations`~~ | ✅ **LIVRÉ** (supprimé) | — | — |
@@ -390,7 +405,7 @@ Les lots 1→5 de la revue précédente sont **tous livrés**. La suite reprend 
 **Réutilise** : `ProHeader`, `SkeletonCards`, `ConfirmDialog`, client `appointments`. **0 dépendance
 nouvelle, 0 migration.**
 
-### Lot 8 — Paiement par portefeuille (≈ 1,5 j) · **⚠️ zone gelée §5**
+### Lot 8 — ✅ LIVRÉ · Paiement par portefeuille · **⚠️ zone gelée §5, levée sur autorisation explicite**
 
 **Prérequis bloquant** : décision écrite du porteur + `/freeze` levé de façon encadrée, comme au
 Lot E de la gestion des API.
@@ -456,6 +471,42 @@ campagnes, vetting géographique des ASC, refund FedaPay externe, stubs d'intég
 
 ---
 
+## 4 bis. 🔴 Défaut découvert pendant le lot 8 — la vérification de signature des webhooks était fausse
+
+Il ne figurait dans aucune revue précédente parce qu'**aucun test ne pouvait le voir**.
+
+`verifyWebhookSignature` calculait `HMAC-SHA256(rawBody)` et comparait le résultat à l'en-tête
+`x-fedapay-signature` **entier**. Or FedaPay envoie un en-tête composite et horodaté, calqué sur
+Stripe :
+
+```
+x-fedapay-signature: t=<unix_seconds>,s=<hmac_sha256_hex>
+```
+
+où la signature porte sur **`` `${timestamp}.${rawBody}` ``**, pas sur le corps seul
+(référence : SDK officiel `fedapay-node`, `src/Webhook.ts`, `WebhookSignature.verifyHeader` ;
+schéma attendu `'s'`, tolérance 300 s).
+
+**Conséquence en production** : **tout** webhook FedaPay réel aurait été rejeté en **401**. Donc
+aucun paiement Mobile Money jamais confirmé, aucune recharge de portefeuille jamais créditée. La
+réconciliation cron de 02:30 aurait fini par rattraper les statuts — avec jusqu'à 24 h de retard sur
+chaque paiement, et seulement pour les transactions déjà porteuses d'un `fedapayId`.
+
+**Pourquoi les tests ne l'ont pas vu** : ils fabriquaient la signature avec **la même formule
+erronée** que le code vérifiait. Le test confirmait le bug au lieu de le révéler. C'est le mode
+d'échec le plus coûteux d'une suite de tests — celui qui donne confiance à tort.
+
+**Corrigé** : vérification conforme au schéma réel (horodatage, schéma `s`, tolérance anti-rejeu,
+signatures multiples pour la rotation de secret) ; helper `buildWebhookSignatureHeader` placé **à
+côté** de la vérification et utilisé par tous les tests, pour qu'aucun test ne puisse réinventer la
+formule ; **test de non-régression qui refuse explicitement l'ancien format**.
+
+> **Leçon à retenir pour tout webhook signé** : ne jamais dériver le format de signature d'une
+> intuition. Le lire dans le SDK de l'émetteur, et faire fabriquer la signature de test par le
+> **même** code que celui qui la vérifie.
+
+---
+
 ## 5. Conclusion
 
 La codebase est **saine** : 337 tests verts, typage et lint propres, aucun modèle mort, aucun module
@@ -464,10 +515,9 @@ orphelin, zéro `TODO` en attente. Le lot 5 clôt la série C1→C9.
 Les trois écarts majeurs (**D1** téléconsultation, **D2** wallet, **D3** relecture médicale) ont la
 même forme que ceux de la revue de juillet : **le backend est là, l'écran ne l'est pas**.
 
-**Les trois sont traités** : **D1** livré (lot 7), **D3** livré (lot 9), **D2** neutralisé (bouton
-retiré). **D4, D5 et D6** livrés au lot 10, **D7** au lot 11 (suppression). **Il ne reste que le lot 8**
-(wallet, ≈ 1,5 j), qui n'est plus une réparation mais une **addition**, conditionnée à un feu vert
-§5 explicite et à un bac à sable FedaPay.
+**L'audit D1→D10 est intégralement traité** : D1 (lot 7), D3 (lot 9), D4/D5/D6 (lot 10), D7
+(lot 11), D2 (lot 8). Le lot 8 a de surcroît mis au jour un défaut **plus grave que l'écart qu'il
+corrigeait** — la vérification de signature des webhooks, fausse depuis l'origine (§4 bis).
 
 ⚠️ **Une dette ouverte par le lot 10, à traiter avant les premiers patients réels** : les 6 libellés
 de clôture SOS (`sos.active_title`, `sos.im_ok`, `sos.false_alarm`, `sos.history`,

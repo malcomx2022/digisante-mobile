@@ -8,24 +8,20 @@ import { Badge, Button, CardPagne } from '@/components/ui';
 import { Empty, ErrorState, SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { appointmentsApi, type PatientAppointment } from '@/lib/api/appointments';
-import { post } from '@/lib/api/client';
+import { ApiRequestError, post } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
 import { formatDateTime, formatNumber } from '@/i18n/format';
 
 // Moyens de paiement d'une consultation (le montant est imposé par le serveur = tarif médecin).
 //
-// ⚠️ « Wallet » RETIRÉ (18/08/2026, écart D2 de docs/AUDIT_Fonctionnel_2026-08.md).
-// `payments.initiate` traite `method:'WALLET'` comme n'importe quelle méthode FedaPay :
-// il ouvre le checkout hébergé et NE DÉBITE PAS le portefeuille (`wallet.debit` n'est
-// atteignable que par `POST /wallet/pay`, sans appelant). Le patient croyait payer avec
-// son solde ; en pratique son solde restait intact et on lui redemandait de l'argent.
-// Aggravant : `Payment.appointmentId` est @unique et `initiate` refuse un RDV qui a déjà
-// un paiement — un seul appui verrouillait donc le RDV, qu'aucun autre moyen ne pouvait
-// plus payer. Ne PAS remettre cette entrée avant le lot 8 (zone gelée §5 : revue
-// explicite + re-tests des webhooks).
+// « Wallet » RÉTABLI au lot 8 (19/08/2026) : `payments.initiate` débite désormais
+// réellement le portefeuille (débit atomique + `Payment` COMPLETED dans la MÊME
+// transaction). Il avait été retiré le 18/08 parce qu'il n'ouvrait qu'un checkout
+// FedaPay sans jamais toucher au solde — et verrouillait le RDV au passage.
 const PAY_METHODS: { method: string; label: string; cls: string }[] = [
   { method: 'MTN_MOMO', label: 'MTN MoMo', cls: 'bg-sante-600 text-white' },
   { method: 'MOOV_MONEY', label: 'Moov Money', cls: 'bg-indigo-600 text-white' },
+  { method: 'WALLET', label: 'Wallet 🇫🇷', cls: 'bg-ocre-400 text-stone-900' },
 ];
 
 // Mes rendez-vous — liste (à venir / passés), annulation, rejoindre la téléconsult.
@@ -41,6 +37,7 @@ export default function AppointmentsPage() {
   const [paidLocal, setPaidLocal] = useState<Set<string>>(new Set());
   const [queuedLocal, setQueuedLocal] = useState<Set<string>>(new Set());
   const [payError, setPayError] = useState<Set<string>>(new Set());
+  const [payErrorMsg, setPayErrorMsg] = useState<Record<string, string>>({});
   const { data, loading, error } = useApi<PatientAppointment[]>(() => appointmentsApi.listMine(), [tick]);
 
   // Le montant N'EST PAS envoyé : le serveur impose le tarif du médecin du RDV (§5).
@@ -53,14 +50,32 @@ export default function AppointmentsPage() {
       return n;
     });
     try {
-      const res = await post('/payments', { type: 'CONSULTATION', method, appointmentId: id });
+      const res = await post<{ paymentUrl: string | null }>('/payments', {
+        type: 'CONSULTATION',
+        method,
+        appointmentId: id,
+      });
       if (res && typeof res === 'object' && 'queued' in res) {
         setQueuedLocal((s) => new Set(s).add(id));
-      } else {
-        setPaidLocal((s) => new Set(s).add(id));
-        setPayOpen(null);
+        return;
       }
-    } catch {
+      // Mobile Money / carte : le paiement n'est PAS acquis ici, il l'est sur la
+      // page hébergée FedaPay, puis confirmé par webhook. Rediriger est l'étape
+      // qui manquait : sans elle le patient voyait « payé » alors que sa
+      // transaction restait PENDING et qu'il n'avait jamais rien réglé.
+      if (res.paymentUrl) {
+        window.location.href = res.paymentUrl;
+        return;
+      }
+      // Portefeuille : débité côté serveur, paiement terminal immédiatement.
+      setPaidLocal((s) => new Set(s).add(id));
+      setPayOpen(null);
+    } catch (e) {
+      // Solde insuffisant : message explicite plutôt qu'un « échec » opaque.
+      setPayErrorMsg((s) => ({
+        ...s,
+        [id]: e instanceof ApiRequestError && e.status === 400 ? e.error.message : t('appt.pay_error'),
+      }));
       setPayError((s) => new Set(s).add(id));
     } finally {
       setPayBusy(null);
@@ -164,7 +179,11 @@ export default function AppointmentsPage() {
                   </button>
                 ))}
               </div>
-              {payError.has(a.id) && <p className="mt-2 text-[0.75rem] text-sos-600 font-bold">{t('auth.error')}</p>}
+              {payError.has(a.id) && (
+                <p className="mt-2 text-[0.75rem] text-sos-600 font-bold" role="alert">
+                  {payErrorMsg[a.id] ?? t('appt.pay_error')}
+                </p>
+              )}
             </div>
           ) : (
             <button

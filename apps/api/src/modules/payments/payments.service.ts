@@ -8,6 +8,7 @@ import { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
 import { writeAudit } from '@/lib/audit.js';
+import { env } from '@/lib/env.js';
 import { badRequest, forbidden, notFound, unauthorized } from '@/lib/errors.js';
 import { resolveConfiguredSecrets } from '@/lib/integrations.js';
 import * as wallet from '@/modules/wallet/wallet.service.js';
@@ -139,6 +140,70 @@ export async function initiate(app: FastifyInstance, userId: string, input: Init
   if (amount == null || amount <= 0) throw badRequest('Montant invalide');
   const { commission, net } = computeCommission(amount);
 
+  // Identité du PAYEUR (jamais de donnée de santé, §4) : préremplit la page de
+  // paiement hébergée. Sans elle, le payeur ressaisit son numéro et la conversion
+  // en Mobile Money chute.
+  const payer = await app.prisma.user.findUnique({
+    where: { id: userId },
+    select: { phone: true, email: true, profile: { select: { firstName: true, lastName: true } } },
+  });
+
+  // ── Paiement par PORTEFEUILLE (lot 8) ──────────────────────────────────────
+  // Avant août 2026, `method: 'WALLET'` partait chez FedaPay comme n'importe
+  // quelle méthode Mobile Money : le solde n'était JAMAIS débité alors que
+  // l'interface annonçait un paiement par portefeuille. Le portefeuille était
+  // rechargeable et jamais dépensable.
+  //
+  // Le débit et l'enregistrement du paiement sont validés ou annulés ENSEMBLE :
+  // un solde insuffisant annule tout (aucun `Payment` créé, donc le rendez-vous
+  // reste payable par un autre moyen — `Payment.appointmentId` étant @unique, un
+  // enregistrement orphelin l'aurait verrouillé définitivement).
+  if (input.method === 'WALLET') {
+    if (input.type === 'WALLET_TOPUP') {
+      throw badRequest('Une recharge de portefeuille ne peut pas être payée par le portefeuille');
+    }
+
+    const result = await app.prisma.$transaction(async (trx) => {
+      const debited = await wallet.debit(
+        app,
+        userId,
+        { amount, description: `${input.type} (${amount} XOF)` },
+        trx,
+      );
+      const created = await trx.payment.create({
+        data: {
+          userId,
+          appointmentId: input.appointmentId,
+          type: input.type,
+          method: 'WALLET',
+          amount: new Prisma.Decimal(amount),
+          currency: 'XOF',
+          // Aucun mouvement externe à attendre : le paiement est terminal
+          // immédiatement. Pas de `fedapayId` → il sort du périmètre de la
+          // réconciliation, qui ne balaie que les PENDING porteurs d'un id FedaPay.
+          status: 'COMPLETED',
+        },
+        select: { id: true, fedapayId: true, amount: true, status: true },
+      });
+      return { payment: created, balance: debited.balance, reference: debited.reference };
+    });
+
+    await writeAudit(app.prisma, {
+      action: 'PAYMENT_CONFIRMED',
+      actorId: userId,
+      targetId: result.payment.id,
+      meta: { type: input.type, method: 'WALLET', source: 'wallet', reference: result.reference },
+    });
+
+    return {
+      payment: result.payment,
+      paymentUrl: null,
+      commission,
+      net,
+      walletBalance: result.balance,
+    };
+  }
+
   // §5/Lot E : clé secrète résolue (base chiffrée → `.env`). Absente ⇒ stub (inchangé).
   const cfg = await resolveConfiguredSecrets(app, 'FEDAPAY');
   const tx = await createTransaction({
@@ -147,6 +212,20 @@ export async function initiate(app: FastifyInstance, userId: string, input: Init
     description: `${input.type} (${amount} XOF)`,
     log: app.log,
     secretKey: cfg?.secretKey ?? null,
+    // Retour du payeur après la page hébergée FedaPay (même origine que le web).
+    callbackUrl: env.CORS_ORIGIN ? `${env.CORS_ORIGIN.split(',')[0]}/patient/appointments` : null,
+    // Référence lisible dans le tableau de bord FedaPay pour le rapprochement.
+    // On n'a pas encore l'id du paiement local à ce stade (il est créé après la
+    // transaction amont) : le RDV est la seule référence stable disponible ici.
+    merchantReference: input.appointmentId ?? null,
+    customer: payer
+      ? {
+          firstname: payer.profile?.firstName,
+          lastname: payer.profile?.lastName,
+          email: payer.email ?? undefined,
+          phone: payer.phone,
+        }
+      : null,
   });
 
   const payment = await app.prisma.payment.create({

@@ -54,41 +54,71 @@ export async function refund(app: FastifyInstance, userId: string, amount: numbe
   ]);
 }
 
-/** Débite le portefeuille (paiement d'un soin, éventuellement pour un proche). */
+interface DebitInput {
+  amount: number;
+  description?: string;
+  beneficiaryUserId?: string;
+}
+
+/**
+ * Cœur du débit — CONDITIONNÉ au solde suffisant, dans la même transaction que
+ * l'écriture au registre. Empêche la double-dépense (TOCTOU) où deux débits
+ * concurrents (cluster PM2 ×2) liraient le même solde avant d'écrire : le second
+ * `updateMany` ne matche plus si le premier a déjà débité.
+ *
+ * ⚠️ Une SEULE définition de cette garde dans tout le produit. Ne jamais la
+ * recopier ailleurs (ni revenir à `findUnique` + `update` non gardé).
+ */
+async function debitWithin(
+  client: Prisma.TransactionClient,
+  walletId: string,
+  input: DebitInput,
+  reference: string,
+) {
+  const guarded = await client.wallet.updateMany({
+    where: { id: walletId, balance: { gte: input.amount } },
+    data: { balance: { decrement: input.amount } },
+  });
+  if (guarded.count === 0) throw badRequest('Solde insuffisant');
+  await client.walletTransaction.create({
+    data: {
+      walletId,
+      type: input.beneficiaryUserId ? 'TRANSFER' : 'DEBIT',
+      amount: new Prisma.Decimal(input.amount),
+      reference,
+      description: input.description,
+    },
+  });
+  const updated = await client.wallet.findUniqueOrThrow({ where: { id: walletId }, select: { balance: true } });
+  return updated.balance;
+}
+
+/**
+ * Débite le portefeuille (paiement d'un soin, éventuellement pour un proche).
+ *
+ * `tx` permet de PARTICIPER à une transaction ouverte par l'appelant — utilisé par
+ * le paiement par portefeuille (`payments.initiate`, méthode WALLET) pour que le
+ * débit et l'enregistrement du `Payment` soient validés ou annulés ENSEMBLE.
+ * Sans ça, un échec entre les deux laisserait soit de l'argent débité sans trace
+ * de paiement, soit un paiement enregistré sans débit.
+ */
 export async function debit(
   app: FastifyInstance,
   userId: string,
-  input: { amount: number; description?: string; beneficiaryUserId?: string },
+  input: DebitInput,
+  tx?: Prisma.TransactionClient,
 ) {
   if (input.amount <= 0) throw badRequest('Montant invalide');
-  const wallet = await app.prisma.wallet.findUnique({ where: { userId }, select: { id: true } });
+  const client = tx ?? app.prisma;
+  const wallet = await client.wallet.findUnique({ where: { userId }, select: { id: true } });
   if (!wallet) throw notFound('Portefeuille introuvable');
 
   // Référence unique et non collisionnable (Date.now() pouvait doublonner sous
   // charge concurrente).
   const reference = `pay_${randomUUID()}`;
 
-  // Débit atomique : le décrément est CONDITIONNÉ au solde suffisant dans la même
-  // transaction que l'écriture au registre. Empêche la double-dépense (TOCTOU)
-  // où deux débits concurrents (cluster PM2 ×2) liraient le même solde avant
-  // d'écrire — le second `updateMany` ne matche plus si le premier a déjà débité.
-  const balance = await app.prisma.$transaction(async (tx) => {
-    const guarded = await tx.wallet.updateMany({
-      where: { id: wallet.id, balance: { gte: input.amount } },
-      data: { balance: { decrement: input.amount } },
-    });
-    if (guarded.count === 0) throw badRequest('Solde insuffisant');
-    await tx.walletTransaction.create({
-      data: {
-        walletId: wallet.id,
-        type: input.beneficiaryUserId ? 'TRANSFER' : 'DEBIT',
-        amount: new Prisma.Decimal(input.amount),
-        reference,
-        description: input.description,
-      },
-    });
-    const updated = await tx.wallet.findUniqueOrThrow({ where: { id: wallet.id }, select: { balance: true } });
-    return updated.balance;
-  });
+  const balance = tx
+    ? await debitWithin(tx, wallet.id, input, reference)
+    : await app.prisma.$transaction((c) => debitWithin(c, wallet.id, input, reference));
   return { balance, reference };
 }

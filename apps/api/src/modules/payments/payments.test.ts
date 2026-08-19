@@ -1,9 +1,8 @@
 // Tests d'intégration Paiements + Wallet + Abonnements (via app.inject). Si DB+Redis (CI).
-import { createHmac } from 'node:crypto';
-
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { buildWebhookSignatureHeader } from '@/services/fedapay.js';
 import type * as PaymentsService from './payments.service.js';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
@@ -21,7 +20,9 @@ describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
   let payments: typeof PaymentsService;
 
   const auth = (t: string) => ({ authorization: `Bearer ${t}` });
-  const sign = (body: string) => createHmac('sha256', WHSEC).update(body).digest('hex');
+  // Signature au VRAI schéma FedaPay (`t=…,s=…`) — via le helper du service,
+  // pour qu'un test ne puisse plus valider une formule que la prod refuserait.
+  const sign = (body: string) => buildWebhookSignatureHeader(body, WHSEC);
   const cleanup = async () => {
     await app.prisma.payment.deleteMany({ where: { user: { phone: { in: PHONES } } } });
     await app.prisma.user.deleteMany({ where: { phone: { in: PHONES } } });
@@ -152,6 +153,82 @@ describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
     expect(Number(pay.json().balance)).toBe(5560);
   });
 
+  // ── Lot 8 / écart D2 : le paiement par PORTEFEUILLE ────────────────────────
+  // Avant, `method:'WALLET'` partait chez FedaPay comme du Mobile Money et ne
+  // débitait JAMAIS le solde : l'interface annonçait un paiement par portefeuille
+  // qui n'existait pas, et le `Payment` PENDING créé au passage verrouillait le
+  // rendez-vous (`appointmentId` @unique) pour tout autre moyen.
+  it('WALLET : la consultation est débitée du solde, sans transaction FedaPay', async () => {
+    // Provisionne le portefeuille (recharge confirmée par webhook).
+    const topup = await app.inject({ method: 'POST', url: '/api/v1/wallet/topup', headers: auth(patientToken), payload: { amountEur: 20, method: 'VISA_MC' } });
+    await webhook(topup.json().payment.fedapayId as string);
+    const before = Number((await app.inject({ method: 'GET', url: '/api/v1/wallet', headers: auth(patientToken) })).json().balance);
+
+    const appt = await makeAppt();
+    const res = await app.inject({
+      method: 'POST', url: '/api/v1/payments', headers: auth(patientToken),
+      payload: { type: 'CONSULTATION', method: 'WALLET', appointmentId: appt.id },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+
+    // Paiement TERMINAL immédiatement : rien à attendre d'un opérateur.
+    expect(body.payment.status).toBe('COMPLETED');
+    // Aucune transaction amont : pas d'id FedaPay, pas de lien de paiement.
+    expect(body.payment.fedapayId).toBeNull();
+    expect(body.paymentUrl).toBeNull();
+
+    // Le solde a RÉELLEMENT bougé du tarif du médecin (5000 XOF).
+    expect(Number(body.walletBalance)).toBe(before - 5000);
+    const after = Number((await app.inject({ method: 'GET', url: '/api/v1/wallet', headers: auth(patientToken) })).json().balance);
+    expect(after).toBe(before - 5000);
+
+    // Et le mouvement est tracé au registre du portefeuille.
+    const w = await app.prisma.wallet.findUnique({ where: { userId: patientUserId }, select: { id: true } });
+    const debits = await app.prisma.walletTransaction.count({ where: { walletId: w!.id, type: 'DEBIT' } });
+    expect(debits).toBeGreaterThanOrEqual(1);
+
+    // Journalisé comme un paiement confirmé (au même titre que la voie webhook).
+    const audits = await app.prisma.auditLog.count({ where: { action: 'PAYMENT_CONFIRMED', targetId: body.payment.id } });
+    expect(audits).toBe(1);
+
+    // La réconciliation ignore ce paiement : il n'a pas d'id FedaPay à interroger.
+    const rec = await payments.reconcile(app);
+    expect(rec.scanned).toBeGreaterThanOrEqual(0);
+  });
+
+  it('WALLET : solde insuffisant → 400, RIEN n’est débité et le RDV reste payable', async () => {
+    // Vide le portefeuille pour se placer sous le tarif.
+    const w = await app.prisma.wallet.findUnique({ where: { userId: patientUserId }, select: { id: true } });
+    await app.prisma.wallet.update({ where: { id: w!.id }, data: { balance: 100 } });
+
+    const appt = await makeAppt();
+    const res = await app.inject({
+      method: 'POST', url: '/api/v1/payments', headers: auth(patientToken),
+      payload: { type: 'CONSULTATION', method: 'WALLET', appointmentId: appt.id },
+    });
+    expect(res.statusCode).toBe(400);
+
+    // Atomicité : ni débit, ni paiement orphelin — sinon `appointmentId` étant
+    // @unique, le RDV serait DÉFINITIVEMENT impayable par un autre moyen.
+    const balance = Number((await app.prisma.wallet.findUniqueOrThrow({ where: { id: w!.id }, select: { balance: true } })).balance);
+    expect(balance).toBe(100);
+    expect(await app.prisma.payment.count({ where: { appointmentId: appt.id } })).toBe(0);
+
+    // Le repli Mobile Money reste possible sur ce même rendez-vous.
+    const retry = await initConsult(patientToken, appt.id);
+    expect(retry.statusCode).toBe(201);
+    expect(retry.json().payment.status).toBe('PENDING');
+  });
+
+  it('WALLET : recharger un portefeuille AVEC le portefeuille est refusé (400)', async () => {
+    const res = await app.inject({
+      method: 'POST', url: '/api/v1/payments', headers: auth(patientToken),
+      payload: { type: 'WALLET_TOPUP', method: 'WALLET', amount: 1000 },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
   it('remboursement (reversal interne) : COMPLETED → REFUNDED, idempotent + audit', async () => {
     const appt = await makeAppt();
     const init = await initConsult(patientToken, appt.id);
@@ -213,7 +290,7 @@ describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
       // Signé avec l'ANCIEN secret `.env` (WHSEC) → rejeté : la base prime.
       const wrong = await app.inject({
         method: 'POST', url: '/api/v1/payments/webhook',
-        headers: { 'content-type': 'application/json', 'x-fedapay-signature': createHmac('sha256', WHSEC).update(body).digest('hex') },
+        headers: { 'content-type': 'application/json', 'x-fedapay-signature': buildWebhookSignatureHeader(body, WHSEC) },
         payload: body,
       });
       expect(wrong.statusCode).toBe(401);
@@ -221,7 +298,7 @@ describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
       // Signé avec le secret EN BASE → accepté + confirmé (idempotence/logique inchangées).
       const ok = await app.inject({
         method: 'POST', url: '/api/v1/payments/webhook',
-        headers: { 'content-type': 'application/json', 'x-fedapay-signature': createHmac('sha256', DBSEC).update(body).digest('hex') },
+        headers: { 'content-type': 'application/json', 'x-fedapay-signature': buildWebhookSignatureHeader(body, DBSEC) },
         payload: body,
       });
       expect(ok.statusCode).toBe(200);
