@@ -8,6 +8,7 @@ import { ErrorState, Skeleton } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get, post } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
+import { paymentOutcome } from '@/lib/payments';
 import { formatDate, formatNumber } from '@/i18n/format';
 
 interface WalletData {
@@ -35,7 +36,28 @@ export default function WalletPage() {
     setBusy(true);
     setMsg(null);
     try {
-      await post('/wallet/topup', { amountEur: Number(eur), method: 'VISA_MC' });
+      const res = await post<{ paymentUrl: string | null }>('/wallet/topup', {
+        amountEur: Number(eur),
+        method: 'VISA_MC',
+      });
+      const outcome = paymentOutcome(res);
+      // Hors ligne : la requête part en file, aucune page à ouvrir.
+      if (outcome.kind === 'queued') {
+        setMsg(`✓ ${t('wallet.topup_queued')}`);
+        return;
+      }
+      // La recharge n'est PAS acquise ici : elle l'est sur la page hébergée
+      // FedaPay, puis confirmée par webhook (c'est à ce moment que le solde est
+      // crédité). Rediriger est l'étape qui manquait : sans elle l'utilisateur
+      // lisait « recharge initiée » alors que sa transaction restait PENDING et
+      // qu'il n'avait jamais rien réglé — le portefeuille ne pouvait donc
+      // JAMAIS être crédité.
+      if (outcome.kind === 'redirect') {
+        window.location.href = outcome.url;
+        return;
+      }
+      // Pas d'URL de paiement (FedaPay non configuré ⇒ stub) : informer sans
+      // laisser croire que le solde va bouger.
       setMsg(`✓ ${t('wallet.topup_initiated')}`);
       setTick((x) => x + 1);
     } catch {

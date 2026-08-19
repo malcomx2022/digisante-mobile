@@ -26,6 +26,10 @@ Environnement de contrôle : PostgreSQL 16.13 natif (port 5434) + Redis 7.0.15 (
 | Migrations | `prisma migrate deploy` | ✅ **27** appliquées, 0 en attente |
 | i18n | `pnpm i18n:check` | EN **100 %** · FON/YOR **93 %** (68 manquantes, **6 critiques**) |
 
+> Chiffres **mesurés à la revue**, avant correction. Les correctifs **E1** et **E4** livrés dans le
+> même lot portent la suite web à **37 tests** (total **355**) et ajoutent 1 clé i18n
+> (`wallet.topup_queued`, FR/EN ; repli FR en FON/YOR, **aucune clé critique nouvelle**).
+
 ### 1.1 Compteurs — documentation et code sont **synchronisés**
 
 C'est un progrès net : la revue de juillet et l'audit d'août trouvaient tous deux des compteurs
@@ -41,6 +45,8 @@ périmés (C8, D9). Cette fois **tout concorde**, dans CLAUDE.md, `README.md` et
 | Enums Prisma | 31 | 31 | ✅ |
 | Migrations | 27 | 27 | ✅ |
 | Tests | 350 (318 + 32) + 8 e2e | 350 + 8 | ✅ |
+
+> Compteurs resynchronisés à **355** (318 API + 37 web) dans CLAUDE.md et la checklist de déploiement après les correctifs E1/E4.
 
 ### 1.2 Les invariants de §8 tiennent
 
@@ -74,7 +80,13 @@ Les balayages de contrôle consignés dans CLAUDE.md renvoient tous **0 violatio
 
 Quatre trouvailles. La première est bloquante.
 
-### E1 — 🔴 MAJEUR · La recharge du portefeuille diaspora ne redirige jamais vers le paiement
+### E1 — ✅ CORRIGÉ (19/08/2026) · 🔴 MAJEUR · La recharge du portefeuille diaspora ne redirige jamais vers le paiement
+
+> **Corrigé.** La règle « un `paymentUrl` se consomme » est extraite dans `apps/web/src/lib/payments.ts`
+> (`paymentOutcome`), **partagée par les deux chemins** (recharge du portefeuille et paiement de
+> consultation) et **testée** (`lib/payments.test.ts`, 5 tests). Elle vivait en double dans deux
+> composants : c'est ce qui a permis au lot 8 d'en corriger un seul. §5 non touché — on interprète une
+> réponse serveur, on ne modifie aucune logique de paiement.
 
 `apps/web/src/app/diaspora/wallet/page.tsx:38`
 
@@ -137,7 +149,12 @@ Le carnet `Beneficiary`, livré à la vague 12 pour remplacer la liste « famill
 est donc aujourd'hui un **CRUD sans débouché**. La promesse « financer les soins de la famille
 depuis l'étranger » n'est pas tenue de bout en bout.
 
-### E4 — 🟡 MINEUR · `.env.example` : ports incohérents avec `docker-compose.dev.yml`
+### E4 — ✅ CORRIGÉ (19/08/2026) · 🟡 MINEUR · `.env.example` : ports incohérents avec `docker-compose.dev.yml`
+
+> **Corrigé.** `.env.example` pose désormais **5434/6380**, avec un commentaire expliquant pourquoi
+> (et non un simple changement de chiffre, pour que le prochain contributeur ne « corrige » pas en sens
+> inverse). Vérifié à la commande : `cp .env.example apps/api/.env` puis `prisma migrate deploy`
+> se connecte et applique les 27 migrations.
 
 `.env.example:9,12` pose `localhost:5432` (Postgres) et `localhost:6379` (Redis).
 `infra/docker-compose.dev.yml` publie **5434** et **6380**.
@@ -222,8 +239,8 @@ Ordonné par ce qui **bloque** la mise en service, pas par facilité.
 
 | Ordre | Action | Charge | Zone gelée |
 |---|---|---|---|
-| 1 | **E1** — rediriger vers `paymentUrl` à la recharge du wallet (symétrique du lot 8) + test de non-régression | ~30 min | §5 **non touché** (on consomme la réponse, on ne modifie pas `payments.initiate`) |
-| 2 | **E4** — aligner `.env.example` sur 5434/6380 | ~5 min | — |
+| ~~1~~ | ✅ **E1 fait** — règle partagée `paymentOutcome` + 5 tests de non-régression | — | §5 non touché |
+| ~~2~~ | ✅ **E4 fait** — `.env.example` aligné sur 5434/6380 | — | — |
 | 3 | **E2** — trancher : brancher `POST /wallet/pay` correctement, ou le supprimer | 0,5 j | §5 si branchement |
 | 4 | **E3** — écran « payer les soins d'un proche » (dépend de la décision E2) | 1 j | §5 |
 | 5 | **B1** — faire relire les 6 clés `sos.*` par des locuteurs natifs FON et YOR | externe | — |
@@ -231,7 +248,7 @@ Ordonné par ce qui **bloque** la mise en service, pas par facilité.
 | 7 | **B3/B4** — ouvrir les comptes fournisseurs, poser les secrets, armer `DEPLOY_ENABLED`, dérouler la checklist | 1-2 j + délais tiers | — |
 | 8 | **B5** — test de restauration à blanc des **deux** archives | 0,5 j | — |
 
-**Les points 1 et 2 sont du code et se traitent immédiatement.** Les points 5, 6, 7 dépendent de
+**Les points 1 et 2 sont faits (19/08/2026).** Les points 5, 6, 7 dépendent de
 tiers (locuteurs natifs, professionnel de santé, fournisseurs, hébergeur) et devraient être
 lancés **en parallèle**, dès maintenant : ce sont eux qui déterminent la date de mise en service,
 pas le développement.
