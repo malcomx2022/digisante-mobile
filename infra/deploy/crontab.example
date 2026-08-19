@@ -24,6 +24,17 @@ RECONCILE_TOKEN=changeme
 # Toutes les 15 minutes (idempotent par RDV via reminderSentAt).
 */15 * * * * curl -fsS -X POST -H "x-service-token: ${RECONCILE_TOKEN}" http://127.0.0.1:3001/api/v1/appointments/reminders/generate >> /var/log/digisante/appt_reminders.log 2>&1
 
+# Génération des rappels de VACCINATION (PEV) : doses non faites dues sous 7 j
+# (retards inclus) → Notifications. Une fois par jour, idempotent (lastNotifiedOn).
+# ⚠️ Ajouté en août 2026 : ce générateur existait depuis la v1.23 mais n'était PAS
+# planifié — aucun rappel de vaccination n'aurait donc été émis en production.
+30 6 * * * curl -fsS -X POST -H "x-service-token: ${RECONCILE_TOKEN}" http://127.0.0.1:3001/api/v1/vaccinations/reminders/generate >> /var/log/digisante/vaccination_reminders.log 2>&1
+
+# Génération des rappels de CPN (santé maternelle) → Notifications.
+# Une fois par jour, idempotent (AntenatalVisit.lastNotifiedOn). Même oubli que
+# ci-dessus : générateur livré en v1.25, jamais planifié.
+40 6 * * * curl -fsS -X POST -H "x-service-token: ${RECONCILE_TOKEN}" http://127.0.0.1:3001/api/v1/maternity/reminders/generate >> /var/log/digisante/maternity_reminders.log 2>&1
+
 # Dispatch des notifications dues (rappels, SOS, labo…) — toutes les 2 minutes.
 # Appelle l'endpoint interne protégé par le jeton de service (x-service-token).
 */2 * * * * curl -fsS -X POST -H "x-service-token: ${RECONCILE_TOKEN}" http://127.0.0.1:3001/api/v1/notifications/dispatch >> /var/log/digisante/notify_dispatch.log 2>&1
