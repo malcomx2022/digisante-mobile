@@ -894,6 +894,7 @@ const fr: Messages = {
   'teleconsult.needs_network': 'Connexion requise pour rejoindre',
   'teleconsult.chat_mode': 'Mode chat (réseau faible)',
   'teleconsult.open_chat': 'Ouvrir le chat',
+  'appt.pay_error': 'Le paiement n’a pas pu être initié',
   // Lot 10 — fiche professionnelle (D4), tri des RDV (D5), clôture SOS (D6).
   'proprofile.title': 'Ma fiche professionnelle',
   'proprofile.speciality': 'Spécialité',
@@ -1366,6 +1367,7 @@ const en: Messages = {
   'teleconsult.needs_network': 'Network required to join',
   'teleconsult.chat_mode': 'Chat mode (low network)',
   'teleconsult.open_chat': 'Open chat',
+  'appt.pay_error': 'The payment could not be started',
   'proprofile.title': 'My professional profile',
   'proprofile.speciality': 'Speciality',
   'proprofile.fee': 'Consultation fee (FCFA)',

@@ -4,12 +4,16 @@ import type { FastifyBaseLogger } from 'fastify';
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildWebhookSignatureHeader,
   computeCommission,
   convertEurToXof,
   createTransaction,
+  fedapayApiBase,
+  fedapayEnvironment,
   getTransactionStatus,
   mapFedapayStatus,
   verifyWebhookSignature,
+  WEBHOOK_TOLERANCE_SECONDS,
 } from './fedapay.js';
 
 // Logger minimal (les tests tournent sans FedaPay configuré → branche stub).
@@ -36,27 +40,78 @@ describe('mapFedapayStatus', () => {
   });
 });
 
-describe('verifyWebhookSignature (HMAC-SHA256)', () => {
+describe('environnement FedaPay déduit de la clé', () => {
+  it('une clé live vise la production, une clé sandbox le bac à sable', () => {
+    expect(fedapayEnvironment('sk_live_abc')).toBe('live');
+    expect(fedapayApiBase('sk_live_abc')).toBe('https://api.fedapay.com/v1');
+    expect(fedapayEnvironment('sk_sandbox_abc')).toBe('sandbox');
+    expect(fedapayApiBase('sk_sandbox_abc')).toBe('https://sandbox-api.fedapay.com/v1');
+  });
+
+  it('repli SANDBOX sur préfixe inconnu (fail-safe : jamais de vraie transaction par erreur)', () => {
+    expect(fedapayEnvironment('clef-bizarre')).toBe('sandbox');
+    expect(fedapayEnvironment('')).toBe('sandbox');
+    // Piège classique : une clé live mal préfixée ne doit pas non plus être devinée.
+    expect(fedapayEnvironment('live_sk_abc')).toBe('sandbox');
+  });
+});
+
+describe('verifyWebhookSignature (schéma FedaPay `t=…,s=…`)', () => {
   const secret = 'whsec_test';
   const body = JSON.stringify({ fedapayId: 'fdp_1', status: 'approved' });
-  const sig = createHmac('sha256', secret).update(body).digest('hex');
+  const nowSec = () => Math.floor(Date.now() / 1000);
 
-  it('accepte une signature valide', () => {
-    expect(verifyWebhookSignature(body, sig, secret)).toBe(true);
+  it('accepte un en-tête signé valide', () => {
+    expect(verifyWebhookSignature(body, buildWebhookSignatureHeader(body, secret), secret)).toBe(true);
   });
 
-  it('rejette une signature invalide', () => {
-    expect(verifyWebhookSignature(body, 'deadbeef', secret)).toBe(false);
+  it('REJETTE le HMAC nu du corps (l’ancien schéma, faux) — non-régression du défaut du lot 8', () => {
+    // C'est très exactement ce que l'implémentation d'avant août 2026 calculait ET
+    // acceptait : aucun webhook réel n'aurait jamais été validé. Le test qui suit
+    // échouerait si l'on revenait en arrière.
+    const naked = createHmac('sha256', secret).update(body).digest('hex');
+    expect(verifyWebhookSignature(body, naked, secret)).toBe(false);
   });
 
-  it('rejette si secret ou signature manquants', () => {
-    expect(verifyWebhookSignature(body, sig, undefined)).toBe(false);
+  it('rejette une signature invalide, un secret manquant, un en-tête manquant', () => {
+    const t = nowSec();
+    expect(verifyWebhookSignature(body, `t=${t},s=deadbeef`, secret)).toBe(false);
+    expect(verifyWebhookSignature(body, buildWebhookSignatureHeader(body, secret), undefined)).toBe(false);
     expect(verifyWebhookSignature(body, undefined, secret)).toBe(false);
   });
 
-  it('rejette un corps falsifié', () => {
+  it('rejette un en-tête malformé (sans horodatage, sans schéma `s`)', () => {
+    const sig = createHmac('sha256', secret).update(`${nowSec()}.${body}`).digest('hex');
+    expect(verifyWebhookSignature(body, `s=${sig}`, secret)).toBe(false); // pas de t=
+    expect(verifyWebhookSignature(body, `t=${nowSec()}`, secret)).toBe(false); // pas de signature
+    expect(verifyWebhookSignature(body, 'n’importe quoi', secret)).toBe(false);
+  });
+
+  it('rejette un corps falsifié après signature', () => {
+    const header = buildWebhookSignatureHeader(body, secret);
     const tampered = JSON.stringify({ fedapayId: 'fdp_1', status: 'approved', amount: 999999 });
-    expect(verifyWebhookSignature(tampered, sig, secret)).toBe(false);
+    expect(verifyWebhookSignature(tampered, header, secret)).toBe(false);
+  });
+
+  it('anti-rejeu : refuse un horodatage plus vieux que la tolérance', () => {
+    const old = nowSec() - WEBHOOK_TOLERANCE_SECONDS - 1;
+    const header = buildWebhookSignatureHeader(body, secret, old);
+    expect(verifyWebhookSignature(body, header, secret)).toBe(false);
+    // …mais reste acceptable juste en deçà de la limite.
+    const fresh = buildWebhookSignatureHeader(body, secret, nowSec() - WEBHOOK_TOLERANCE_SECONDS + 5);
+    expect(verifyWebhookSignature(body, fresh, secret)).toBe(true);
+  });
+
+  it('tolère une horloge locale légèrement en retard (horodatage futur accepté)', () => {
+    const future = buildWebhookSignatureHeader(body, secret, nowSec() + 120);
+    expect(verifyWebhookSignature(body, future, secret)).toBe(true);
+  });
+
+  it('accepte plusieurs signatures du même schéma (rotation de secret)', () => {
+    const t = nowSec();
+    const good = createHmac('sha256', secret).update(`${t}.${body}`).digest('hex');
+    const other = createHmac('sha256', 'whsec_ancien').update(`${t}.${body}`).digest('hex');
+    expect(verifyWebhookSignature(body, `t=${t},s=${other},s=${good}`, secret)).toBe(true);
   });
 });
 

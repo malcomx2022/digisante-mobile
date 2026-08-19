@@ -17,23 +17,76 @@
 - Traiter les **webhooks signés** de façon idempotente, avec retry et réconciliation.
 - Appliquer la **commission plateforme 3 %**.
 
-## 2. Prérequis (`apps/api/.env`)
+## 2. Prérequis — clés (⚠️ mis à jour août 2026, lot 8)
+
+Trois secrets, gérables **soit** en base chiffrée via `/admin/integrations` (la base prime),
+**soit** en `.env` (fallback) — cf. `CLAUDE.md` §3.6 :
+
 ```
 FEDAPAY_SECRET_KEY        # clé API secrète (sk_sandbox_… puis sk_live_…)
 FEDAPAY_PUBLIC_KEY        # clé publique (pk_…)
 FEDAPAY_WEBHOOK_SECRET    # secret du endpoint webhook (wh_…) — DIFFÉRENT de la clé API
-FEDAPAY_ENV               # "sandbox" ou "live"
 ```
+
+> **Il n'y a PAS de variable `FEDAPAY_ENV`, et il ne doit pas y en avoir.** L'environnement est
+> **déduit de la clé** (`sk_live_…` → production, tout le reste → bac à sable). Les clés FedaPay
+> étant auto-descriptives, dériver rend structurellement impossible la pire erreur d'exploitation
+> du domaine : pointer une clé de test vers la production, ou l'inverse. Un réglage séparé aurait
+> pu diverger de la clé ; ici il ne peut pas. Repli **sandbox** sur préfixe inconnu (fail-safe).
+>
+> **Passer en production = remplacer la clé, rien d'autre.** Aucune ligne de configuration à
+> changer en parallèle, aucun redéploiement de code.
+
+| Environnement | Base d'API utilisée |
+|---|---|
+| clé `sk_live_…` | `https://api.fedapay.com/v1` |
+| toute autre clé | `https://sandbox-api.fedapay.com/v1` |
+
 > Le secret de webhook se récupère dans **Dashboard → Webhooks → (endpoint) → révéler la clé**.
 > Il doit être copié **exactement** : une erreur ici = échec systématique de signature.
+> ⚠️ Le secret webhook du bac à sable (`wh_sandbox_…`) et celui de production sont **différents** :
+> les roter **ensemble** avec la clé API, sinon les webhooks sont rejetés en 401.
 
-## 3. Contraintes techniques
-- SDK officiel **`fedapay`** (Node). Initialiser `FedaPay.setApiKey(...)` + `FedaPay.setEnvironment(FEDAPAY_ENV)`.
+## 3. Contraintes techniques (état réel de l'implémentation)
+- **Pas de SDK** : `apps/api/src/services/fedapay.ts` appelle l'API HTTP v1 en `fetch` natif
+  (0 dépendance ajoutée). Le SDK officiel `fedapay-node` reste la **référence de spécification**
+  (c'est de lui qu'est tirée la vérification de signature ci-dessous).
 - Devise : **XOF** (`currency: { iso: 'XOF' }`). Montants en **entiers** (FCFA, sans décimales).
-- Webhook : vérifier `Webhook.constructEvent(rawBody, signature, secret)` avec l'en-tête
-  **`x-fedapay-signature`**. La route webhook a besoin du **corps brut** (raw body), pas du JSON parsé.
+- Encaissement en deux appels : `POST /transactions` puis `POST /transactions/{id}/token`
+  → `{ token, url }`. C'est `url` qu'on renvoie au client, **et vers laquelle il faut REDIRIGER**.
+- La transaction porte `callback_url` (retour du payeur), `merchant_reference` et `customer`
+  (préremplit la page hébergée — sans lui, le payeur ressaisit son numéro et la conversion chute).
+  ⚠️ **Aucune donnée de santé** dans ces champs (§4).
 - Webhooks **asynchrones et réessayés** par FedaPay → traitement **idempotent** obligatoire.
-- **Mode stub** : sans `FEDAPAY_SECRET_KEY`, l'API démarre ; les fonctions loggent un warning.
+- **Mode stub** : sans clé secrète résolue, l'API démarre ; les fonctions loggent un warning.
+
+### 3.1 Signature de webhook — le format EXACT (⚠️ corrigé au lot 8)
+
+L'en-tête **`x-fedapay-signature`** n'est **pas** un HMAC nu du corps. Il est composite et
+horodaté, calqué sur Stripe :
+
+```
+x-fedapay-signature: t=<unix_seconds>,s=<hmac_sha256_hex>
+```
+
+- la signature porte sur **`` `${timestamp}.${rawBody}` ``**, PAS sur le corps seul ;
+- algorithme **HMAC-SHA256**, sortie **hexadécimale**, comparaison à **temps constant** ;
+- schéma attendu = **`s`** (et non `v1` — le commentaire du SDK dit `v1`, la constante
+  `WebhookSignature.EXPECTED_SCHEME` vaut bien `'s'` ; **le code fait foi**) ;
+- **tolérance 300 s** : un horodatage plus ancien est refusé (anti-rejeu). Un horodatage *futur*
+  est accepté, pour ne pas perdre de paiements sur une horloge serveur légèrement en retard ;
+- plusieurs `s=` peuvent coexister (rotation de secret) : il suffit qu'**une** corresponde.
+
+> 🔴 **Défaut corrigé au lot 8** : l'implémentation précédente comparait `HMAC(rawBody)` à
+> l'en-tête ENTIER. **Aucun webhook réel n'aurait jamais été accepté** — tous rejetés en 401,
+> donc aucun paiement Mobile Money jamais confirmé en production. Les tests ne le voyaient pas
+> parce qu'ils fabriquaient la signature avec la même formule erronée que le code vérifiait.
+> Un test de non-régression refuse désormais explicitement l'ancien format, et le helper
+> `buildWebhookSignatureHeader` (à côté de la vérification) empêche un test de réinventer la
+> formule. Référence : `fedapay-node`, `src/Webhook.ts`.
+
+La route webhook a besoin du **corps brut** (raw body), pas du JSON parsé — c'est le rôle du
+`addContentTypeParser` encapsulé dans `payments.routes.ts`.
 
 ---
 

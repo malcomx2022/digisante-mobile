@@ -1,9 +1,9 @@
 // Tests d'intégration des PARCOURS de bout en bout (continuités inter-lots, P7.1).
 // Vérifient que les modules s'enchaînent correctement. Si DB+Redis (CI).
-import { createHmac } from 'node:crypto';
-
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+import { buildWebhookSignatureHeader } from '@/services/fedapay.js';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 const PHONES = ['+2290188000001', '+2290188000002', '+2290188000003'];
@@ -18,7 +18,7 @@ describe.skipIf(!HAS_INFRA)('Parcours de bout en bout (intégration)', () => {
   let patientUserId: string;
 
   const auth = (t: string, share?: string) => ({ authorization: `Bearer ${t}`, ...(share ? { 'x-share-token': share } : {}) });
-  const sign = (b: string) => createHmac('sha256', WHSEC).update(b).digest('hex');
+  const sign = (b: string) => buildWebhookSignatureHeader(b, WHSEC);
   const cleanup = async () => {
     await app.prisma.payment.deleteMany({ where: { user: { phone: { in: PHONES } } } });
     await app.prisma.prescription.deleteMany({ where: { patient: { user: { phone: { in: PHONES } } } } });

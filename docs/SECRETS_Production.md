@@ -32,6 +32,20 @@
   base). Leur présence en `.env` est désormais **optionnelle** (fallback / bootstrap) — dès qu'une
   clé est saisie en base via l'UI, la **valeur en base prime** (résolution dynamique
   `resolveConfiguredSecrets` / `getIntegration`).
+- ⚠️ **FedaPay — bascule bac à sable → production (lot 8, août 2026)** : l'environnement est
+  **déduit de la clé** (`sk_live_…` → `https://api.fedapay.com/v1` ; toute autre clé →
+  `https://sandbox-api.fedapay.com/v1`, repli fail-safe). **Il n'existe PAS de variable
+  `FEDAPAY_ENV`** — ne pas en ajouter : un réglage séparé peut diverger de la clé, alors que la
+  dérivation rend impossible de pointer une clé de test vers la production, ou l'inverse.
+  **Mise en production = remplacer les 3 secrets, rien d'autre** (aucun redéploiement de code) :
+  1. `FEDAPAY_SECRET_KEY` : `sk_sandbox_…` → `sk_live_…`
+  2. `FEDAPAY_PUBLIC_KEY` : `pk_sandbox_…` → `pk_live_…`
+  3. `FEDAPAY_WEBHOOK_SECRET` : le secret du endpoint **de production** (`wh_…`), **différent** de
+     celui du bac à sable → à roter **en même temps**, sinon tous les webhooks tombent en 401.
+  Puis déclarer l'URL du webhook de production dans le dashboard FedaPay
+  (`https://<domaine>/api/v1/payments/webhook`, **HTTPS + TLS 1.2/1.3 obligatoires**) et vérifier
+  qu'un événement de test arrive en 200. Tant qu'aucune clé n'est résolue, l'API tourne en **stub**
+  (dégradation gracieuse voulue) ; la bascule stub → réel est **dynamique**, sans redémarrage.
 - **FedaPay** (`FEDAPAY_*`) — **§5 encadré (Lot E)** : ses clés + secret webhook sont désormais
   gérables via l'admin **comme les autres**, MAIS la **logique de paiement reste gelée §5** (seule
   la SOURCE des secrets a changé). Toute **rotation** du `webhookSecret` FedaPay doit être suivie
