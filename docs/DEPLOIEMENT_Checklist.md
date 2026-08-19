@@ -33,8 +33,11 @@
 - [ ] `sudo certbot --nginx -d digisante.example.bj -d www.digisante.example.bj` (redirection 80→443 auto).
 
 ## 5. Crons
-- [ ] `sudo crontab infra/deploy/crontab.example` → **pg_dump chiffré 02:00**, réconciliation FedaPay 02:30, renouvellement SSL.
+- [ ] Renseigner `RECONCILE_TOKEN` **en tête de `crontab.example`** (même valeur que le `.env` de l'API) — sans lui, tous les générateurs répondent 401 en silence.
+- [ ] `sudo crontab infra/deploy/crontab.example` → rappels **traitements** (5 min), **RDV** (15 min), **vaccination PEV** (06:30), **CPN maternité** (06:40), **dispatch** des notifications (2 min), **pg_dump + fichiers chiffrés 02:00**, réconciliation FedaPay 02:30, renouvellement SSL.
 - [ ] `sudo crontab -l` pour vérifier.
+- [ ] Vérifier que les 5 générateurs répondent 200 : `curl -X POST -H "x-service-token: …" http://127.0.0.1:3001/api/v1/{reminders,appointments/reminders,vaccinations/reminders,maternity/reminders}/generate`
+      ⚠️ Les générateurs **vaccination** et **CPN** n'étaient PAS planifiés avant août 2026 : sans eux, aucun rappel de vaccination ni de consultation prénatale n'est émis — en silence.
 
 ## 6. Déploiement continu (GitHub Actions)
 - [ ] Secrets repo : `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` (+ `VPS_SSH_PORT`).
@@ -47,11 +50,16 @@
 - [ ] `curl https://digisante.example.bj/api/v1/ready` → `db: up, redis: up`
 - [ ] PWA installable, `/onboarding` accessible, SOS (SMS) opérationnel hors-ligne.
 - [ ] Webhook FedaPay : URL `https://…/api/v1/payments/webhook` configurée côté FedaPay (HMAC).
-- [ ] Sauvegarde : lancer `pg_dump_encrypted.sh` une fois et vérifier `/var/backups/digisante/`.
-- [ ] ⚠️ **Sauvegarder aussi `KYC_STORAGE_DIR`** (fichiers chiffrés hors base). Il contient les
-      pièces KYC **et, depuis août 2026, les pièces jointes du DMP — donc des données de santé**.
-      Une restauration à partir du seul `pg_dump` laisserait des entrées de dossier pointant vers
-      des fichiers disparus.
+- [ ] Sauvegarde : lancer `pg_dump_encrypted.sh` une fois et vérifier que **DEUX** fichiers
+      apparaissent dans `/var/backups/digisante/` :
+      `digisante_<stamp>.sql.gz.enc` (base) **et** `digisante_files_<stamp>.tar.gz.enc` (magasin de fichiers).
+- [ ] ⚠️ Si le script journalise « magasin de fichiers introuvable », **corriger `KYC_STORAGE_DIR`**
+      dans `apps/api/.env` avant toute mise en service. Ce répertoire contient les pièces KYC **et,
+      depuis août 2026, les pièces jointes du DMP — donc des données de santé** ; il ne vit pas dans
+      PostgreSQL. Une restauration du seul `pg_dump` laisserait des entrées de dossier pointant vers
+      des fichiers disparus. (Automatisé depuis août 2026 — ce n'est plus une étape manuelle.)
+- [ ] Test de restauration à blanc (au moins une fois) : déchiffrer les deux archives sur une
+      machine tierce. Une sauvegarde jamais restaurée n'est pas une sauvegarde.
 - [ ] Audit : trigger anti UPDATE/DELETE actif (tester un UPDATE sur `audit_logs` → rejet).
 
 ## 8. Conformité (rappels release)
@@ -61,9 +69,21 @@
 
 ---
 
-**Tout est prêt pour la production.** Le code (backend **28 modules** + frontend **7 espaces**,
-64 pages) est testé (**337 tests verts** — 305 API + 32 web, + 8 e2e Playwright — vérifié le 18/08/2026), l'infra scriptée, et la
-sécurité auditée. Reste l'exécution sur le VPS réel (étape manuelle/CI ci-dessus).
+**Tout est prêt pour la production.** Le code (backend **27 modules** / **163 endpoints REST + 1 WS**
++ frontend **7 espaces**, **66 pages**) est testé (**350 tests verts** — 318 API + 32 web, + 8 e2e
+Playwright — vérifié le 19/08/2026), l'infra scriptée, et la sécurité auditée. Reste l'exécution sur
+le VPS réel (étapes ci-dessus).
 
-> Les écarts fonctionnels restants (référencement sans UI, pièces jointes DMP) sont listés dans
-> `docs/REVUE_Ecarts_et_Plan_2026-08.md`. **Aucun ne bloque cette mise en production.**
+> Les revues d'écarts sont **closes** : `docs/REVUE_Ecarts_et_Plan_2026-08.md` (C1→C9) et
+> `docs/AUDIT_Fonctionnel_2026-08.md` (D1→D10). **Aucun écart ouvert ne bloque cette mise en
+> production.**
+
+## 9. Deux points à traiter AVANT les premiers patients réels
+
+1. **6 clés i18n CRITIQUES non traduites** (`sos.active_title`, `sos.im_ok`, `sos.false_alarm`,
+   `sos.history`, `sos.status.RESOLVED`, `sos.status.FALSE_ALARM`) : un locuteur FON/YOR verra du
+   **français sur un écran d'urgence**. Elles sont exportées `CRITIQUE` dans
+   `docs/i18n/todo.{fon,yor}.csv` → relecture par locuteurs natifs. **Jamais par traduction
+   machine** (§6).
+2. **Validation clinique** (`docs/VALIDATION_Clinique.md`) : triage OMS/PCIME, calendrier PEV et
+   phrasier attendent la signature d'un professionnel de santé.
