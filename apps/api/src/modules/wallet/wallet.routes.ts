@@ -1,6 +1,10 @@
 // ─────────────────────────────────────────────────────────────
-// Routes Wallet (préfixe /api/v1/wallet). Recharge € → FCFA (diaspora),
-// paiement des soins (débit, éventuellement pour un proche).
+// Routes Wallet (préfixe /api/v1/wallet). Solde + recharge € → FCFA (diaspora).
+//
+// ⚠️ Il n'y a PAS de route de paiement ici. `POST /pay` a été retirée (écart E2) :
+// elle débitait le payeur sans rien régler ni créditer personne, et n'avait aucun
+// appelant. Le débit du portefeuille passe par `POST /payments` (méthode WALLET),
+// seul chemin gardé, atomique et testé (lot 8).
 // ─────────────────────────────────────────────────────────────
 import { PAYMENT_METHODS } from '@digisante/shared';
 import type { FastifyInstance } from 'fastify';
@@ -15,11 +19,6 @@ const topupSchema = z.object({
   amountEur: z.number().positive(),
   method: z.enum(PAYMENT_METHODS).default('VISA_MC'),
 });
-const paySchema = z.object({
-  amount: z.number().int().positive(),
-  description: z.string().max(255).optional(),
-  beneficiaryUserId: z.string().cuid().optional(),
-});
 
 export default async function walletRoutes(app: FastifyInstance) {
   const authed = { preHandler: [app.authenticate] };
@@ -33,11 +32,5 @@ export default async function walletRoutes(app: FastifyInstance) {
     const amountXof = convertEurToXof(amountEur);
     const result = await payments.initiate(app, request.user.sub, { type: 'WALLET_TOPUP', method, amount: amountXof });
     return { ...result, amountEur, amountXof };
-  });
-
-  // Paiement par le portefeuille (débit immédiat).
-  app.post('/pay', authed, async (request) => {
-    const input = zParse(paySchema, request.body);
-    return wallet.debit(app, request.user.sub, input);
   });
 }
