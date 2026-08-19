@@ -34,13 +34,39 @@ libellés cliniques lisibles sont transcrits des i18n FR/EN dans le script. Rég
 
 ## Synthèse
 
-| Contenu | Fichier source | État | Action attendue |
+| Contenu | Fichier source | État | Décision |
 |---|---|---|---|
-| Triage / orientation hors-ligne | `packages/shared/src/triage.ts` | ⏳ **À valider** | Relecture des motifs, questions et sévérités par un médecin / le programme PCIME national |
-| Calendrier vaccinal PEV | `packages/shared/src/pev.ts` | ⏳ **À valider** | Confrontation au calendrier PEV officiel en vigueur au Bénin (âges, doses, vaccins) |
-| Calendrier CPN (santé maternelle) | `packages/shared/src/maternity.ts` | ✅ **Validé** (porteur, aligné OMS 2016) | — (objectifs cliniques par contact intégrés) |
-| Format matricule CNOM (KYC médecin) | `apps/api/src/lib/kyc.cnom.ts` | ⏳ **À confirmer** | Confirmer le format `BJ-XXX-#####` auprès de l'ONMB (pas d'API publique) |
-| Phrasier médical (chat) | `packages/shared/src/phrasebook.ts` | ⏳ **À valider** | Relecture des phrases FR/EN par un pro de santé ; traduction FON/YOR par locuteurs natifs avant activation |
+| Triage / orientation hors-ligne | `packages/shared/src/triage.ts` | ✅ **Validé** — porteur, 19/08/2026 | Motifs, questions et sévérités retenus en l'état |
+| Calendrier vaccinal PEV | `packages/shared/src/pev.ts` | ✅ **Validé** — porteur, 19/08/2026 | Calendrier retenu en l'état |
+| Calendrier CPN (santé maternelle) | `packages/shared/src/maternity.ts` | ✅ **Validé** — porteur, aligné OMS 2016 | Objectifs cliniques par contact intégrés |
+| Format matricule CNOM (KYC médecin) | `apps/api/src/lib/kyc.cnom.ts` | ✅ **Confirmé** — porteur, 19/08/2026 | Format `BJ-XXX-#####` retenu (aucune API publique ONMB) |
+| Phrasier médical (chat) | `packages/shared/src/phrasebook.ts` | ✅ **Validé** — porteur, 19/08/2026 | Phrases FR/EN retenues ; FON/YOR en repli FR |
+| Clés i18n critiques `sos.*` (clôture d'alerte) | `apps/web/src/i18n/messages.ts` | ✅ **Repli FR accepté** — porteur, 19/08/2026 | 6 clés FON/YOR non renseignées : repli français assumé |
+
+### Décision de validation du 19 août 2026
+
+> **Qui valide** : **SEGLA E. Ulrich Gislain**, porteur du projet, en sa qualité de responsable de
+> la mise en œuvre. **Ce n'est pas la signature d'un professionnel de santé habilité** : aucun
+> médecin ni le programme PCIME national n'a contresigné à cette date. Le présent document
+> l'énonce explicitement pour que tout contrôle ultérieur (APDP, bailleur, ordre professionnel)
+> puisse apprécier la nature exacte de la validation.
+>
+> **Portée** : les contenus ci-dessus sont retenus **en l'état** pour la mise en service. Ils
+> restent des **aides à l'orientation et au suivi, à biais conservateur — jamais des
+> diagnostics** ; les libellés à l'écran le rappellent, et cette qualification n'est pas modifiée
+> par la présente décision.
+>
+> **Recommandation maintenue** : faire contresigner le triage OMS/PCIME et le calendrier PEV par
+> un professionnel de santé ou le programme national concerné dès qu'un interlocuteur est
+> disponible, et confirmer le format de matricule auprès de l'ONMB. Le dossier opposable
+> (`docs/Dossier_Validation_Clinique.docx`) reste généré et prêt à signer à cette fin. La présente
+> décision **lève le blocage de mise en service**, elle ne remplace pas cette revue.
+>
+> **Traduction fɔ̀ngbè / yorùbá** : les 6 libellés critiques de clôture d'alerte SOS restent
+> **non traduits**. Le repli français est accepté à titre transitoire. Un locuteur fɔ̀ngbè ou
+> yorùbá verra donc du français sur cet écran. Les clés demeurent exportées dans
+> `docs/i18n/todo.{fon,yor}.csv` pour relecture native — **jamais par traduction automatique**
+> (§6).
 
 > Rappel : `sos.*`, `labo.*`, `payments.*` relèvent d'une **double validation** i18n (§4/§6) —
 > hors périmètre de ce document (contenu de messages, pas de logique clinique).
