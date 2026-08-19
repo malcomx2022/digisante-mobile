@@ -10,6 +10,7 @@ import { useLocale } from '@/i18n/LocaleProvider';
 import { appointmentsApi, type PatientAppointment } from '@/lib/api/appointments';
 import { ApiRequestError, post } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
+import { paymentOutcome } from '@/lib/payments';
 import { formatDateTime, formatNumber } from '@/i18n/format';
 
 // Moyens de paiement d'une consultation (le montant est imposé par le serveur = tarif médecin).
@@ -55,7 +56,8 @@ export default function AppointmentsPage() {
         method,
         appointmentId: id,
       });
-      if (res && typeof res === 'object' && 'queued' in res) {
+      const outcome = paymentOutcome(res);
+      if (outcome.kind === 'queued') {
         setQueuedLocal((s) => new Set(s).add(id));
         return;
       }
@@ -63,8 +65,8 @@ export default function AppointmentsPage() {
       // page hébergée FedaPay, puis confirmé par webhook. Rediriger est l'étape
       // qui manquait : sans elle le patient voyait « payé » alors que sa
       // transaction restait PENDING et qu'il n'avait jamais rien réglé.
-      if (res.paymentUrl) {
-        window.location.href = res.paymentUrl;
+      if (outcome.kind === 'redirect') {
+        window.location.href = outcome.url;
         return;
       }
       // Portefeuille : débité côté serveur, paiement terminal immédiatement.
