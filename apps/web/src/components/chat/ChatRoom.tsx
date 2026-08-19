@@ -281,7 +281,7 @@ export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpar
           placeholder={t('chat.placeholder')}
           className={cn('flex-1 bg-white card-pagne border border-stone-300 px-3 py-2 text-[0.875rem] focus:outline-none', ui.focus)}
         />
-        <button type="button" onClick={send} className={cn('text-white font-display font-bold card-pagne px-4', ui.send)}>
+        <button type="button" onClick={send} className={cn('text-white font-display font-bold card-pagne px-4 pagne-focus', ui.send)}>
           {t('chat.send')}
         </button>
       </div>

@@ -104,7 +104,7 @@ export default function PharmaciePage() {
           aria-label={t('pharmacie.qr')}
           className="w-full bg-white/10 border border-white/20 card-pagne pagne-focus px-3 py-2 text-white text-base focus:outline-none focus:border-ocre-400"
         />
-        <button type="button" onClick={() => scan()} className="w-full bg-ocre-400 text-stone-900 font-display font-extrabold card-pagne py-3 disabled:opacity-50" disabled={busy || qr.length < 16}>
+        <button type="button" onClick={() => scan()} className="w-full bg-ocre-400 text-stone-900 font-display font-extrabold card-pagne py-3 disabled:opacity-50 pagne-focus" disabled={busy || qr.length < 16}>
           {t('pharmacie.verify')}
         </button>
 
@@ -157,7 +157,7 @@ export default function PharmaciePage() {
                       {t('pharmacie.expired')}
                     </p>
                   )}
-                  <button type="button" onClick={dispense} className="w-full bg-sante-600 text-white font-display font-extrabold card-pagne py-2.5 mt-1 disabled:opacity-50" disabled={busy || result.expired}>
+                  <button type="button" onClick={dispense} className="w-full bg-sante-600 text-white font-display font-extrabold card-pagne py-2.5 mt-1 disabled:opacity-50 pagne-focus" disabled={busy || result.expired}>
                     {t('pharmacie.dispense')}
                   </button>
                 </>
