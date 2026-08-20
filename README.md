@@ -23,7 +23,7 @@ infra/        docker-compose dev (Postgres 16 + Redis) · scripts deploy VPS
 ## Démarrage local
 
 ```bash
-# 0. pré-requis : Node ≥ 20, pnpm ≥ 9, Docker
+# 0. pré-requis : Node ≥ 24, pnpm ≥ 9, Docker
 corepack enable
 
 # 1. dépendances
