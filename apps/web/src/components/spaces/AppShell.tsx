@@ -1,5 +1,7 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
+
 import { BottomNav, type NavItem } from '@/components/ui/BottomNav';
 import { TopNav } from '@/components/ui/TopNav';
 import { useLocale } from '@/i18n/LocaleProvider';
@@ -38,6 +40,13 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const { t } = useLocale();
+  // Salle de téléconsultation : la barre de navigation est masquée. Sur un petit
+  // écran elle mange la hauteur utile de la vidéo, et proposer « Agenda » ou
+  // « Accueil » pendant une consultation invite à quitter l'appel d'un geste.
+  // Détection par SUFFIXE plutôt que par liste de routes : `/patient/teleconsult`
+  // et `/pro/teleconsult` sont couverts, et tout futur espace le sera aussi sans
+  // qu'on ait à penser à mettre une liste à jour.
+  const inConsultationRoom = (usePathname() ?? '').endsWith('/teleconsult');
   return (
     // Colonne flex pleine hauteur (100dvh) : la TopNav (desktop) prend sa hauteur
     // propre et le conteneur de contenu remplit le reste via `flex-1` — évite le
@@ -61,9 +70,11 @@ export function AppShell({
         )}
       >
         <div id="main-content" tabIndex={-1} className="flex-1 flex flex-col outline-none">{children}</div>
-        <div className="lg:hidden">
-          <BottomNav items={items} accent={accent} fabHref={fabHref} fabLabelKey={fabLabelKey} />
-        </div>
+        {!inConsultationRoom && (
+          <div className="lg:hidden">
+            <BottomNav items={items} accent={accent} fabHref={fabHref} fabLabelKey={fabLabelKey} />
+          </div>
+        )}
       </div>
     </div>
   );

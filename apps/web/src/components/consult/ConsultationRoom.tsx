@@ -160,7 +160,11 @@ export function ConsultationRoom({
         )}
       </div>
 
-      <div className="p-5 flex flex-wrap items-center justify-center gap-4">
+      {/* La BottomNav est masquée dans la salle (AppShell) : cette barre de
+          contrôle devient donc l'élément le plus bas de l'écran et doit
+          reprendre la zone sûre que la navigation portait — sinon le bouton
+          « Raccrocher » se retrouve sous l'indicateur d'accueil iOS. */}
+      <div className="p-5 pb-safe flex flex-wrap items-center justify-center gap-4">
         <button
           type="button"
           onClick={downgrade}
