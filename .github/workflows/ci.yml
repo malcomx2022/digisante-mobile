@@ -32,11 +32,11 @@ jobs:
       NODE_ENV: test
       JWT_SECRET: ci-secret
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # Version de pnpm lue depuis le champ "packageManager" du package.json
       # (ne pas spécifier "version" ici : conflit ERR_PNPM_BAD_PM_VERSION).
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: pnpm
@@ -82,9 +82,9 @@ jobs:
       NODE_ENV: test
       JWT_SECRET: e2e-secret-at-least-32-characters-long-xx
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version: 20
           cache: pnpm
@@ -100,7 +100,7 @@ jobs:
       - run: pnpm test:e2e
       - name: Rapport Playwright (en cas d'échec)
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: playwright-report/
@@ -125,6 +125,10 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Déploiement SSH sur le VPS
+        # Reste en v1 volontairement : c'est une action COMPOSITE
+        # (`runs.using: composite`), pas une action JavaScript — elle n'embarque
+        # aucun runtime Node et n'est donc pas concernée par le retrait de
+        # Node 20 des runners. v1 est toujours la majeure courante.
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
