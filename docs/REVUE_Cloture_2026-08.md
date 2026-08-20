@@ -78,7 +78,7 @@ Les balayages de contrôle consignés dans CLAUDE.md renvoient tous **0 violatio
 
 ## 2. Écarts NOUVEAUX — non catalogués par les revues précédentes
 
-Quatre trouvailles. La première était bloquante. **E1, E2 et E4 sont corrigés ; E3 reste ouvert.**
+Quatre trouvailles. La première était bloquante. **Les quatre sont corrigées (19/08/2026).**
 
 ### E1 — ✅ CORRIGÉ (19/08/2026) · 🔴 MAJEUR · La recharge du portefeuille diaspora ne redirige jamais vers le paiement
 
@@ -146,7 +146,26 @@ voyant un endpoint « paiement pour un proche » déjà écrit et testé, le bra
 lot 8, le débit du portefeuille passe par `payments.initiate` (méthode `WALLET`), qui est le
 chemin gardé, atomique et testé.
 
-### E3 — ⏳ OUVERT · 🟠 MOYEN · Le parcours diaspora ne se referme pas
+### E3 — ✅ CORRIGÉ (19/08/2026) · 🟠 MOYEN · Le parcours diaspora ne se referme pas
+
+> **Livré : envoi d'argent au portefeuille d'un proche** (`POST /beneficiaries/:id/send`).
+> Débit de l'expéditeur et crédit du destinataire dans **une seule transaction** — l'argent
+> arrive quelque part, ou rien ne se passe. Le proche le dépense ensuite lui-même par le chemin
+> WALLET existant. Notification **dans SA langue**, audit `WALLET_TRANSFER` en métadonnées seules.
+>
+> **Modèle retenu (arbitrage du porteur) : transfert wallet→wallet, lien résolu par téléphone.**
+> Le carnet n'a **pas** de colonne de liaison : le numéro (déjà canonicalisé à l'écriture) est
+> résolu à la volée, donc un proche qui s'inscrit plus tard devient joignable sans ré-appariement.
+> La liste expose `canReceive`, un **booléen seul** — jamais l'identité du compte en face.
+>
+> **§4** : le payeur n'obtient **aucun accès médical**. C'est la raison pour laquelle « payer le
+> rendez-vous du proche » a été écarté : voir le RDV exposerait le médecin et sa **spécialité**,
+> qui trahit la pathologie. **§5 non touché** : mouvement interne, aucun appel FedaPay, aucun
+> `Payment` — même nature que `wallet.refund`.
+>
+> ⚠️ **Limite connue** : la résolution porte sur le numéro **courant**. Une carte SIM réattribuée
+> enverrait l'argent au nouveau titulaire, d'où la confirmation explicite (nom + montant) avant
+> envoi. La parade complète — un lien **accepté par le bénéficiaire** — reste différée.
 
 > **Toujours ouvert, et désormais seul.** La suppression de E2 retire le faux-semblant, elle
 > n'ajoute pas la fonctionnalité : payer les soins d'un proche reste **non implémenté**, et le
@@ -257,7 +276,7 @@ Ordonné par ce qui **bloque** la mise en service, pas par facilité.
 | ~~1~~ | ✅ **E1 fait** — règle partagée `paymentOutcome` + 5 tests de non-régression | — | §5 non touché |
 | ~~2~~ | ✅ **E4 fait** — `.env.example` aligné sur 5434/6380 | — | — |
 | ~~3~~ | ✅ **E2 fait** — route supprimée (arbitrage porteur) + test de non-régression 404 | — | §5 non touché |
-| 4 | **E3** — écran « payer les soins d'un proche » (dépend de la décision E2) | 1 j | §5 |
+| ~~4~~ | ✅ **E3 fait** — envoi d'argent au portefeuille du proche, 6 tests | — | §5 non touché |
 | 5 | **B1** — faire relire les 6 clés `sos.*` par des locuteurs natifs FON et YOR | externe | — |
 | 6 | **B2** — obtenir le contreseing médical (`Dossier_Validation_Clinique.docx`) | externe | — |
 | 7 | **B3/B4** — ouvrir les comptes fournisseurs, poser les secrets, armer `DEPLOY_ENABLED`, dérouler la checklist | 1-2 j + délais tiers | — |

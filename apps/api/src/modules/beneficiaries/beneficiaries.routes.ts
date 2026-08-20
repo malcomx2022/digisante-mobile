@@ -1,5 +1,6 @@
 // ─────────────────────────────────────────────────────────────
 // Routes Bénéficiaires (préfixe /api/v1/beneficiaries). RBAC : DIASPORA.
+// Carnet des proches + envoi d'argent vers leur portefeuille (écart E3).
 // ─────────────────────────────────────────────────────────────
 import { langSchema } from '@digisante/shared';
 import type { FastifyInstance } from 'fastify';
@@ -18,6 +19,9 @@ const bodySchema = z.object({
 });
 
 const idParams = z.object({ id: z.string().cuid() });
+
+// Montant en FCFA : entier positif (la devise n'a pas de subdivision en usage).
+const sendSchema = z.object({ amount: z.number().int().positive() });
 
 export default async function beneficiariesRoutes(app: FastifyInstance) {
   const diaspora = { preHandler: [app.authenticate, requireRole('DIASPORA')] };
@@ -39,5 +43,13 @@ export default async function beneficiariesRoutes(app: FastifyInstance) {
   app.delete('/:id', diaspora, async (request) => {
     const { id } = zParse(idParams, request.params);
     return beneficiaries.removeMine(app, request.user.sub, id);
+  });
+
+  // Envoi d'argent au portefeuille du proche (écart E3). Mouvement INTERNE :
+  // le solde de l'expéditeur doit déjà être approvisionné (`/wallet/topup`).
+  app.post('/:id/send', diaspora, async (request) => {
+    const { id } = zParse(idParams, request.params);
+    const { amount } = zParse(sendSchema, request.body);
+    return beneficiaries.sendMoney(app, request.user.sub, id, amount);
   });
 }
