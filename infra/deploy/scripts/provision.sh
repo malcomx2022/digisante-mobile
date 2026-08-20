@@ -18,7 +18,7 @@ APP_DIR="${APP_DIR:-/var/www/digisante-mobile}"
 DB_NAME="${DB_NAME:-digisante}"
 DB_USER="${DB_USER:-digisante}"
 DB_PASSWORD="${DB_PASSWORD:?Définir DB_PASSWORD (mot de passe Postgres applicatif)}"
-NODE_MAJOR="${NODE_MAJOR:-20}"
+NODE_MAJOR="${NODE_MAJOR:-24}"
 LOG_DIR="/var/log/digisante"
 BACKUP_DIR="/var/backups/digisante"
 
@@ -35,7 +35,9 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
 apt-get install -y curl ca-certificates gnupg lsb-release git build-essential ufw
 
-# ── 2. Node.js 20 (NodeSource) + pnpm via corepack ──
+# ── 2. Node.js 24 (NodeSource) + pnpm via corepack ──
+# ⚠️ Doit rester ALIGNÉ sur `node-version` de .github/workflows/ci.yml : sinon la
+# CI valide une version de Node que la production n'exécute pas.
 if ! command -v node >/dev/null 2>&1 || [[ "$(node -v | cut -d. -f1 | tr -d v)" -lt "$NODE_MAJOR" ]]; then
   log "Installation de Node.js ${NODE_MAJOR}…"
   curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash -

@@ -11,7 +11,7 @@
 ## 1. Provisioning (une fois, root)
 - [ ] `git clone … /var/www/digisante-mobile`
 - [ ] `sudo BASE_DOMAIN=… DB_PASSWORD='…' bash infra/deploy/scripts/provision.sh`
-      → Node 20, pnpm, PM2, **PostgreSQL 16 (PGDG)**, Redis, Nginx, Certbot, UFW, rôle/base, démarrage PM2 au boot.
+      → Node 24, pnpm, PM2, **PostgreSQL 16 (PGDG)**, Redis, Nginx, Certbot, UFW, rôle/base, démarrage PM2 au boot.
 - [ ] `sudo timedatectl set-timezone Africa/Porto-Novo`
 
 ## 2. Secrets (jamais commités — cf. `docs/SECRETS_Production.md`)
