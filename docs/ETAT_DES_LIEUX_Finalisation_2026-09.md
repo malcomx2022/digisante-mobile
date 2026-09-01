@@ -95,6 +95,10 @@ Piste C (ops, J0)              : B3 provision VPS → déploiement → B5 restau
 
 ### 4.1 — W1 · Relecture native des clés i18n critiques (B1)
 
+> **🚀 Lancé le 01/09/2026** — étapes 1–2 (interne) faites : CSV régénérés (74 clés/langue dont
+> 6 critiques) et **brief relecteur** prêt à transmettre : `docs/i18n/RELECTURE_Native_2026-09.md`.
+> En attente : retour des locuteurs natifs (étapes 3–5).
+
 **Objectif de sortie** : `pnpm i18n:check` → **0 clé critique manquante** en FON et YOR.
 
 1. **Exporter** les listes à jour : `pnpm i18n:export` → `docs/i18n/todo.fon.csv` /
@@ -112,6 +116,11 @@ Piste C (ops, J0)              : B3 provision VPS → déploiement → B5 restau
 **Charge interne** : ~0,5 j de réintégration. **Délai réel** : celui des relecteurs.
 
 ### 4.2 — W2 · Contreseing clinique (B2)
+
+> **🚀 Lancé le 01/09/2026** — étape 1 (interne) faite : dossier régénéré depuis
+> `@digisante/shared` (source de vérité) et validation structurelle passée (26 parties ZIP,
+> XML bien formés, A4 explicite, 0 `\n` dans les runs, page de signature). Prêt à soumettre.
+> En attente : relecture et signature du professionnel de santé (étapes 2–4).
 
 **Objectif de sortie** : `docs/Dossier_Validation_Clinique.docx` signé par un professionnel de
 santé, décision tracée.
