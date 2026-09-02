@@ -139,6 +139,12 @@ santé, décision tracée.
 
 ### 4.3 — W3 · Activation des intégrations tierces (B4)
 
+> **🚀 Lancé le 01/09/2026** — partie interne faite : `docs/COMPTES_ET_CLES.md` remis à niveau
+> (aligné sur `PROVIDER_SECRET_KEYS`/`REQUIRED_SECRET_KEYS` du code — ajout `domain` Daily,
+> `fromEmail` Resend, secrets webhook, config web `NEXT_PUBLIC_FIREBASE_*`, ports 5434/6380,
+> voie `/admin/integrations`) et **tableau de suivi** créé : `docs/SUIVI_B4_Comptes_2026-09.md`.
+> En attente : ouverture effective des comptes par le porteur (identité/KYC marchand requis).
+
 **Objectif de sortie** : les 5 providers en statut « configuré » sur `/admin/integrations`,
 test de readiness vert, et un paiement sandbox FedaPay confirmé de bout en bout.
 
