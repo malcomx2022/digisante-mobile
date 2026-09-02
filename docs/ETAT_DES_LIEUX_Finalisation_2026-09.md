@@ -173,6 +173,13 @@ Pour **chaque** provider (Twilio, Daily, Firebase, Resend) — guides dédiés `
 
 ### 4.4 — W4 · Mise en production VPS (B3)
 
+> **🚀 Lancé le 02/09/2026** — partie interne faite : **audit de l'infra de déploiement passé
+> sans dérive** (Node 24 aligné CI/prod dans `provision.sh`, `deploy.sh` avec healthcheck,
+> 5 générateurs au crontab, double archive de sauvegarde, Nginx WS + `digisante_noquery`,
+> job `deploy` gardé par les e2e) et **runbook de pilotage** créé :
+> `docs/SUIVI_B3_MiseEnProduction_2026-09.md`. En attente : VPS, domaine, DNS et secrets
+> (fournis par le porteur), puis exécution des phases 1→6.
+
 **Objectif de sortie** : application servie en HTTPS, `health`/`ready` verts, crons actifs,
 déploiement continu armé. Dérouler `docs/DEPLOIEMENT_Checklist.md` dans l'ordre — résumé :
 
