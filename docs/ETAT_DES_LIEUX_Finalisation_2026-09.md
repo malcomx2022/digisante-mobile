@@ -207,6 +207,13 @@ déploiement continu armé. Dérouler `docs/DEPLOIEMENT_Checklist.md` dans l'ord
 
 ### 4.5 — W5 · Test de restauration à blanc (B5)
 
+> **🚀 Lancé le 02/09/2026** — la **répétition à blanc est EXÉCUTÉE** avec le vrai script sur
+> une pile réelle (PostgreSQL 16.13, 28 migrations + seed, magasin factice) : double archive
+> produite, restauration sans erreur, comptages de toutes les tables identiques, checksums
+> fichiers identiques, **trigger d'audit immuable actif après restauration**. Aucun correctif
+> nécessaire. Détail : `docs/SUIVI_B5_Restauration_2026-09.md`. Reste le **test réel** sur les
+> archives de production (après B3 phase 6) — c'est lui le critère de sortie.
+
 **Objectif de sortie** : les **deux** archives restaurées sur une machine tierce, données
 cohérentes. Une sauvegarde jamais restaurée n'est pas une sauvegarde.
 

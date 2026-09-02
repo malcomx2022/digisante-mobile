@@ -1,0 +1,59 @@
+# Suivi du chantier B5 — test de restauration des sauvegardes
+
+> **Lancé le 2 septembre 2026** · Chantier **B5** de l'état des lieux
+> (`docs/ETAT_DES_LIEUX_Finalisation_2026-09.md` §4.5). Principe : *une sauvegarde jamais
+> restaurée n'est pas une sauvegarde.* Le chantier se joue en deux temps : une **répétition à
+> blanc** qui valide la mécanique des scripts (faite, ci-dessous), puis le **test réel** sur les
+> archives de production, qui attend B3 (phase 6 du runbook).
+
+---
+
+## 1. Répétition à blanc — EXÉCUTÉE le 02/09/2026 ✅
+
+Cycle complet **sauvegarde → restauration → contrôle de cohérence**, exécuté avec le **vrai
+script** (`infra/deploy/scripts/pg_dump_encrypted.sh`, aucune modification), sur une pile
+réelle : PostgreSQL **16.13** natif, base `digisante` vierge migrée (**28 migrations
+`migrate deploy`**) + **seed** (5 assureurs) + données de test (8 users, 1 assurance patient),
+magasin de fichiers factice (2 fichiers binaires, 200 Ko + 350 Ko), clé AES-256 générée selon
+la procédure du script (`openssl rand -base64 48`).
+
+| Étape | Résultat |
+|---|---|
+| Sauvegarde (script réel, env overridé : `BACKUP_DIR`, `BACKUP_KEY_FILE`, `KYC_STORAGE_DIR`) | ✅ **Deux archives** produites : `digisante_<stamp>.sql.gz.enc` (16 K) **et** `digisante_files_<stamp>.tar.gz.enc` (540 K), permissions `0400` |
+| Restauration base (formule documentée en fin de script : `openssl enc -d … \| gunzip \| psql`) dans une base **vierge** `digisante_restore` | ✅ Sans erreur |
+| Restauration fichiers (`openssl enc -d … \| gunzip \| tar -x`) dans un répertoire distinct | ✅ 2 fichiers restaurés |
+| **Comptage de TOUTES les tables** source vs restaurée (généré dynamiquement depuis `pg_stat_user_tables`) | ✅ **Identiques** (dont `users=8`, `insurances=5`, `patient_insurances=1`) |
+| **Checksums SHA-256 des fichiers** source vs restaurés | ✅ Identiques |
+| **Trigger d'audit immuable après restauration** : `UPDATE audit_logs` sur la base restaurée | ✅ **Rejeté** (`audit_logs est append-only — CLAUDE.md §4`) — la protection §4 est bien **dans le dump** et renaît avec lui |
+
+**Conclusion de la répétition** : la mécanique est saine de bout en bout — chiffrement/
+déchiffrement symétriques, double archive effective, formules de restauration du script
+exactes telles quelles, intégrité données + fichiers vérifiée, triggers de conformité
+préservés. Aucun correctif nécessaire.
+
+ⓘ Observations : ① le script invoque `sudo -u postgres pg_dump` — il s'exécute donc en root
+(c'est le cas du cron de prod) ; ② la base compte désormais **28 migrations** (27 documentées
+en août + 1 depuis) — compteurs à rafraîchir à la prochaine passe de documentation.
+
+## 2. Test RÉEL sur archives de production — À FAIRE (après B3 phase 6)
+
+C'est lui le critère de sortie du chantier. À dérouler sur une **machine tierce** (pas le VPS),
+avec la clé `/etc/digisante/backup.key` **copiée hors VPS** :
+
+- [ ] Récupérer les **deux** archives les plus récentes de `/var/backups/digisante/`.
+- [ ] Restaurer la base dans un PostgreSQL 16 vierge :
+      `openssl enc -d -aes-256-cbc -pbkdf2 -pass file:backup.key -in digisante_<stamp>.sql.gz.enc | gunzip | psql digisante`
+- [ ] Restaurer le magasin :
+      `openssl enc -d -aes-256-cbc -pbkdf2 -pass file:backup.key -in digisante_files_<stamp>.tar.gz.enc | gunzip | tar -C <parent> -xf -`
+- [ ] Contrôles : comptages plausibles (users, dossiers) ; ouvrir une entrée DMP **avec pièce
+      jointe** et vérifier que son `checksum` SHA-256 correspond au fichier restauré ;
+      `UPDATE audit_logs` → rejeté ; chaîne de hash de l'audit vérifiée sur un échantillon.
+- [ ] **Dater et consigner** le test ici et dans `DEPLOIEMENT_Checklist.md` §7 ; détruire les
+      données restaurées sur la machine tierce après le test (ce sont des données de santé).
+- [ ] À refaire après **toute modification** de `pg_dump_encrypted.sh` ou du magasin de fichiers.
+
+## 3. Critère de sortie B5
+
+Test réel daté et consigné : les deux archives de production restaurées sur machine tierce,
+cohérence données↔fichiers vérifiée (checksum DMP), protections d'audit actives après
+restauration, données de test détruites.
