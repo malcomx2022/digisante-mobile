@@ -62,6 +62,13 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     // Cible réelle du produit : smartphone d'entrée de gamme, pas un desktop.
     ...devices['Pixel 5'],
+    // Navigateur pré-installé dont la révision diffère de celle attendue par
+    // `@playwright/test` (poste sans accès au CDN Playwright, image Chromium
+    // fournie par l'environnement) : `PLAYWRIGHT_CHROMIUM_EXECUTABLE` pointe
+    // l'exécutable à utiliser. Absent ⇒ comportement par défaut (CI inchangée).
+    ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
+      ? { launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE } }
+      : {}),
   },
 
   projects: [{ name: 'chromium-mobile' }],
