@@ -64,3 +64,10 @@ manquent. Ce sont des skips **d'environnement**, pas des skips intentionnels —
 
 Elle ne dit rien du VPS (B3), des fournisseurs réels (B4, tous en stub), de la restauration sur
 machine tierce (B5), ni des validations humaines (B1/B2).
+
+## 6. Suite — build hermétique (prompt 2, même jour)
+
+Polices migrées vers `next/font/local` (`apps/web/src/fonts/`, SIL OFL 1.1, provenance
+`apps/web/src/fonts/README.md`). Preuve : `unshare -n` (espace de noms **sans réseau**,
+`curl fonts.googleapis.com` en échec) puis `next build` → **Compiled successfully**. Le CSS généré
+contient `font-weight:400 800` (display) et `400 700` (corps), repli Arial ajusté.
