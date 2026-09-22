@@ -13,6 +13,9 @@ export default defineConfig({
     },
   },
   test: {
+    // Smoke tests fournisseurs (appels RÉELS, opt-in) : JAMAIS dans `pnpm test`.
+    // Ils ont leur propre configuration : vitest.smoke.config.ts / `pnpm test:smoke`.
+    exclude: ['**/node_modules/**', '**/dist/**', '**/*.smoke.test.ts'],
     // Les tests d'intégration partagent la DB/Redis : pas de parallélisme entre fichiers.
     fileParallelism: false,
     // Purge le Redis de test au démarrage du run → isolation inter-runs (pas de

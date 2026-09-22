@@ -12,6 +12,7 @@
     "lint": "eslint \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --passWithNoTests",
+    "test:smoke": "vitest run --config vitest.smoke.config.ts",
     "prisma": "prisma"
   },
   "prisma": {

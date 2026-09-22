@@ -8,10 +8,11 @@
 import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 
 import { resolveConfiguredSecrets } from '@/lib/integrations.js';
+import { maskId, maskPhone, stubContent } from '@/lib/redact.js';
 
 export type OtpChannel = 'SMS' | 'VOICE';
 
-interface TwilioCreds {
+export interface TwilioCreds {
   sid: string;
   token: string;
   from: string;
@@ -19,14 +20,16 @@ interface TwilioCreds {
 
 /**
  * POST bas niveau à l'API REST Twilio (auth basique ACCOUNT_SID/AUTH_TOKEN).
- * Renvoie true si l'API a accepté (2xx). Ne throw pas : log + false sinon.
+ * Renvoie `{ ok, sid }` (sid = identifiant du message/appel si 2xx). Ne throw pas.
+ * Journalisation : jamais le numéro complet ni le corps — l'erreur Twilio est réduite
+ * à son `code` + `more_info` (son `message` peut citer le numéro destinataire).
  */
-async function twilioPost(
+export async function twilioPost(
   creds: TwilioCreds,
   resource: 'Messages' | 'Calls',
   params: Record<string, string>,
   log: FastifyBaseLogger,
-): Promise<boolean> {
+): Promise<{ ok: boolean; sid?: string }> {
   const url = `https://api.twilio.com/2010-04-01/Accounts/${creds.sid}/${resource}.json`;
   const auth = Buffer.from(`${creds.sid}:${creds.token}`).toString('base64');
   try {
@@ -38,16 +41,16 @@ async function twilioPost(
       },
       body: new URLSearchParams(params).toString(),
     });
+    const data = (await res.json().catch(() => ({}))) as { sid?: string; code?: number; more_info?: string };
     if (!res.ok) {
-      const detail = await res.text().catch(() => '');
-      log.error({ status: res.status, detail }, `[Twilio] ${resource} en échec`);
-      return false;
+      log.error({ status: res.status, twilioCode: data.code, moreInfo: data.more_info, to: maskPhone(params.To) }, `[Twilio] ${resource} en échec`);
+      return { ok: false };
     }
-    return true;
+    return { ok: true, sid: data.sid };
   } catch (err) {
     // Erreur réseau : on ne crashe jamais l'appelant (CLAUDE.md §4, l'urgence prime).
-    log.error({ err }, `[Twilio] erreur réseau ${resource}`);
-    return false;
+    log.error({ err: err instanceof Error ? err.message : String(err) }, `[Twilio] erreur réseau ${resource}`);
+    return { ok: false };
   }
 }
 
@@ -68,27 +71,29 @@ export interface SendOtpOptions {
 }
 
 /** Envoie un OTP. En l'absence de configuration Twilio, fonctionne en stub. */
-export async function sendOtp(opts: SendOtpOptions): Promise<{ delivered: boolean; stub: boolean }> {
+export async function sendOtp(opts: SendOtpOptions): Promise<{ delivered: boolean; stub: boolean; sid?: string }> {
   const log = opts.app.log;
   const creds = await resolveCreds(opts.app);
   if (!creds) {
+    // Code lisible en dev/test seulement : en production, un stub = Twilio non
+    // configuré, et un code OTP dans les journaux permettrait de prendre le compte.
     log.warn(
-      { to: opts.to, channel: opts.channel, lang: opts.lang },
-      `[STUB Twilio] OTP ${opts.code} (Twilio non configuré — aucun envoi réel)`,
+      { to: maskPhone(opts.to), channel: opts.channel, lang: opts.lang },
+      `[STUB Twilio] OTP ${stubContent(opts.code)} (Twilio non configuré — aucun envoi réel)`,
     );
     return { delivered: false, stub: true };
   }
 
   // Appel réel : SMS via Messages, voix via Calls (TwiML inline lisant le code).
-  let ok: boolean;
+  let res: { ok: boolean; sid?: string };
   if (opts.channel === 'VOICE') {
     const twiml = `<Response><Say>${opts.code.split('').join(' ')}</Say></Response>`;
-    ok = await twilioPost(creds, 'Calls', { To: opts.to, From: creds.from, Twiml: twiml }, log);
+    res = await twilioPost(creds, 'Calls', { To: opts.to, From: creds.from, Twiml: twiml }, log);
   } else {
-    ok = await twilioPost(creds, 'Messages', { To: opts.to, From: creds.from, Body: `DigiSanté: ${opts.code}` }, log);
+    res = await twilioPost(creds, 'Messages', { To: opts.to, From: creds.from, Body: `DigiSanté: ${opts.code}` }, log);
   }
-  if (ok) log.info({ to: opts.to, channel: opts.channel, lang: opts.lang }, 'OTP envoyé via Twilio');
-  return { delivered: ok, stub: false };
+  if (res.ok) log.info({ to: maskPhone(opts.to), channel: opts.channel, lang: opts.lang, sid: maskId(res.sid) }, 'OTP envoyé via Twilio');
+  return { delivered: res.ok, stub: false, sid: res.sid };
 }
 
 /** Envoie un SMS transactionnel (stub si Twilio non configuré). */
@@ -97,16 +102,17 @@ export async function sendSms(opts: {
   to: string;
   body: string;
   lang: string;
-}): Promise<{ delivered: boolean; stub: boolean }> {
+}): Promise<{ delivered: boolean; stub: boolean; sid?: string }> {
   const log = opts.app.log;
   const creds = await resolveCreds(opts.app);
   if (!creds) {
-    log.warn({ to: opts.to, lang: opts.lang }, `[STUB Twilio SMS] ${opts.body}`);
+    // Corps lisible en dev/test seulement (un SMS SOS porte des coordonnées GPS).
+    log.warn({ to: maskPhone(opts.to), lang: opts.lang }, `[STUB Twilio SMS] ${stubContent(opts.body)}`);
     return { delivered: false, stub: true };
   }
   // POST Twilio Messages. Sender ID alphanumérique non garanti au Bénin
   // → on utilise le numéro long from (CLAUDE.md §8).
-  const ok = await twilioPost(creds, 'Messages', { To: opts.to, From: creds.from, Body: opts.body }, log);
-  if (ok) log.info({ to: opts.to, lang: opts.lang }, 'SMS envoyé via Twilio');
-  return { delivered: ok, stub: false };
+  const res = await twilioPost(creds, 'Messages', { To: opts.to, From: creds.from, Body: opts.body }, log);
+  if (res.ok) log.info({ to: maskPhone(opts.to), lang: opts.lang, sid: maskId(res.sid) }, 'SMS envoyé via Twilio');
+  return { delivered: res.ok, stub: false, sid: res.sid };
 }
