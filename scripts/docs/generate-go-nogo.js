@@ -61,8 +61,8 @@ const MATRIX = [
   },
   {
     id: 'C5', critere: 'Webhook FedaPay validé en bac à sable',
-    preuve: 'PLAN_Bascule_FedaPay_Live §0, porte P1 : ❌ non exécutée (aucune clé sandbox). Patch d’idempotence atomique §5 prêt mais NON appliqué.',
-    go: false, bloqueur: 'Autoriser (ou refuser) le patch §5, puis dérouler RECETTE_FedaPay_Sandbox S1→S7 signée.', owner: 'Porteur (décision §5) + FedaPay (KYC marchand)',
+    preuve: 'PLAN_Bascule_FedaPay_Live §0, porte P1 : ❌ non exécutée (aucune clé sandbox). Patch d’idempotence atomique §5 appliqué le 22/09/2026 sur accord du porteur (re-tests webhooks verts) ; contrôle S7 non rejoué faute de clé sandbox.',
+    go: false, bloqueur: 'Dérouler RECETTE_FedaPay_Sandbox S1→S7 signée (S7 = rejeu des livraisons simultanées).', owner: 'Porteur + FedaPay (KYC marchand)',
   },
   {
     id: 'C6', critere: 'Webhook FedaPay validé en production (live)',
@@ -96,12 +96,12 @@ const MATRIX = [
   },
   {
     id: 'C12', critere: 'Audit de sécurité de release',
-    preuve: 'AUDIT_Securite_Release_2026-09 (22/09/2026) : 13 correctifs appliqués et testés (376 API + 48 web verts localement) ; 15 résiduels ; 2 points §5 en attente ; aucun test d’intrusion externe.',
-    go: false, bloqueur: 'Décision sur le patch §5 d’idempotence ; test d’intrusion externe recommandé avant ouverture publique.', owner: 'Porteur',
+    preuve: 'AUDIT_Securite_Release_2026-09 (22/09/2026) : 13 correctifs appliqués et testés ; 15 résiduels ; patch §5 d’idempotence appliqué le 22/09/2026 (378 API + 48 web verts localement) ; aucun test d’intrusion externe.',
+    go: false, bloqueur: 'Test d’intrusion externe avant ouverture publique ; journalisation des corps d’erreur FedaPay bruts (§5) à revoir.', owner: 'Porteur + prestataire de test d’intrusion',
   },
   {
     id: 'C13', critere: 'Tests automatisés (non-régression)',
-    preuve: 'Exécutés localement le 22/09/2026 sur PostgreSQL 16 + Redis réels : 376 tests API + 48 tests web verts ; typecheck, lint, metrics:check verts.',
+    preuve: 'Exécutés localement le 22/09/2026 sur PostgreSQL 16 + Redis réels : 378 tests API + 48 tests web verts ; typecheck, lint, metrics:check verts.',
     go: true, bloqueur: '', owner: '',
   },
 ];
@@ -255,7 +255,7 @@ async function main() {
     H('Partie IV — Suites et conditions de réexamen', HeadingLevel.HEADING_1),
     H('IV.1 Ordre de levée conseillé', HeadingLevel.HEADING_2),
     bullet('Rétablir l’intégration continue (C1, C2) : prérequis de toute preuve reproductible.'),
-    bullet('Mettre en service le serveur (C3), puis ouvrir les comptes fournisseurs (C4) et dérouler la recette du paiement en bac à sable (C5), après décision sur le correctif d’idempotence.'),
+    bullet('Mettre en service le serveur (C3), puis ouvrir les comptes fournisseurs (C4) et dérouler la recette du paiement en bac à sable (C5) ; le correctif d’idempotence est appliqué depuis le 22/09/2026.'),
     bullet('Répéter la restauration par un tiers et le retour arrière (C7, C11).'),
     bullet('Exécuter la recette sur appareils et opérateurs réels (C10), puis basculer le paiement en production (C6).'),
     bullet('En parallèle, dès J0 : relecture native des libellés d’urgence (C8) et contreseing clinique (C9).'),

@@ -22,6 +22,9 @@ import {
 
 type ResolvableStatus = 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'PROCESSING';
 
+/** Statuts terminaux : un paiement qui les atteint n'est plus jamais retraité. */
+const TERMINAL_STATUSES = ['COMPLETED', 'FAILED', 'REFUNDED', 'CANCELLED'] as const;
+
 /**
  * Applique un statut résolu à un paiement, de façon IDEMPOTENTE, avec les effets
  * de bord associés (audit PAYMENT_CONFIRMED, crédit wallet sur WALLET_TOPUP).
@@ -35,12 +38,34 @@ async function applyPaymentStatus(
   ip: string | null | undefined,
   source: 'webhook' | 'reconcile',
 ): Promise<{ idempotent: true; status: string } | { processed: true; status: string }> {
-  // Idempotence : un paiement déjà terminal n'est pas retraité.
-  if (['COMPLETED', 'FAILED', 'REFUNDED', 'CANCELLED'].includes(payment.status)) {
+  // Idempotence (lecture rapide) : un paiement déjà terminal n'est pas retraité.
+  if ((TERMINAL_STATUSES as readonly string[]).includes(payment.status)) {
     return { idempotent: true, status: payment.status };
   }
 
-  await app.prisma.payment.update({ where: { id: payment.id }, data: { status } });
+  // Idempotence (GARANTIE) : la lecture ci-dessus peut être périmée — deux livraisons
+  // simultanées du même webhook (retries FedaPay, webhook ∥ réconciliation, PM2 ×2)
+  // la passaient toutes deux et créditaient la recharge PLUSIEURS fois. La transition
+  // est donc CONDITIONNELLE (`status ∉ terminaux`) : PostgreSQL ré-évalue la condition
+  // après le verrou de ligne, une seule livraison la gagne. Le crédit est dans la
+  // MÊME transaction : pas de COMPLETED sans crédit, ni de crédit sans transition.
+  const topupWalletId =
+    status === 'COMPLETED' && payment.type === 'WALLET_TOPUP'
+      ? (await wallet.getOrCreateWallet(app, payment.userId)).id
+      : null;
+  const won = await app.prisma.$transaction(async (tx) => {
+    const { count } = await tx.payment.updateMany({
+      where: { id: payment.id, status: { notIn: [...TERMINAL_STATUSES] } },
+      data: { status },
+    });
+    if (count === 0) return false;
+    if (topupWalletId) await wallet.creditWithin(tx, topupWalletId, payment.amount.toNumber(), payment.id, 'Recharge wallet');
+    return true;
+  });
+  if (!won) {
+    const current = await app.prisma.payment.findUnique({ where: { id: payment.id }, select: { status: true } });
+    return { idempotent: true, status: current?.status ?? payment.status };
+  }
 
   if (status === 'COMPLETED') {
     await writeAudit(app.prisma, {
@@ -50,10 +75,6 @@ async function applyPaymentStatus(
       ip,
       meta: { fedapayId: payment.fedapayId, type: payment.type, source },
     });
-    // Recharge de portefeuille → crédit du solde.
-    if (payment.type === 'WALLET_TOPUP') {
-      await wallet.credit(app, payment.userId, payment.amount.toNumber(), payment.id, 'Recharge wallet');
-    }
   }
 
   return { processed: true, status };
@@ -80,12 +101,19 @@ export async function refund(
   if (payment.status === 'REFUNDED') return { idempotent: true, status: 'REFUNDED' };
   if (payment.status !== 'COMPLETED') throw badRequest('Seul un paiement confirmé peut être remboursé');
 
-  await app.prisma.payment.update({ where: { id: payment.id }, data: { status: 'REFUNDED' } });
-
-  // Recharge de portefeuille → reversal du crédit.
-  if (payment.type === 'WALLET_TOPUP') {
-    await wallet.refund(app, payment.userId, payment.amount.toNumber(), payment.id, opts.reason ?? 'Remboursement');
-  }
+  // Transition CONDITIONNELLE COMPLETED → REFUNDED (double-clic admin, deux
+  // administrateurs, annulation de RDV ∥ action admin) + reversal dans la même
+  // transaction : un seul remboursement effectif, jamais de double reversal.
+  const refundWalletId = payment.type === 'WALLET_TOPUP' ? (await wallet.getOrCreateWallet(app, payment.userId)).id : null;
+  const won = await app.prisma.$transaction(async (tx) => {
+    const { count } = await tx.payment.updateMany({ where: { id: payment.id, status: 'COMPLETED' }, data: { status: 'REFUNDED' } });
+    if (count === 0) return false;
+    if (refundWalletId) {
+      await wallet.refundWithin(tx, refundWalletId, payment.amount.toNumber(), payment.id, opts.reason ?? 'Remboursement');
+    }
+    return true;
+  });
+  if (!won) return { idempotent: true, status: 'REFUNDED' };
 
   await writeAudit(app.prisma, {
     action: 'PAYMENT_REFUND',

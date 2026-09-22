@@ -14,7 +14,7 @@
 |---|---|
 | Constats vérifiés et **corrigés** dans ce lot | **13** |
 | Constats **résiduels** documentés (non corrigés, motif donné) | **15** |
-| Constats en **zone gelée §5** (FedaPay) — soumis à revue explicite | 2 (dont 1 correctif proposé non appliqué) |
+| Constats en **zone gelée §5** (FedaPay) — soumis à revue explicite | 2 (dont 1 correctif appliqué le 22/09/2026 sur accord du porteur) |
 | Dépendances ajoutées · migrations | 0 · 0 |
 
 Contrôles après correction : **376 tests API + 48 tests web verts**, typecheck + lint verts,
@@ -43,11 +43,11 @@ Contrôles après correction : **376 tests API + 48 tests web verts**, typecheck
 n'a **aucun** rendez-vous, consentement ou orientation. C'est l'objectif ; en recette, créer d'abord
 le rendez-vous (les fixtures de test passent désormais par `src/test/care-fixture.ts`).
 
-## 3. Zone gelée §5 (FedaPay) — NON modifiée
+## 3. Zone gelée §5 (FedaPay)
 
 | Constat | Statut |
 |---|---|
-| Idempotence du webhook non atomique (deux livraisons simultanées du même évènement peuvent créditer deux fois un portefeuille) | **Correctif proposé, NON appliqué** : `docs/proposals/PATCH_5_webhook_idempotence_atomique.patch`. Exige l'**autorisation explicite du porteur** + re-tests webhooks (HMAC ✓/✗, retry, DLQ, réconciliation). |
+| Idempotence du webhook non atomique (deux livraisons simultanées du même évènement peuvent créditer deux fois un portefeuille) | **✅ Corrigé le 22/09/2026 sur autorisation explicite du porteur** : transition conditionnelle + crédit/reversal dans la même transaction. Reproduit avant (4 crédits / 4 reversals), 1/1 après, 10/10 exécutions ; re-tests webhooks verts. Reste : S7 en bac à sable (`RECETTE_FedaPay_Sandbox.md` §1). |
 | Corps d'erreur FedaPay bruts journalisés | Résiduel — même régime (revue §5). La route de réconciliation garde sa propre comparaison de jeton pour la même raison. |
 
 ## 4. Résiduels (non corrigés — motif)
