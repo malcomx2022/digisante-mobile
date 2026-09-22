@@ -18,7 +18,7 @@
 | **Daily.co** | ☐ | ☐ `apiKey` · ☐ `domain` | ☐ | ☐ | ☐ salle de téléconsultation ouverte | free tier suffisant pour la recette — matrice `RECETTE_Daily_Teleconsultation.md` + smoke `test:smoke` |
 | **Firebase** | ☐ | ☐ `projectId` · ☐ `clientEmail` · ☐ `privateKey` · ☐ config web `NEXT_PUBLIC_*` (6 valeurs + VAPID) | ☐ (serveur) | ☐ | ☐ push web reçu | `NEXT_PUBLIC_*` = **build web**, pas l’admin — recette `RECETTE_Firebase_Push.md` + smoke `test:smoke` |
 | **Resend** | ☐ | ☐ `apiKey` (· `fromEmail`) | ☐ | ☐ | ☐ email transactionnel reçu | vérif. DNS du domaine d’envoi = dépend du domaine (B3) — checklist `RECETTE_Resend_Email.md` + smoke `test:smoke` |
-| **FedaPay** (live) | ☐ (validation FedaPay) | ☐ clé live + ☐ secret webhook **roté avec** | ☐ | ☐ | ☐ 1ᵉʳ paiement réel réconcilié | **APRÈS** recette sandbox complète (§5) |
+| **FedaPay** (live) | ☐ (validation FedaPay) | ☐ clé live + ☐ secret webhook **roté avec** | ☐ | ☐ | ☐ 1ᵉʳ paiement réel réconcilié | **APRÈS** recette sandbox complète (§5) — plan quatre yeux `PLAN_Bascule_FedaPay_Live.md` (NO-GO au 22/09) |
 
 ## Ce qui peut se faire dès aujourd'hui (sans attendre B3)
 
