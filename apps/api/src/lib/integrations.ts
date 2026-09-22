@@ -177,7 +177,8 @@ export async function setIntegration(
  * Contrôles de FORME des secrets saisis (erreurs de copier-coller les plus probables),
  * avant tout enregistrement. Renvoie des messages SANS la valeur. Volontairement
  * limité aux providers dont un format erroné échoue en silence plus tard :
- * Firebase (signature JWT impossible au 1er push). FedaPay n'est pas concerné (§5).
+ * Firebase (signature JWT impossible au 1er push) et Resend (expéditeur refusé au
+ * 1er envoi). FedaPay n'est pas concerné (§5).
  */
 export function validateSecretsShape(provider: IntegrationProvider, secrets: Secrets): string[] {
   const errors: string[] = [];
@@ -191,6 +192,16 @@ export function validateSecretsShape(provider: IntegrationProvider, secrets: Sec
     }
     if (projectId !== undefined && !/^[a-z][a-z0-9-]{4,29}$/.test(projectId)) {
       errors.push('projectId : identifiant de projet Firebase attendu (minuscules, chiffres, tirets)');
+    }
+  }
+  if (provider === 'RESEND') {
+    const { apiKey, fromEmail } = secrets;
+    if (apiKey !== undefined && !/^re_[A-Za-z0-9_]{10,}$/.test(apiKey)) {
+      errors.push('apiKey : clé Resend attendue (préfixe re_)');
+    }
+    // `adresse@domaine` ou `Nom <adresse@domaine>` — le domaine doit être VÉRIFIÉ chez Resend.
+    if (fromEmail !== undefined && !/^(?:[^<>@]+<[^<>@\s]+@[^<>@\s]+\.[a-z]{2,}>|[^<>@\s]+@[^<>@\s]+\.[a-z]{2,})$/i.test(fromEmail.trim())) {
+      errors.push('fromEmail : expéditeur attendu « adresse@domaine » ou « Nom <adresse@domaine> »');
     }
   }
   return errors;

@@ -17,7 +17,7 @@
 | **Twilio** | ☐ | ☐ `accountSid` · ☐ `authToken` · ☐ `fromNumber` | ☐ | ☐ | ☐ OTP SMS reçu sur +229 | tester MTN **et** Moov (sender ID §8) — fiche `RECETTE_Twilio_SMS.md` + smoke `test:smoke` |
 | **Daily.co** | ☐ | ☐ `apiKey` · ☐ `domain` | ☐ | ☐ | ☐ salle de téléconsultation ouverte | free tier suffisant pour la recette — matrice `RECETTE_Daily_Teleconsultation.md` + smoke `test:smoke` |
 | **Firebase** | ☐ | ☐ `projectId` · ☐ `clientEmail` · ☐ `privateKey` · ☐ config web `NEXT_PUBLIC_*` (6 valeurs + VAPID) | ☐ (serveur) | ☐ | ☐ push web reçu | `NEXT_PUBLIC_*` = **build web**, pas l’admin — recette `RECETTE_Firebase_Push.md` + smoke `test:smoke` |
-| **Resend** | ☐ | ☐ `apiKey` (· `fromEmail`) | ☐ | ☐ | ☐ email transactionnel reçu | vérif. DNS du domaine d'envoi = dépend du domaine (B3) |
+| **Resend** | ☐ | ☐ `apiKey` (· `fromEmail`) | ☐ | ☐ | ☐ email transactionnel reçu | vérif. DNS du domaine d’envoi = dépend du domaine (B3) — checklist `RECETTE_Resend_Email.md` + smoke `test:smoke` |
 | **FedaPay** (live) | ☐ (validation FedaPay) | ☐ clé live + ☐ secret webhook **roté avec** | ☐ | ☐ | ☐ 1ᵉʳ paiement réel réconcilié | **APRÈS** recette sandbox complète (§5) |
 
 ## Ce qui peut se faire dès aujourd'hui (sans attendre B3)
