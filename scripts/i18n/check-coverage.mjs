@@ -16,7 +16,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const MESSAGES = resolve(ROOT, 'apps/web/src/i18n/messages.ts');
+export const MESSAGES = resolve(ROOT, 'apps/web/src/i18n/messages.ts');
 const OUT_DIR = resolve(ROOT, 'docs/i18n');
 
 const LOCALES = ['fr', 'en', 'fon', 'yor'];
@@ -25,12 +25,12 @@ const LOCALES = ['fr', 'en', 'fon', 'yor'];
 // API `translations` qui était son unique consommateur. Une erreur de traduction y est
 // potentiellement dangereuse (urgence, résultats, argent) → double validation, CLAUDE.md §6.
 // Ne pas dupliquer cette liste ailleurs : deux définitions finissent par diverger.
-const CRITICAL_PREFIXES = ['sos.', 'labo.', 'payments.'];
+export const CRITICAL_PREFIXES = ['sos.', 'labo.', 'payments.'];
 
-const isCritical = (key) => CRITICAL_PREFIXES.some((p) => key.startsWith(p));
+export const isCritical = (key) => CRITICAL_PREFIXES.some((p) => key.startsWith(p));
 
 /** Extrait l'objet d'une locale depuis le source TS (littéral plat évalué). */
-function extractLocale(source, name) {
+export function extractLocale(source, name) {
   const re = new RegExp(`const ${name}: Messages = (\\{[\\s\\S]*?\\n\\});`);
   const match = source.match(re);
   if (!match) throw new Error(`Bloc introuvable : ${name}`);
@@ -112,4 +112,5 @@ function main() {
   }
 }
 
-main();
+// Exécuté en CLI seulement : le module est aussi importé (import-validated.mjs).
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
