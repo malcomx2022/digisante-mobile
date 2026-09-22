@@ -20,6 +20,8 @@
     "docs:generate": "typedoc",
     "test": "pnpm -r test",
     "test:e2e": "playwright test",
+    "test:scripts": "node --test \"scripts/**/*.test.mjs\"",
+    "release:check": "node scripts/release-check.mjs",
     "i18n:check": "node scripts/i18n/check-coverage.mjs",
     "i18n:export": "node scripts/i18n/check-coverage.mjs --export",
     "i18n:draft": "node scripts/i18n/translate-draft.mjs",
