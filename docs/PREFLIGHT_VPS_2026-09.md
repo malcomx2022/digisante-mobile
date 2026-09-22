@@ -44,7 +44,7 @@
 | O3 | Rôle PostgreSQL applicatif **propriétaire** des tables d'audit (CLAUDE.md §8 recommande un rôle non propriétaire) | durcissement : un compte applicatif compromis pourrait `ALTER`/désactiver les triggers | arbitrage porteur (migrations = propriétaire) |
 | O4 | Sauvegardes **hors VPS** (copie distante des archives + de `backup.key`) | procédure manuelle, non scriptée | B5 / porteur |
 | O5 | **CI GitHub Actions bloquée** au 22/09 (jobs sans runner, `main` inclus) | le job `deploy` ne peut pas s'exécuter | vérifier *Settings → Billing* du compte |
-| O6 | Patch §5 d'idempotence des webhooks **non appliqué** | double crédit possible | accord porteur (`RECETTE_FedaPay_Sandbox.md` §1) |
+| O6 | ~~Patch §5 d'idempotence des webhooks non appliqué~~ — **appliqué le 22/09/2026** (accord porteur) | ~~double crédit possible~~ fermé | S7 à rejouer en bac à sable (`RECETTE_FedaPay_Sandbox.md` §1) |
 
 ## 4. Décision
 

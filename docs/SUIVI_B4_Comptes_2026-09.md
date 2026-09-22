@@ -13,7 +13,7 @@
 
 | Provider | Compte ouvert | Clés récupérées | Saisies `/admin/integrations` | Readiness ✔ | Vérif. métier | Notes |
 |---|---|---|---|---|---|---|
-| **FedaPay** (sandbox) | ☐ | ☐ `secretKey` · ☐ `publicKey` · ☐ `webhookSecret` | ☐ | ☐ | ☐ paiement sandbox confirmé **par webhook** | vérification marchand FedaPay = délai tiers — recette `RECETTE_FedaPay_Sandbox.md` · 🔴 patch §5 double crédit **en attente d'accord** |
+| **FedaPay** (sandbox) | ☐ | ☐ `secretKey` · ☐ `publicKey` · ☐ `webhookSecret` | ☐ | ☐ | ☐ paiement sandbox confirmé **par webhook** | vérification marchand FedaPay = délai tiers — recette `RECETTE_FedaPay_Sandbox.md` · ✅ patch §5 double crédit **appliqué le 22/09/2026** (S7 à rejouer) |
 | **Twilio** | ☐ | ☐ `accountSid` · ☐ `authToken` · ☐ `fromNumber` | ☐ | ☐ | ☐ OTP SMS reçu sur +229 | tester MTN **et** Moov (sender ID §8) — fiche `RECETTE_Twilio_SMS.md` + smoke `test:smoke` |
 | **Daily.co** | ☐ | ☐ `apiKey` · ☐ `domain` | ☐ | ☐ | ☐ salle de téléconsultation ouverte | free tier suffisant pour la recette — matrice `RECETTE_Daily_Teleconsultation.md` + smoke `test:smoke` |
 | **Firebase** | ☐ | ☐ `projectId` · ☐ `clientEmail` · ☐ `privateKey` · ☐ config web `NEXT_PUBLIC_*` (6 valeurs + VAPID) | ☐ (serveur) | ☐ | ☐ push web reçu | `NEXT_PUBLIC_*` = **build web**, pas l’admin — recette `RECETTE_Firebase_Push.md` + smoke `test:smoke` |

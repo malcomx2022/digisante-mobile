@@ -12,7 +12,7 @@
 |---|---|---|---|
 | R0.1 | Environnement de recette HTTPS déployé (`verify_deploy.sh` tout PASS) | SUIVI_B3 | ☐ |
 | R0.2 | Fournisseurs en **sandbox/recette** : Twilio, Daily, Firebase (build avec `NEXT_PUBLIC_FIREBASE_*`), Resend, FedaPay sandbox | SUIVI_B4 + `RECETTE_*.md` | ☐ |
-| R0.3 | Patch §5 d'idempotence appliqué (sinon S7/P6 non concluants) | `RECETTE_FedaPay_Sandbox.md` §1 | ☐ |
+| R0.3 | Patch §5 d'idempotence appliqué (sinon S7/P6 non concluants) | `RECETTE_FedaPay_Sandbox.md` §1 | ☑ appliqué le 22/09/2026 |
 | R0.4 | Appareils : **Android** entrée de gamme (Chrome) + **iPhone** iOS ≥ 16.4 (Safari, PWA installée) | — | ☐ |
 | R0.5 | SIM **MTN** et **Moov** de recette (`+22901…`) | — | ☐ |
 | R0.6 | **Comptes synthétiques uniquement** (noms fictifs, aucune donnée de santé réelle) : 1 par rôle ; médecin **vérifié** via KYC par l'admin | — | ☐ |

@@ -19,20 +19,17 @@ de 10 € créditée jusqu'à 5 fois). Même motif sur le remboursement admin (d
   l'audit CSO (TOCTOU), resté ouvert ici.
 - **Quand ça arrive en réel** : retries FedaPay d'un webhook lent à acquitter, webhook **∥**
   réconciliation de 02:30 sur le même paiement, les 2 workers PM2 recevant chacun une livraison.
-- **Patch prêt, testé, NON appliqué** (zone gelée : revue explicite requise) :
-  `docs/proposals/PATCH_5_webhook_idempotence_atomique.patch` — transition **conditionnelle**
-  (`updateMany … where status ∉ terminaux`, PostgreSQL ré-évalue la condition après le verrou de
-  ligne) et crédit/reversal **dans la même transaction** ; ajoute `payments.concurrency.test.ts`.
-  Validé localement : **1 crédit / 1 reversal** sur 3 exécutions, **356 tests API** verts dont tous
-  les re-tests webhooks existants (HMAC ✓/✗, corps falsifié, anti-rejeu, idempotence, crédit
-  wallet, remboursement, secret base > `.env`, réconciliation).
-- **Application (après accord du porteur)** :
-  ```bash
-  git apply docs/proposals/PATCH_5_webhook_idempotence_atomique.patch
-  pnpm release:check          # + re-tests webhooks, cf. §3
-  ```
-- **Tant que le patch n'est pas appliqué** : la recette sandbox peut avancer, mais **aucun passage
-  en production (prompt 11)** — le contrôle S7 ci-dessous doit être rejoué après application.
+- **✅ Correctif APPLIQUÉ le 22/09/2026 sur autorisation explicite du porteur** (§5) : transition
+  **conditionnelle** (`updateMany … where status ∉ terminaux` — PostgreSQL ré-évalue la condition
+  après le verrou de ligne, une seule livraison gagne) et crédit/reversal **dans la même
+  transaction** (`creditWithin` / `refundWithin`) ; test `payments.concurrency.test.ts`.
+- **Preuve** : sans le correctif, le test reproduit le défaut (**4 crédits** pour 5 webhooks
+  simultanés, **4 reversals** pour 4 remboursements simultanés) ; avec, **1 et 1**, vert **10/10**
+  exécutions répétées. Re-tests webhooks §5 verts (378 tests API) : HMAC ✓/✗, ancien format
+  refusé, corps falsifié, en-tête malformé, anti-rejeu, rotation de secret, idempotence, crédit
+  wallet, remboursement, secret base > `.env`, réconciliation.
+- **Reste à faire en bac à sable** : rejouer le contrôle **S7** ci-dessous avec de vraies
+  livraisons FedaPay (exige une clé sandbox — chantier B4).
 
 ## 2. Autres constats
 

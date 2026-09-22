@@ -31,12 +31,25 @@ export async function summary(app: FastifyInstance, userId: string) {
 /** Crédite le portefeuille (appelé à la confirmation d'une recharge). Atomique. */
 export async function credit(app: FastifyInstance, userId: string, amount: number, reference: string, description?: string) {
   const wallet = await getOrCreateWallet(app, userId);
-  await app.prisma.$transaction([
-    app.prisma.walletTransaction.create({
-      data: { walletId: wallet.id, type: 'TOPUP', amount: new Prisma.Decimal(amount), reference, description },
-    }),
-    app.prisma.wallet.update({ where: { id: wallet.id }, data: { balance: { increment: amount } } }),
-  ]);
+  await app.prisma.$transaction((tx) => creditWithin(tx, wallet.id, amount, reference, description));
+}
+
+/**
+ * Crédit DANS la transaction de l'appelant : permet de lier le crédit à la
+ * transition de statut du paiement (tout ou rien — pas de paiement COMPLETED sans
+ * crédit, ni de crédit sans transition gagnée).
+ */
+export async function creditWithin(
+  tx: Prisma.TransactionClient,
+  walletId: string,
+  amount: number,
+  reference: string,
+  description?: string,
+) {
+  await tx.walletTransaction.create({
+    data: { walletId, type: 'TOPUP', amount: new Prisma.Decimal(amount), reference, description },
+  });
+  await tx.wallet.update({ where: { id: walletId }, data: { balance: { increment: amount } } });
 }
 
 /**
@@ -47,12 +60,21 @@ export async function credit(app: FastifyInstance, userId: string, amount: numbe
  */
 export async function refund(app: FastifyInstance, userId: string, amount: number, reference: string, description?: string) {
   const wallet = await getOrCreateWallet(app, userId);
-  await app.prisma.$transaction([
-    app.prisma.walletTransaction.create({
-      data: { walletId: wallet.id, type: 'REFUND', amount: new Prisma.Decimal(amount), reference, description },
-    }),
-    app.prisma.wallet.update({ where: { id: wallet.id }, data: { balance: { decrement: amount } } }),
-  ]);
+  await app.prisma.$transaction((tx) => refundWithin(tx, wallet.id, amount, reference, description));
+}
+
+/** Reversal DANS la transaction de l'appelant (même raison que `creditWithin`). */
+export async function refundWithin(
+  tx: Prisma.TransactionClient,
+  walletId: string,
+  amount: number,
+  reference: string,
+  description?: string,
+) {
+  await tx.walletTransaction.create({
+    data: { walletId, type: 'REFUND', amount: new Prisma.Decimal(amount), reference, description },
+  });
+  await tx.wallet.update({ where: { id: walletId }, data: { balance: { decrement: amount } } });
 }
 
 interface DebitInput {

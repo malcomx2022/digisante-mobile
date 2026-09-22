@@ -10,7 +10,7 @@
 | # | Condition préalable | Preuve attendue | État |
 |---|---|---|---|
 | P1 | Recette sandbox **signée** (S1, S2, S3, S5, S6, S7 de `RECETTE_FedaPay_Sandbox.md`) | fiche datée, opérateur + relecteur | ❌ non exécutée (aucune clé sandbox) |
-| P2 | Patch §5 d'idempotence atomique **appliqué et revu** (`docs/proposals/PATCH_5_webhook_idempotence_atomique.patch`) + S7 rejoué | commit + PR + re-tests webhooks | ❌ en attente d'accord du porteur |
+| P2 | Patch §5 d'idempotence atomique **appliqué et revu** + S7 rejoué | commit + PR + re-tests webhooks | 🟠 partiel — **appliqué le 22/09/2026** (accord du porteur, re-tests webhooks verts, cf. `RECETTE_FedaPay_Sandbox.md` §1) ; **S7 à rejouer en bac à sable** (aucune clé sandbox) |
 | P3 | Production B3 opérationnelle (HTTPS, `health`/`ready`, crons dont réconciliation 02:30) | `SUIVI_B3` phases 1→6 cochées | ❌ VPS non provisionné |
 | P4 | Sauvegarde **pré-bascule** + restauration testée (B5) | archives `digisante_db_<stamp>` + `digisante_files_<stamp>` du jour, B5 validé | ❌ |
 | P5 | Compte FedaPay **live** validé (KYC marchand) | statut « activé » côté FedaPay | ❌ |
