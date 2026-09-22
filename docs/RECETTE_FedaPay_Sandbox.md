@@ -1,0 +1,90 @@
+# Recette FedaPay SANDBOX — webhook et parcours financiers (B4, zone gelée §5)
+
+> **Date** : 22 septembre 2026 · **Prérequis humains** : compte FedaPay **sandbox validé**,
+> `secretKey` (`sk_sandbox_…`), `publicKey`, `webhookSecret` saisis ensemble dans
+> `/admin/integrations` (carte **FEDAPAY**), URL **HTTPS** de recette joignable par FedaPay
+> (`https://<domaine-recette>/api/v1/payments/webhook`), `RECONCILE_TOKEN` posé.
+> **Règle** : un paiement n'est « réussi » que s'il passe **PENDING → COMPLETED par webhook,
+> sans double crédit**. Aucune case B4 n'est cochée sans preuve observée.
+
+## 1. 🔴 Constat bloquant — double crédit sur livraisons concurrentes (patch EN ATTENTE)
+
+**Reproduit le 22/09/2026, 5 exécutions sur 5** (pile réelle PostgreSQL 16 + Redis) : 5 livraisons
+**simultanées** du même webhook signé de recharge ⇒ **4 à 5 crédits** du portefeuille (une recharge
+de 10 € créditée jusqu'à 5 fois). Même motif sur le remboursement admin (double reversal).
+
+- **Cause** : `applyPaymentStatus` contrôle l'idempotence sur une **lecture préalable** du statut,
+  puis fait un `update` **non conditionnel** et un crédit **hors transaction**. Deux livraisons qui
+  lisent `PENDING` en même temps passent toutes deux. Motif identique au débit wallet corrigé par
+  l'audit CSO (TOCTOU), resté ouvert ici.
+- **Quand ça arrive en réel** : retries FedaPay d'un webhook lent à acquitter, webhook **∥**
+  réconciliation de 02:30 sur le même paiement, les 2 workers PM2 recevant chacun une livraison.
+- **Patch prêt, testé, NON appliqué** (zone gelée : revue explicite requise) :
+  `docs/proposals/PATCH_5_webhook_idempotence_atomique.patch` — transition **conditionnelle**
+  (`updateMany … where status ∉ terminaux`, PostgreSQL ré-évalue la condition après le verrou de
+  ligne) et crédit/reversal **dans la même transaction** ; ajoute `payments.concurrency.test.ts`.
+  Validé localement : **1 crédit / 1 reversal** sur 3 exécutions, **356 tests API** verts dont tous
+  les re-tests webhooks existants (HMAC ✓/✗, corps falsifié, anti-rejeu, idempotence, crédit
+  wallet, remboursement, secret base > `.env`, réconciliation).
+- **Application (après accord du porteur)** :
+  ```bash
+  git apply docs/proposals/PATCH_5_webhook_idempotence_atomique.patch
+  pnpm release:check          # + re-tests webhooks, cf. §3
+  ```
+- **Tant que le patch n'est pas appliqué** : la recette sandbox peut avancer, mais **aucun passage
+  en production (prompt 11)** — le contrôle S7 ci-dessous doit être rejoué après application.
+
+## 2. Autres constats
+
+- **« DLQ » : n'existe pas dans le dépôt.** CLAUDE.md §3.5 cite « HMAC, retry ×5, DLQ,
+  réconciliation » : le *retry ×5* est côté **FedaPay** (rejeu d'un webhook non acquitté) ; il n'y a
+  **aucune file de lettres mortes** côté API. Le filet réel est la **réconciliation** (cron 02:30,
+  `POST /payments/reconcile`, paiements PENDING > 1 h). Un webhook rejeté (401 : secret désynchronisé)
+  n'est rattrapé que par ce cron. Aucune modification faite (zone gelée) ; décision produit à prendre.
+- **Préflight sans clé** (22/09) : `source=env · activé=false · clés présentes=aucune` → B4 FedaPay
+  entièrement ouvert, comme attendu.
+
+## 3. Re-tests automatisés (exécutés le 22/09/2026 — sans clé réelle)
+
+| Contrôle | Test | Résultat |
+|---|---|---|
+| HMAC valide / invalide / secret ou en-tête manquant / en-tête malformé / corps falsifié | `fedapay.test.ts` | ✓ |
+| Ancien schéma (HMAC nu du corps) refusé | `fedapay.test.ts` | ✓ |
+| Anti-rejeu (horodatage > 300 s refusé), horloge en retard tolérée, rotation (2 signatures) | `fedapay.test.ts` | ✓ |
+| Webhook 401 sur signature invalide + idempotence d'un rejeu **séquentiel** | `payments.test.ts` | ✓ |
+| Montant de consultation **imposé serveur**, IDOR 403, double paiement 400 | `payments.test.ts` | ✓ |
+| Paiement WALLET (débit atomique, solde insuffisant sans orphelin) | `payments.test.ts`, `wallet.test.ts` | ✓ |
+| Remboursement idempotent (séquentiel) + reversal recharge | `payments.test.ts` | ✓ |
+| Secret webhook en **base** prime sur le `.env` | `payments.test.ts` | ✓ |
+| Réconciliation (balayage, jeton de service) | `payments.reconcile.test.ts` | ✓ |
+| Livraisons **concurrentes** / remboursements concurrents | patch `payments.concurrency.test.ts` | ✗ sans patch · ✓ avec patch |
+| Retry ×5 / DLQ | — | côté FedaPay / **inexistant** (cf. §2) |
+
+## 4. Préflight (opt-in, lecture seule, aucune transaction)
+
+```bash
+SMOKE_FEDAPAY=1 pnpm --filter @digisante/api test:smoke -- fedapay
+```
+
+Vérifie clés présentes (noms seulement), environnement **sandbox** déduit de la clé (clé live
+refusée), URL de webhook HTTPS, clé acceptée par l'API sandbox (`GET /transactions`). Sortie
+publiable : `[preflight:fedapay] source=db · activé=true · clés présentes=publicKey,secretKey,webhookSecret`.
+
+## 5. Recette guidée — preuves à collecter (ID masqué, statut, heure, preuve non sensible)
+
+Pour chaque étape : **ID FedaPay masqué** (4 derniers caractères), **statut avant/après**,
+**heure**, et une preuve **non sensible** (capture du statut dans `/admin/finance`, ligne d'audit
+`PAYMENT_CONFIRMED`/`PAYMENT_REFUND`, **jamais** un numéro de carte/téléphone complet).
+
+| # | Parcours | Étapes | Attendu | ID | Avant → après | Heure | OK |
+|---|---|---|---|---|---|---|---|
+| S1 | Recharge wallet (diaspora) | `/diaspora/wallet` → recharger 10 € carte test → **redirection** vers la page FedaPay → payer | PENDING → **COMPLETED par webhook** ; solde +6 560 XOF **une fois** ; audit `PAYMENT_CONFIRMED source=webhook` | •••• | | | ☐ |
+| S2 | Consultation Mobile Money | patient → RDV confirmé → payer MTN MoMo (numéro de test sandbox) | montant = tarif médecin (serveur) ; COMPLETED par webhook | •••• | | | ☐ |
+| S3 | Paiement WALLET | patient avec solde → payer un RDV par portefeuille | COMPLETED **immédiat**, sans transaction FedaPay ; solde débité une fois | — | | | ☐ |
+| S4 | Webhook rejeté | temporairement, secret webhook FedaPay ≠ base (ou rejeu manuel altéré) | **401**, audit `AUTH_FAIL source=fedapay_webhook`, statut inchangé | •••• | | | ☐ |
+| S5 | Réconciliation manuelle | paiement laissé PENDING > 1 h puis `curl -X POST -H "x-service-token: $RECONCILE_TOKEN" https://<recette>/api/v1/payments/reconcile` | statut résolu ; relancer : **aucun** changement (idempotent) | •••• | | | ☐ |
+| S6 | Remboursement admin | `/admin/finance` → rembourser S1 (scope `finance:write`) | COMPLETED → REFUNDED ; reversal −6 560 **une fois** ; audit `PAYMENT_REFUND` ; 2ᵉ clic = idempotent | •••• | | | ☐ |
+| S7 | Rejeu du webhook | dashboard FedaPay → renvoyer l'événement de S1 (plusieurs fois, rapprochés) | réponse `idempotent: true` ; **aucun crédit supplémentaire** — ⚠️ **à rejouer après application du patch §1** | •••• | | | ☐ |
+
+Critère de sortie B4 FedaPay sandbox : **S1, S2, S3, S5, S6, S7 OK** + patch §1 appliqué et revu.
+Ensuite seulement : prompt 11 (bascule live, quatre yeux).
