@@ -17,7 +17,8 @@
 //   • pages      : fichiers `page.tsx` sous apps/web/src/app (patientPages : sous /patient).
 //   • models / enums : blocs `model X {` / `enum X {` de schema.prisma.
 //   • migrations : dossiers de apps/api/prisma/migrations.
-//   • tests      : fichiers `*.test.ts` (API, web) / `*.spec.ts` (e2e) ; cas = appels
+//   • tests      : fichiers `*.test.ts` (API, web) / `*.spec.ts` (e2e) — hors
+//                  `*.smoke.test.ts` (fournisseurs réels, opt-in, comptés à part) ; cas = appels
 //                  `it(`/`test(` en début de ligne (aucun test paramétré dans le dépôt :
 //                  ce compte statique égale le compte d'exécution — 325/37/8 vérifié
 //                  le 22/09/2026 ; un `it.each` futur serait compté UNE fois).
@@ -68,7 +69,9 @@ export function countCases(src) {
 export function measure(root = ROOT) {
   const api = join(root, 'apps/api/src');
   const apiFiles = walk(api).filter((f) => f.endsWith('.ts'));
-  const apiTests = apiFiles.filter((f) => f.endsWith('.test.ts'));
+  // Smoke tests fournisseurs (appels réels, opt-in) : hors `pnpm test`, comptés à part.
+  const apiSmoke = apiFiles.filter((f) => f.endsWith('.smoke.test.ts'));
+  const apiTests = apiFiles.filter((f) => f.endsWith('.test.ts') && !f.endsWith('.smoke.test.ts'));
   let rest = 0;
   let websocket = 0;
   for (const f of apiFiles.filter((f) => !f.endsWith('.test.ts'))) {
@@ -105,6 +108,7 @@ export function measure(root = ROOT) {
     apiTestFiles: apiTests.length,
     webTestFiles: webTests.length,
     e2eSpecFiles: e2eSpecs.length,
+    smokeTestFiles: apiSmoke.length,
     apiTests: apiCases,
     webTests: webCases,
     e2eTests: cases(e2eSpecs),

@@ -15,6 +15,7 @@ import type { FastifyInstance } from 'fastify';
 import { env } from '@/lib/env.js';
 import { writeAudit } from '@/lib/audit.js';
 import { badRequest, notFound } from '@/lib/errors.js';
+import { maskPhone } from '@/lib/redact.js';
 import { sendSms } from '@/services/twilio.js';
 
 /** Gabarits SMS SOS, dans la langue du destinataire (FR/EN/FON au minimum). */
@@ -79,7 +80,7 @@ export async function triggerSos(app: FastifyInstance, input: TriggerSosInput) {
         // dès qu'au moins un envoi a abouti (réel OU stub journalisé).
         if (res.delivered || res.stub) notified = true;
       } catch (err) {
-        app.log.error({ err, to }, '[SOS] échec envoi SMS au contact');
+        app.log.error({ err, to: maskPhone(to) }, '[SOS] échec envoi SMS au contact');
       }
     }
 

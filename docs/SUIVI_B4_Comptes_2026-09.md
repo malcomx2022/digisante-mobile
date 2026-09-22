@@ -14,7 +14,7 @@
 | Provider | Compte ouvert | Clés récupérées | Saisies `/admin/integrations` | Readiness ✔ | Vérif. métier | Notes |
 |---|---|---|---|---|---|---|
 | **FedaPay** (sandbox) | ☐ | ☐ `secretKey` · ☐ `publicKey` · ☐ `webhookSecret` | ☐ | ☐ | ☐ paiement sandbox confirmé **par webhook** | vérification marchand FedaPay = délai tiers |
-| **Twilio** | ☐ | ☐ `accountSid` · ☐ `authToken` · ☐ `fromNumber` | ☐ | ☐ | ☐ OTP SMS reçu sur +229 | tester MTN **et** Moov (sender ID §8) |
+| **Twilio** | ☐ | ☐ `accountSid` · ☐ `authToken` · ☐ `fromNumber` | ☐ | ☐ | ☐ OTP SMS reçu sur +229 | tester MTN **et** Moov (sender ID §8) — fiche `RECETTE_Twilio_SMS.md` + smoke `test:smoke` |
 | **Daily.co** | ☐ | ☐ `apiKey` · ☐ `domain` | ☐ | ☐ | ☐ salle de téléconsultation ouverte | free tier suffisant pour la recette |
 | **Firebase** | ☐ | ☐ `projectId` · ☐ `clientEmail` · ☐ `privateKey` · ☐ config web `NEXT_PUBLIC_*` (6 valeurs + VAPID) | ☐ (serveur) | ☐ | ☐ push web reçu | `NEXT_PUBLIC_*` = **build web**, pas l'admin |
 | **Resend** | ☐ | ☐ `apiKey` (· `fromEmail`) | ☐ | ☐ | ☐ email transactionnel reçu | vérif. DNS du domaine d'envoi = dépend du domaine (B3) |
