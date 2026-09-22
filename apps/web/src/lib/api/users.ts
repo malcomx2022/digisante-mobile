@@ -1,7 +1,7 @@
 // Profil utilisateur courant (module users backend) — formulaire profil/paramètres.
 import type { Lang, Role } from '@digisante/shared';
 
-import { get, patch } from './client';
+import { get, patchNow } from './client';
 
 /** Fiche médicale d'urgence du patient (vitale pour le SOS). */
 export interface MedicalInfo {
@@ -74,7 +74,7 @@ function online<T>(result: T | { queued: true }): T {
 
 export const usersApi = {
   me: () => get<MeFull>('/users/me'),
-  update: (body: UpdateMeBody) => patch<MeFull>('/users/me', body).then(online),
+  update: (body: UpdateMeBody) => patchNow<MeFull>('/users/me', body).then(online),
   medical: () => get<MedicalInfo>('/users/me/medical'),
-  updateMedical: (body: UpdateMedicalBody) => patch<MedicalInfo>('/users/me/medical', body).then(online),
+  updateMedical: (body: UpdateMedicalBody) => patchNow<MedicalInfo>('/users/me/medical', body).then(online),
 };

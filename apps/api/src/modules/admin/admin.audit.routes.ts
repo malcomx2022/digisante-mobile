@@ -6,6 +6,7 @@ import { paginationSchema } from '@digisante/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
+import { redactAuditMetaForAdmin } from '@/lib/audit.js';
 import { paginate } from '@/lib/http.js';
 import { zParse } from '@/lib/validation.js';
 
@@ -24,6 +25,8 @@ export default async function adminAuditRoutes(app: FastifyInstance) {
       app.prisma.auditLog.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (q.page - 1) * q.pageSize, take: q.pageSize }),
       app.prisma.auditLog.count({ where }),
     ]);
-    return paginate(items, total, q.page, q.pageSize);
+    // Le registre est immuable : les lignes anciennes peuvent porter des valeurs
+    // cliniques ou une position (LAB_CRITICAL, SOS_ALERT) — l'admin ne les voit pas (§4).
+    return paginate(items.map((r) => ({ ...r, meta: redactAuditMetaForAdmin(r.meta) })), total, q.page, q.pageSize);
   });
 }

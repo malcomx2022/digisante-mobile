@@ -1,5 +1,5 @@
 // Référencement entre médecins : orienter un patient vers un confrère et répondre.
-import { get, post } from './client';
+import { get, postNow } from './client';
 
 export type ReferralStatus = 'PENDING' | 'ACCEPTED' | 'COMPLETED' | 'CANCELLED';
 export type ReferralAction = 'ACCEPT' | 'COMPLETE' | 'CANCEL';
@@ -31,7 +31,7 @@ function online<T>(r: T | { queued: true }): T {
 export const referralsApi = {
   list: () => get<Referral[]>('/referrals'),
   create: (body: { toDoctorId: string; patientId: string; reason: string }) =>
-    post<{ id: string; status: ReferralStatus }>('/referrals', body).then(online),
+    postNow<{ id: string; status: ReferralStatus }>('/referrals', body).then(online),
   respond: (id: string, action: ReferralAction) =>
-    post<{ id: string; status: ReferralStatus }>(`/referrals/${id}/respond`, { action }).then(online),
+    postNow<{ id: string; status: ReferralStatus }>(`/referrals/${id}/respond`, { action }).then(online),
 };

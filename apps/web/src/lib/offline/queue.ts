@@ -17,6 +17,8 @@ export interface QueuedMutation {
   path: string;
   body?: unknown;
   ts: number;
+  /** Compte auquel appartient la mutation (appareil partagé : jamais rejouée sous un autre compte). */
+  owner?: string | null;
 }
 
 /** Mutation hors-ligne rejouée puis rejetée définitivement par le serveur (4xx). */
@@ -73,9 +75,17 @@ function nextTs(): number {
   return lastTs;
 }
 
+// Compte courant (posé par AuthProvider). Une mutation mise en file par le compte A
+// ne doit JAMAIS être rejouée sous la session du compte B (appareil partagé : les
+// constantes de A écrites dans le dossier de B) — §4.
+let owner: string | null = null;
+export function setQueueOwner(userId: string | null): void {
+  owner = userId;
+}
+
 /** Ajoute une mutation à la file. L'`id` sert aussi de clé d'idempotence (point 2). */
-export async function enqueue(item: Omit<QueuedMutation, 'id' | 'ts'>): Promise<QueuedMutation> {
-  const entry: QueuedMutation = { ...item, id: crypto.randomUUID(), ts: nextTs() };
+export async function enqueue(item: Omit<QueuedMutation, 'id' | 'ts' | 'owner'>): Promise<QueuedMutation> {
+  const entry: QueuedMutation = { ...item, id: crypto.randomUUID(), ts: nextTs(), owner };
   await tx('readwrite', (s) => s.add(entry));
   return entry;
 }
@@ -131,7 +141,9 @@ export async function removeFailed(id: string): Promise<void> {
 export async function flush(
   send: (m: QueuedMutation) => Promise<void>,
 ): Promise<{ flushed: number; failed: number }> {
-  const items = await allQueued();
+  // Seules les mutations du compte courant sont rejouées ; celles d'un autre compte
+  // restent en file (elles repartiront quand CE compte se reconnectera).
+  const items = (await allQueued()).filter((m) => (m.owner ?? null) === owner);
   let flushed = 0;
   let failed = 0;
   for (const item of items) {
@@ -152,4 +164,14 @@ export async function flush(
     }
   }
   return { flushed, failed };
+}
+
+/**
+ * Purge COMPLÈTE de la file et des échecs (déconnexion explicite) : les corps en
+ * attente peuvent contenir des données de santé ou des messages — rien ne doit
+ * rester en clair sur un appareil partagé après la déconnexion.
+ */
+export async function purgeAll(): Promise<void> {
+  await tx('readwrite', (s) => s.clear());
+  await tx('readwrite', (s) => s.clear(), FAILED_STORE);
 }

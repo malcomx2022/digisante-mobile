@@ -8,6 +8,7 @@ import type { FastifyInstance } from 'fastify';
 
 import { writeAudit } from '@/lib/audit.js';
 import { badRequest, forbidden, notFound } from '@/lib/errors.js';
+import { assertCareRelationship } from '@/lib/care.js';
 import { detectCriticalValues } from './laboratory.rules.js';
 
 /** Résout l'id du laboratoire lié à l'utilisateur courant (rôle LABORATOIRE). */
@@ -23,10 +24,9 @@ export async function createOrder(
   doctorUserId: string,
   input: { patientId: string; labId?: string; testType: string; scheduledAt?: Date },
 ) {
-  const doctor = await app.prisma.doctor.findUnique({ where: { userId: doctorUserId }, select: { id: true } });
-  if (!doctor) throw forbidden('Profil médecin requis');
   const patient = await app.prisma.patient.findUnique({ where: { id: input.patientId }, select: { id: true } });
   if (!patient) throw notFound('Patient introuvable');
+  const doctor = await assertCareRelationship(app, doctorUserId, patient.id);
 
   return app.prisma.labOrder.create({
     data: {
@@ -101,7 +101,8 @@ export async function submitResult(
       actorId: labUserId,
       targetId: order.patient.userId,
       ip,
-      meta: { orderId, critical },
+      // Métadonnées SEULEMENT (§4) : ni analyte ni valeur — l'admin lit l'audit.
+      meta: { orderId, criticalCount: critical.length },
     });
   }
 

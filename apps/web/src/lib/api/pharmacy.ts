@@ -1,6 +1,6 @@
 // Pharmacie : scan d'ordonnance, délivrance granulaire, journal de dispensation,
 // stock & disponibilité (« médicament près de moi »).
-import { del, get, post } from './client';
+import { get, delNow, postNow } from './client';
 
 export type LineStatus = 'DISPENSED' | 'PARTIALLY_DISPENSED' | 'UNAVAILABLE';
 
@@ -55,14 +55,14 @@ export interface AvailabilityItem {
 }
 
 export const pharmacyApi = {
-  scan: (qrCode: string) => post<ScanResult>('/pharmacy/scan', { qrCode }).then(online),
+  scan: (qrCode: string) => postNow<ScanResult>('/pharmacy/scan', { qrCode }).then(online),
   dispense: (prescriptionId: string, items: { itemId: string; status: LineStatus }[]) =>
-    post<{ prescriptionId: string; status: string }>(`/pharmacy/prescriptions/${prescriptionId}/dispense`, { items }).then(online),
+    postNow<{ prescriptionId: string; status: string }>(`/pharmacy/prescriptions/${prescriptionId}/dispense`, { items }).then(online),
   dispensations: () => get<Dispensation[]>('/pharmacy/dispensations'),
   // Stock (pharmacie) + disponibilité (patient).
   listStock: () => get<StockItem[]>('/pharmacy/stock'),
-  saveStock: (body: { displayName: string; status?: StockStatus; price?: number | null }) => post<StockItem>('/pharmacy/stock', body).then(online),
-  removeStock: (id: string) => del<{ removed: boolean }>(`/pharmacy/stock/${id}`).then(online),
+  saveStock: (body: { displayName: string; status?: StockStatus; price?: number | null }) => postNow<StockItem>('/pharmacy/stock', body).then(online),
+  removeStock: (id: string) => delNow<{ removed: boolean }>(`/pharmacy/stock/${id}`).then(online),
   availability: (q: string, pos?: { lat: number; lng: number }) => {
     const params = new URLSearchParams({ q });
     if (pos) {

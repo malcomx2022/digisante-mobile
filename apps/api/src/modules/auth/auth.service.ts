@@ -112,7 +112,9 @@ async function generateAndSendOtp(
   await assertSendQuota(app, user.phone);
   const code = generateOtp();
   await app.redis.set(otpKey(user.phone), hashOtp(user.phone, code), 'EX', OTP_TTL_SECONDS);
-  await app.redis.del(attemptsKey(user.phone));
+  // Le compteur d'échecs n'est PAS remis à zéro par un nouvel envoi : sinon
+  // « 4 essais → nouveau code → 4 essais… » contournait le verrou de 5 échecs.
+  // Il ne se remet à zéro que sur un succès (ou au déverrouillage support).
   await sendOtp({ app, to: user.phone, code, channel, lang: user.lang });
   return code;
 }
@@ -250,9 +252,19 @@ export async function verifyOtp(
   const stored = await app.redis.get(otpKey(phone));
   if (!stored) throw badRequest('Code expiré ou inexistant. Demandez un nouveau code.');
 
+  // Compté AVANT la comparaison (INCR atomique) : des vérifications lancées en
+  // parallèle obtiennent chacune un rang distinct, donc au plus OTP_MAX_ATTEMPTS
+  // codes sont réellement évalués — auparavant toutes passaient le contrôle de
+  // verrou avant que l'une d'elles ne le pose.
+  const attempts = await app.redis.incr(attemptsKey(phone));
+  await app.redis.expire(attemptsKey(phone), OTP_LOCK_SECONDS);
+  if (attempts > OTP_MAX_ATTEMPTS) {
+    await app.redis.set(lockKey(phone), '1', 'EX', OTP_LOCK_SECONDS);
+    await app.redis.del(otpKey(phone));
+    throw tooManyRequests("Trop d'échecs. Compte verrouillé 30 minutes.");
+  }
+
   if (!safeEqualHex(stored, hashOtp(phone, input.code))) {
-    const attempts = await app.redis.incr(attemptsKey(phone));
-    await app.redis.expire(attemptsKey(phone), OTP_LOCK_SECONDS);
     await writeAudit(app.prisma, { action: 'AUTH_FAIL', ip, meta: { phone, attempts } });
 
     if (attempts >= OTP_MAX_ATTEMPTS) {
@@ -298,14 +310,16 @@ export async function refresh(app: FastifyInstance, refreshToken: string) {
   }
   if (payload.typ !== 'refresh' || !payload.jti) throw unauthorized('Token de rafraîchissement attendu');
 
-  const owner = await app.redis.get(refreshKey(payload.jti));
+  // GETDEL atomique : deux rafraîchissements simultanés avec le même cookie ne
+  // peuvent plus tous deux réussir (deux lignées de session à partir d'un seul jeton).
+  const owner = await app.redis.getdel(refreshKey(payload.jti));
   if (!owner || owner !== payload.sub) {
     // jti absent de l'allowlist : refresh déjà tourné/révoqué ou rejeu → auditer.
     await writeAudit(app.prisma, { action: 'AUTH_FAIL', actorId: payload.sub, meta: { reason: 'refresh_replay' } });
     throw unauthorized('Session expirée, reconnectez-vous');
   }
 
-  await app.redis.del(refreshKey(payload.jti)); // rotation : l'ancien est révoqué
+  // (rotation : l'ancien jeton a été retiré de l'allowlist par le GETDEL ci-dessus)
 
   // Re-lecture DB : statut et rôle peuvent avoir changé depuis l'émission du
   // refresh (suspension, rétrogradation). Sans cela un compte suspendu

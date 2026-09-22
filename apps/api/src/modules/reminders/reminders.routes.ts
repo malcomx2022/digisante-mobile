@@ -8,10 +8,11 @@ import { NOTIFICATION_CHANNELS, NOTIFICATION_TYPES } from '@digisante/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
-import { env } from '@/lib/env.js';
-import { forbidden, unauthorized } from '@/lib/errors.js';
+import { badRequest, forbidden, unauthorized } from '@/lib/errors.js';
 import { requireRole } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
+import { isValidServiceToken } from '@/lib/service-token.js';
+import { assertCareRelationship } from '@/lib/care.js';
 import * as med from './reminders.medication.js';
 
 const createSchema = z.object({
@@ -38,8 +39,18 @@ export default async function remindersRoutes(app: FastifyInstance) {
   app.post('/', authed, async (request, reply) => {
     const input = zParse(createSchema, request.body);
     const recipientId = input.recipientId ?? request.user.sub;
-    if (recipientId !== request.user.sub && request.user.role !== 'MEDECIN') {
-      throw forbidden('Seul un médecin peut programmer un rappel pour autrui');
+    // Canal : le titre et le texte sont LIBRES. Sur SMS/e-mail ils partiraient depuis
+    // l'expéditeur officiel de la plateforme (hameçonnage « DigiSanté : confirmez
+    // votre paiement… », coût SMS) → notification dans l'application ou push seulement.
+    if (input.channel === 'SMS_TWILIO' || input.channel === 'EMAIL') {
+      throw badRequest('Canal non autorisé pour un rappel programmé (IN_APP ou PUSH_FCM)');
+    }
+    if (recipientId !== request.user.sub) {
+      if (request.user.role !== 'MEDECIN') throw forbidden('Seul un médecin peut programmer un rappel pour autrui');
+      // Pour autrui : médecin vérifié, destinataire = UN DE SES PATIENTS.
+      const patient = await app.prisma.patient.findUnique({ where: { userId: recipientId }, select: { id: true } });
+      if (!patient) throw forbidden('Rappel pour autrui réservé aux patients suivis');
+      await assertCareRelationship(app, request.user.sub, patient.id);
     }
     const reminder = await app.prisma.notification.create({
       data: {
@@ -79,7 +90,7 @@ export default async function remindersRoutes(app: FastifyInstance) {
   // Générateur des rappels dus du jour (cron interne) — jeton de service requis.
   app.post('/generate', async (request) => {
     const token = request.headers['x-service-token'];
-    if (!env.RECONCILE_TOKEN || token !== env.RECONCILE_TOKEN) {
+    if (!isValidServiceToken(token)) {
       throw unauthorized('Jeton de service invalide');
     }
     return med.generateDueReminders(app);

@@ -19,6 +19,7 @@ import { writeAudit } from '@/lib/audit.js';
 import { badRequest, forbidden, notFound } from '@/lib/errors.js';
 import { requireRole } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
+import { assertCareRelationship } from '@/lib/care.js';
 
 const createSchema = z.object({
   toDoctorId: z.string().cuid(),
@@ -85,6 +86,8 @@ export default async function referralsRoutes(app: FastifyInstance) {
     const input = zParse(createSchema, request.body);
     const fromDoctorId = await myDoctorId(request.user.sub);
     if (input.toDoctorId === fromDoctorId) throw badRequest('Impossible de s’orienter soi-même');
+    // On n'oriente que SES patients (sinon : nom du patient révélé via la liste).
+    await assertCareRelationship(app, request.user.sub, input.patientId);
 
     const [toDoctor, patient, fromDoctor] = await Promise.all([
       app.prisma.doctor.findUnique({

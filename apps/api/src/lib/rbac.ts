@@ -58,3 +58,16 @@ export function requireScope(...needed: AdminScope[]): preHandlerHookHandler {
     }
   };
 }
+
+/**
+ * preHandler pour les routes admin SANS scope dédié (ex. tableau de bord) : exige
+ * un profil admin ACTIF portant au moins un scope. Sans lui, un admin suspendu ou
+ * sans profil lisait les agrégats de la plateforme (« admin sans profil = aucun droit »).
+ */
+export function requireActiveAdminProfile(): preHandlerHookHandler {
+  return async (request) => {
+    const { scopes, suspended } = await loadAdminScopes(request);
+    if (suspended) throw forbidden('Compte administrateur suspendu');
+    if (scopes.length === 0) throw forbidden('Aucun droit administrateur');
+  };
+}

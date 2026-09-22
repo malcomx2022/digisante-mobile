@@ -6,10 +6,10 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
-import { env } from '@/lib/env.js';
 import { unauthorized } from '@/lib/errors.js';
 import { requireRole } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
+import { isValidServiceToken } from '@/lib/service-token.js';
 import * as maternity from './maternity.service.js';
 
 const idParams = z.object({ id: z.string().cuid() });
@@ -41,7 +41,7 @@ export default async function maternityRoutes(app: FastifyInstance) {
   // Générateur des rappels CPN dus (cron interne) — jeton de service requis.
   app.post('/reminders/generate', async (request) => {
     const token = request.headers['x-service-token'];
-    if (!env.RECONCILE_TOKEN || token !== env.RECONCILE_TOKEN) {
+    if (!isValidServiceToken(token)) {
       throw unauthorized('Jeton de service invalide');
     }
     return maternity.generateDueReminders(app);

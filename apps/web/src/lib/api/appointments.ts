@@ -1,5 +1,5 @@
 // Rendez-vous de l'utilisateur courant (vue patient).
-import { get, post } from './client';
+import { get, postNow } from './client';
 
 export interface PatientAppointment {
   id: string;
@@ -26,5 +26,5 @@ function online<T>(result: T | { queued: true }): T {
 export const appointmentsApi = {
   listMine: () => get<PatientAppointment[]>('/appointments?pageSize=50'),
   cancel: (id: string, reason: string) =>
-    post<{ status: string }>(`/appointments/${id}/cancel`, { reason }).then(online),
+    postNow<{ status: string }>(`/appointments/${id}/cancel`, { reason }).then(online),
 };

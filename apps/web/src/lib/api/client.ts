@@ -164,12 +164,51 @@ type MutationMethod = QueuedMutation['method'];
  * Mutation typée. Hors-ligne → mise en file IndexedDB (rejouée plus tard) et
  * renvoie `{ queued: true }`. En ligne → exécution immédiate.
  */
+/** Hors-ligne pour une action qui ne doit PAS être différée (message affiché tel quel). */
+export class OfflineError extends Error {
+  constructor() {
+    super('Connexion réseau requise pour cette action');
+    this.name = 'OfflineError';
+  }
+}
+
+/**
+ * Actions JAMAIS mises en file, quel que soit l'appelant : argent (un transfert ou
+ * un paiement rejoué des heures plus tard, sans retour à l'utilisateur, peut
+ * partir deux fois), authentification (un OTP ou une déconnexion rejoués sous la
+ * session suivante), administration et secrets d'intégration (écrits en clair
+ * dans IndexedDB), fichiers du dossier médical, consentements et alertes SOS.
+ */
+const NEVER_QUEUE: readonly RegExp[] = [
+  /^\/auth\//,
+  /^\/admin\//,
+  /^\/payments(\/|$)/,
+  /^\/wallet\//,
+  /^\/beneficiaries\/[^/]+\/send$/,
+  /^\/dmp\/(records\/[^/]+\/documents|consents)/,
+  /^\/users\/me\/device$/,
+  /^\/kyc(\/|$)/,
+  // Une alerte SOS rejouée des heures plus tard serait une fausse urgence : hors-ligne,
+  // l'écran SOS bascule sur le repli SMS / appel (le refus immédiat le déclenche).
+  /^\/sos(\/|$)/,
+];
+
+/** Cette mutation peut-elle être différée hors-ligne ? (pure, testée) */
+export function isQueueable(path: string): boolean {
+  return !NEVER_QUEUE.some((re) => re.test(path));
+}
+
 export async function mutate<T>(
   method: MutationMethod,
   path: string,
   body?: unknown,
+  opts: { queue?: boolean } = {},
 ): Promise<T | { queued: true }> {
   if (!isOnline()) {
+    // Refus AVANT toute écriture en file : auparavant `online()` levait l'erreur
+    // APRÈS la mise en file — l'utilisateur lisait « connexion requise » et
+    // l'action partait quand même au retour du réseau (ex. envoi d'argent).
+    if (opts.queue === false || !isQueueable(path)) throw new OfflineError();
     await enqueue({ method, path, body });
     return { queued: true };
   }
@@ -216,4 +255,10 @@ export const patch = <T>(path: string, body?: unknown) => mutate<T>('PATCH', pat
 export const put = <T>(path: string, body?: unknown) => mutate<T>('PUT', path, body);
 export const del = <T>(path: string) => mutate<T>('DELETE', path);
 
-export const api = { get, post, patch, put, del };
+// Variantes « maintenant ou jamais » : jamais mises en file (OfflineError hors-ligne).
+export const postNow = <T>(path: string, body?: unknown) => mutate<T>('POST', path, body, { queue: false }) as Promise<T>;
+export const patchNow = <T>(path: string, body?: unknown) => mutate<T>('PATCH', path, body, { queue: false }) as Promise<T>;
+export const putNow = <T>(path: string, body?: unknown) => mutate<T>('PUT', path, body, { queue: false }) as Promise<T>;
+export const delNow = <T>(path: string) => mutate<T>('DELETE', path, undefined, { queue: false }) as Promise<T>;
+
+export const api = { get, post, patch, put, del, postNow, patchNow, putNow, delNow };

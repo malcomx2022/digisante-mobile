@@ -2,6 +2,8 @@
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { linkCare } from '@/test/care-fixture.js';
+
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 // drA (expéditeur) · drB (destinataire) · patient · patient2 (pour tests RBAC)
 const PHONES = ['+2290195430001', '+2290195430002', '+2290195430003', '+2290195430004'];
@@ -59,6 +61,8 @@ describe.skipIf(!HAS_INFRA)('Référencement médecins (intégration — cas lim
     });
     patientId = patient.patient!.id;
     patientToken = app.jwt.sign({ sub: patient.id, role: 'PATIENT' }, { expiresIn: '15m' });
+    // Relation de soin drA↔patient (lib/care.ts) : on n'oriente que SES patients.
+    await linkCare(app, drA.id, patientId);
   });
 
   afterAll(async () => {
@@ -99,12 +103,25 @@ describe.skipIf(!HAS_INFRA)('Référencement médecins (intégration — cas lim
     expect(res.statusCode).toBe(404);
   });
 
-  it('patient inexistant → 404', async () => {
+  it('patient inexistant → 403 (la garde de soin passe AVANT : on ne confirme pas l’existence)', async () => {
     const res = await app.inject({
       method: 'POST', url: '/api/v1/referrals', headers: auth(drAToken),
       payload: { toDoctorId: drBId, patientId: MISSING_CUID, reason: 'Avis spécialisé' },
     });
-    expect(res.statusCode).toBe(404);
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('patient existant SANS relation de soin → 403 (pas d’orientation d’un inconnu)', async () => {
+    const stranger = await app.prisma.user.create({
+      data: { phone: PHONES[3], role: 'PATIENT', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Ina', lastName: 'Connu' } }, patient: { create: {} } },
+      include: { patient: true },
+    });
+    const res = await app.inject({
+      method: 'POST', url: '/api/v1/referrals', headers: auth(drAToken),
+      payload: { toDoctorId: drBId, patientId: stranger.patient!.id, reason: 'Avis spécialisé' },
+    });
+    expect(res.statusCode).toBe(403);
+    expect(await app.prisma.referral.count({ where: { patientId: stranger.patient!.id } })).toBe(0);
   });
 
   it('crée une orientation valide → 201 (PENDING)', async () => {

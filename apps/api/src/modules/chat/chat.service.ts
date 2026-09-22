@@ -8,6 +8,7 @@ import type { FastifyInstance } from 'fastify';
 
 import { openSensitiveText, sealSensitiveText } from '@/lib/crypto.js';
 import { forbidden, notFound } from '@/lib/errors.js';
+import { assertCareRelationship } from '@/lib/care.js';
 import { CHAT_CHANNEL, type ChatEvent } from '@/plugins/realtime.js';
 
 interface Actor {
@@ -105,6 +106,10 @@ export async function getOrCreateThread(app: FastifyInstance, actor: Actor, coun
     const patient = await app.prisma.patient.findUnique({ where: { id: counterpartId }, select: { id: true } });
     if (!patient) throw notFound('Patient introuvable');
     patientId = patient.id;
+    // Un fil déjà ouvert (ex. par le patient) se reprend librement ; en ouvrir un
+    // nouveau exige médecin vérifié + relation de soin (sinon : nom du patient révélé).
+    const existing = await app.prisma.chatThread.findUnique({ where: { patientId_doctorId: { patientId, doctorId } }, select: { id: true } });
+    if (!existing) await assertCareRelationship(app, actor.sub, patientId);
   } else {
     patientId = await patientIdOf(app, actor.sub);
     const doctor = await app.prisma.doctor.findUnique({ where: { id: counterpartId }, select: { id: true } });

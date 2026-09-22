@@ -1,5 +1,5 @@
 // Annuaire des médecins (liste filtrable + fiche détaillée + avis).
-import { get, patch, post } from './client';
+import { get, patchNow, postNow } from './client';
 
 export interface DoctorProfile {
   firstName: string;
@@ -67,7 +67,7 @@ export const professionalsApi = {
    *  ⚠️ `consultFee` est le montant IMPOSÉ PAR LE SERVEUR au paiement d'une
    *  consultation : le figer revenait à figer le tarif du médecin à vie. */
   updateMe: (body: UpdateProBody) =>
-    patch<{ id: string; speciality: string; slotDuration: number; consultFee: string | number; bio: string | null }>(
+    patchNow<{ id: string; speciality: string; slotDuration: number; consultFee: string | number; bio: string | null }>(
       '/professionals/me',
       body,
     ).then(online),
@@ -81,5 +81,5 @@ export const professionalsApi = {
   getOne: (id: string) => get<DoctorDetail>(`/professionals/${id}`),
   reviews: (id: string) => get<ReviewsResponse>(`/professionals/${id}/reviews`),
   addReview: (id: string, body: { rating: number; comment?: string }) =>
-    post<{ id: string; rating: number }>(`/professionals/${id}/reviews`, body).then(online),
+    postNow<{ id: string; rating: number }>(`/professionals/${id}/reviews`, body).then(online),
 };

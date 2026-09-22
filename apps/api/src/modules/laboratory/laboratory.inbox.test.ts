@@ -3,6 +3,8 @@
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { linkCare } from '@/test/care-fixture.js';
+
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 const PHONES = ['+2290193100001', '+2290193100002', '+2290193100003', '+2290193100004'];
 
@@ -44,6 +46,7 @@ describe.skipIf(!HAS_INFRA)('Inbox laboratoire (intégration)', () => {
     });
 
     doctorToken = app.jwt.sign({ sub: doctor.id, role: 'MEDECIN' }, { expiresIn: '15m' });
+    await linkCare(app, doctor.id, patientId);
     labToken = app.jwt.sign({ sub: labTech.id, role: 'LABORATOIRE' }, { expiresIn: '15m' });
     otherLabToken = app.jwt.sign({ sub: otherLab.id, role: 'LABORATOIRE' }, { expiresIn: '15m' });
   });

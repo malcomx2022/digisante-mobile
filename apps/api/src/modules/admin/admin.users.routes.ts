@@ -9,7 +9,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
 import { writeAudit } from '@/lib/audit.js';
-import { notFound } from '@/lib/errors.js';
+import { forbidden, notFound } from '@/lib/errors.js';
 import { paginate } from '@/lib/http.js';
 import { zParse } from '@/lib/validation.js';
 
@@ -56,8 +56,14 @@ export default async function adminUsersRoutes(app: FastifyInstance) {
 
   app.post('/users/:id/suspend', withScope('users:write'), async (request) => {
     const { id } = zParse(idParams, request.params);
-    const user = await app.prisma.user.findUnique({ where: { id }, select: { id: true } });
+    const user = await app.prisma.user.findUnique({ where: { id }, select: { id: true, role: true } });
     if (!user) throw notFound('Utilisateur introuvable');
+    // Les comptes ADMIN se gèrent par /admin/admins (scope admin:manage, garde-fous
+    // anti-verrouillage) : `users:write` ne doit pas permettre de suspendre un
+    // SUPER_ADMIN, ni soi-même.
+    if (user.role === 'ADMIN' || id === request.user.sub) {
+      throw forbidden('Compte administrateur : gérer via la console des administrateurs');
+    }
     const updated = await app.prisma.user.update({ where: { id }, data: { status: 'SUSPENDED' }, select: { id: true, status: true } });
     await writeAudit(app.prisma, { action: 'USER_SUSPEND', actorId: request.user.sub, targetId: id, ip: request.ip });
     return updated;
@@ -65,8 +71,14 @@ export default async function adminUsersRoutes(app: FastifyInstance) {
 
   app.post('/users/:id/activate', withScope('users:write'), async (request) => {
     const { id } = zParse(idParams, request.params);
-    const user = await app.prisma.user.findUnique({ where: { id }, select: { id: true } });
+    const user = await app.prisma.user.findUnique({ where: { id }, select: { id: true, role: true } });
     if (!user) throw notFound('Utilisateur introuvable');
+    // Les comptes ADMIN se gèrent par /admin/admins (scope admin:manage, garde-fous
+    // anti-verrouillage) : `users:write` ne doit pas permettre de réactiver un
+    // SUPER_ADMIN, ni soi-même.
+    if (user.role === 'ADMIN' || id === request.user.sub) {
+      throw forbidden('Compte administrateur : gérer via la console des administrateurs');
+    }
     const updated = await app.prisma.user.update({ where: { id }, data: { status: 'ACTIVE' }, select: { id: true, status: true } });
     await writeAudit(app.prisma, { action: 'USER_ACTIVATE', actorId: request.user.sub, targetId: id, ip: request.ip });
     return updated;

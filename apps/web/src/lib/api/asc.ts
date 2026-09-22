@@ -1,5 +1,5 @@
 // Agent de Santé Communautaire : roster + observations + signalement médecin.
-import { del, get, post } from './client';
+import { get, delNow, postNow } from './client';
 
 export interface AscBeneficiary {
   id: string;
@@ -33,11 +33,11 @@ function online<T>(r: T | { queued: true }): T {
 export const ascApi = {
   list: () => get<AscBeneficiary[]>('/asc/beneficiaries'),
   add: (body: { name: string; phone?: string; village?: string; birthDate?: string; notes?: string }) =>
-    post<AscBeneficiary>('/asc/beneficiaries', body).then(online),
+    postNow<AscBeneficiary>('/asc/beneficiaries', body).then(online),
   get: (id: string) => get<AscBeneficiaryDetail>(`/asc/beneficiaries/${id}`),
-  remove: (id: string) => del<{ removed: boolean }>(`/asc/beneficiaries/${id}`).then(online),
+  remove: (id: string) => delNow<{ removed: boolean }>(`/asc/beneficiaries/${id}`).then(online),
   addObservation: (id: string, body: Partial<Omit<AscObservation, 'id' | 'createdAt'>>) =>
-    post<AscObservation>(`/asc/beneficiaries/${id}/observations`, body).then(online),
+    postNow<AscObservation>(`/asc/beneficiaries/${id}/observations`, body).then(online),
   relay: (id: string, doctorId: string, message: string) =>
-    post<{ relayed: boolean }>(`/asc/beneficiaries/${id}/relay`, { doctorId, message }).then(online),
+    postNow<{ relayed: boolean }>(`/asc/beneficiaries/${id}/relay`, { doctorId, message }).then(online),
 };

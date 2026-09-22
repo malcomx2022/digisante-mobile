@@ -5,9 +5,9 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
-import { env } from '@/lib/env.js';
 import { unauthorized } from '@/lib/errors.js';
 import { zParse } from '@/lib/validation.js';
+import { isValidServiceToken } from '@/lib/service-token.js';
 import * as notifications from './notifications.service.js';
 
 const idParams = z.object({ id: z.string().cuid() });
@@ -27,7 +27,7 @@ export default async function notificationsRoutes(app: FastifyInstance) {
   // Dispatch des notifications dues (cron interne) — jeton de service requis.
   app.post('/dispatch', async (request) => {
     const token = request.headers['x-service-token'];
-    if (!env.RECONCILE_TOKEN || token !== env.RECONCILE_TOKEN) {
+    if (!isValidServiceToken(token)) {
       throw unauthorized('Jeton de service invalide');
     }
     return notifications.dispatchPending(app);

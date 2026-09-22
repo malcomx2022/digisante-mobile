@@ -1,5 +1,5 @@
 // Observance médicamenteuse (« j'ai pris », streak, % sur 7 jours).
-import { get, post } from './client';
+import { get, postNow } from './client';
 
 export interface Treatment {
   itemId: string;
@@ -31,5 +31,5 @@ function online<T>(result: T | { queued: true }): T {
 export const adherenceApi = {
   today: () => get<AdherenceToday>('/adherence/today'),
   take: (itemId: string, medicationName: string) =>
-    post<{ id: string; alreadyTaken: boolean }>('/adherence/intake', { itemId, medicationName }).then(online),
+    postNow<{ id: string; alreadyTaken: boolean }>('/adherence/intake', { itemId, medicationName }).then(online),
 };

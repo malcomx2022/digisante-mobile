@@ -47,14 +47,14 @@ export interface RegisterBody {
 
 export const authApi = {
   register: (body: RegisterBody) =>
-    api.post<{ user: AuthUser; otp: OtpInfo }>('/auth/register', body).then(online),
+    api.postNow<{ user: AuthUser; otp: OtpInfo }>('/auth/register', body).then(online),
   requestOtp: (body: { phone: string; channel?: 'SMS' | 'VOICE' }) =>
-    api.post<OtpInfo>('/auth/otp/request', body).then(online),
+    api.postNow<OtpInfo>('/auth/otp/request', body).then(online),
   // Le refresh token n'est plus dans le corps : il est posé en cookie HttpOnly (C6).
   verifyOtp: (body: { phone: string; code: string }) =>
-    api.post<{ user: AuthUser; accessToken: string }>('/auth/otp/verify', body).then(online),
+    api.postNow<{ user: AuthUser; accessToken: string }>('/auth/otp/verify', body).then(online),
   // Rotation via le cookie HttpOnly (aucun corps) → { accessToken, user }.
-  refresh: () => api.post<{ accessToken: string; user: AuthUser }>('/auth/refresh').then(online),
+  refresh: () => api.postNow<{ accessToken: string; user: AuthUser }>('/auth/refresh').then(online),
   me: () => get<AuthUser & { profile?: { firstName: string; lastName: string } | null }>('/auth/me'),
   /** Révocation côté serveur du refresh (cookie) — best-effort avant purge locale. */
   logout: () => post<void>('/auth/logout'),

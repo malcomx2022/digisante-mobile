@@ -2,6 +2,8 @@
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { linkCare } from '@/test/care-fixture.js';
+
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 const PHONE_PATIENT = '+2290195100001';
 const PHONE_DOCTOR = '+2290195100002';
@@ -39,6 +41,7 @@ describe.skipIf(!HAS_INFRA)('Observance médicamenteuse (intégration)', () => {
       speciality: 'Généraliste', licenseNumber: 'BJ-MED-9101', consultFee: 3000,
     });
     doctorToken = doctor.token;
+    await linkCare(app, doctor.userId, patientId);
 
     // Le médecin prescrit un traitement chronique au patient.
     const validUntil = new Date(Date.now() + 60 * 24 * 3600_000).toISOString();

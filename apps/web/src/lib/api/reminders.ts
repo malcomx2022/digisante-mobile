@@ -1,5 +1,5 @@
 // Rappels horaires de traitement (observance).
-import { del, get, post } from './client';
+import { get, delNow, postNow } from './client';
 
 export interface MedicationReminder {
   id: string;
@@ -18,6 +18,6 @@ function online<T>(result: T | { queued: true }): T {
 export const remindersApi = {
   listMedication: () => get<MedicationReminder[]>('/reminders/medication'),
   addMedication: (body: { medicationName: string; time: string; itemId?: string }) =>
-    post<MedicationReminder>('/reminders/medication', body).then(online),
-  removeMedication: (id: string) => del<{ removed: boolean }>(`/reminders/medication/${id}`).then(online),
+    postNow<MedicationReminder>('/reminders/medication', body).then(online),
+  removeMedication: (id: string) => delNow<{ removed: boolean }>(`/reminders/medication/${id}`).then(online),
 };

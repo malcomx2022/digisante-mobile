@@ -1,5 +1,5 @@
 // Messagerie patient ↔ médecin (module chat backend).
-import { get, post } from './client';
+import { get, post, postNow } from './client';
 
 export interface ChatCounterpart {
   role: 'PATIENT' | 'MEDECIN';
@@ -34,7 +34,7 @@ export const chatApi = {
   listThreads: () => get<ChatThread[]>('/chat/threads'),
   /** counterpartId = id Doctor (côté patient) ou id Patient (côté médecin). */
   openThread: (counterpartId: string) =>
-    post<ChatThread>('/chat/threads', { counterpartId }).then(online),
+    postNow<ChatThread>('/chat/threads', { counterpartId }).then(online),
   listMessages: (threadId: string) => get<ChatMessage[]>(`/chat/threads/${threadId}/messages`),
   /** Envoi : hors-ligne → mis en file (retourne { queued: true }), rejoué au retour réseau. */
   sendMessage: (threadId: string, body: string) =>

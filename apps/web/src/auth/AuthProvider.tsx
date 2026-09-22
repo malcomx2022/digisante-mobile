@@ -5,6 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { setAccessToken, setRefreshHandler, setSessionExpiredHandler } from '@/lib/api/client';
 import { authApi, type AuthUser, type OtpInfo, type RegisterBody } from '@/lib/api/auth';
 import { isOnline } from '@/lib/offline/online';
+import { purgeAll, setQueueOwner } from '@/lib/offline/queue';
 import { registerPushDevice } from './push';
 import { sessionCache } from './storage';
 
@@ -107,6 +108,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return res.user;
   }, []);
 
+  // La file hors-ligne appartient au compte courant (jamais rejouée sous un autre).
+  useEffect(() => {
+    setQueueOwner(user?.id ?? null);
+  }, [user]);
+
   const logout = useCallback<AuthContextValue['logout']>(async () => {
     // 1) Révocation serveur (le refresh est lu dans le cookie) — best-effort.
     try {
@@ -114,7 +120,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       /* hors-ligne ou token déjà révoqué : on purge quand même localement */
     }
-    // 2) Purge locale + redirection (assurée par la garde Protected → /onboarding).
+    // 2) Purge de la file hors-ligne : ses corps (constantes, messages…) ne doivent
+    //    pas rester en clair sur un appareil partagé après une déconnexion (§4).
+    await purgeAll().catch(() => undefined);
+    // 3) Purge locale + redirection (assurée par la garde Protected → /onboarding).
     clearSession();
   }, [clearSession]);
 
