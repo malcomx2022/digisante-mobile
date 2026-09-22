@@ -3,7 +3,7 @@
 // pnpm release:check — contrôle de release LOCAL et NON DESTRUCTIF.
 //
 // Enchaîne, dans l'ordre et en s'arrêtant au PREMIER échec :
-//   prérequis → i18n → lint → typecheck → migrations → tests → build
+//   prérequis → i18n → compteurs → lint → typecheck → migrations → tests → build
 //
 // Garanties (vérifiées par scripts/release-check.test.mjs) :
 //   • ne déploie JAMAIS (aucun ssh, pm2, deploy.sh) ;
@@ -33,6 +33,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 /** Étapes, dans l'ordre. `cmd` = argv exécuté sans shell. */
 export const STEPS = [
   { id: 'i18n', label: 'i18n — parité des dictionnaires', cmd: ['node', 'scripts/i18n/check-coverage.mjs', '--require-complete=en'] },
+  { id: 'metrics', label: 'compteurs documentaires (metrics:check)', cmd: ['node', 'scripts/metrics/count.mjs', '--check'] },
   { id: 'lint', label: 'lint', cmd: ['pnpm', 'lint'] },
   { id: 'typecheck', label: 'typecheck', cmd: ['pnpm', 'typecheck'] },
   { id: 'migrations-validate', label: 'migrations — schéma Prisma valide', cmd: ['pnpm', '--filter', '@digisante/api', 'prisma', 'validate'] },

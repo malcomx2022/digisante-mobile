@@ -21,7 +21,7 @@
 Lis CLAUDE.md, docs/INDEX_Documentation_DigiSante.docx puis README.md.
 Fais un état des lieux du monorepo actuel (apps/web, apps/api, packages, infra) :
 ce qui est en place vs ce qui manque pour atteindre un projet complet
-(153 endpoints REST + 1 WebSocket / 28 modules, 46 modèles Prisma, 62 pages, 4 langues, offline-first).
+(163 endpoints REST + 1 WebSocket / 27 modules, 48 modèles Prisma, 66 pages, 4 langues, offline-first).
 Ne code rien encore. Propose-moi un PLAN DE CONSTRUCTION par lots, avec l'ordre
 des dépendances (données → API → intégrations → frontend → tests). Liste les
 risques et les points à clarifier.
