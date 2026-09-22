@@ -8,7 +8,7 @@ import Fastify from 'fastify';
 import Redis from 'ioredis';
 
 import { env } from '@/lib/env.js';
-import { sanitizeLogUrl } from '@/lib/log-sanitize.js';
+import { sanitizeLogUrl, serializeErrorForLog } from '@/lib/log-sanitize.js';
 import adherenceRoutes from '@/modules/adherence/adherence.routes.js';
 import adminRoutes from '@/modules/admin/admin.routes.js';
 import adminCampaignsRoutes from '@/modules/admin/campaigns.routes.js';
@@ -53,6 +53,8 @@ export async function buildServer() {
   // token de query (WS chat) — le JWT ne doit pas fuiter dans les journaux (§4).
   const logBase = {
     serializers: {
+      // Erreurs : jamais le message d'une erreur Prisma (il recopie les arguments, §4).
+      err: serializeErrorForLog,
       req(request: { method: string; url: string; ip: string; id: string }) {
         return {
           method: request.method,

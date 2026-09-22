@@ -1,0 +1,20 @@
+# ─────────────────────────────────────────────────────────────
+# Rotation des journaux DigiSanté (PM2 api/web + crons + healthwatch).
+#   sudo cp infra/deploy/logrotate/digisante /etc/logrotate.d/digisante
+#   sudo logrotate -d /etc/logrotate.d/digisante     # simulation
+# `copytruncate` : PM2 garde le descripteur ouvert (pas de rechargement nécessaire).
+# 14 jours = même rétention que les sauvegardes. Les journaux ne contiennent ni JWT
+# (sérialiseur req + log_format Nginx noquery), ni message d'erreur Prisma (§4).
+# ─────────────────────────────────────────────────────────────
+/var/log/digisante/*.log {
+    daily
+    rotate 14
+    maxsize 100M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    su root root
+    create 0640 digisante digisante
+}

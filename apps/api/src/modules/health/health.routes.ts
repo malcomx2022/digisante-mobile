@@ -20,7 +20,7 @@ export default async function healthRoutes(app: FastifyInstance) {
       await app.redis.ping();
       return { status: 'ready', db: 'up', redis: 'up' };
     } catch (err) {
-      app.log.error(err);
+      app.log.error({ err }, 'readiness en échec (DB ou Redis)');
       return reply.code(503).send({ status: 'unavailable' });
     }
   });

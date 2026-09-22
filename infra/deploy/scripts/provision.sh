@@ -119,8 +119,13 @@ install -d -o root        -g root  -m 0700 "$BACKUP_DIR"
 # Magasin de fichiers chiffrés (KYC + pièces jointes DMP = DONNÉES DE SANTÉ) :
 # 0700, propriété de l'utilisateur applicatif. = KYC_STORAGE_DIR par défaut.
 install -d -o "$APP_USER" -g "$APP_USER" -m 0700 "$APP_DIR/apps/api/storage" "$APP_DIR/apps/api/storage/kyc"
-# Secrets de service root-only (clé de sauvegarde, jeton des tâches internes).
+# Secrets de service root-only (clé de sauvegarde, jeton des tâches internes, alertes).
 install -d -o root -g root -m 0700 /etc/digisante
+# État de la surveillance (healthwatch.sh) + rotation des journaux applicatifs (14 j).
+install -d -o root -g root -m 0700 /var/lib/digisante
+if [[ -f "$APP_DIR/infra/deploy/logrotate/digisante" ]]; then
+  install -m 0644 "$APP_DIR/infra/deploy/logrotate/digisante" /etc/logrotate.d/digisante
+fi
 
 # ── 9. Pare-feu (UFW) ──
 log "Configuration du pare-feu (UFW)…"
@@ -142,6 +147,7 @@ Provisioning terminé. Étapes suivantes :
   4. Nginx :  cp infra/deploy/nginx/digisante.conf → sites-available, puis certbot.
   5. Jeton des tâches internes (= RECONCILE_TOKEN du .env de l'API) :
        sudo sh -c 'umask 077; printf %s "<RECONCILE_TOKEN>" > /etc/digisante/reconcile.token'
-  6. Cron :  sudo crontab infra/deploy/crontab.example (aucun secret dans ce fichier).
+  6. Alertes : sudo sh -c 'umask 077; echo "ALERT_CMD=\"mail -s [DigiSanté] ops@<domaine>\"" > /etc/digisante/alert.conf'
+  7. Cron :  sudo crontab infra/deploy/crontab.example (aucun secret dans ce fichier).
 ──────────────────────────────────────────────────────────────
 NEXT

@@ -91,3 +91,13 @@ test('deploy : migrate deploy (jamais db push), .env requis, healthcheck /ready'
   assert.match(d, /apps\/api\/\.env/);
   assert.match(d, /\/api\/v1\/ready/);
 });
+
+test('observabilité : healthwatch planifié, rotation des journaux installée par le provisioning', () => {
+  const cron = read('infra/deploy/crontab.example');
+  assert.match(cron, /^\*\/5 \* \* \* \* \S+\/healthwatch\.sh/m);
+  assert.match(read('infra/deploy/scripts/provision.sh'), /\/etc\/logrotate\.d\/digisante/);
+  const lr = read('infra/deploy/logrotate/digisante');
+  assert.match(lr, /\/var\/log\/digisante\/\*\.log/);
+  assert.match(lr, /copytruncate/);
+  assert.match(lr, /rotate 14/);
+});
