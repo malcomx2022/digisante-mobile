@@ -62,8 +62,17 @@ Règles :
 ## 5. Circuit de retour et d'intégration (côté développement)
 
 1. Le relecteur renvoie le CSV rempli (+ nom et date, pour la traçabilité).
-2. Réintégrer les traductions dans `apps/web/src/i18n/messages.ts` (dictionnaire plat —
-   ajouter les clés au bloc `fon` / `yor`).
+2. Réintégrer les traductions avec l'importeur contrôlé (jamais à la main) :
+   ```bash
+   node scripts/i18n/import-validated.mjs --locale fon --csv <retour.fon.csv> \
+        --reviewer "<Nom>" --date AAAA-MM-JJ \
+        --second-reviewer "<Nom 2>" --second-date AAAA-MM-JJ --dry-run   # contrôle, puis sans --dry-run
+   ```
+   Il refuse toute clé **critique** sans second relecteur distinct, toute variable `{x}` ou
+   balise différente du FR, les cases vides ou identiques au FR, un CSV mal encodé (U+FFFD),
+   un fichier dont la colonne `fr` a été modifiée ; il n'écrase jamais une traduction
+   existante (`--overwrite`) et consigne relecteur(s)/dates/nombre de clés dans
+   `docs/i18n/TRACABILITE_Relectures.md` (aucun contenu).
 3. Vérifier : `pnpm i18n:check` → l'objectif de sortie du chantier B1 est
    **0 clé critique manquante** en FON et YOR (la couverture globale peut rester < 100 %,
    seules les critiques bloquent les premiers patients réels).
@@ -76,3 +85,11 @@ Règles :
 `pnpm i18n:check` : référence FR **942 clés** (47 critiques) · EN **100 %** ·
 FON **868/942 (92 %)** · YOR **868/942 (92 %)** · **74 manquantes par langue dont 6 critiques**.
 Fichiers remis aux relecteurs : `todo.fon.csv` et `todo.yor.csv` (74 lignes + en-tête chacun).
+
+## 7. État au 22/09/2026 (prompt 16) — ⛔ en attente des retours natifs
+
+Aucun CSV validé n'a été remis : **rien n'est importé**, aucune traduction n'est inventée.
+Mesure du jour : **75** clés manquantes par langue (dont **6 critiques** `sos.*`) — la 75ᵉ est
+`integrations.unreadable` (console admin, non critique), ajoutée le 22/09. Importeur prêt et
+testé (`scripts/i18n/import-validated.test.mjs`, 5 cas) ; essai à blanc sur l'export réel :
+75 lignes refusées « case vide », 0 écriture.
