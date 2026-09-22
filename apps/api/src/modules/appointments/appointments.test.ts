@@ -152,6 +152,46 @@ describe.skipIf(!HAS_INFRA)('RDV & téléconsultation (intégration)', () => {
     expect(closed?.status).toBe('COMPLETED');
   });
 
+  // Prompt 7 (22/09/2026) : mode dégradé VIDEO → AUDIO → CHAT sans appeler Daily.
+  // Le mode est porté par le SERVEUR : un participant qui se reconnecte (réseau
+  // faible, rechargement) retrouve le palier dégradé au lieu de relancer la vidéo.
+  it('mode dégradé : VIDEO → AUDIO → CHAT persistant à la reconnexion, verrouillé après clôture', async () => {
+    const at = new Date(Date.now() + 6 * 3600_000);
+    const book = await app.inject({
+      method: 'POST', url: '/api/v1/appointments', headers: auth(patientToken),
+      payload: { doctorId, type: 'TELECONSULTATION', scheduledAt: at.toISOString() },
+    });
+    const apptId = book.json().id as string;
+    await app.inject({ method: 'POST', url: `/api/v1/appointments/${apptId}/confirm`, headers: auth(doctorToken) });
+    const start = await app.inject({ method: 'POST', url: '/api/v1/consultations', headers: auth(doctorToken), payload: { appointmentId: apptId } });
+    const consultId = start.json().consultation.id as string;
+    expect(start.json().consultation.mode).toBe('VIDEO');
+
+    const modes: string[] = [];
+    for (const who of [patientToken, doctorToken, patientToken]) {
+      const r = await app.inject({ method: 'POST', url: `/api/v1/consultations/${consultId}/downgrade`, headers: auth(who) });
+      expect(r.statusCode).toBe(200);
+      modes.push(r.json().mode);
+    }
+    expect(modes).toEqual(['AUDIO', 'CHAT', 'CHAT']); // CHAT = palier plancher
+
+    // Reconnexion : le mode dégradé est restitué (pas de retour silencieux à la vidéo).
+    const rejoin = await app.inject({ method: 'POST', url: `/api/v1/consultations/${consultId}/join`, headers: auth(patientToken) });
+    expect(rejoin.json().mode).toBe('CHAT');
+
+    const end = await app.inject({ method: 'POST', url: `/api/v1/consultations/${consultId}/end`, headers: auth(doctorToken), payload: { notes: 'Suite par chat' } });
+    expect(end.statusCode).toBe(200);
+    // Après clôture : ni rejoindre, ni dégrader, ni re-clôturer (notes/endedAt préservés).
+    for (const path of ['join', 'downgrade']) {
+      const r = await app.inject({ method: 'POST', url: `/api/v1/consultations/${consultId}/${path}`, headers: auth(patientToken) });
+      expect(r.statusCode).toBe(400);
+    }
+    const again = await app.inject({ method: 'POST', url: `/api/v1/consultations/${consultId}/end`, headers: auth(doctorToken), payload: { notes: 'écrasé ?' } });
+    expect(again.statusCode).toBe(400);
+    const stored = await app.prisma.consultation.findUniqueOrThrow({ where: { id: consultId } });
+    expect(stored.notes).toBe('Suite par chat');
+  });
+
   // Lot 10 / écart D5 : l'endpoint de tri existait sans appelant côté web.
   it('le médecin priorise une demande (triage) — le patient ne peut pas', async () => {
     const at = new Date(Date.now() + 8 * 3600_000);
