@@ -33,15 +33,13 @@ sudo BASE_DOMAIN=digisante.example.bj \
      bash infra/deploy/scripts/provision.sh
 ```
 
-Installe : Node 20, pnpm, PM2, PostgreSQL 16 (PGDG), Redis, Nginx, Certbot, UFW ;
+Installe : Node 24 (aligné sur la CI), pnpm, PM2, PostgreSQL 16 (PGDG), Redis, Nginx, Certbot, UFW ;
 crée le rôle/base `digisante`, l'utilisateur applicatif, `/var/log/digisante`,
 `/var/backups/digisante`, et le démarrage PM2 au boot.
 
-Régler le fuseau (pour les crons à l'heure du Bénin) :
-
-```bash
-sudo timedatectl set-timezone Africa/Porto-Novo
-```
+Le script règle aussi le fuseau `Africa/Porto-Novo` (crons à l'heure du Bénin), crée
+`/etc/digisante` (0700), le magasin de fichiers `apps/api/storage/kyc` (0700) et rend
+l'utilisateur `digisante` propriétaire du dépôt cloné.
 
 ## 2. Secrets sur le VPS (jamais commités — `CLAUDE.md` §4)
 
@@ -49,6 +47,7 @@ sudo timedatectl set-timezone Africa/Porto-Novo
 # API — variables d'environnement de production
 sudo -u digisante cp .env.example apps/api/.env
 sudo -u digisante nano apps/api/.env          # DATABASE_URL, REDIS_URL, JWT_SECRET, clés FedaPay/Twilio/…
+sudo chmod 600 apps/api/.env                  # secrets : lisible par digisante SEUL (deploy.sh le vérifie)
 
 # Web — URL publique de l'API (lue au build Next.js)
 echo 'NEXT_PUBLIC_API_URL=https://digisante.example.bj' \
@@ -59,9 +58,12 @@ sudo install -d -m 0700 /etc/digisante
 sudo sh -c 'openssl rand -base64 48 > /etc/digisante/backup.key'
 sudo chmod 0400 /etc/digisante/backup.key
 
-# Token de service pour la réconciliation FedaPay (module gelé)
-sudo sh -c 'openssl rand -hex 32 > /etc/digisante/reconcile.token'
+# Jeton de service des tâches internes (réconciliation FedaPay ET générateurs/dispatch
+# lancés par cron via internal_job.sh) — SOURCE UNIQUE, jamais écrite dans la crontab.
+sudo sh -c 'umask 077; openssl rand -hex 32 > /etc/digisante/reconcile.token'
 sudo chmod 0400 /etc/digisante/reconcile.token
+# … puis reporter EXACTEMENT cette valeur dans RECONCILE_TOKEN= de apps/api/.env
+# (sans l'afficher à l'écran partagé) ; sinon toutes les tâches répondent 401.
 ```
 
 `DATABASE_URL` de prod (Postgres natif, socket local) :
@@ -76,6 +78,8 @@ sudo -u digisante bash infra/deploy/scripts/deploy.sh
 ## 4. Nginx + SSL
 
 ```bash
+# Zones de rate-limit + format de log sans query (requis par digisante.conf, sinon `nginx -t` échoue)
+sudo cp infra/deploy/nginx/rate-limit.conf /etc/nginx/conf.d/digisante-rate-limit.conf
 sudo cp infra/deploy/nginx/digisante.conf /etc/nginx/sites-available/digisante
 sudo ln -sf /etc/nginx/sites-available/digisante /etc/nginx/sites-enabled/digisante
 sudo rm -f /etc/nginx/sites-enabled/default

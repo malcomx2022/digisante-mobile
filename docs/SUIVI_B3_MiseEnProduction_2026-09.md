@@ -23,6 +23,12 @@ les lots récents. **Aucune dérive trouvée** — tout est prêt à exécuter :
 | `nginx/digisante.conf` | upgrade WebSocket sur `/api/v1/chat/ws` + `proxy_read_timeout 3600s` + **`access_log … digisante_noquery`** (JWT jamais journalisé) | ✅ |
 | `ci.yml` job `deploy` | opt-in `vars.DEPLOY_ENABLED == 'true'`, `needs: [build-and-test, e2e]` (les e2e gardent la porte) | ✅ |
 
+> **Préflight statique du 22/09/2026** : 11 défauts de dépôt corrigés (mot de passe DB interpolé
+> dans le SQL, fuseau, propriété du clone, magasin 0700, jeton en clair dans la crontab, `/tmp`
+> fixe en root, `.env`, en-têtes/limites Nginx…) — voir `docs/PREFLIGHT_VPS_2026-09.md`. La ligne
+> « `RECONCILE_TOKEN` en tête (placeholder `changeme`) » ci-dessus est **obsolète** : le jeton vit
+> désormais dans `/etc/digisante/reconcile.token` (source unique, lue par `internal_job.sh`).
+
 ## 2. À fournir par le porteur (bloquant — rien ne se déploie sans ça)
 
 - [ ] **VPS Infomaniak** Ubuntu 22.04 LTS (accès SSH root/sudo).
