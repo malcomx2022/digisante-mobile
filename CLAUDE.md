@@ -238,6 +238,7 @@ Les scripts shell complets sont dans la Documentation technique v2 (`DocTech_Dig
 | `docs/Rapport_Chantier_NEXT_IMPACT.docx` | **Rapport de chantier opposable** (reporting bailleur) — structure PTF en 4 parties, page de garde conventionnée, attestation ; généré par `scripts/docs/generate-rapport-chantier.js` |
 | `docs/AUDIT_Fonctionnel_2026-08.md` | **Audit fonctionnel** (août 2026) — appariement endpoints↔écrans, écarts D1→D10 + planning lots 7→11 |
 | `docs/REVUE_Ecarts_et_Plan_2026-08.md` | Revue des **écarts** + plan en 6 lots (C1→C9, août 2026) — compteurs vérifiés à la commande |
+| `docs/PV_GO_NOGO_2026-09-22.docx` + `docs/GO_NOGO_2026-09-22.md` | **Décision GO/NO-GO d'ouverture pilote** (22/09/2026) — **NO-GO** (1/13 critères prouvés), bloqueurs + propriétaires ; régénérer par `scripts/docs/generate-go-nogo.js` (une case sans preuve d'exécution datée vaut NO-GO) |
 | `docs/AUDIT_Securite_Release_2026-09.md` | **Audit de sécurité de release** (sept. 2026) — 13 correctifs, 15 résiduels motivés, 2 points §5 soumis à revue |
 | `docs/AUDIT_Securite_CSO_2026-07_Addendum_ASC_Pharmacie.md` | Passe CSO sur les nouveaux modules (ASC, stock pharmacie) — correctif joker `LIKE` + résiduels |
 | Skill `digisante-design-system` | Référence d'intégration frontend |
