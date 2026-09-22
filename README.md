@@ -55,8 +55,29 @@ Vérifier l'API : `curl http://localhost:3001/api/v1/health` puis `/api/v1/ready
 | `pnpm dev:api` / `pnpm dev:web` | un seul service |
 | `pnpm build` | build de tout le workspace |
 | `pnpm lint` / `pnpm typecheck` / `pnpm test` | qualité |
+| `pnpm release:check` | contrôle de release local (voir ci-dessous) |
+| `pnpm test:scripts` | tests des scripts d'outillage (`scripts/**/*.test.mjs`) |
 | `pnpm db:studio` | Prisma Studio |
 | `pnpm services:up` / `services:down` | Postgres + Redis (Docker dev) |
+
+### Contrôle de release — `pnpm release:check`
+
+Enchaîne **prérequis → i18n → lint → typecheck → migrations → tests des scripts → tests → build**
+et s'arrête au **premier** échec. Non destructif : aucun déploiement, aucun appel fournisseur
+(`NODE_ENV=test` imposé ⇒ stubs), migrations **en lecture seule** (`prisma migrate status` +
+`migrate diff --exit-code` pour la dérive schéma ↔ base). Refuse `NODE_ENV=production` et la base
+Redis 0 (les tests la purgent).
+
+```bash
+pnpm services:up                      # ou PostgreSQL 16 :5434 + Redis :6380 natifs
+export DATABASE_URL="postgresql://digisante:devpassword@127.0.0.1:5434/digisante_test?schema=public"
+export REDIS_URL="redis://127.0.0.1:6380/1"
+pnpm --filter @digisante/api prisma migrate deploy   # une fois, base de TEST uniquement
+pnpm release:check                    # --dry-run · --skip=build · --strict-i18n
+```
+
+`--strict-i18n` fait aussi échouer les clés **critiques** FON/YOR manquantes (à utiliser pour la
+release patients réels, B1). Les e2e restent `pnpm test:e2e` (build dédié, cf. `playwright.config.ts`).
 
 ## Où déposer le code existant
 

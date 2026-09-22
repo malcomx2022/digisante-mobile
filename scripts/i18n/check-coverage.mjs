@@ -47,6 +47,12 @@ function main() {
   const args = process.argv.slice(2);
   const doExport = args.includes('--export');
   const strict = args.includes('--strict');
+  // --require-complete=en[,…] : échec si ces langues ont une clé manquante (release:check).
+  const requireComplete = (args.find((a) => a.startsWith('--require-complete=')) ?? '=')
+    .split('=')[1].split(',').filter(Boolean);
+  // --critical-only-strict : échec si une clé CRITIQUE (sos./labo./payments.) manque.
+  const criticalStrict = args.includes('--critical-only-strict');
+  const failures = [];
 
   const source = readFileSync(MESSAGES, 'utf8');
   const data = Object.fromEntries(LOCALES.map((l) => [l, extractLocale(source, l)]));
@@ -72,6 +78,12 @@ function main() {
       `${locale.padEnd(7)}  ${String(frKeys.length - missing.length).padStart(9)}  ${String(missing.length).padStart(10)}  ${String(missingCritical.length).padStart(14)}  ${coverage.padStart(7)}%`,
     );
     exports[locale] = missing;
+    if (requireComplete.includes(locale) && missing.length > 0) {
+      failures.push(`${locale} : ${missing.length} clé(s) manquante(s) — langue exigée complète`);
+    }
+    if (criticalStrict && missingCritical.length > 0) {
+      failures.push(`${locale} : ${missingCritical.length} clé(s) CRITIQUE(S) manquante(s) — ${missingCritical.join(', ')}`);
+    }
   }
 
   if (doExport) {
@@ -90,6 +102,10 @@ function main() {
   }
 
   console.log('');
+  if (failures.length) {
+    failures.forEach((f) => console.error(`❌ ${f}`));
+    process.exit(1);
+  }
   if (strict && totalMissing > 0) {
     console.error(`❌ ${totalMissing} clés non traduites (mode strict).`);
     process.exit(1);
