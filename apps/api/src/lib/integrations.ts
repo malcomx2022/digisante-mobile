@@ -173,6 +173,29 @@ export async function setIntegration(
   await invalidateIntegration(app, provider);
 }
 
+/**
+ * Contrôles de FORME des secrets saisis (erreurs de copier-coller les plus probables),
+ * avant tout enregistrement. Renvoie des messages SANS la valeur. Volontairement
+ * limité aux providers dont un format erroné échoue en silence plus tard :
+ * Firebase (signature JWT impossible au 1er push). FedaPay n'est pas concerné (§5).
+ */
+export function validateSecretsShape(provider: IntegrationProvider, secrets: Secrets): string[] {
+  const errors: string[] = [];
+  if (provider === 'FIREBASE') {
+    const { clientEmail, privateKey, projectId } = secrets;
+    if (clientEmail !== undefined && !/^[^@\s]+@[^@\s]+\.iam\.gserviceaccount\.com$/.test(clientEmail)) {
+      errors.push('clientEmail : adresse de compte de service attendue (…@<projet>.iam.gserviceaccount.com)');
+    }
+    if (privateKey !== undefined && !/-----BEGIN PRIVATE KEY-----[\s\S]+-----END PRIVATE KEY-----/.test(privateKey.replace(/\\n/g, '\n'))) {
+      errors.push('privateKey : clé PEM attendue (-----BEGIN PRIVATE KEY----- … -----END PRIVATE KEY-----), \\n littéraux acceptés');
+    }
+    if (projectId !== undefined && !/^[a-z][a-z0-9-]{4,29}$/.test(projectId)) {
+      errors.push('projectId : identifiant de projet Firebase attendu (minuscules, chiffres, tirets)');
+    }
+  }
+  return errors;
+}
+
 /** Masque un jeu de secrets pour l'affichage admin : `••••` + 4 derniers caractères. */
 export function maskSecrets(secrets: Secrets): Record<string, string> {
   const out: Record<string, string> = {};

@@ -8,11 +8,11 @@
   "enums": 31,
   "migrations": 28,
   "apiTestFiles": 67,
-  "webTestFiles": 5,
+  "webTestFiles": 6,
   "e2eSpecFiles": 2,
-  "smokeTestFiles": 2,
-  "apiTests": 345,
-  "webTests": 37,
+  "smokeTestFiles": 3,
+  "apiTests": 348,
+  "webTests": 41,
   "e2eTests": 8,
-  "unitTests": 382
+  "unitTests": 389
 }

@@ -324,7 +324,7 @@ export async function refresh(app: FastifyInstance, refreshToken: string) {
 
 /**
  * Déconnexion : révoque le refresh token en supprimant sa clé `refresh:<jti>`
- * de l'allowlist Redis. Idempotent (aucune erreur si déjà absent/expiré) :
+ * de l'allowlist Redis, et oublie le token push de l'appareil (`fcmToken`). Idempotent (aucune erreur si déjà absent/expiré) :
  * un token invalide est simplement ignoré côté révocation.
  */
 export async function logout(app: FastifyInstance, refreshToken: string): Promise<void> {
@@ -337,5 +337,10 @@ export async function logout(app: FastifyInstance, refreshToken: string): Promis
   }
   if (payload.typ === 'refresh' && payload.jti) {
     await app.redis.del(refreshKey(payload.jti));
+    // Appareil PARTAGÉ : sans purge, les notifications du compte (résultat de labo,
+    // RDV…) continueraient d'arriver sur ce téléphone après la déconnexion (§4).
+    if (payload.sub) {
+      await app.prisma.user.updateMany({ where: { id: payload.sub }, data: { fcmToken: null } });
+    }
   }
 }

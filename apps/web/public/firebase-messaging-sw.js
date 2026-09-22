@@ -22,6 +22,28 @@ if (config.apiKey && config.projectId && config.messagingSenderId) {
   messaging.onBackgroundMessage((payload) => {
     const title = (payload.notification && payload.notification.title) || 'DigiSanté';
     const body = (payload.notification && payload.notification.body) || '';
-    self.registration.showNotification(title, { body, icon: '/icon.svg', badge: '/icon.svg' });
+    // `link` (données du message) = page à ouvrir au clic ; défaut : l'accueil.
+    const link = (payload.data && payload.data.link) || '/';
+    self.registration.showNotification(title, { body, icon: '/icon-192.png', badge: '/icon-192.png', data: { link } });
   });
 }
+
+// Clic sur une notification : ramène au premier plan un onglet de l'app déjà ouvert,
+// sinon en ouvre un. Seuls les chemins INTERNES sont suivis (jamais une URL externe
+// qu'un message aurait pu porter).
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const raw = (event.notification.data && event.notification.data.link) || '/';
+  const target = typeof raw === 'string' && raw.startsWith('/') && !raw.startsWith('//') ? raw : '/';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if (new URL(client.url).origin === self.location.origin && 'focus' in client) {
+          if ('navigate' in client) client.navigate(target);
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(target);
+    }),
+  );
+});

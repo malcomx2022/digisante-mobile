@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { ADMIN_PRESETS } from '@digisante/shared';
 
-import { maskSecrets } from './integrations.js';
+import { maskSecrets, validateSecretsShape } from './integrations.js';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 
@@ -17,6 +17,23 @@ describe('maskSecrets (unitaire)', () => {
     expect(masked.short).toBe('••••');
     // Jamais la valeur en clair.
     expect(JSON.stringify(masked)).not.toContain('sk_live_abcd1234');
+  });
+});
+
+describe('validateSecretsShape (unitaire)', () => {
+  const PEM = '-----BEGIN PRIVATE KEY-----\\nMIIEv…\\n-----END PRIVATE KEY-----\\n';
+  it('Firebase : compte de service, clé PEM (\\n littéraux acceptés) et projectId valides', () => {
+    expect(validateSecretsShape('FIREBASE', { projectId: 'digisante-prod', clientEmail: 'fcm@digisante-prod.iam.gserviceaccount.com', privateKey: PEM })).toEqual([]);
+  });
+  it('Firebase : formats erronés signalés SANS reprendre la valeur', () => {
+    const errors = validateSecretsShape('FIREBASE', { projectId: 'Digi Santé', clientEmail: 'moi@gmail.com', privateKey: 'AIzaSy-secret-api-key' });
+    expect(errors).toHaveLength(3);
+    expect(errors.join(' ')).not.toContain('AIzaSy-secret-api-key');
+    expect(errors.join(' ')).not.toContain('moi@gmail.com');
+  });
+  it('autres providers : aucun contrôle de forme (FedaPay §5 inclus)', () => {
+    expect(validateSecretsShape('FEDAPAY', { secretKey: 'x' })).toEqual([]);
+    expect(validateSecretsShape('TWILIO', { accountSid: 'x' })).toEqual([]);
   });
 });
 

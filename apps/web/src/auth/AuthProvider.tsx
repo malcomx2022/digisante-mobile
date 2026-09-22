@@ -48,6 +48,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAccessToken(accessToken);
         sessionCache.set(user);
         if (active) setUser(user);
+        // Reprise : propage une éventuelle ROTATION du token FCM, sans jamais
+        // redemander la permission à l'ouverture de l'app.
+        void registerPushDevice({ prompt: false });
       } catch {
         // En ligne mais refresh refusé (session expirée/révoquée) → purge.
         sessionCache.clear();
@@ -100,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(res.user);
     setStatus('authed');
     // Enregistrement du token push après connexion (best-effort, non bloquant).
-    void registerPushDevice();
+    void registerPushDevice({ prompt: true });
     return res.user;
   }, []);
 

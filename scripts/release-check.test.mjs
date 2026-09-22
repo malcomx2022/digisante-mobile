@@ -11,12 +11,12 @@ test("aucune étape ne déploie, ne se connecte en SSH, ne migre en écriture ni
   }
 });
 
-test('ordre : i18n → lint → typecheck → migrations → tests → build (build en dernier)', () => {
+test('ordre : i18n → lint → typecheck → migrations → tests → build → scan du bundle', () => {
   const ids = STEPS.map((s) => s.id);
   assert.ok(ids.indexOf('lint') < ids.indexOf('typecheck'));
   assert.ok(ids.indexOf('typecheck') < ids.indexOf('migrations-status'));
   assert.ok(ids.indexOf('migrations-drift') < ids.indexOf('test'));
-  assert.equal(ids.at(-1), 'build');
+  assert.ok(ids.indexOf('build') < ids.indexOf('bundle-secrets'), 'le scan du bundle suit le build');
   assert.equal(ids[0], 'i18n');
 });
 

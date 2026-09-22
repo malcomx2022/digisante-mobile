@@ -70,7 +70,7 @@
 ---
 
 **Tout est prêt pour la production.** Le code (backend **27 modules** / **163 endpoints REST + 1 WS**
-+ frontend **7 espaces**, **66 pages**) est testé (**382 tests verts** — 345 API + 37 web, + 8 e2e
++ frontend **7 espaces**, **66 pages**) est testé (**389 tests verts** — 348 API + 41 web, + 8 e2e
 Playwright — vérifié le 19/08/2026), l'infra scriptée, et la sécurité auditée. Reste l'exécution sur
 le VPS réel (étapes ci-dessus).
 

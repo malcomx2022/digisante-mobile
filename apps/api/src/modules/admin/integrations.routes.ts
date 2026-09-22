@@ -26,6 +26,7 @@ import {
   setIntegration,
   supportsWebhooks,
   testIntegration,
+  validateSecretsShape,
 } from '@/lib/integrations.js';
 import { requireRole, requireScope } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
@@ -75,6 +76,10 @@ export default async function adminIntegrationsRoutes(app: FastifyInstance) {
     const allowed = PROVIDER_SECRET_KEYS[provider] as readonly string[];
     const unknown = Object.keys(body.secrets).filter((k) => !allowed.includes(k));
     if (unknown.length) throw badRequest(`Clés inconnues pour ${provider} : ${unknown.join(', ')} (attendues : ${allowed.join(', ')})`);
+
+    // Forme des secrets (copier-coller erroné) — messages SANS la valeur saisie.
+    const shapeErrors = validateSecretsShape(provider, body.secrets);
+    if (shapeErrors.length) throw badRequest(`Configuration ${provider} invalide : ${shapeErrors.join(' ; ')}`);
 
     // `meta.webhookUrl` (non-secret) : si fourni, doit être une URL HTTPS valide.
     const webhookUrl = body.meta?.webhookUrl;
