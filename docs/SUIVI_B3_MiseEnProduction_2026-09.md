@@ -44,7 +44,7 @@ les lots récents. **Aucune dérive trouvée** — tout est prêt à exécuter :
 ### Phase 1 — Provision (≈ 1 h, une seule fois)
 - [ ] `git clone` du dépôt dans `/var/www/digisante-mobile`.
 - [ ] `sudo BASE_DOMAIN=… DB_PASSWORD='…' bash infra/deploy/scripts/provision.sh`
-- [ ] `sudo timedatectl set-timezone Africa/Porto-Novo`
+      (règle aussi le fuseau, `/etc/digisante` 0700, magasin 0700, propriété du clone)
 
 ### Phase 2 — Secrets sur le VPS
 - [ ] `apps/api/.env` complet (`NODE_ENV=production` ; l'API **refuse de démarrer** si
@@ -52,16 +52,17 @@ les lots récents. **Aucune dérive trouvée** — tout est prêt à exécuter :
 - [ ] `apps/web/.env.production` : `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SOS_NUMBER`
       (+ `NEXT_PUBLIC_FIREBASE_*` dès que B4/Firebase les fournit — inlinés au build).
 - [ ] `/etc/digisante/backup.key` — **copie hors VPS obligatoire**.
-- [ ] `/etc/digisante/reconcile.token` (= `RECONCILE_TOKEN` du `.env`).
+- [ ] `/etc/digisante/reconcile.token` (root 0400) — **source unique** du jeton ; même valeur
+      dans `RECONCILE_TOKEN` du `.env` ; `apps/api/.env` en 0600.
 
 ### Phase 3 — Premier déploiement + Nginx/SSL
 - [ ] `sudo -u digisante bash infra/deploy/scripts/deploy.sh` → `pm2 status` : api ×2 + web online.
 - [ ] Confs Nginx copiées, domaine substitué, `nginx -t`, Certbot (`-d domaine -d www`).
 
 ### Phase 4 — Crons
-- [ ] `RECONCILE_TOKEN` remplacé en tête de `crontab.example` (sinon **tous les générateurs
-      répondent 401 en silence**), puis `sudo crontab infra/deploy/crontab.example`.
-- [ ] Les 5 générateurs répondent 200 (curl de contrôle, cf. checklist §5).
+- [ ] `sudo crontab infra/deploy/crontab.example` (aucun secret dedans : `internal_job.sh` lit
+      `/etc/digisante/reconcile.token` et journalise `ÉCHEC` si absent ou ≠ 2xx).
+- [ ] Les 5 tâches répondent 200 (vérifié par `verify_deploy.sh`, phase 6).
 
 ### Phase 5 — Armement du déploiement continu
 - [ ] Secrets GitHub : `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` (+ `VPS_SSH_PORT` si besoin).
@@ -70,10 +71,34 @@ les lots récents. **Aucune dérive trouvée** — tout est prêt à exécuter :
 - [ ] Un push sur `main` déroule CI (`build-and-test` + `e2e`) puis `deploy` — vérifier un run complet.
 
 ### Phase 6 — Vérifications post-déploiement (checklist §7)
+- [ ] `sudo DOMAIN=<domaine> bash infra/deploy/scripts/verify_deploy.sh` → tous **PASS**
+      (PM2 api ×2 + web, migrations à jour, certificat ≥ 14 j, health/ready, upgrade WS 101,
+      **0 `token=`** dans le log WS après sonde, 5 tâches en 2xx, crontab, fuseau, `.env` 600).
 - [ ] `/api/v1/health` → ok · `/api/v1/ready` → db+redis up.
 - [ ] PWA installable ; `grep -c 'token=' /var/log/nginx/digisante-ws.log` → **0**.
 - [ ] Sauvegarde lancée une fois → **deux** fichiers dans `/var/backups/digisante/`.
 - [ ] Trigger d'audit actif (UPDATE sur `audit_logs` → rejet).
+
+### Rollback (à éprouver une fois pendant la recette)
+- [ ] Version précédente : `tail -n 3 /var/log/digisante/deploy_history.log` (`<avant> -> <après>`).
+- [ ] `sudo -u digisante DEPLOY_REF=<sha avant> bash infra/deploy/scripts/deploy.sh` puis
+      `verify_deploy.sh` → PASS. ⚠️ Si une **migration** a été appliquée entre-temps, le code
+      ancien peut ne plus correspondre au schéma : restauration de base (SUIVI_B5) requise —
+      les migrations sont à sens unique.
+
+### État au 22/09/2026 (prompt 13) — ⛔ BLOQUÉ, aucune phase exécutée
+
+Aucun accès n'est disponible depuis l'environnement de Claude Code : ni `<VPS_HOST>`, ni
+domaine pointé, ni compte SSH, ni secrets. **Rien n'est coché** ci-dessus. Pour débloquer,
+l'opérateur exécute, sur son poste puis sur le VPS :
+
+```bash
+# 0. Vérifier l'hôte cible AVANT toute mutation (empreinte de clé SSH, IP, nom)
+ssh -o VisualHostKeyVerification=yes root@<VPS_HOST> 'hostnamectl; ip -4 addr show scope global; lsb_release -ds'
+dig +short A <domaine>          # doit renvoyer l'IP du VPS
+# 1→6. Dérouler les phases ci-dessus dans l'ordre, s'arrêter au premier échec,
+#      puis : sudo DOMAIN=<domaine> bash infra/deploy/scripts/verify_deploy.sh
+```
 
 ## 4. Articulation avec les autres chantiers
 

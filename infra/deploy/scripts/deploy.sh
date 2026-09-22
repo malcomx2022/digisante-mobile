@@ -11,6 +11,12 @@ set -euo pipefail
 
 APP_DIR="${APP_DIR:-/var/www/digisante-mobile}"
 BRANCH="${DEPLOY_BRANCH:-main}"
+# ROLLBACK : `DEPLOY_REF=<sha|tag> bash deploy.sh` redéploie une version précise au lieu
+# de la tête de branche. Les SHA déployés sont tracés dans ${LOG_DIR}/deploy_history.log.
+# ⚠️ Les migrations sont À SENS UNIQUE : revenir avant une migration appliquée exige
+# une restauration de base (SUIVI_B5), pas seulement un rollback de code.
+DEPLOY_REF="${DEPLOY_REF:-}"
+LOG_DIR="${LOG_DIR:-/var/log/digisante}"
 
 log() { printf '\033[0;36m[deploy]\033[0m %s\n' "$*"; }
 
@@ -27,10 +33,17 @@ if [[ "$(stat -c '%a' "$ENV_FILE")" != "600" ]]; then
   chmod 600 "$ENV_FILE"
 fi
 
+PREVIOUS_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo none)"
 log "Récupération de la branche ${BRANCH}…"
-git fetch --all --prune
+git fetch --all --prune --tags
 git checkout "$BRANCH"
-git reset --hard "origin/${BRANCH}"
+if [[ -n "$DEPLOY_REF" ]]; then
+  log "ROLLBACK / version ciblée : ${DEPLOY_REF}"
+  git reset --hard "$DEPLOY_REF"
+else
+  git reset --hard "origin/${BRANCH}"
+fi
+TARGET_SHA="$(git rev-parse --short HEAD)"
 
 log "Installation des dépendances (lockfile gelé)…"
 pnpm install --frozen-lockfile
@@ -73,5 +86,8 @@ if [ "$healthy" -ne 1 ]; then
   exit 1
 fi
 
-log "Déploiement terminé ✓"
+# Historique pour le rollback : horodatage, version précédente → version déployée.
+printf '%s %s -> %s%s\n' "$(date -Is)" "$PREVIOUS_SHA" "$TARGET_SHA" "${DEPLOY_REF:+ (DEPLOY_REF=${DEPLOY_REF})}" \
+  >> "${LOG_DIR}/deploy_history.log" 2>/dev/null || true
+log "Déploiement terminé ✓ (${PREVIOUS_SHA} → ${TARGET_SHA})"
 pm2 status
