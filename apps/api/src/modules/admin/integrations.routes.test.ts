@@ -27,8 +27,8 @@ describe.skipIf(!HAS_INFRA)('Admin intégrations API (intégration)', () => {
 
   const cleanup = async () => {
     await app.prisma.user.deleteMany({ where: { phone: { in: PHONES } } });
-    await app.prisma.integrationConfig.deleteMany({ where: { provider: { in: ['TWILIO', 'RESEND', 'FEDAPAY'] } } });
-    await app.redis.del('integration:TWILIO', 'integration:RESEND', 'integration:FEDAPAY');
+    await app.prisma.integrationConfig.deleteMany({ where: { provider: { in: ['TWILIO', 'RESEND', 'FEDAPAY', 'DAILY'] } } });
+    await app.redis.del('integration:TWILIO', 'integration:RESEND', 'integration:FEDAPAY', 'integration:DAILY');
   };
 
   beforeAll(async () => {
@@ -214,5 +214,68 @@ describe.skipIf(!HAS_INFRA)('Admin intégrations API (intégration)', () => {
   it('journal webhooks : RBAC — sans integrations:read → 403', async () => {
     const denied = await app.inject({ method: 'GET', url: '/api/v1/admin/integrations/TWILIO/webhooks', headers: auth(restrictedToken) });
     expect(denied.statusCode).toBe(403);
+  });
+
+  // ── Audit prompt 5 (22/09/2026) : remplacement du jeu complet, atomicité, fuites ──
+  it('PUT REMPLACE le jeu complet : une clé omise disparaît (readiness le signale)', async () => {
+    const full = await app.inject({
+      method: 'PUT', url: '/api/v1/admin/integrations/DAILY', headers: auth(superToken),
+      payload: { secrets: { apiKey: 'daily-key-full-1111', domain: 'digisante.daily.co' } },
+    });
+    expect(full.statusCode).toBe(200);
+    expect(full.json().secrets).toEqual({ apiKey: '••••1111', domain: '••••y.co' });
+
+    const partial = await app.inject({
+      method: 'PUT', url: '/api/v1/admin/integrations/DAILY', headers: auth(superToken),
+      payload: { secrets: { apiKey: 'daily-key-rot-2222' } },
+    });
+    expect(partial.statusCode).toBe(200);
+    expect(partial.json().secrets).toEqual({ apiKey: '••••2222' }); // `domain` n'existe plus
+    const readiness = await app.inject({ method: 'POST', url: '/api/v1/admin/integrations/DAILY/test', headers: auth(superToken) });
+    expect(readiness.json()).toEqual({ ok: false, missing: ['domain'] });
+    await app.prisma.integrationConfig.delete({ where: { provider: 'DAILY' } });
+    await app.redis.del('integration:DAILY');
+  });
+
+  it('PUT rejeté (clé inconnue mêlée à des clés valides) : AUCUNE écriture, config précédente intacte', async () => {
+    const before = await app.prisma.integrationConfig.findUniqueOrThrow({ where: { provider: 'TWILIO' } });
+    const res = await app.inject({
+      method: 'PUT', url: '/api/v1/admin/integrations/TWILIO', headers: auth(superToken),
+      payload: { secrets: { accountSid: 'AC_new', authToken: 'new-token-should-not-land', bogus: 'x' } },
+    });
+    expect(res.statusCode).toBe(400);
+    const after = await app.prisma.integrationConfig.findUniqueOrThrow({ where: { provider: 'TWILIO' } });
+    expect(after.secretsEnc).toBe(before.secretsEnc);
+    expect(after.updatedAt.getTime()).toBe(before.updatedAt.getTime());
+  });
+
+  it('une réponse d’erreur ne renvoie JAMAIS la valeur soumise', async () => {
+    const leaked = 'leaky-secret-value-7777';
+    const invalid = await app.inject({
+      method: 'PUT', url: '/api/v1/admin/integrations/TWILIO', headers: auth(superToken),
+      payload: { secrets: { authToken: leaked, nope: leaked } },
+    });
+    expect(invalid.statusCode).toBe(400);
+    expect(invalid.body).not.toContain(leaked);
+    const tooLong = 'x'.repeat(8193);
+    const oversized = await app.inject({
+      method: 'PUT', url: '/api/v1/admin/integrations/TWILIO', headers: auth(superToken),
+      payload: { secrets: { authToken: tooLong } },
+    });
+    expect(oversized.statusCode).toBe(422);
+    expect(oversized.body).not.toContain(tooLong);
+  });
+
+  it('bascule dynamique : désactiver fait retomber le service en stub, réactiver le rétablit', async () => {
+    const { resolveConfiguredSecrets } = await import('@/lib/integrations.js');
+    await app.inject({
+      method: 'PUT', url: '/api/v1/admin/integrations/TWILIO', headers: auth(superToken),
+      payload: { secrets: { accountSid: 'AC_sid_test', authToken: TWILIO_TOKEN, fromNumber: '+2290100000000' } },
+    });
+    expect(await resolveConfiguredSecrets(app, 'TWILIO')).not.toBeNull();
+    await app.inject({ method: 'PATCH', url: '/api/v1/admin/integrations/TWILIO', headers: auth(superToken), payload: { enabled: false } });
+    expect(await resolveConfiguredSecrets(app, 'TWILIO')).toBeNull();
+    await app.inject({ method: 'PATCH', url: '/api/v1/admin/integrations/TWILIO', headers: auth(superToken), payload: { enabled: true } });
+    expect(await resolveConfiguredSecrets(app, 'TWILIO')).toMatchObject({ authToken: TWILIO_TOKEN });
   });
 });

@@ -87,6 +87,8 @@ export interface ResolvedIntegration {
   source: 'db' | 'env';
   secrets: Secrets;
   meta: Record<string, unknown> | null;
+  /** Ligne en base illisible (blob altéré, clé changée, ou clair alors que le chiffrement est actif). */
+  unreadable?: boolean;
 }
 
 // Descripteur mis en cache : les secrets restent CHIFFRÉS (aucun clair en Redis).
@@ -113,7 +115,16 @@ async function loadDescriptor(app: FastifyInstance, provider: IntegrationProvide
 export async function getIntegration(app: FastifyInstance, provider: IntegrationProvider): Promise<ResolvedIntegration> {
   const desc = await loadDescriptor(app, provider);
   if (desc.source === 'db' && desc.secretsEnc) {
-    return { provider, enabled: desc.enabled, source: 'db', secrets: openSecret(desc.secretsEnc) as Secrets, meta: desc.meta };
+    try {
+      return { provider, enabled: desc.enabled, source: 'db', secrets: openSecret(desc.secretsEnc) as Secrets, meta: desc.meta };
+    } catch {
+      // Ligne illisible : le provider est traité comme NON configuré (services en stub)
+      // plutôt que de lever une 500 à chaque appel, et SANS repli `.env` — la base
+      // prime (§3.6 ③) ; retomber sur l'env masquerait l'anomalie. L'admin la voit
+      // (`unreadable`) et ressaisit les clés. Aucun contenu du blob n'est journalisé.
+      app.log.warn({ provider }, 'Configuration d’intégration illisible — ressaisie requise');
+      return { provider, enabled: false, source: 'db', secrets: {}, meta: desc.meta, unreadable: true };
+    }
   }
   const secrets = ENV_FALLBACK[provider]();
   return { provider, enabled: Object.values(secrets).some(Boolean), source: 'env', secrets, meta: null };
@@ -178,6 +189,7 @@ export interface IntegrationView {
   enabled: boolean;
   source: 'db' | 'env';
   frozen: boolean; // §5 : géré séparément (FedaPay)
+  unreadable: boolean; // ligne en base indéchiffrable → ressaisie requise
   secrets: Record<string, string>; // masqués (`••••1234` / `—`)
   meta: Record<string, unknown> | null;
   lastTestAt: Date | null;
@@ -199,6 +211,7 @@ export async function describeIntegration(app: FastifyInstance, provider: Integr
     enabled: resolved.enabled,
     source: resolved.source,
     frozen: isFrozenProvider(provider),
+    unreadable: resolved.unreadable ?? false,
     secrets: maskSecrets(resolved.secrets),
     meta: resolved.meta,
     lastTestAt: row?.lastTestAt ?? null,
