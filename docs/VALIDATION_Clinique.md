@@ -195,3 +195,29 @@ consignes, posologie, suivi, urgence), FR + EN complets.
    sa mention « ceci n'est pas un diagnostic / à confirmer par un soignant ».
 
 *Dernière mise à jour : 11 juillet 2026.*
+
+## Suivi du contreseing (B2) — état au 22 septembre 2026 (prompt 17)
+
+⛔ **Aucun retour signé** du professionnel ou du programme compétent n'a été remis : **aucune
+modification** de `triage.ts`, `pev.ts`, `phrasebook.ts` ni `kyc.cnom.ts` ; aucun seuil ni contenu
+médical n'a été ajouté, modifié ou supposé. La décision transitoire du porteur (19/08) reste la
+seule trace — elle ne vaut pas contreseing.
+
+**Contrôle de synchronisation du dossier** (22/09/2026) : `Dossier_Validation_Clinique.docx`
+régénéré depuis `@digisante/shared` (`scripts/docs/generate-validation-dossier.js`) puis comparé
+au dossier versionné du 01/09 : **317 paragraphes, contenu identique** — seules la date de version
+et la date d'instantané diffèrent. ⇒ La version en circulation pour signature **correspond au code
+actuel** ; ne pas la régénérer (la signature porte sur la version du **2026-09-01**).
+
+**À réception du retour signé** (procédure du prompt 17) :
+
+1. Déposer le document annoté/signé hors dépôt public si des données personnelles y figurent ;
+   ne versionner que la **trace** (professionnel, qualité, date, version signée).
+2. Produire d'abord un **diff fonctionnel** (demande signée → fichier → impact : orientation,
+   échéance de dose, phrase affichée) et le faire confirmer ; **toute ambiguïté reste bloquée**
+   et listée pour arbitrage clinique — rien n'est interprété.
+3. Appliquer uniquement les corrections explicitement validées dans `packages/shared/src/*`
+   + tests de non-régression aux **limites** (âge/semaines/seuils) et aux cas **ROUGE**.
+4. `pnpm release:check`, puis régénérer le dossier (`NODE_PATH=<dossier contenant docx>
+   node scripts/docs/generate-validation-dossier.js`) et le **valider structurellement**
+   (workflow DOCX, CLAUDE.md §7) ; re-signature sur la version corrigée.
