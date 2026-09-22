@@ -25,4 +25,22 @@ describe('computeAuditHash', () => {
     const altered = computeAuditHash(null, { ...entry, action: 'AUTH_FAIL' }, ts);
     expect(altered).not.toBe(base);
   });
+
+  it('RE-CALCULABLE depuis jsonb : l’ordre des clés de meta (même imbriquées) est indifférent', () => {
+    const inserted = { ...entry, meta: { submissionId: 's1', decision: 'APPROVED', cnom: { verified: true, source: 'X', checkedAt: ts } } };
+    // Ordre tel que PostgreSQL jsonb le restitue (longueur puis octets).
+    const fromJsonb = { ...entry, meta: { cnom: { source: 'X', verified: true, checkedAt: ts }, decision: 'APPROVED', submissionId: 's1' } };
+    expect(computeAuditHash(null, fromJsonb, ts)).toBe(computeAuditHash(null, inserted, ts));
+  });
+
+  it('une valeur de meta altérée change le hash (détection de falsification)', () => {
+    const a = computeAuditHash(null, { ...entry, meta: { amount: '5000' } }, ts);
+    expect(computeAuditHash(null, { ...entry, meta: { amount: '50000' } }, ts)).not.toBe(a);
+  });
+
+  it('clés undefined ignorées et Date sérialisée comme en base', () => {
+    const d = new Date(ts);
+    expect(computeAuditHash(null, { ...entry, meta: { a: 1, b: undefined, at: d } }, ts))
+      .toBe(computeAuditHash(null, { ...entry, meta: { at: ts, a: 1 } }, ts));
+  });
 });
