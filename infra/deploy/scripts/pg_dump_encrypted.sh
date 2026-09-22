@@ -27,6 +27,9 @@ FILESTORE_DIR="${KYC_STORAGE_DIR:-/var/www/digisante-mobile/apps/api/storage/kyc
 STAMP="$(date +%Y%m%d_%H%M%S)"
 OUT="${BACKUP_DIR}/digisante_${STAMP}.sql.gz.enc"
 OUT_FILES="${BACKUP_DIR}/digisante_files_${STAMP}.tar.gz.enc"
+# Manifeste NON chiffré (aucune donnée personnelle : noms de tables, comptages, empreintes)
+# — référence de la restauration (verify_restore.sh compare la base restaurée à ce relevé).
+OUT_MANIFEST="${BACKUP_DIR}/digisante_manifest_${STAMP}.txt"
 
 log() { printf '[pg_dump] %s %s\n' "$(date -Is)" "$*"; }
 
@@ -66,8 +69,26 @@ else
   log "  → vérifier KYC_STORAGE_DIR dans apps/api/.env ; les pièces jointes du DMP sont des données de santé."
 fi
 
+# ── Manifeste : comptages EXACTS par table + tête de la chaîne d'audit + SHA-256 ──
+# des archives (détecte une archive tronquée/altérée AVANT tout déchiffrement).
+{
+  echo "stamp=${STAMP}"
+  echo "db_archive=$(basename "$OUT") sha256=$(sha256sum "$OUT" | cut -d' ' -f1)"
+  if [[ -f "$OUT_FILES" ]]; then
+    echo "files_archive=$(basename "$OUT_FILES") sha256=$(sha256sum "$OUT_FILES" | cut -d' ' -f1)"
+    echo "files_count=$(find "$FILESTORE_DIR" -type f | wc -l)"
+  fi
+  sudo -u postgres psql -d "$DB_NAME" -At -v ON_ERROR_STOP=1 <<'SQL'
+SELECT format('SELECT %L || ''='' || count(*) FROM %I.%I;', 'rows.' || tablename, schemaname, tablename)
+  FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename\gexec
+SELECT 'audit_head=' || coalesce((SELECT hash FROM audit_logs ORDER BY "createdAt" DESC, id DESC LIMIT 1), 'none');
+SQL
+} > "$OUT_MANIFEST"
+chmod 0400 "$OUT_MANIFEST"
+log "Manifeste écrit : ${OUT_MANIFEST}"
+
 # ── Rétention : purge des sauvegardes plus anciennes que RETENTION_DAYS ──
-DELETED="$(find "$BACKUP_DIR" \( -name 'digisante_*.sql.gz.enc' -o -name 'digisante_files_*.tar.gz.enc' \) -type f -mtime "+${RETENTION_DAYS}" -print -delete | wc -l)"
+DELETED="$(find "$BACKUP_DIR" \( -name 'digisante_*.sql.gz.enc' -o -name 'digisante_files_*.tar.gz.enc' -o -name 'digisante_manifest_*.txt' \) -type f -mtime "+${RETENTION_DAYS}" -print -delete | wc -l)"
 log "Purge rétention (> ${RETENTION_DAYS} j) : ${DELETED} fichier(s) supprimé(s)."
 
 # Pour restaurer — LES DEUX, sinon le dossier médical pointe vers des fichiers absents :

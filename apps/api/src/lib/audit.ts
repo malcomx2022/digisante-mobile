@@ -15,15 +15,38 @@ export interface AuditEntry {
   meta?: Record<string, unknown> | null;
 }
 
+/**
+ * Forme CANONIQUE d'une valeur JSON : clés d'objet triées récursivement.
+ * Indispensable pour que le hash soit RE-CALCULABLE depuis la base : `meta` est
+ * stocké en `jsonb`, qui réordonne les clés (par longueur puis octets) — y compris
+ * dans les objets imbriqués. Hacher l'ordre d'insertion rendait la vérification
+ * impossible (≈ 80 % des lignes mesurées le 22/09/2026) : une altération de `meta`
+ * n'aurait pas été détectable, seuls les chaînages prevHash→hash l'étaient.
+ */
+export function canonicalJson(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalJson);
+  if (value && typeof value === 'object' && !(value instanceof Date)) {
+    const out: Record<string, unknown> = {};
+    for (const k of Object.keys(value as Record<string, unknown>).sort()) {
+      const v = (value as Record<string, unknown>)[k];
+      if (v !== undefined) out[k] = canonicalJson(v); // `undefined` n'est pas stocké en jsonb
+    }
+    return out;
+  }
+  return value;
+}
+
 /** Calcule le hash chaîné d'une entrée d'audit (fonction pure, testable). */
 export function computeAuditHash(prevHash: string | null, entry: AuditEntry, isoTs: string): string {
+  // Le Date/Decimal éventuel de `meta` est d'abord ramené à sa forme JSON (celle stockée).
+  const meta = entry.meta == null ? null : canonicalJson(JSON.parse(JSON.stringify(entry.meta)));
   const canonical = JSON.stringify({
     prevHash: prevHash ?? '',
     action: entry.action,
     actorId: entry.actorId ?? '',
     targetId: entry.targetId ?? '',
     ip: entry.ip ?? '',
-    meta: entry.meta ?? null,
+    meta,
     ts: isoTs,
   });
   return createHash('sha256').update(canonical).digest('hex');

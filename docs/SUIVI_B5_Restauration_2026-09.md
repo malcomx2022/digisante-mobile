@@ -35,7 +35,49 @@ préservés. Aucun correctif nécessaire.
 (c'est le cas du cron de prod) ; ② la base compte désormais **28 migrations** (27 documentées
 en août + 1 depuis) — compteurs à rafraîchir à la prochaine passe de documentation.
 
+## 1 bis. Répétition outillée — EXÉCUTÉE le 22/09/2026 ✅ (prompt 14)
+
+Machine tierce = conteneur isolé de Claude Code (jamais la production), PostgreSQL **16** natif.
+Base vierge migrée (28 migrations) → **suite API complète** exécutée dessus avec chiffrement
+actif (357 tests verts : utilisateurs, paiements, DMP, audit…) → 3 entrées DMP **synthétiques**
+avec pièce jointe chiffrée → **vrai script** `pg_dump_encrypted.sh` → `verify_restore.sh` :
+
+| Contrôle | Résultat |
+|---|---|
+| Deux archives + **manifeste** du même horodatage | ✅ |
+| SHA-256 des archives = manifeste (avant tout déchiffrement) | ✅ |
+| Déchiffrement + gzip intègres | ✅ |
+| Restauration dans une base PostgreSQL 16 **vierge** + fichiers dans un répertoire 0700 | ✅ |
+| Comptages **exacts** table par table = manifeste | ✅ **49 tables** |
+| Fichiers référencés présents (DMP + KYC) + checksum SHA-256 du clair (échantillon) | ✅ 3/3, 0 écart |
+| Tête de la chaîne d'audit = manifeste ; chaînage **et hash recalculés** | ✅ 128 entrées, 0 défaut |
+| `UPDATE` / `DELETE` / `TRUNCATE` sur `audit_logs` | ✅ **refusés** |
+| Contrôles négatifs : mauvaise clé ; archive altérée d'1 octet | ✅ arrêt **avant** restauration (code 1) |
+| Destruction (`--cleanup`) : base et fichiers restaurés supprimés | ✅ |
+
+🔴 **Défaut trouvé et corrigé pendant cette répétition** : le hash d'audit n'était **pas
+recalculable** depuis la base — `meta` est stocké en `jsonb`, qui réordonne les clés (même
+imbriquées) ; mesuré sur la base de test : **1 110 lignes sur 1 421** non vérifiables. Une
+altération de `meta` n'aurait donc pas été détectable (seul le chaînage l'était). `computeAuditHash`
+hache désormais une forme **canonique** (clés triées récursivement) ; `scripts/audit/verify-chain.mjs`
+vérifie une base hors ligne. Aucune ligne de production n'existe encore : toutes seront canoniques.
+
+Nouveautés d'outillage : `pg_dump_encrypted.sh` écrit un **manifeste** non chiffré (aucune
+donnée personnelle : comptages, empreintes, tête de chaîne) ; `verify_restore.sh` automatise
+tout le protocole ; `scripts/restore/verify-files.mjs` contrôle base ↔ fichiers.
+
 ## 2. Test RÉEL sur archives de production — À FAIRE (après B3 phase 6)
+
+Procédure outillée (machine tierce, clé copiée hors VPS, les **trois** fichiers du même horodatage) :
+
+```bash
+sudo STAMP=<AAAAMMJJ_HHMMSS> BACKUP_DIR=<dossier des archives> KEY_FILE=<backup.key> WORK_DIR=/srv/b5 \
+     PGHOST=/var/run/postgresql PGUSER=postgres \
+     HEALTH_ENCRYPTION_KEY=… bash infra/deploy/scripts/verify_restore.sh   # clé santé : optionnelle, par l'environnement
+sudo STAMP=<…> WORK_DIR=/srv/b5 PGUSER=postgres bash infra/deploy/scripts/verify_restore.sh --cleanup
+```
+
+Détail des contrôles manuels équivalents (conservé pour mémoire) :
 
 C'est lui le critère de sortie du chantier. À dérouler sur une **machine tierce** (pas le VPS),
 avec la clé `/etc/digisante/backup.key` **copiée hors VPS** :

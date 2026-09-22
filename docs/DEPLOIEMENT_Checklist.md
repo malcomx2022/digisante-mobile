@@ -60,8 +60,10 @@
       depuis août 2026, les pièces jointes du DMP — donc des données de santé** ; il ne vit pas dans
       PostgreSQL. Une restauration du seul `pg_dump` laisserait des entrées de dossier pointant vers
       des fichiers disparus. (Automatisé depuis août 2026 — ce n'est plus une étape manuelle.)
-- [ ] Test de restauration à blanc (au moins une fois) : déchiffrer les deux archives sur une
-      machine tierce. Une sauvegarde jamais restaurée n'est pas une sauvegarde.
+- [ ] Sauvegarde : **trois** fichiers par horodatage — base, fichiers, et `digisante_manifest_<stamp>.txt`
+      (comptages + SHA-256 + tête de chaîne d'audit, sans donnée personnelle).
+- [ ] Test de restauration sur machine tierce : `verify_restore.sh` (SUIVI_B5 §2) → tous PASS, puis
+      `--cleanup`. Une sauvegarde jamais restaurée n'est pas une sauvegarde.
 - [ ] Audit : trigger anti UPDATE/DELETE actif (tester un UPDATE sur `audit_logs` → rejet).
 
 ## 8. Conformité (rappels release)
@@ -72,7 +74,7 @@
 ---
 
 **Tout est prêt pour la production.** Le code (backend **27 modules** / **163 endpoints REST + 1 WS**
-+ frontend **7 espaces**, **66 pages**) est testé (**395 tests verts** — 354 API + 41 web, + 8 e2e
++ frontend **7 espaces**, **66 pages**) est testé (**398 tests verts** — 357 API + 41 web, + 8 e2e
 Playwright — vérifié le 22/09/2026), l'infra scriptée, et la sécurité auditée. Reste l'exécution sur
 le VPS réel (étapes ci-dessus).
 
