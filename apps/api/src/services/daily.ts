@@ -9,6 +9,35 @@ import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 
 import { resolveConfiguredSecrets } from '@/lib/integrations.js';
 
+/**
+ * Durées de vie (confidentialité) : sans `exp`, une salle privée et ses jetons
+ * restaient valides INDÉFINIMENT — un jeton fuité (capture d'écran, historique,
+ * appareil partagé) permettait de rejoindre la salle des jours plus tard.
+ * - salle : 4 h après création (une consultation ne dure pas plus), éjection à l'échéance ;
+ * - jeton : 2 h, borné par la salle — un participant qui revient rappelle `join`
+ *   et obtient un jeton neuf.
+ */
+export const ROOM_TTL_SECONDS = 4 * 60 * 60;
+export const TOKEN_TTL_SECONDS = 2 * 60 * 60;
+
+/** Propriétés de salle envoyées à Daily (pure, testée). */
+export function roomProperties(nowSeconds: number) {
+  return { exp: nowSeconds + ROOM_TTL_SECONDS, eject_at_room_exp: true };
+}
+
+/** Propriétés du jeton de réunion (pure, testée). */
+export function tokenProperties(opts: { room: string; userId: string; isOwner: boolean; nowSeconds: number }) {
+  return {
+    room_name: opts.room,
+    user_id: opts.userId,
+    is_owner: opts.isOwner,
+    exp: opts.nowSeconds + TOKEN_TTL_SECONDS,
+    eject_at_token_exp: true,
+  };
+}
+
+const nowSeconds = () => Math.floor(Date.now() / 1000);
+
 export interface DailyRoom {
   name: string;
   url: string;
@@ -44,7 +73,7 @@ export async function createRoom(opts: { app: FastifyInstance; name: string }): 
         Authorization: `Bearer ${creds.apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ name: opts.name, privacy: 'private' }),
+      body: JSON.stringify({ name: opts.name, privacy: 'private', properties: roomProperties(nowSeconds()) }),
     });
     if (res.ok) {
       const room = (await res.json()) as { name?: string; url?: string };
@@ -81,7 +110,7 @@ export async function createMeetingToken(opts: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        properties: { room_name: opts.room, user_id: opts.userId, is_owner: opts.isOwner },
+        properties: tokenProperties({ room: opts.room, userId: opts.userId, isOwner: opts.isOwner, nowSeconds: nowSeconds() }),
       }),
     });
     if (res.ok) {
@@ -94,4 +123,26 @@ export async function createMeetingToken(opts: {
     log.error({ err }, '[Daily] erreur réseau émission jeton');
   }
   return `daily-token.${opts.room}.${opts.userId}`;
+}
+
+/**
+ * Supprime une salle (clôture de consultation) : le lien cesse de fonctionner tout
+ * de suite, sans attendre l'échéance. Best-effort — ne bloque jamais la clôture.
+ * Renvoie true si la salle n'existe plus (supprimée, ou déjà absente : 404).
+ */
+export async function deleteRoom(opts: { app: FastifyInstance; name: string }): Promise<boolean> {
+  const log: FastifyBaseLogger = opts.app.log;
+  const creds = await resolveCreds(opts.app);
+  if (!creds) return true; // stub : aucune salle réelle
+  try {
+    const res = await fetch(`https://api.daily.co/v1/rooms/${encodeURIComponent(opts.name)}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${creds.apiKey}` },
+    });
+    if (res.ok || res.status === 404) return true;
+    log.error({ status: res.status }, '[Daily] suppression salle en échec');
+  } catch (err) {
+    log.error({ err: err instanceof Error ? err.message : String(err) }, '[Daily] erreur réseau suppression salle');
+  }
+  return false;
 }

@@ -6,7 +6,7 @@ import type { FastifyInstance } from 'fastify';
 
 import { badRequest, forbidden, notFound } from '@/lib/errors.js';
 import { localize } from '@/modules/notifications/notifications.templates.js';
-import { createMeetingToken, createRoom } from '@/services/daily.js';
+import { createMeetingToken, createRoom, deleteRoom } from '@/services/daily.js';
 import { nextMode } from './consultations.rules.js';
 
 /** Charge une consultation + les userId des participants. */
@@ -112,6 +112,8 @@ export async function end(app: FastifyInstance, doctorUserId: string, consultati
   const consult = await loadConsultation(app, consultationId);
   const { isDoctor } = assertParticipant(consult, doctorUserId);
   if (!isDoctor) throw forbidden('Seul le médecin peut clôturer la consultation');
+  // Une consultation close ne se re-clôt pas (écraserait endedAt et les notes).
+  if (consult.status !== 'ACTIVE') throw badRequest('La consultation n’est pas active');
 
   const [updated] = await app.prisma.$transaction([
     app.prisma.consultation.update({
@@ -120,5 +122,8 @@ export async function end(app: FastifyInstance, doctorUserId: string, consultati
     }),
     app.prisma.appointment.update({ where: { id: consult.appointmentId }, data: { status: 'COMPLETED' } }),
   ]);
+  // Salle supprimée à la clôture : le lien et les jetons cessent de fonctionner
+  // immédiatement (confidentialité). Best-effort : l'échéance (4 h) reste le filet.
+  if (consult.dailyRoomName) await deleteRoom({ app, name: consult.dailyRoomName });
   return updated;
 }
