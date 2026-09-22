@@ -92,6 +92,12 @@ export async function resolveDmpScope(app: FastifyInstance, params: AssertDmpPar
   };
   if (role === 'ADMIN') return deny('ADMIN_FORBIDDEN');
   if (role === 'PATIENT') return deny('NOT_OWNER');
+  // Le DMP n'est partagé qu'avec un SOIGNANT : médecin vérifié. Un ASC (CLAUDE.md :
+  // « JAMAIS de lecture DMP »), un payeur diaspora, une pharmacie ou un laboratoire
+  // qui présente un jeton photographié ne doivent obtenir ni consentement ni accès.
+  if (role !== 'MEDECIN') return deny('NO_CONSENT');
+  const doctor = await app.prisma.doctor.findUnique({ where: { userId: actorId }, select: { verifiedAt: true } });
+  if (!doctor?.verifiedAt) return deny('NO_CONSENT');
 
   // Soignant : consentement actif → portée = ses entrées consenties.
   const now = new Date();

@@ -1,5 +1,5 @@
 // Médecin : réception et interprétation des résultats d'analyse prescrits.
-import { get, post } from './client';
+import { get, postNow } from './client';
 
 export interface DoctorLabResult {
   id: string;
@@ -23,5 +23,5 @@ function online<T>(result: T | { queued: true }): T {
 export const labResultsApi = {
   list: () => get<DoctorLabResult[]>('/lab/results'),
   interpret: (orderId: string, interpretation: string) =>
-    post<{ id: string; interpretation: string; interpretedAt: string }>(`/lab/orders/${orderId}/interpret`, { interpretation }).then(online),
+    postNow<{ id: string; interpretation: string; interpretedAt: string }>(`/lab/orders/${orderId}/interpret`, { interpretation }).then(online),
 };

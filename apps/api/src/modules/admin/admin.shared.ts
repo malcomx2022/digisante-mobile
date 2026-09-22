@@ -7,18 +7,18 @@ import type { AdminScope } from '@digisante/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
-import { requireRole, requireScope } from '@/lib/rbac.js';
+import { requireActiveAdminProfile, requireRole, requireScope } from '@/lib/rbac.js';
 
 /** Paramètre d'URL `:id` (cuid) — partagé par les routes users/admins/support/finance. */
 export const idParams = z.object({ id: z.string().cuid() });
 
 /**
  * Gardes RBAC admin, dérivées de l'instance Fastify (préHandlers).
- * `admin` = tout ADMIN authentifié ; `withScope(...)` = ADMIN + scope(s) requis.
- * Identique à la définition inline d'origine — aucun changement de comportement.
+ * `admin` = ADMIN authentifié avec un profil actif (≥ 1 scope, non suspendu) ;
+ * `withScope(...)` = ADMIN + scope(s) requis.
  */
 export function adminGuards(app: FastifyInstance) {
-  const admin = { preHandler: [app.authenticate, requireRole('ADMIN')] };
+  const admin = { preHandler: [app.authenticate, requireRole('ADMIN'), requireActiveAdminProfile()] };
   const withScope = (...scopes: AdminScope[]) => ({
     preHandler: [app.authenticate, requireRole('ADMIN'), requireScope(...scopes)],
   });

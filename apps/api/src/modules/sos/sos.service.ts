@@ -118,7 +118,8 @@ export async function triggerSos(app: FastifyInstance, input: TriggerSosInput) {
         action: 'SOS_ALERT',
         actorId: userId,
         targetId: alert.id,
-        meta: { latitude, longitude, contactNotified: notified, recipients: recipients.length },
+        // Pas de coordonnées dans l'audit (lisible par l'admin, §4) : elles vivent dans `Sos`.
+        meta: { hasLocation: latitude != null && longitude != null, contactNotified: notified, recipients: recipients.length },
       });
     } catch (err) {
       app.log.error({ err, sosId: alert.id }, '[SOS] échec écriture audit');

@@ -6,10 +6,10 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
-import { env } from '@/lib/env.js';
 import { unauthorized } from '@/lib/errors.js';
 import { requireRole } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
+import { isValidServiceToken } from '@/lib/service-token.js';
 import * as vacc from './vaccinations.service.js';
 
 const idParams = z.object({ id: z.string().cuid() });
@@ -53,7 +53,7 @@ export default async function vaccinationsRoutes(app: FastifyInstance) {
   // Générateur des rappels dus du jour (cron interne) — jeton de service requis.
   app.post('/reminders/generate', async (request) => {
     const token = request.headers['x-service-token'];
-    if (!env.RECONCILE_TOKEN || token !== env.RECONCILE_TOKEN) {
+    if (!isValidServiceToken(token)) {
       throw unauthorized('Jeton de service invalide');
     }
     return vacc.generateDueReminders(app);

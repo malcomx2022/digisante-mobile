@@ -34,8 +34,14 @@ declare module 'fastify' {
   }
 }
 
+/** Connexions temps réel simultanées par compte (onglets + appareils). */
+export const MAX_SOCKETS_PER_USER = 5;
+
 export default fp(async (app: FastifyInstance) => {
-  await app.register(websocket);
+  // Le serveur n'accepte AUCUN message client (événements descendants seulement) :
+  // trame limitée à 4 Kio — le défaut de `ws` (100 Mio) laissait un patient pousser
+  // un worker au seuil de redémarrage mémoire de PM2 avec quelques trames.
+  await app.register(websocket, { options: { maxPayload: 4096 } });
 
   // Registre LOCAL au worker : userId → sockets ouverts.
   const clients = new Map<string, Set<WebSocket>>();
@@ -49,6 +55,14 @@ export default fp(async (app: FastifyInstance) => {
       if (!set) {
         set = new Set();
         clients.set(userId, set);
+      }
+      // Au plus MAX_SOCKETS_PER_USER onglets/appareils : le plus ancien est fermé.
+      if (set.size >= MAX_SOCKETS_PER_USER) {
+        const oldest = set.values().next().value as WebSocket | undefined;
+        if (oldest) {
+          set.delete(oldest);
+          oldest.close(1008, 'too many connections');
+        }
       }
       set.add(socket);
       alive.set(socket, true);

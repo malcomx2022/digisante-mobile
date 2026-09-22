@@ -5,10 +5,10 @@ import { APPOINTMENT_STATUSES, APPOINTMENT_TYPES, paginationSchema } from '@digi
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
-import { env } from '@/lib/env.js';
 import { unauthorized } from '@/lib/errors.js';
 import { requireRole } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
+import { isValidServiceToken } from '@/lib/service-token.js';
 import * as appts from './appointments.service.js';
 
 const bookSchema = z.object({
@@ -68,7 +68,7 @@ export default async function appointmentsRoutes(app: FastifyInstance) {
   // Génération des rappels de RDV (cron interne) — jeton de service requis.
   app.post('/reminders/generate', async (request) => {
     const token = request.headers['x-service-token'];
-    if (!env.RECONCILE_TOKEN || token !== env.RECONCILE_TOKEN) {
+    if (!isValidServiceToken(token)) {
       throw unauthorized('Jeton de service invalide');
     }
     return appts.generateReminders(app);

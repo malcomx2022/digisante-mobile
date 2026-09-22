@@ -2,6 +2,8 @@
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { linkCare } from '@/test/care-fixture.js';
+
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 const PHONES = ['+2290193200001', '+2290193200002', '+2290193200003', '+2290193200004'];
 
@@ -44,6 +46,7 @@ describe.skipIf(!HAS_INFRA)('Interprétation des résultats (médecin, intégrat
     });
 
     doctorToken = app.jwt.sign({ sub: doctor.id, role: 'MEDECIN' }, { expiresIn: '15m' });
+    await linkCare(app, doctor.id, patientId);
     otherDoctorToken = app.jwt.sign({ sub: otherDoctor.id, role: 'MEDECIN' }, { expiresIn: '15m' });
     labToken = app.jwt.sign({ sub: labTech.id, role: 'LABORATOIRE' }, { expiresIn: '15m' });
 

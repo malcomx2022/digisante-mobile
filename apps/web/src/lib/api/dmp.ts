@@ -1,7 +1,7 @@
 // Dossier médical partagé (DMP). L'accès soignant à un dossier patient passe par
 // un partage consenti PAR SOIGNANT (§4) : réclamé via le jeton `x-share-token`,
 // puis géré (liste/révocation) côté patient.
-import { del, get, getBlob, post } from './client';
+import { get, getBlob, delNow, postNow } from './client';
 
 export interface DmpRecord {
   id: string;
@@ -74,18 +74,18 @@ export const dmpApi = {
 
   /** Enregistre une auto-mesure dans le DMP (chiffrée au repos côté serveur). */
   addVital: (reading: VitalReading) =>
-    post<DmpRecord>('/dmp/records', { type: 'VITAL_SIGNS', title: 'Auto-mesure', data: reading }).then(online),
+    postNow<DmpRecord>('/dmp/records', { type: 'VITAL_SIGNS', title: 'Auto-mesure', data: reading }).then(online),
 
   /** Soignants disposant (ou ayant disposé) d'un consentement sur mon dossier. */
   listConsents: () => get<DmpConsent[]>('/dmp/consents'),
 
   /** Révoque l'accès d'un soignant précis (révocation persistante). */
   revokeConsent: (granteeId: string) =>
-    del<{ revoked: boolean }>(`/dmp/consents/${granteeId}`).then(online),
+    delNow<{ revoked: boolean }>(`/dmp/consents/${granteeId}`).then(online),
 
   /** Ré-autorise un soignant précédemment révoqué (action délibérée du patient). */
   regrantConsent: (granteeId: string, ttlHours = 72) =>
-    post<{ granteeId: string; expiresAt: string }>(`/dmp/consents/${granteeId}/regrant`, { ttlHours }).then(online),
+    postNow<{ granteeId: string; expiresAt: string }>(`/dmp/consents/${granteeId}/regrant`, { ttlHours }).then(online),
 
   // ── Pièces jointes ──────────────────────────────────────────────────────────
   /** Détail d'une entrée, pièces jointes comprises. */
@@ -93,9 +93,9 @@ export const dmpApi = {
 
   /** Joint un fichier à une entrée (chiffré au repos côté serveur). */
   addDocument: (recordId: string, filename: string, mimeType: string, dataBase64: string) =>
-    post<DmpDocument>(`/dmp/records/${recordId}/documents`, { filename, mimeType, dataBase64 }).then(online),
+    postNow<DmpDocument>(`/dmp/records/${recordId}/documents`, { filename, mimeType, dataBase64 }).then(online),
 
-  removeDocument: (documentId: string) => del<{ removed: boolean }>(`/dmp/documents/${documentId}`).then(online),
+  removeDocument: (documentId: string) => delNow<{ removed: boolean }>(`/dmp/documents/${documentId}`).then(online),
 
   /**
    * Télécharge une pièce. Passe par un blob authentifié : le fichier n'est

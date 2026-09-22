@@ -1,5 +1,5 @@
 // Admin : revue enrichie des dossiers KYC (pièces justificatives + checklist).
-import { get, post } from './client';
+import { get, postNow } from './client';
 
 export interface KycDocument {
   id: string;
@@ -45,7 +45,7 @@ export const adminKycApi = {
   queue: () => get<Paginated<KycQueueItem>>('/kyc/submissions?pageSize=20'),
   detail: (id: string) => get<KycDetail>(`/kyc/submissions/${id}`),
   verifyDocument: (docId: string, verified: boolean) =>
-    post<{ id: string; verified: boolean }>(`/kyc/documents/${docId}/verify`, { verified }).then(online),
+    postNow<{ id: string; verified: boolean }>(`/kyc/documents/${docId}/verify`, { verified }).then(online),
   review: (id: string, body: { decision: Decision; notes?: string }) =>
-    post<{ status: string }>(`/kyc/submissions/${id}/review`, body).then(online),
+    postNow<{ status: string }>(`/kyc/submissions/${id}/review`, body).then(online),
 };

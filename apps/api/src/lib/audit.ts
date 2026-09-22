@@ -84,3 +84,23 @@ export async function writeAudit(prisma: PrismaClient, entry: AuditEntry): Promi
     });
   });
 }
+
+/**
+ * Clés de `meta` jamais montrées à l'administrateur (§4 : l'admin ne lit AUCUN contenu
+ * médical ni la position d'une urgence). Appliqué à la LECTURE car le registre est
+ * append-only : les lignes écrites avant la minimisation (sept. 2026) portent encore
+ * les valeurs critiques de laboratoire et les coordonnées SOS.
+ */
+const ADMIN_HIDDEN_META_KEYS = new Set(['critical', 'latitude', 'longitude', 'value', 'values', 'note', 'notes', 'body', 'content', 'data']);
+
+export function redactAuditMetaForAdmin(meta: unknown): unknown {
+  if (Array.isArray(meta)) return meta.map(redactAuditMetaForAdmin);
+  if (meta && typeof meta === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(meta as Record<string, unknown>)) {
+      out[k] = ADMIN_HIDDEN_META_KEYS.has(k) ? '[masqué]' : redactAuditMetaForAdmin(v);
+    }
+    return out;
+  }
+  return meta;
+}

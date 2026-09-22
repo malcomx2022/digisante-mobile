@@ -66,6 +66,11 @@ export async function buildServer() {
     },
   };
   const app = Fastify({
+    // Derrière Nginx (même machine) : l'IP cliente vient de X-Forwarded-For, mais
+    // SEULEMENT si le pair direct est local. Sans ça, `request.ip` valait 127.0.0.1
+    // pour tout le monde ⇒ un SEUL seau de rate-limit pour toute la plateforme et
+    // des IP d'audit inexploitables (audit de release, sept. 2026).
+    trustProxy: 'loopback',
     logger:
       env.NODE_ENV === 'test'
         ? false

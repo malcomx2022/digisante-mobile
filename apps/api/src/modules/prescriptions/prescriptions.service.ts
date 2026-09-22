@@ -10,6 +10,7 @@ import type { FastifyInstance } from 'fastify';
 
 import { env } from '@/lib/env.js';
 import { badRequest, forbidden, notFound } from '@/lib/errors.js';
+import { assertCareRelationship } from '@/lib/care.js';
 import { findAllergyConflicts } from './prescriptions.rules.js';
 
 interface Actor {
@@ -50,17 +51,14 @@ export function verifySignature(prescriptionId: string, licenseNumber: string, q
 
 /** Crée une ordonnance signée pour un patient (médecin). */
 export async function create(app: FastifyInstance, doctorUserId: string, input: CreateInput) {
-  const doctor = await app.prisma.doctor.findUnique({
-    where: { userId: doctorUserId },
-    select: { id: true, licenseNumber: true, verifiedAt: true },
-  });
-  if (!doctor) throw forbidden('Profil médecin requis');
-
   const patient = await app.prisma.patient.findUnique({
     where: { id: input.patientId },
     select: { id: true, allergies: true },
   });
   if (!patient) throw notFound('Patient introuvable');
+  // Médecin vérifié + relation de soin AVANT le contrôle d'allergies (qui, sinon,
+  // révélait les allergies de n'importe quel patient via le refus 400).
+  const doctor = await assertCareRelationship(app, doctorUserId, patient.id);
 
   // Vérification d'allergies (bloquante sauf décision explicite du médecin).
   const conflicts = findAllergyConflicts(input.items, patient.allergies);

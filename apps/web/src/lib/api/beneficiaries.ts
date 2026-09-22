@@ -1,6 +1,6 @@
 // Diaspora : carnet des proches au Bénin + envoi d'argent vers leur portefeuille
 // (écart E3). L'envoi est un mouvement INTERNE au registre : §5 non touché.
-import { del, get, patch, post } from './client';
+import { get, delNow, patchNow, postNow } from './client';
 
 export interface Beneficiary {
   id: string;
@@ -42,11 +42,11 @@ function online<T>(result: T | { queued: true }): T {
 
 export const beneficiariesApi = {
   list: () => get<Beneficiary[]>('/beneficiaries'),
-  add: (body: BeneficiaryInput) => post<Beneficiary>('/beneficiaries', body).then(online),
-  update: (id: string, body: BeneficiaryInput) => patch<Beneficiary>(`/beneficiaries/${id}`, body).then(online),
-  remove: (id: string) => del<{ id: string; deleted: boolean }>(`/beneficiaries/${id}`).then(online),
+  add: (body: BeneficiaryInput) => postNow<Beneficiary>('/beneficiaries', body).then(online),
+  update: (id: string, body: BeneficiaryInput) => patchNow<Beneficiary>(`/beneficiaries/${id}`, body).then(online),
+  remove: (id: string) => delNow<{ id: string; deleted: boolean }>(`/beneficiaries/${id}`).then(online),
   // Envoi d'argent : `online` car un transfert ne doit PAS partir en file
   // hors-ligne — le solde serait débité plus tard, sans que l'utilisateur
   // sache si l'envoi a eu lieu.
-  send: (id: string, amount: number) => post<SendMoneyResult>(`/beneficiaries/${id}/send`, { amount }).then(online),
+  send: (id: string, amount: number) => postNow<SendMoneyResult>(`/beneficiaries/${id}/send`, { amount }).then(online),
 };

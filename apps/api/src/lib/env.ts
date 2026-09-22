@@ -72,6 +72,16 @@ export const envSchema = z.object({
         message: 'JWT_SECRET doit faire ≥ 32 caractères hors test.',
       });
     }
+    // Jeton des tâches internes : facultatif (sans lui, les routes de service restent
+    // fermées), mais s'il est posé il doit résister à la force brute — ces routes
+    // sont joignables depuis Internet via Nginx.
+    if (val.RECONCILE_TOKEN && val.RECONCILE_TOKEN.length < 32) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['RECONCILE_TOKEN'],
+        message: 'RECONCILE_TOKEN doit faire ≥ 32 caractères hors test (openssl rand -hex 32).',
+      });
+    }
   });
 
 const parsed = envSchema.safeParse(process.env);

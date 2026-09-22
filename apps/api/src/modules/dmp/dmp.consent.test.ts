@@ -39,14 +39,14 @@ describe.skipIf(!HAS_INFRA)('Consentement DMP par soignant (intégration)', () =
       data: {
         phone: PHONES[1], role: 'MEDECIN', status: 'ACTIVE', lang: 'FR',
         profile: { create: { firstName: 'Awa', lastName: 'K' } },
-        doctor: { create: { speciality: 'Cardiologie', licenseNumber: 'BJ-MED-7001', consultFee: 3000 } },
+        doctor: { create: { speciality: 'Cardiologie', licenseNumber: 'BJ-MED-7001', consultFee: 3000, verifiedAt: new Date() } },
       },
     });
     const doctor2 = await app.prisma.user.create({
       data: {
         phone: PHONES[2], role: 'MEDECIN', status: 'ACTIVE', lang: 'FR',
         profile: { create: { firstName: 'Beni', lastName: 'T' } },
-        doctor: { create: { speciality: 'Dermatologie', licenseNumber: 'BJ-MED-7002', consultFee: 3000 } },
+        doctor: { create: { speciality: 'Dermatologie', licenseNumber: 'BJ-MED-7002', consultFee: 3000, verifiedAt: new Date() } },
       },
     });
     patientId = patient.patient!.id;

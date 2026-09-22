@@ -13,8 +13,10 @@ import {
   flush,
   pendingCount,
   PermanentReplayError,
+  purgeAll,
   remove,
   removeFailed,
+  setQueueOwner,
   type QueuedMutation,
 } from './queue';
 
@@ -142,5 +144,34 @@ describe('file hors-ligne — rejeu des mutations', () => {
     });
 
     expect(second).toHaveLength(0); // pas de double paiement au second passage
+  });
+});
+
+describe('file hors-ligne — appareil partagé (§4)', () => {
+  beforeEach(async () => {
+    setQueueOwner(null);
+    await reset();
+  });
+
+  it('ne rejoue JAMAIS la mutation d’un compte sous la session d’un autre', async () => {
+    setQueueOwner('patient-A');
+    await enqueue({ method: 'POST', path: '/dmp/records', body: { v: 'A' } });
+    setQueueOwner('patient-B');
+    const sent: string[] = [];
+    const r = await flush(async (m) => { sent.push(m.owner ?? ''); });
+    expect(r.flushed).toBe(0);
+    expect(sent).toEqual([]);
+    expect(await pendingCount()).toBe(1); // conservée pour le retour de A
+    setQueueOwner('patient-A');
+    expect((await flush(async () => {})).flushed).toBe(1);
+  });
+
+  it('purgeAll vide la file ET les échecs (déconnexion)', async () => {
+    await enqueue({ method: 'POST', path: '/x', body: { secret: 'y' } });
+    await flush(async () => { throw new PermanentReplayError(422); });
+    await enqueue({ method: 'POST', path: '/z' });
+    await purgeAll();
+    expect(await pendingCount()).toBe(0);
+    expect(await failedCount()).toBe(0);
   });
 });

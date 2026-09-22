@@ -73,6 +73,10 @@ export async function dispense(
   });
   if (!presc) throw notFound('Ordonnance introuvable');
   if (presc.validUntil.getTime() < Date.now()) throw badRequest('Ordonnance expirée');
+  // Une ordonnance entièrement délivrée, annulée ou expirée ne se délivre plus.
+  if (presc.status !== 'ACTIVE' && presc.status !== 'PARTIALLY_DISPENSED') {
+    throw badRequest('Ordonnance non délivrable (déjà délivrée, annulée ou expirée)');
+  }
 
   const byId = new Map(presc.items.map((i) => [i.id, i.medicationName]));
   if (!lines.every((l) => byId.has(l.itemId))) {

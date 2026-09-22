@@ -343,7 +343,13 @@ export async function revokeShare(app: FastifyInstance, patientUserId: string, r
   const record = await app.prisma.medicalRecord.findUnique({ where: { id: recordId }, select: { patient: { select: { userId: true } } } });
   if (!record) throw notFound('Entrée de dossier introuvable');
   if (record.patient.userId !== patientUserId) throw forbidden('Seul le patient propriétaire peut révoquer');
-  await app.prisma.medicalRecord.update({ where: { id: recordId }, data: { shareToken: null, shareType: null, shareExpiry: null } });
+  // Révoquer le partage retire AUSSI l'entrée des portées déjà réclamées : sinon un
+  // soignant qui avait scanné le QR gardait l'accès jusqu'à l'échéance de son
+  // consentement, et le patient pensait l'avoir coupé.
+  await app.prisma.$transaction([
+    app.prisma.medicalRecord.update({ where: { id: recordId }, data: { shareToken: null, shareType: null, shareExpiry: null } }),
+    app.prisma.consentRecord.deleteMany({ where: { recordId } }),
+  ]);
   return { revoked: true };
 }
 

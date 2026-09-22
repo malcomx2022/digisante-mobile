@@ -1,5 +1,5 @@
 // Couverture d'assurance santé : catalogue des assureurs + couvertures du patient.
-import { del, get, post } from './client';
+import { get, delNow, postNow } from './client';
 
 export interface InsuranceProvider {
   id: string;
@@ -30,6 +30,6 @@ export const insuranceApi = {
   providers: () => get<InsuranceProvider[]>('/insurance/providers'),
   mine: () => get<Coverage[]>('/insurance/me'),
   add: (body: { insuranceId: string; memberNumber: string; expiresAt?: string }) =>
-    post<Coverage>('/insurance/me', body).then(online),
-  remove: (id: string) => del<{ id: string; deleted: boolean }>(`/insurance/me/${id}`).then(online),
+    postNow<Coverage>('/insurance/me', body).then(online),
+  remove: (id: string) => delNow<{ id: string; deleted: boolean }>(`/insurance/me/${id}`).then(online),
 };

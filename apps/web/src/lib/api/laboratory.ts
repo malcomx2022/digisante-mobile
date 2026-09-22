@@ -1,5 +1,5 @@
 // Laboratoire : pool de demandes anonymisé, prise en charge, transitions, résultat.
-import { get, post } from './client';
+import { get, postNow } from './client';
 
 export interface AvailableOrder {
   id: string;
@@ -37,8 +37,8 @@ function online<T>(result: T | { queued: true }): T {
 export const labApi = {
   available: () => get<AvailableOrder[]>('/lab/orders/available'),
   incoming: () => get<IncomingOrder[]>('/lab/orders/incoming'),
-  claim: (id: string) => post<{ id: string; status: string }>(`/lab/orders/${id}/claim`).then(online),
-  advance: (id: string) => post<{ id: string; status: string }>(`/lab/orders/${id}/advance`).then(online),
+  claim: (id: string) => postNow<{ id: string; status: string }>(`/lab/orders/${id}/claim`).then(online),
+  advance: (id: string) => postNow<{ id: string; status: string }>(`/lab/orders/${id}/advance`).then(online),
   submitResult: (orderId: string, values: Record<string, number | string>) =>
-    post<SubmitResult>(`/lab/orders/${orderId}/result`, { values }).then(online),
+    postNow<SubmitResult>(`/lab/orders/${orderId}/result`, { values }).then(online),
 };
