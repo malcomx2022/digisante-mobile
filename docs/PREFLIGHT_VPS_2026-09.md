@@ -40,7 +40,7 @@
 | # | Point | Nature | Suite |
 |---|---|---|---|
 | O1 | **HSTS** absent (Certbot ne l'ajoute pas) | à poser dans le bloc 443 généré, **après** validation TLS : `add_header Strict-Transport-Security "max-age=31536000" always;` | B3 phase 4 |
-| O2 | **Rotation des journaux** `/var/log/digisante/*.log` (PM2 + crons) non configurée | croissance disque illimitée | prompt 15 |
+| O2 | ~~Rotation des journaux~~ — **fait (prompt 15)** : `infra/deploy/logrotate/digisante` installé par `provision.sh`, `healthwatch.sh` au cron | — | ✅ |
 | O3 | Rôle PostgreSQL applicatif **propriétaire** des tables d'audit (CLAUDE.md §8 recommande un rôle non propriétaire) | durcissement : un compte applicatif compromis pourrait `ALTER`/désactiver les triggers | arbitrage porteur (migrations = propriétaire) |
 | O4 | Sauvegardes **hors VPS** (copie distante des archives + de `backup.key`) | procédure manuelle, non scriptée | B5 / porteur |
 | O5 | **CI GitHub Actions bloquée** au 22/09 (jobs sans runner, `main` inclus) | le job `deploy` ne peut pas s'exécuter | vérifier *Settings → Billing* du compte |
