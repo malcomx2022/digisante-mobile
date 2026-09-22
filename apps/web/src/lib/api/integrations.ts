@@ -10,6 +10,7 @@ export interface IntegrationView {
   enabled: boolean;
   source: 'db' | 'env';
   frozen: boolean;
+  unreadable?: boolean; // ligne en base indéchiffrable → ressaisie requise
   secrets: Record<string, string>; // MASQUÉ (`••••1234` / `—`)
   meta: Record<string, unknown> | null;
   lastTestAt: string | null;

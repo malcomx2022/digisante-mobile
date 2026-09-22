@@ -87,7 +87,13 @@ export function sealSecret(value: unknown): string {
 
 /** Ouvre un secret scellé par `sealSecret` (usage EN PROCESS uniquement). */
 export function openSecret(payload: string): unknown {
-  if (payload.startsWith('plain:')) return JSON.parse(payload.slice('plain:'.length));
+  if (payload.startsWith('plain:')) {
+    // Chiffrement ACTIF ⇒ un blob en clair n'a rien à faire en base (ligne importée
+    // d'un environnement sans clé, ou écrite hors application). L'accepter laisserait
+    // un secret d'intégration EN CLAIR au repos sans que personne ne le voie (§3.6 ②).
+    if (KEY) throw new Error('Secret d’intégration stocké en clair alors que le chiffrement est actif — le ressaisir');
+    return JSON.parse(payload.slice('plain:'.length));
+  }
   if (!KEY) throw new Error('HEALTH_ENCRYPTION_KEY requise pour déchiffrer ce secret');
   return decryptWithKey(KEY, payload);
 }

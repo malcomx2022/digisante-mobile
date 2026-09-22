@@ -134,6 +134,7 @@ function ProviderCard({ view, onChanged }: { view: IntegrationView; onChanged: (
         </div>
         <div className="flex flex-wrap justify-end gap-1.5">
           {view.frozen && <Badge tone="frozen">{t('integrations.frozen')}</Badge>}
+          {view.unreadable && <Badge tone="warn">{t('integrations.unreadable')}</Badge>}
           <Badge tone={view.configured ? 'ok' : 'muted'}>{view.configured ? t('integrations.configured') : t('integrations.stub')}</Badge>
           <Badge tone={view.source === 'db' ? 'ok' : 'muted'}>{view.source === 'db' ? t('integrations.source_db') : t('integrations.source_env')}</Badge>
           {view.source === 'db' && <Badge tone={view.enabled ? 'ok' : 'warn'}>{view.enabled ? t('integrations.enabled') : t('integrations.disabled')}</Badge>}

@@ -3,6 +3,8 @@
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { ADMIN_PRESETS } from '@digisante/shared';
+
 import { maskSecrets } from './integrations.js';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
@@ -15,6 +17,15 @@ describe('maskSecrets (unitaire)', () => {
     expect(masked.short).toBe('••••');
     // Jamais la valeur en clair.
     expect(JSON.stringify(masked)).not.toContain('sk_live_abcd1234');
+  });
+});
+
+describe('scopes integrations:* (unitaire)', () => {
+  it('seul le preset SUPER_ADMIN porte integrations:read/write (§3.6 ④)', () => {
+    const holders = Object.entries(ADMIN_PRESETS)
+      .filter(([, scopes]) => (scopes as readonly string[]).some((s) => s.startsWith('integrations:')))
+      .map(([name]) => name);
+    expect(holders).toEqual(['SUPER_ADMIN']);
   });
 });
 
@@ -94,5 +105,21 @@ describe.skipIf(!HAS_INFRA)('Resolver intégrations (intégration)', () => {
 
     // Aucune config + `.env` vide en CI → null (RESEND).
     expect(await integrations.resolveConfiguredSecrets(app, 'RESEND')).toBeNull();
+  });
+
+  it('ligne illisible : provider NON configuré, sans repli .env ni 500, signalée `unreadable`', async () => {
+    await app.prisma.integrationConfig.upsert({
+      where: { provider: 'RESEND' },
+      create: { provider: 'RESEND', secretsEnc: 'blob:corrompu', enabled: true },
+      update: { secretsEnc: 'blob:corrompu', enabled: true },
+    });
+    await integrations.invalidateIntegration(app, 'RESEND');
+    const r = await integrations.getIntegration(app, 'RESEND');
+    expect(r).toMatchObject({ source: 'db', enabled: false, unreadable: true, secrets: {} });
+    expect(await integrations.resolveConfiguredSecrets(app, 'RESEND')).toBeNull();
+    const view = await integrations.describeIntegration(app, 'RESEND');
+    expect(view).toMatchObject({ configured: false, unreadable: true, source: 'db' });
+    await app.prisma.integrationConfig.delete({ where: { provider: 'RESEND' } });
+    await integrations.invalidateIntegration(app, 'RESEND');
   });
 });
