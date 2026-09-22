@@ -12,13 +12,14 @@
 - [ ] `git clone … /var/www/digisante-mobile`
 - [ ] `sudo BASE_DOMAIN=… DB_PASSWORD='…' bash infra/deploy/scripts/provision.sh`
       → Node 24, pnpm, PM2, **PostgreSQL 16 (PGDG)**, Redis, Nginx, Certbot, UFW, rôle/base, démarrage PM2 au boot.
-- [ ] `sudo timedatectl set-timezone Africa/Porto-Novo`
+- [ ] Fuseau `Africa/Porto-Novo`, `/etc/digisante` (0700), magasin `apps/api/storage/kyc` (0700) et propriété du dépôt : **faits par `provision.sh`** (vérifier `timedatectl`).
 
 ## 2. Secrets (jamais commités — cf. `docs/SECRETS_Production.md`)
 - [ ] `apps/api/.env` rempli (DATABASE_URL, REDIS_URL, JWT_SECRET ≥32, **HEALTH_ENCRYPTION_KEY**, RECONCILE_TOKEN, FedaPay, Twilio, Resend, Daily, Firebase, `NODE_ENV=production`).
 - [ ] `apps/web/.env.production` : `NEXT_PUBLIC_API_URL=https://…` + `NEXT_PUBLIC_SOS_NUMBER`.
 - [ ] `/etc/digisante/backup.key` (AES-256) — **sauvegardé hors VPS**.
-- [ ] `/etc/digisante/reconcile.token` (= `RECONCILE_TOKEN`).
+- [ ] `/etc/digisante/reconcile.token` (root, 0400) = **source unique** du jeton des tâches internes ; même valeur dans `RECONCILE_TOKEN` du `.env`.
+- [ ] `apps/api/.env` en **0600** (`deploy.sh` refuse de déployer sans `.env` et corrige les permissions).
 
 ## 3. Premier déploiement
 - [ ] `sudo -u digisante bash infra/deploy/scripts/deploy.sh`
@@ -33,10 +34,11 @@
 - [ ] `sudo certbot --nginx -d digisante.example.bj -d www.digisante.example.bj` (redirection 80→443 auto).
 
 ## 5. Crons
-- [ ] Renseigner `RECONCILE_TOKEN` **en tête de `crontab.example`** (même valeur que le `.env` de l'API) — sans lui, tous les générateurs répondent 401 en silence.
+- [ ] **Aucun secret dans la crontab** : les tâches passent par `internal_job.sh`, qui lit `/etc/digisante/reconcile.token` et journalise `ÉCHEC` (code 1) si le jeton manque ou si l'API répond ≠ 2xx.
 - [ ] `sudo crontab infra/deploy/crontab.example` → rappels **traitements** (5 min), **RDV** (15 min), **vaccination PEV** (06:30), **CPN maternité** (06:40), **dispatch** des notifications (2 min), **pg_dump + fichiers chiffrés 02:00**, réconciliation FedaPay 02:30, renouvellement SSL.
 - [ ] `sudo crontab -l` pour vérifier.
-- [ ] Vérifier que les 5 générateurs répondent 200 : `curl -X POST -H "x-service-token: …" http://127.0.0.1:3001/api/v1/{reminders,appointments/reminders,vaccinations/reminders,maternity/reminders}/generate`
+- [ ] Vérifier que les générateurs + le dispatch répondent 200 (sans exposer le jeton) :
+      `for p in reminders appointments/reminders vaccinations/reminders maternity/reminders; do sudo infra/deploy/scripts/internal_job.sh /api/v1/$p/generate; done; sudo infra/deploy/scripts/internal_job.sh /api/v1/notifications/dispatch` → lignes `OK (HTTP 200)`
       ⚠️ Les générateurs **vaccination** et **CPN** n'étaient PAS planifiés avant août 2026 : sans eux, aucun rappel de vaccination ni de consultation prénatale n'est émis — en silence.
 
 ## 6. Déploiement continu (GitHub Actions)
@@ -71,7 +73,7 @@
 
 **Tout est prêt pour la production.** Le code (backend **27 modules** / **163 endpoints REST + 1 WS**
 + frontend **7 espaces**, **66 pages**) est testé (**395 tests verts** — 354 API + 41 web, + 8 e2e
-Playwright — vérifié le 19/08/2026), l'infra scriptée, et la sécurité auditée. Reste l'exécution sur
+Playwright — vérifié le 22/09/2026), l'infra scriptée, et la sécurité auditée. Reste l'exécution sur
 le VPS réel (étapes ci-dessus).
 
 > Les revues d'écarts sont **closes** : `docs/REVUE_Ecarts_et_Plan_2026-08.md` (C1→C9) et

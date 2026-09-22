@@ -29,6 +29,10 @@ if [[ $EUID -ne 0 ]]; then
   exit 1
 fi
 
+# ── 0. Fuseau horaire : les crons (sauvegarde 02:00, réconciliation 02:30, rappels
+#       06:30/06:40) sont exprimés en heure du Bénin ──
+timedatectl set-timezone Africa/Porto-Novo
+
 # ── 1. Paquets de base ──
 log "Mise à jour APT et paquets de base…"
 export DEBIAN_FRONTEND=noninteractive
@@ -68,17 +72,16 @@ fi
 systemctl enable --now postgresql
 
 # ── 5. Base + rôle applicatif (idempotent) ──
+# Mot de passe transmis par l'ENVIRONNEMENT (`\getenv`, psql ≥ 15) puis quoté par
+# `format(%L)` : jamais interpolé dans le SQL (un `'` dans le mot de passe cassait la
+# requête — injection possible), jamais en argument de commande (visible dans `ps`).
 log "Configuration base/role PostgreSQL '${DB_NAME}'…"
-sudo -u postgres psql -v ON_ERROR_STOP=1 <<SQL
-DO \$\$
-BEGIN
-  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${DB_USER}') THEN
-    CREATE ROLE ${DB_USER} LOGIN PASSWORD '${DB_PASSWORD}';
-  ELSE
-    ALTER ROLE ${DB_USER} PASSWORD '${DB_PASSWORD}';
-  END IF;
-END
-\$\$;
+DB_USER="$DB_USER" DB_PASSWORD="$DB_PASSWORD" sudo --preserve-env=DB_USER,DB_PASSWORD -u postgres psql -v ON_ERROR_STOP=1 <<'SQL'
+\getenv db_user DB_USER
+\getenv db_pw DB_PASSWORD
+SELECT format('CREATE ROLE %I LOGIN', :'db_user')
+ WHERE NOT EXISTS (SELECT FROM pg_roles WHERE rolname = :'db_user')\gexec
+SELECT format('ALTER ROLE %I PASSWORD %L', :'db_user', :'db_pw')\gexec
 SQL
 if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" | grep -q 1; then
   sudo -u postgres createdb -O "${DB_USER}" "${DB_NAME}"
@@ -108,8 +111,16 @@ if ! id "$APP_USER" >/dev/null 2>&1; then
   adduser --system --group --home "/home/${APP_USER}" "$APP_USER"
 fi
 install -d -o "$APP_USER" -g "$APP_USER" "$APP_DIR"
+# Dépôt cloné en root AVANT le provisioning (README §1) : sans chown récursif,
+# deploy.sh (lancé en `digisante`) échoue sur `git fetch` / l'écriture du build.
+chown -R "$APP_USER:$APP_USER" "$APP_DIR"
 install -d -o "$APP_USER" -g "$APP_USER" "$LOG_DIR"
 install -d -o root        -g root  -m 0700 "$BACKUP_DIR"
+# Magasin de fichiers chiffrés (KYC + pièces jointes DMP = DONNÉES DE SANTÉ) :
+# 0700, propriété de l'utilisateur applicatif. = KYC_STORAGE_DIR par défaut.
+install -d -o "$APP_USER" -g "$APP_USER" -m 0700 "$APP_DIR/apps/api/storage" "$APP_DIR/apps/api/storage/kyc"
+# Secrets de service root-only (clé de sauvegarde, jeton des tâches internes).
+install -d -o root -g root -m 0700 /etc/digisante
 
 # ── 9. Pare-feu (UFW) ──
 log "Configuration du pare-feu (UFW)…"
@@ -129,6 +140,8 @@ Provisioning terminé. Étapes suivantes :
   2. Créer apps/api/.env et apps/web/.env.production (jamais commités).
   3. Premier déploiement :  bash infra/deploy/scripts/deploy.sh
   4. Nginx :  cp infra/deploy/nginx/digisante.conf → sites-available, puis certbot.
-  5. Cron :  installer infra/deploy/crontab.example (backup 02:00, réconciliation 02:30).
+  5. Jeton des tâches internes (= RECONCILE_TOKEN du .env de l'API) :
+       sudo sh -c 'umask 077; printf %s "<RECONCILE_TOKEN>" > /etc/digisante/reconcile.token'
+  6. Cron :  sudo crontab infra/deploy/crontab.example (aucun secret dans ce fichier).
 ──────────────────────────────────────────────────────────────
 NEXT

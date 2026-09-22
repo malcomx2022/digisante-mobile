@@ -16,6 +16,17 @@ log() { printf '\033[0;36m[deploy]\033[0m %s\n' "$*"; }
 
 cd "$APP_DIR"
 
+# ── Préconditions : le .env de l'API existe et n'est lisible que par son propriétaire ──
+ENV_FILE="$APP_DIR/apps/api/.env"
+if [[ ! -f "$ENV_FILE" ]]; then
+  log "ERREUR : $ENV_FILE absent — l'API refuserait de démarrer (config fail-safe). Voir infra/deploy/README.md §2."
+  exit 1
+fi
+if [[ "$(stat -c '%a' "$ENV_FILE")" != "600" ]]; then
+  log "Permissions de $ENV_FILE ramenées à 600 (secrets : propriétaire seul)."
+  chmod 600 "$ENV_FILE"
+fi
+
 log "Récupération de la branche ${BRANCH}…"
 git fetch --all --prune
 git checkout "$BRANCH"

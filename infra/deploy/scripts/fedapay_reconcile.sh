@@ -24,20 +24,24 @@ if [[ ! -r "$TOKEN_FILE" ]]; then
   echo "[reconcile] Token de service introuvable : $TOKEN_FILE" >&2
   exit 1
 fi
-TOKEN="$(cat "$TOKEN_FILE")"
+# Réponse dans un fichier temporaire PRIVÉ (mktemp) : l'ancien chemin fixe
+# /tmp/reconcile_resp.json, écrit en root, était exposé à une attaque par lien
+# symbolique (un utilisateur local pouvait faire écraser un fichier système).
+RESP="$(mktemp)"
+trap 'rm -f "$RESP"' EXIT
 
 log "Déclenchement de la réconciliation FedaPay → ${API_BASE}${RECONCILE_PATH}"
-HTTP_CODE="$(curl -sS -o /tmp/reconcile_resp.json -w '%{http_code}' \
+# Jeton fourni via `--config -` (stdin) : jamais en argument, donc absent de `ps`.
+HTTP_CODE="$(printf 'header = "X-Service-Token: %s"\n' "$(tr -d '\r\n' < "$TOKEN_FILE")" \
+  | curl -sS --config - -o "$RESP" -w '%{http_code}' \
   -X POST "${API_BASE}${RECONCILE_PATH}" \
-  -H "Content-Type: application/json" \
-  -H "X-Service-Token: ${TOKEN}" \
   --max-time 300 || true)"
 
 if [[ "$HTTP_CODE" == "200" || "$HTTP_CODE" == "202" ]]; then
   log "Réconciliation acceptée (HTTP ${HTTP_CODE})."
-  cat /tmp/reconcile_resp.json 2>/dev/null || true
+  cat "$RESP" 2>/dev/null || true
 else
   log "ÉCHEC réconciliation (HTTP ${HTTP_CODE}). Réponse :"
-  cat /tmp/reconcile_resp.json 2>/dev/null || true
+  cat "$RESP" 2>/dev/null || true
   exit 1
 fi

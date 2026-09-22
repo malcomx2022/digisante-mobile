@@ -12,32 +12,33 @@
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-# Jeton de service interne (= env RECONCILE_TOKEN de l'API) pour /dispatch.
-# Renseigner la même valeur que dans le .env de l'API.
-RECONCILE_TOKEN=changeme
+# Jeton de service interne : AUCUN secret dans ce fichier. `internal_job.sh` et
+# `fedapay_reconcile.sh` lisent /etc/digisante/reconcile.token (root, 0600) — même
+# valeur que RECONCILE_TOKEN du .env de l'API. Fichier absent ⇒ ÉCHEC journalisé.
+J=/var/www/digisante-mobile/infra/deploy/scripts/internal_job.sh
 
 # Génération des rappels horaires de traitement dus → Notifications PENDING.
 # Toutes les 5 minutes (idempotent par jour). À exécuter AVANT le dispatch.
-*/5 * * * * curl -fsS -X POST -H "x-service-token: ${RECONCILE_TOKEN}" http://127.0.0.1:3001/api/v1/reminders/generate >> /var/log/digisante/med_reminders.log 2>&1
+*/5 * * * * $J /api/v1/reminders/generate >> /var/log/digisante/med_reminders.log 2>&1
 
 # Génération des rappels de RDV (RDV confirmés dans les 24 h) → Notifications.
 # Toutes les 15 minutes (idempotent par RDV via reminderSentAt).
-*/15 * * * * curl -fsS -X POST -H "x-service-token: ${RECONCILE_TOKEN}" http://127.0.0.1:3001/api/v1/appointments/reminders/generate >> /var/log/digisante/appt_reminders.log 2>&1
+*/15 * * * * $J /api/v1/appointments/reminders/generate >> /var/log/digisante/appt_reminders.log 2>&1
 
 # Génération des rappels de VACCINATION (PEV) : doses non faites dues sous 7 j
 # (retards inclus) → Notifications. Une fois par jour, idempotent (lastNotifiedOn).
 # ⚠️ Ajouté en août 2026 : ce générateur existait depuis la v1.23 mais n'était PAS
 # planifié — aucun rappel de vaccination n'aurait donc été émis en production.
-30 6 * * * curl -fsS -X POST -H "x-service-token: ${RECONCILE_TOKEN}" http://127.0.0.1:3001/api/v1/vaccinations/reminders/generate >> /var/log/digisante/vaccination_reminders.log 2>&1
+30 6 * * * $J /api/v1/vaccinations/reminders/generate >> /var/log/digisante/vaccination_reminders.log 2>&1
 
 # Génération des rappels de CPN (santé maternelle) → Notifications.
 # Une fois par jour, idempotent (AntenatalVisit.lastNotifiedOn). Même oubli que
 # ci-dessus : générateur livré en v1.25, jamais planifié.
-40 6 * * * curl -fsS -X POST -H "x-service-token: ${RECONCILE_TOKEN}" http://127.0.0.1:3001/api/v1/maternity/reminders/generate >> /var/log/digisante/maternity_reminders.log 2>&1
+40 6 * * * $J /api/v1/maternity/reminders/generate >> /var/log/digisante/maternity_reminders.log 2>&1
 
 # Dispatch des notifications dues (rappels, SOS, labo…) — toutes les 2 minutes.
 # Appelle l'endpoint interne protégé par le jeton de service (x-service-token).
-*/2 * * * * curl -fsS -X POST -H "x-service-token: ${RECONCILE_TOKEN}" http://127.0.0.1:3001/api/v1/notifications/dispatch >> /var/log/digisante/notify_dispatch.log 2>&1
+*/2 * * * * $J /api/v1/notifications/dispatch >> /var/log/digisante/notify_dispatch.log 2>&1
 
 # Sauvegarde PostgreSQL chiffrée — tous les jours à 02:00
 0 2 * * * /var/www/digisante-mobile/infra/deploy/scripts/pg_dump_encrypted.sh >> /var/log/digisante/pg_dump.log 2>&1
