@@ -31,6 +31,13 @@ describe('validateSecretsShape (unitaire)', () => {
     expect(errors.join(' ')).not.toContain('AIzaSy-secret-api-key');
     expect(errors.join(' ')).not.toContain('moi@gmail.com');
   });
+  it('Resend : clé re_… et expéditeur « adresse » ou « Nom <adresse> »', () => {
+    expect(validateSecretsShape('RESEND', { apiKey: 're_AbCdEf123456_xyz', fromEmail: 'DigiSanté <no-reply@digisante.bj>' })).toEqual([]);
+    expect(validateSecretsShape('RESEND', { fromEmail: 'no-reply@digisante.bj' })).toEqual([]);
+    const errors = validateSecretsShape('RESEND', { apiKey: 'sk_live_wrong_provider', fromEmail: 'digisante.bj' });
+    expect(errors).toHaveLength(2);
+    expect(errors.join(' ')).not.toContain('sk_live_wrong_provider');
+  });
   it('autres providers : aucun contrôle de forme (FedaPay §5 inclus)', () => {
     expect(validateSecretsShape('FEDAPAY', { secretKey: 'x' })).toEqual([]);
     expect(validateSecretsShape('TWILIO', { accountSid: 'x' })).toEqual([]);
