@@ -1,0 +1,17 @@
+{
+  "rest": 163,
+  "websocket": 1,
+  "modules": 27,
+  "pages": 66,
+  "patientPages": 23,
+  "models": 48,
+  "enums": 31,
+  "migrations": 28,
+  "apiTestFiles": 64,
+  "webTestFiles": 5,
+  "e2eSpecFiles": 2,
+  "apiTests": 325,
+  "webTests": 37,
+  "e2eTests": 8,
+  "unitTests": 362
+}

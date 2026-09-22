@@ -22,6 +22,8 @@
     "test:e2e": "playwright test",
     "test:scripts": "node --test \"scripts/**/*.test.mjs\"",
     "release:check": "node scripts/release-check.mjs",
+    "metrics": "node scripts/metrics/count.mjs",
+    "metrics:check": "node scripts/metrics/count.mjs --check",
     "i18n:check": "node scripts/i18n/check-coverage.mjs",
     "i18n:export": "node scripts/i18n/check-coverage.mjs --export",
     "i18n:draft": "node scripts/i18n/translate-draft.mjs",

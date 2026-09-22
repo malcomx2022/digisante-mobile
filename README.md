@@ -56,13 +56,14 @@ Vérifier l'API : `curl http://localhost:3001/api/v1/health` puis `/api/v1/ready
 | `pnpm build` | build de tout le workspace |
 | `pnpm lint` / `pnpm typecheck` / `pnpm test` | qualité |
 | `pnpm release:check` | contrôle de release local (voir ci-dessous) |
+| `pnpm metrics` / `pnpm metrics:check` | compteurs mesurés (routes REST/WS, pages, modèles, tests…) ; `:check` échoue si `docs/metrics.json` ou un document actif a dérivé |
 | `pnpm test:scripts` | tests des scripts d'outillage (`scripts/**/*.test.mjs`) |
 | `pnpm db:studio` | Prisma Studio |
 | `pnpm services:up` / `services:down` | Postgres + Redis (Docker dev) |
 
 ### Contrôle de release — `pnpm release:check`
 
-Enchaîne **prérequis → i18n → lint → typecheck → migrations → tests des scripts → tests → build**
+Enchaîne **prérequis → i18n → compteurs → lint → typecheck → migrations → tests des scripts → tests → build**
 et s'arrête au **premier** échec. Non destructif : aucun déploiement, aucun appel fournisseur
 (`NODE_ENV=test` imposé ⇒ stubs), migrations **en lecture seule** (`prisma migrate status` +
 `migrate diff --exit-code` pour la dérive schéma ↔ base). Refuse `NODE_ENV=production` et la base
