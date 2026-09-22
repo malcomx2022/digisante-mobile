@@ -4,6 +4,7 @@
 //
 // Enchaîne, dans l'ordre et en s'arrêtant au PREMIER échec :
 //   prérequis → i18n → compteurs → lint → typecheck → migrations → tests → build
+//   → bundle web sans secret serveur
 //
 // Garanties (vérifiées par scripts/release-check.test.mjs) :
 //   • ne déploie JAMAIS (aucun ssh, pm2, deploy.sh) ;
@@ -46,6 +47,7 @@ export const STEPS = [
   { id: 'scripts-test', label: 'tests des scripts outillage', cmd: ['node', '--test', 'scripts/**/*.test.mjs'] },
   { id: 'test', label: 'tests (API + web)', cmd: ['pnpm', 'test'] },
   { id: 'build', label: 'build (shared + API + web)', cmd: ['pnpm', 'build'] },
+  { id: 'bundle-secrets', label: 'bundle web — aucun secret serveur', cmd: ['node', 'scripts/check-web-bundle-secrets.mjs'] },
 ];
 
 /** Commandes interdites dans ce script : garde-fou testé. */

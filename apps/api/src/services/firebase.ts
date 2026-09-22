@@ -9,6 +9,7 @@ import { createSign } from 'node:crypto';
 import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 
 import { resolveConfiguredSecrets } from '@/lib/integrations.js';
+import { stubContent } from '@/lib/redact.js';
 
 const OAUTH_TOKEN_URI = 'https://oauth2.googleapis.com/token';
 const FCM_SCOPE = 'https://www.googleapis.com/auth/firebase.messaging';
@@ -121,7 +122,7 @@ export async function sendPush(opts: {
   title: string;
   body: string;
   data?: Record<string, string>;
-}): Promise<{ delivered: boolean; stub: boolean; invalidToken?: boolean }> {
+}): Promise<{ delivered: boolean; stub: boolean; invalidToken?: boolean; messageId?: string }> {
   const log = opts.app.log;
   if (!opts.token) {
     log.warn('[FCM] aucun token d’appareil — push ignoré');
@@ -129,7 +130,7 @@ export async function sendPush(opts: {
   }
   const secrets = await resolveConfiguredSecrets(opts.app, 'FIREBASE');
   if (!secrets) {
-    log.warn({ title: opts.title }, `[STUB FCM] push: ${opts.body}`);
+    log.warn({ title: stubContent(opts.title) }, `[STUB FCM] push: ${stubContent(opts.body)}`);
     return { delivered: false, stub: true };
   }
 
@@ -143,7 +144,10 @@ export async function sendPush(opts: {
       headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
       body: JSON.stringify(buildFcmMessage(opts.token, opts.title, opts.body, opts.data)),
     });
-    if (res.ok) return { delivered: true, stub: false };
+    if (res.ok) {
+      const ok = (await res.json().catch(() => ({}))) as { name?: string };
+      return { delivered: true, stub: false, messageId: ok.name?.split('/').pop() };
+    }
 
     const json = (await res.json().catch(() => ({}))) as { error?: { status?: string } };
     const { invalidToken } = classifyFcmError(res.status, json.error?.status);

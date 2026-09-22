@@ -166,6 +166,13 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
     const accessToken = verify.json().accessToken as string;
     const rtValue = verify.cookies.find((c) => c.name === 'digisante_rt')!.value;
 
+    // Appareil enregistré pour le push (FCM) avant la déconnexion.
+    const device = await app.inject({
+      method: 'POST', url: '/api/v1/users/me/device',
+      headers: { authorization: `Bearer ${accessToken}` }, payload: { fcmToken: 'fcm-device-token-logout' },
+    });
+    expect(device.statusCode).toBe(200);
+
     const logout = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/logout',
@@ -175,6 +182,9 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
     expect(logout.statusCode).toBe(204);
     // Le cookie de refresh est effacé (Max-Age=0).
     expect(logout.cookies.find((c) => c.name === 'digisante_rt')?.value).toBe('');
+    // Appareil partagé : plus aucune notification du compte après déconnexion (§4).
+    const after = await app.prisma.user.findUniqueOrThrow({ where: { phone: PHONE_LOGOUT }, select: { fcmToken: true } });
+    expect(after.fcmToken).toBeNull();
 
     // Le refresh révoqué ne doit plus fonctionner (même en présentant l'ancien cookie).
     const refreshed = await app.inject({

@@ -22,6 +22,18 @@ const csp = [
   "connect-src 'self' https: wss:",
 ].join('; ');
 
+// CSP DU SERVICE WORKER FCM. Un service worker est régi par la CSP livrée AVEC SON
+// SCRIPT : la CSP globale (`script-src 'self'`) bloquait ses `importScripts` depuis
+// www.gstatic.com ⇒ SW en échec ⇒ AUCUNE notification en arrière-plan. Le SDK compat
+// FCM n'existe que sur ce CDN. Cette entrée, déclarée APRÈS la globale, la remplace
+// pour ce seul chemin (Next : pour une même clé, la dernière règle gagne).
+const cspFcmServiceWorker = [
+  "default-src 'self'",
+  "script-src 'self' https://www.gstatic.com",
+  "connect-src 'self' https://*.googleapis.com",
+  "img-src 'self' data:",
+].join('; ');
+
 const securityHeaders = [
   { key: 'Content-Security-Policy', value: csp },
   { key: 'X-Frame-Options', value: 'DENY' },
@@ -51,7 +63,10 @@ const nextConfig = {
   // PWA / offline-first : brancher next-pwa ou un service worker custom ici.
   // L'offline-first n'est pas optionnel (cf. CLAUDE.md §3).
   async headers() {
-    return [{ source: '/:path*', headers: securityHeaders }];
+    return [
+      { source: '/:path*', headers: securityHeaders },
+      { source: '/firebase-messaging-sw.js', headers: [{ key: 'Content-Security-Policy', value: cspFcmServiceWorker }] },
+    ];
   },
   // Proxy /api → API Fastify, activé UNIQUEMENT si E2E_API_PROXY est défini
   // (tests e2e). Objectif : reproduire la topologie de PRODUCTION, où Nginx sert
