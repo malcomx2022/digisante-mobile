@@ -80,3 +80,23 @@ P2 dégradé · P3 cosmétique) · **reproduction**.
 | Corrections livrées (PR) et lignes rejouées | |
 | Décision | GO pilote / NO-GO |
 | Signatures (porteur + opérateur) | |
+
+
+## 4. Addendum L1 — DMP (6 octobre 2026), à exécuter en recette
+
+Le PV historique reste non exécuté. Les preuves automatisées API sont dans LOT_L1 et ne cochent pas les cases physiques ci-dessous. Utiliser des comptes et pièces synthétiques sur la version L1 déployée, sans jeton ni contenu médical dans les captures.
+
+| Cas | Attendu | Preuve opérateur | Résultat |
+|---|---|---|---|
+| DMP-L1.1 Deux entrées, partages 1 h et 72 h, réclamer court puis long | À l’échéance du court, seule la longue reste lisible/exportable | | ☐ |
+| DMP-L1.2 Ordre inverse | La réclamation courte ne raccourcit pas la longue | | ☐ |
+| DMP-L1.3 Fichiers et ajout de pièces | Même portée/expiration que l’entrée, accès authentifié | | ☐ |
+| DMP-L1.4 Révoquer une entrée puis ré-octroyer le médecin | L’entrée retirée ne ressuscite pas, autres entrées selon leur bail | | ☐ |
+| DMP-L1.5 Révoquer le médecin, présenter ancien/nouveau QR | Refus jusqu’au ré-octroi explicite | | ☐ |
+| DMP-L1.6 Données avant migration | Sans nouveau partage : refus ; auteurs anciens NULL, pas d’auteur inventé | | ☐ |
+| DMP-L1.7 Auteur patient/médecin et auteur fourni par client | Identité serveur dans les réponses API, champ client ignoré ; export performer connu seulement | | ☐ |
+| DMP-L1.8 Admin/ASC/diaspora/pharmacie/labo/non-vérifié | Refus même avec QR, aucun contenu clinique | | ☐ |
+| DMP-L1.9 Retrait KYC, changement de rôle, suspension | Accès refusé ; suspension → 401 à la prochaine requête | | ☐ |
+| DMP-L1.10 Revocation/claim concurrents | Après les réponses, aucune réintroduction d’accès retiré | | ☐ |
+
+La saisie d’une entrée par un médecin ne lui octroie pas un accès implicite : le propriétaire la partage. L’export enrichi ne constitue pas une validation FHIR clinique complète.

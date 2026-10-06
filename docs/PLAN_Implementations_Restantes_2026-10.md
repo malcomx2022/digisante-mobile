@@ -1,7 +1,7 @@
 # Plan d'implémentation et de finalisation — DigiSanté Mobile
 
 > Date : **6 octobre 2026**. Base inspectée : `main` @ `8f2f6ca24ad0543d6a08218932c783809eada9b1`, avec les quatre corrections locales de revue.
-> Statut : **L0 LIVRÉ SUR MAIN**, PR #178/#179 fusionnées, CI candidate verte ; L1–L11 PLANIFIÉS. Voir `docs/suivi/LOT_L0.md` et `docs/REVUE_L0_2026-10.md`. Aucun déploiement attesté par ce plan.
+> Statut : **L0 LIVRÉ SUR MAIN**, PR #178/#179 fusionnées, CI candidate verte ; L1 VALIDÉ LOCALEMENT (livraison/CI : PR du lot) ; L2–L11 PLANIFIÉS. Voir `docs/suivi/LOT_L0.md` et `docs/REVUE_L0_2026-10.md`. Aucun déploiement attesté par ce plan.
 > Référence de reprise : `CLAUDE.md` puis `docs/PLAYBOOK_Codage_DigiSante.md`.
 > Version documentaire : `docs/Plan_Implementations_Restantes_2026-10.docx`, générée depuis ce fichier par `scripts/docs/generate-implementation-plan.js`.
 
@@ -46,7 +46,7 @@ Ces décisions bloquent uniquement leurs sous-lots dépendants. Préparer modèl
 | Lot | Objectif | Dépend de | Statut initial |
 |---|---|---|---|
 | L0 | Livrer la baseline et fixer le périmètre | — | Revue et CI validées ; livré sur main par PR #178/#179 |
-| L1 | Consentements par entrée et auteurs DMP | L0 | À implémenter |
+| L1 | Consentements par entrée et auteurs DMP | L0 | Validé localement ; livraison/CI dans LOT_L1 et PR du lot |
 | L2 | Habilitation laboratoire | L0 | À implémenter |
 | L3 | Rejeu des mutations sans doublon | L0 | À implémenter |
 | L4 | Stockage hors ligne protégé et disponibilité exacte | L1, L3 | À implémenter |
@@ -77,6 +77,8 @@ L1/L2/L3/L5 et la préparation fournisseurs/validation humaine peuvent avancer i
 **Acceptation.** Deux entrées d'un même patient avec échéances différentes restent indépendantes ; réclamer la seconde ne prolonge pas la première. Révocation, re-octroi, expiration exacte, export et téléchargement respectent la même portée. Admin/ASC/diaspora restent refusés. Migration sans élargissement des accès existants.
 
 **Documentation.** Invariants réels dans `CLAUDE.md` §4/§8 ; note de migration et matrice de droits ; addendum X1/X2 à l'audit et scénarios DMP de la recette sept rôles.
+
+**Exécution L1 (6 octobre).** Branche `feat/l1-dmp-consent-authorship` depuis main après #180. Auteur de session, échéance indépendante, contrôle export/pièces et transitions sérialisées. Migration additive : tous les anciens liens restent NULL jusqu’à une nouvelle réclamation ; aucune inférence d’auteur. 412 tests API + 50 web, 8 E2E et 11 étapes de release verts ; reprise 29→30 validée. Fiche `docs/suivi/LOT_L1.md`, revue `docs/REVUE_L1_2026-10.md`, addendum X1/X2 ; aucune fusion/déploiement déduit des modifications locales.
 
 ### L2 — Validation des laboratoires
 

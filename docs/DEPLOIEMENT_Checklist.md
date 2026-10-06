@@ -23,6 +23,7 @@
 
 ## 3. Premier déploiement
 - [ ] Mise à jour du 06/10/2026 : migration `20261006130000_wallet_refund_in` appliquée avant le code de remboursement WALLET ; vérifier restitution + signe entrant dans l’historique.
+- [ ] L1 : sauvegarde validée, maintenance et anciens workers API arrêtés avant `20261006144830_dmp_entry_expiry_authorship` ; redémarrer uniquement le code avec contrôle d'échéance par entrée. Prévenir les patients que les anciens liens nécessitent un nouveau partage. Pas de retour à l'ancien guard sur les liens NULL ; procédure détaillée `docs/suivi/LOT_L1.md`.
 - [ ] `sudo -u digisante bash infra/deploy/scripts/deploy.sh`
       → install gelé → `prisma generate` → **`migrate deploy`** → `pnpm build` → `pm2 startOrReload`.
 - [ ] `pm2 status` : `digisante-api` (×2, online) + `digisante-web` (online).
@@ -75,7 +76,7 @@
 ---
 
 **Tout est prêt pour la production.** Le code (backend **27 modules** / **163 endpoints REST + 1 WS**
-+ frontend **7 espaces**, **66 pages**) est testé (**440 tests verts** — 390 API + 50 web, + 8 e2e
++ frontend **7 espaces**, **66 pages**) est testé (**462 tests verts** — 412 API + 50 web, + 8 e2e
 Playwright — vérifié le 22/09/2026), l'infra scriptée, et la sécurité auditée. Reste l'exécution sur
 le VPS réel (étapes ci-dessus).
 

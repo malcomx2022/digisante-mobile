@@ -13,6 +13,7 @@
 //     ainsi que l'octroi/la révocation (DMP_CONSENT_GRANT / DMP_CONSENT_REVOKE).
 // ─────────────────────────────────────────────────────────────
 import type { Role } from '@digisante/shared';
+import type { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
 import { writeAudit } from './audit.js';
@@ -35,11 +36,11 @@ export interface DmpDecision {
 export function decideDmpAccess(ctx: DmpAccessCtx): DmpDecision {
   // Cloisonnement admin : aucun accès au contenu médical, même avec partage.
   if (ctx.role === 'ADMIN') return { allowed: false, reason: 'ADMIN_FORBIDDEN' };
-  if (ctx.isOwner) return { allowed: true, reason: 'OWNER' };
+  if (ctx.role === 'PATIENT' && ctx.isOwner) return { allowed: true, reason: 'OWNER' };
   // Un patient ne lit pas le dossier d'un autre patient.
   if (ctx.role === 'PATIENT') return { allowed: false, reason: 'NOT_OWNER' };
-  // Soignants / diaspora : accès uniquement sur partage consenti actif.
-  if (ctx.hasValidShare) return { allowed: true, reason: 'CONSENT' };
+  // Seul le médecin vérifié peut bénéficier d'un partage ; jamais les autres rôles.
+  if (ctx.role === 'MEDECIN' && ctx.hasValidShare) return { allowed: true, reason: 'CONSENT' };
   return { allowed: false, reason: 'NO_CONSENT' };
 }
 
@@ -62,6 +63,30 @@ interface AssertDmpParams {
 
 /** Portée d'accès résolue : tout le dossier (propriétaire) ou un sous-ensemble d'entrées. */
 export type DmpScope = { recordIds: 'ALL' } | { recordIds: Set<string> };
+
+/** Sérialise réclamation/révocation/ré-octroi par patient, même entre workers. */
+export async function withDmpConsentLock<T>(
+  app: FastifyInstance,
+  patientId: string,
+  work: (tx: Prisma.TransactionClient) => Promise<T>,
+): Promise<T> {
+  return app.prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${'dmp-consent:' + patientId}, 0))`;
+    return work(tx);
+  });
+}
+
+/**
+ * Champ parent historique : borne conservatrice, sans garantie de rollback ancien.
+ * Il n'autorise PLUS la lecture en L1. Une portée inconnue/absente ferme l'ancien guard.
+ */
+export async function syncLegacyConsentExpiry(tx: Prisma.TransactionClient, consentId: string): Promise<void> {
+  const records = await tx.consentRecord.findMany({ where: { consentId }, select: { expiresAt: true } });
+  const expiresAt = records.length > 0 && records.every((r) => r.expiresAt !== null)
+    ? new Date(Math.min(...records.map((r) => r.expiresAt!.getTime())))
+    : new Date(0);
+  await tx.consent.update({ where: { id: consentId }, data: { expiresAt } });
+}
 
 /**
  * Résout la PORTÉE d'accès au DMP d'un patient, journalise (DMP_ACCESS/DMP_DENIED)
@@ -96,39 +121,50 @@ export async function resolveDmpScope(app: FastifyInstance, params: AssertDmpPar
   // « JAMAIS de lecture DMP »), un payeur diaspora, une pharmacie ou un laboratoire
   // qui présente un jeton photographié ne doivent obtenir ni consentement ni accès.
   if (role !== 'MEDECIN') return deny('NO_CONSENT');
-  const doctor = await app.prisma.doctor.findUnique({ where: { userId: actorId }, select: { verifiedAt: true } });
-  if (!doctor?.verifiedAt) return deny('NO_CONSENT');
-
-  // Soignant : consentement actif → portée = ses entrées consenties.
-  const now = new Date();
-  const consent = await app.prisma.consent.findUnique({
-    where: { patientId_granteeId: { patientId, granteeId: actorId } },
-    select: { id: true, expiresAt: true, revokedAt: true, records: { select: { recordId: true } } },
-  });
-  const active = Boolean(consent && !consent.revokedAt && consent.expiresAt > now);
-  const recordIds = new Set<string>(active ? consent!.records.map((r) => r.recordId) : []);
-
-  // Réclamation d'un token présenté → scopée à l'entrée partagée (bloquée si révoqué).
-  if (shareToken && !(consent && consent.revokedAt)) {
-    const record = await app.prisma.medicalRecord.findUnique({
-      where: { shareToken },
-      select: { id: true, patientId: true, shareExpiry: true },
+  const result = await withDmpConsentLock(app, patientId, async (tx) => {
+    const doctor = await tx.doctor.findUnique({
+      where: { userId: actorId },
+      select: { verifiedAt: true, user: { select: { role: true, status: true } } },
     });
-    if (record && record.patientId === patientId && record.shareExpiry && record.shareExpiry > now) {
-      const c = await app.prisma.consent.upsert({
-        where: { patientId_granteeId: { patientId, granteeId: actorId } },
-        create: { patientId, granteeId: actorId, expiresAt: record.shareExpiry, grantedVia: 'share-token' },
-        update: { expiresAt: record.shareExpiry, grantedVia: 'share-token' },
-        select: { id: true },
-      });
-      await app.prisma.consentRecord.upsert({
-        where: { consentId_recordId: { consentId: c.id, recordId: record.id } },
-        create: { consentId: c.id, recordId: record.id },
-        update: {},
-      });
-      recordIds.add(record.id);
-      await writeAudit(app.prisma, { action: 'DMP_CONSENT_GRANT', actorId, targetId: patientId, ip, meta: { via: 'share-token', recordId: record.id } });
+    if (!doctor?.verifiedAt || doctor.user.role !== 'MEDECIN' || doctor.user.status !== 'ACTIVE') {
+      return { recordIds: new Set<string>(), grant: null };
     }
+    const now = new Date(Date.now());
+    const consent = await tx.consent.findUnique({
+      where: { patientId_granteeId: { patientId, granteeId: actorId } },
+      select: {
+        id: true, revokedAt: true,
+        records: { where: { expiresAt: { gt: now }, record: { patientId } }, select: { recordId: true } },
+      },
+    });
+    const recordIds = new Set<string>(consent && !consent.revokedAt ? consent.records.map((r) => r.recordId) : []);
+    let grant: { recordId: string; expiresAt: string } | null = null;
+    // Réclamation : seule l'échéance de CETTE entrée change. Révocation persistante.
+    if (shareToken && !consent?.revokedAt) {
+      const record = await tx.medicalRecord.findUnique({
+        where: { shareToken }, select: { id: true, patientId: true, shareExpiry: true },
+      });
+      if (record && record.patientId === patientId && record.shareExpiry && record.shareExpiry > now) {
+        const c = await tx.consent.upsert({
+          where: { patientId_granteeId: { patientId, granteeId: actorId } },
+          create: { patientId, granteeId: actorId, expiresAt: record.shareExpiry, grantedVia: 'share-token' },
+          update: { grantedVia: 'share-token' }, select: { id: true },
+        });
+        await tx.consentRecord.upsert({
+          where: { consentId_recordId: { consentId: c.id, recordId: record.id } },
+          create: { consentId: c.id, recordId: record.id, expiresAt: record.shareExpiry },
+          update: { expiresAt: record.shareExpiry },
+        });
+        await syncLegacyConsentExpiry(tx, c.id);
+        recordIds.add(record.id);
+        grant = { recordId: record.id, expiresAt: record.shareExpiry.toISOString() };
+      }
+    }
+    return { recordIds, grant };
+  });
+  const { recordIds, grant } = result;
+  if (grant) {
+    await writeAudit(app.prisma, { action: 'DMP_CONSENT_GRANT', actorId, targetId: patientId, ip, meta: { via: 'share-token', ...grant } });
   }
 
   if (recordIds.size === 0) return deny('NO_CONSENT');

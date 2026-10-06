@@ -38,8 +38,19 @@ describe('decideDmpAccess', () => {
     });
   });
 
-  it('applique la même règle de consentement à la diaspora et aux labos', () => {
-    expect(decideDmpAccess({ role: 'DIASPORA', isOwner: false, hasValidShare: false }).allowed).toBe(false);
-    expect(decideDmpAccess({ role: 'LABORATOIRE', isOwner: false, hasValidShare: true }).allowed).toBe(true);
+  it('refuse DIASPORA même avec un partage', () => {
+    expect(decideDmpAccess({ role: 'DIASPORA', isOwner: false, hasValidShare: true }).allowed).toBe(false);
+  });
+
+  it('refuse LABORATOIRE même avec un partage', () => {
+    expect(decideDmpAccess({ role: 'LABORATOIRE', isOwner: false, hasValidShare: true }).allowed).toBe(false);
+  });
+
+  it('refuse PHARMACIE même avec un partage', () => {
+    expect(decideDmpAccess({ role: 'PHARMACIE', isOwner: false, hasValidShare: true }).allowed).toBe(false);
+  });
+
+  it('refuse ASC même avec un partage', () => {
+    expect(decideDmpAccess({ role: 'ASC', isOwner: false, hasValidShare: true }).allowed).toBe(false);
   });
 });
