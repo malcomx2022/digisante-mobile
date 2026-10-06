@@ -100,3 +100,23 @@ Le PV historique reste non exécuté. Les preuves automatisées API sont dans LO
 | DMP-L1.10 Revocation/claim concurrents | Après les réponses, aucune réintroduction d’accès retiré | | ☐ |
 
 La saisie d’une entrée par un médecin ne lui octroie pas un accès implicite : le propriétaire la partage. L’export enrichi ne constitue pas une validation FHIR clinique complète.
+
+
+## 5. Addendum L2 — Laboratoires (6 octobre 2026), à exécuter en recette
+
+Les tests API/navigateur dans LOT_L2 ne cochent aucune ligne du PV. Utiliser des structures, comptes et pièces synthétiques ; ne pas publier identité patient, résultats, pièces légales ou jetons dans le PV.
+
+| Cas | Attendu | Preuve opérateur | Résultat |
+|---|---|---|---|
+| LAB-L2.1 Compte historique ACTIVE/APPROVED avant migration | Aucune habilitation automatique, dossier L2 complet requis | | ☐ |
+| LAB-L2.2 Structure incomplète ou autorisation absente | Soumission refusée, pas d'accès au pool/identités/résultats | | ☐ |
+| LAB-L2.3 Pièces présentes mais non vérifiées | Approbation refusée serveur et désactivée côté admin | | ☐ |
+| LAB-L2.4 Identité/pièces en revue et dossier approuvé | Modification refusée ; identité figée visible à l'admin sans contenu clinique | | ☐ |
+| LAB-L2.5 Renvoi/correction puis resoumission | Anciennes coches effacées, nouvelle vérification requise ; rejet ouvre un nouveau dossier vide | | ☐ |
+| LAB-L2.6 Deux laboratoires réclament une même demande | Un gagnant ; attribution stable, aucune identité dans la file du perdant | | ☐ |
+| LAB-L2.7 Prescription ciblée | Pool du destinataire sans identité avant claim ; autre labo refusé | | ☐ |
+| LAB-L2.8 Deux publications et panne de notification DB | Un seul résultat/notification ; panne annule transition/résultat puis reprise possible | | ☐ |
+| LAB-L2.9 Suspension puis réactivation administrative | Commandes/résultats conservés, accès labo fermé, lecture patient/médecin conservée ; KYC ne lève pas la suspension | | ☐ |
+| LAB-L2.10 Laboratoire approuvé complet, smartphone/desktop | Structure → pièces → admin → claim → traitement → résultat → lecture/interprétation ; langues et erreurs lisibles | | ☐ |
+
+Aucune remise automatique au pool ou transfert des demandes d'une structure suspendue. Confirmer les autorisations d'exercice réelles et le circuit opérateur pour une interruption durable avant ouverture du pilote.

@@ -2,7 +2,7 @@
 
 > Date : 6 octobre 2026 (Africa/Lagos). Exécution et revue : Codex, à la demande du porteur.
 > Branche : `feat/l1-dmp-consent-authorship`. Base main après PR #180 : `d55cf1ae0a9870a29829652c50f6e362476edb76`.
-> Statut : **VALIDÉ LOCALEMENT — livraison/CI à consulter sur la PR du lot**. Pas de fusion/déploiement déduit des tests.
+> Statut : **LIVRÉ SUR MAIN** par PR #181 ; fusion constatée le 6 octobre 2026 à 15:32:54 UTC, main `53775be962c10192964ea113caa3a551cf74b411`. Aucun déploiement déduit de la fusion.
 > Commit applicatif : `9755b7f72c5fdd25079be071cce2408882d872af` ; PR et CI : [PR du lot L1](https://github.com/malcomx2022/digisante-mobile/pulls?q=is%3Apr+head%3Afeat%2Fl1-dmp-consent-authorship).
 
 ## Comportement livré par la candidate
@@ -75,4 +75,4 @@ Reproduction : pile de test dédiée, Prisma generate/migrate deploy, `pnpm --fi
 
 Revue : `docs/REVUE_L1_2026-10.md`. X1/X2 : `docs/ADDENDUM_Audit_DMP_L1_2026-10.md`. Scénarios physiques à exécuter : addendum L1 de `docs/RECETTE_7_Roles_PV.md`, sans cocher le PV historique.
 
-Une publication Git/CI verte n'atteste pas le déploiement ni une recette médicale. Vérifier merged/merged_at, main et les checks avant le lot dépendant ; aucune fusion automatique par Codex. L2 reste distinct et non implémenté par ce lot.
+Une publication Git/CI verte n'atteste pas le déploiement ni une recette médicale. Vérifier merged/merged_at, main et les checks avant le lot dépendant ; aucune fusion automatique par Codex. L2 est traité séparément sur `feat/l2-laboratory-verification` ; voir LOT_L2 pour sa livraison.
