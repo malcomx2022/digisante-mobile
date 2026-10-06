@@ -45,6 +45,12 @@ Lire LOT_L2, REVUE_L2 et l'addendum X3 avant toute maintenance. Migration 30→3
 
 Parcours `/labo/kyc` et admin existant, design depuis la skill versionnée dans `docs/skill/digisante-design-system-skill.zip`. Actions en ligne, FR/EN et repli FR FON/YOR sans validation native. La fiche L2 porte résultats/limites/livraison ; aucune recette juridique, physique ou clinique n'est déduite du navigateur émulé. Actualiser le plan/DOCX et les compteurs, puis attendre la fusion du lot avant la prochaine branche dépendante.
 
+## Lot L3 — Rejeu sans doublon (6 octobre 2026)
+
+L2 livré sur main par #182 (`eb1ba6e`). Relire `docs/CONTRAT_Synchronisation_L3.md`, LOT_L3 et REVUE_L3 avant toute maintenance du client ou des huit mutations. Shared définit la liste positive et les durées ; conserver la clé et le corps photographié avant premier fetch. Effet métier et reçu AES-GCM restent dans la même transaction, contrôle courant avant restitution ; pas de déduplication Redis seule. Ne pas élargir les routes sans transaction et tests de panne/concurrence/droits. Les anciennes files ambiguës sont conservées pour revue, sans UUID de remplacement. Les corps en attente/échec restent en clair jusqu'à L4 ; ne pas déclarer le hors ligne médical protégé.
+
+Preuves L3 : 460 API +64 web +11 E2E, 28 tests outillage et 11 étapes de release verts ; migration 31→32 conservatrice. Livraison/CI dans LOT_L3 et la PR. Reproduire les tests de réponse perdue après commit, deux onglets, redémarrage, rollback du reçu, conflit de contenu, isolement/401 et expiration après purge. Relancer release/E2E et actualiser les documents par lot ; recette physique distincte.
+
 ## Finalisation restante — reprise par lots L0–L11
 
 Le plan actif détaille contrats, dépendances, fichiers de départ, migrations, tests et documents à actualiser. Exécuter son prompt commun avec l'instruction du lot retenu ; une branche par fonctionnalité et des PR cohérentes, sans refonte de stack.
@@ -71,7 +77,7 @@ Le plan actif détaille contrats, dépendances, fichiers de départ, migrations,
 Lis CLAUDE.md, docs/INDEX_Documentation_DigiSante.docx puis README.md.
 Fais un état des lieux du monorepo actuel (apps/web, apps/api, packages, infra) :
 ce qui est en place vs ce qui manque pour atteindre un projet complet
-(165 endpoints REST + 1 WebSocket / 27 modules, 48 modèles Prisma, 67 pages, 4 langues, offline-first).
+(166 endpoints REST + 1 WebSocket / 28 modules, 49 modèles Prisma, 67 pages, 4 langues, offline-first).
 Ne code rien encore. Propose-moi un PLAN DE CONSTRUCTION par lots, avec l'ordre
 des dépendances (données → API → intégrations → frontend → tests). Liste les
 risques et les points à clarifier.

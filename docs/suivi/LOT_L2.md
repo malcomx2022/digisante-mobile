@@ -2,7 +2,7 @@
 
 > Date : 6 octobre 2026 (Africa/Lagos). Implémentation et revue : Codex, à la demande du porteur, selon les conventions Claude Code.
 > Branche : `feat/l2-laboratory-verification`. Base main : `53775be962c10192964ea113caa3a551cf74b411`, après fusion de [PR #181](https://github.com/malcomx2022/digisante-mobile/pull/181) le 6 octobre à 15:32:54 UTC.
-> Statut : **VALIDÉ LOCALEMENT — livraison/CI à consulter sur la PR du lot**. Aucun déploiement ni fusion automatique.
+> Statut : **LIVRÉ SUR MAIN — PR #182 fusionnée le 6 octobre 2026 à 16:19:42 UTC, main `eb1ba6ed70c2accf581a29bc2d10317bc5555caa`**. Aucun déploiement ni fusion automatique.
 > Commit applicatif : `33cea97cd8cdcd188cda9385e7c9587237f60013`. [PR et checks du lot L2](https://github.com/malcomx2022/digisante-mobile/pulls?q=is%3Apr+head%3Afeat%2Fl2-laboratory-verification).
 
 ## Workflow administratif
