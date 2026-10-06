@@ -204,6 +204,9 @@ enum WalletTransactionType {
   TOPUP
   DEBIT
   REFUND
+  // Entrant : restitution d'un paiement débité du portefeuille (distinct du
+  // REFUND sortant qui annule une recharge FedaPay).
+  REFUND_IN
   // Sortant : envoi d'argent à un proche (carnet Beneficiary).
   TRANSFER
   // Entrant : réception d'un envoi d'un proche. Distinct de TOPUP (recharge

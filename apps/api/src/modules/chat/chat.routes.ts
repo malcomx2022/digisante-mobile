@@ -8,6 +8,7 @@ import { z } from 'zod';
 
 import { requireRole } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
+import { currentAccessUser } from '@/plugins/authenticate.js';
 import * as chat from './chat.service.js';
 
 const idParams = z.object({ id: z.string().cuid() });
@@ -24,21 +25,24 @@ export default async function chatRoutes(app: FastifyInstance) {
   // Canal temps réel : le client ouvre /api/v1/chat/ws?token=<access JWT>.
   // (Les navigateurs ne peuvent pas poser d'en-tête Authorization sur un WebSocket.)
   // Auth manuelle ici ; le socket reçoit ensuite des événements { type:'chat', threadId }.
-  app.get('/ws', { websocket: true }, (socket: WebSocket, request) => {
+  app.get('/ws', { websocket: true }, async (socket: WebSocket, request) => {
     const token = (request.query as { token?: string }).token;
     let userId: string;
     let expMs = 0;
     try {
       const payload = app.jwt.verify(token ?? '') as { sub: string; role?: string; typ?: string; exp?: number };
       if (payload.typ === 'refresh' || !payload.sub) throw new Error('jeton d’accès attendu');
-      // Réservé aux participants au chat (patient ↔ médecin), comme les routes REST.
-      if (payload.role !== 'PATIENT' && payload.role !== 'MEDECIN') throw new Error('rôle non autorisé');
+      // Même statut/rôle courant que REST : une suspension bloque la reconnexion.
+      const user = await currentAccessUser(app, payload.sub);
+      if (user.role !== 'PATIENT' && user.role !== 'MEDECIN') throw new Error('rôle non autorisé');
       userId = payload.sub;
       if (typeof payload.exp === 'number') expMs = payload.exp * 1000;
     } catch {
       socket.close(1008, 'unauthorized');
       return;
     }
+    // Le client peut fermer le socket pendant la lecture DB.
+    if (socket.readyState !== 1) return;
     app.chatHub.add(userId, socket);
     // Le JWT n'est vérifié qu'à l'ouverture : on ferme le socket à l'échéance du
     // jeton pour qu'une session temps réel ne survive pas à son access token.

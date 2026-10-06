@@ -1,5 +1,7 @@
 # État des lieux fonctionnel & workflows de finalisation — DigiSanté Mobile
 
+> **Note de reprise — 6 octobre 2026 :** état historique au 1er septembre. L'affirmation « développement terminé » ci-dessous ne décrit plus la finalisation actuelle. Le plan actif est `PLAN_Implementations_Restantes_2026-10.md` (L0–L11), incluant des écarts de code constatés et les preuves opérationnelles à obtenir. Les résultats historiques restent conservés à leur date.
+
 > **Date** : 1ᵉʳ septembre 2026 · **Périmètre** : `main` @ `9c3a8b1` · **Nature** : état des lieux
 > **vérifié à la commande** (compteurs, i18n, historique git — pas une paraphrase de la documentation),
 > suivi des **workflows opérationnels** pour amener l'application jusqu'à la mise en service réelle.

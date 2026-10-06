@@ -8,6 +8,19 @@ import fp from 'fastify-plugin';
 
 import { unauthorized } from '@/lib/errors.js';
 
+/** Statut et rôle courants : un JWT signé avant une suspension ne suffit plus. */
+export async function currentAccessUser(app: FastifyInstance, userId: string) {
+  if (!userId) throw unauthorized("Un token d'accès est requis");
+  const user = await app.prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true, status: true },
+  });
+  if (!user || user.status === 'SUSPENDED') {
+    throw unauthorized('Session révoquée. Contactez le support.');
+  }
+  return user;
+}
+
 declare module '@fastify/jwt' {
   interface FastifyJWT {
     payload: { sub: string; role: Role; typ?: string; jti?: string };
@@ -32,5 +45,7 @@ export default fp(async (app: FastifyInstance) => {
     if (request.user.typ === 'refresh') {
       throw unauthorized("Un token d'accès est requis");
     }
+    const user = await currentAccessUser(app, request.user.sub);
+    request.user.role = user.role;
   });
 });

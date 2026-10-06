@@ -195,7 +195,7 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
     expect(refreshed.statusCode).toBe(401);
   });
 
-  it('compte suspendu : refresh ET reconnexion OTP refusés (401)', async () => {
+  it('compte suspendu : JWT courant, refresh et reconnexion OTP refusés (401)', async () => {
     // Inscription + activation.
     const reg = await app.inject({
       method: 'POST',
@@ -212,8 +212,13 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
     const user = verify.json().user;
     const rtValue = verify.cookies.find((c) => c.name === 'digisante_rt')!.value;
 
+    const headers = { authorization: `Bearer ${verify.json().accessToken}` };
+    expect((await app.inject({ method: 'GET', url: '/api/v1/users/me', headers })).statusCode).toBe(200);
+
     // L'admin suspend le compte.
     await app.prisma.user.update({ where: { id: user.id }, data: { status: 'SUSPENDED' } });
+
+    expect((await app.inject({ method: 'GET', url: '/api/v1/users/me', headers })).statusCode).toBe(401);
 
     // Le refresh ne doit plus délivrer de jetons (sinon session 30 j).
     const refreshed = await app.inject({

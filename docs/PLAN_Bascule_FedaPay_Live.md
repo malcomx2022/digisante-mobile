@@ -50,7 +50,7 @@ suffit — **et** le secret webhook doit être roté **dans le même `PUT`**, si
 
 - [ ] Audit `INTEGRATION_UPDATE` / `INTEGRATION_TEST` présents, **sans valeur** de secret.
 - [ ] Aucune occurrence de secret dans les journaux (étape 8, rejouée à J+1).
-- [ ] Réconciliation de 02:30 exécutée (J+1) : aucun paiement PENDING > 1 h non résolu.
+- [ ] Réconciliation de 02:30 exécutée (J+1) : aucun paiement PENDING/PROCESSING > 1 h non résolu.
 - [ ] Paiement unique, crédit unique (étapes 7 et 9).
 
 ## 4. Traçabilité (à remplir le jour J — jamais de valeur de clé)

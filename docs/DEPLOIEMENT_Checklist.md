@@ -22,6 +22,7 @@
 - [ ] `apps/api/.env` en **0600** (`deploy.sh` refuse de déployer sans `.env` et corrige les permissions).
 
 ## 3. Premier déploiement
+- [ ] Mise à jour du 06/10/2026 : migration `20261006130000_wallet_refund_in` appliquée avant le code de remboursement WALLET ; vérifier restitution + signe entrant dans l’historique.
 - [ ] `sudo -u digisante bash infra/deploy/scripts/deploy.sh`
       → install gelé → `prisma generate` → **`migrate deploy`** → `pnpm build` → `pm2 startOrReload`.
 - [ ] `pm2 status` : `digisante-api` (×2, online) + `digisante-web` (online).
@@ -45,12 +46,12 @@
 - [ ] Secrets repo : `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` (+ `VPS_SSH_PORT`).
 - [ ] **Variable** `DEPLOY_ENABLED=true` (active le job `deploy`).
 - [ ] Clé publique dans `~digisante/.ssh/authorized_keys`.
-- [ ] Push sur `main` → CI (`build-and-test`) → `deploy` SSH (`deploy.sh`).
+- [ ] Push sur `main` → CI (`build-and-test` **et** `e2e`) → `deploy` SSH (`deploy.sh`) si l'opt-in est actif. La PR L0 ne déploie pas.
 
 ## 7. Vérifications post-déploiement
 - [ ] `curl https://digisante.example.bj/api/v1/health` → `{ "status": "ok" }`
 - [ ] `curl https://digisante.example.bj/api/v1/ready` → `db: up, redis: up`
-- [ ] PWA installable, `/onboarding` accessible, SOS (SMS) opérationnel hors-ligne.
+- [ ] PWA installable, `/onboarding` accessible ; SOS testé **avec réseau**, preuve d'envoi au contact/numéro de secours. Hors réseau : repli vers les numéros d'urgence validés, aucune promesse de SMS transmis sans connexion.
 - [ ] Webhook FedaPay : URL `https://…/api/v1/payments/webhook` configurée côté FedaPay (HMAC).
 - [ ] Sauvegarde : lancer `pg_dump_encrypted.sh` une fois et vérifier que **DEUX** fichiers
       apparaissent dans `/var/backups/digisante/` :
@@ -74,7 +75,7 @@
 ---
 
 **Tout est prêt pour la production.** Le code (backend **27 modules** / **163 endpoints REST + 1 WS**
-+ frontend **7 espaces**, **66 pages**) est testé (**426 tests verts** — 378 API + 48 web, + 8 e2e
++ frontend **7 espaces**, **66 pages**) est testé (**440 tests verts** — 390 API + 50 web, + 8 e2e
 Playwright — vérifié le 22/09/2026), l'infra scriptée, et la sécurité auditée. Reste l'exécution sur
 le VPS réel (étapes ci-dessus).
 

@@ -1,5 +1,7 @@
 # Prompts Claude Code — finalisation des intégrations et corrections
 
+> **Reprise du 6 octobre 2026 :** utiliser d'abord `PLAN_Implementations_Restantes_2026-10.md`, son prompt commun et l'instruction L0–L11. Les prompts ci-dessous conservent le contexte de la finalisation précédente ; vérifier ce qui est déjà livré avant de les exécuter et mesurer les compteurs actuels plutôt que reprendre les nombres historiques.
+
 > **Mode d'emploi :** copier **un seul prompt à la fois** dans Claude Code. Attendre le commit et la
 > PR correspondants, relire les résultats, puis passer au prompt suivant. Les prompts sont classés
 > dans l'ordre recommandé. Remplacer uniquement les champs `<...>` ; ne jamais coller une clé secrète

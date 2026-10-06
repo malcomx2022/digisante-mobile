@@ -1,9 +1,10 @@
 // Tests d'intégration Paiements + Wallet + Abonnements (via app.inject). Si DB+Redis (CI).
 import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { buildWebhookSignatureHeader } from '@/services/fedapay.js';
 import type * as PaymentsService from './payments.service.js';
+import * as wallet from '@/modules/wallet/wallet.service.js';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 const PHONES = ['+2290190000001', '+2290190000002', '+2290190000003'];
@@ -271,6 +272,44 @@ describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
     const w2 = await app.inject({ method: 'GET', url: '/api/v1/wallet', headers: auth(patientToken) });
     expect(Number(w2.json().balance)).toBe(balBefore - amountXof);
     expect(w2.json().transactions.some((tr: { type: string }) => tr.type === 'REFUND')).toBe(true);
+  });
+
+  it('remboursements WALLET concurrents : un seul crédit et un seul audit', async () => {
+    await app.prisma.wallet.upsert({
+      where: { userId: patientUserId }, create: { userId: patientUserId, balance: 10000 }, update: { balance: 10000 },
+    });
+    const appt = await makeAppt();
+    const init = await initConsult(patientToken, appt.id, { method: 'WALLET' });
+    expect(init.statusCode).toBe(201);
+    const paymentId = init.json().payment.id as string;
+    const results = await Promise.all(Array.from({ length: 5 }, () => payments.refund(app, paymentId, { actorId: patientUserId })));
+    expect(results.filter((r) => 'refunded' in r)).toHaveLength(1);
+    expect(Number((await app.prisma.wallet.findUniqueOrThrow({ where: { userId: patientUserId } })).balance)).toBe(10000);
+    const movement = await app.prisma.walletTransaction.findMany({ where: { reference: paymentId, type: 'REFUND_IN' } });
+    expect(movement).toHaveLength(1);
+    expect(Number(movement[0]!.amount)).toBe(5000);
+    expect(await app.prisma.auditLog.count({ where: { action: 'PAYMENT_REFUND', targetId: paymentId } })).toBe(1);
+  });
+
+  it('un échec du crédit de remboursement annule aussi la transition REFUNDED', async () => {
+    await app.prisma.wallet.upsert({
+      where: { userId: patientUserId }, create: { userId: patientUserId, balance: 10000 }, update: { balance: 10000 },
+    });
+    const appt = await makeAppt();
+    const init = await initConsult(patientToken, appt.id, { method: 'WALLET' });
+    expect(init.statusCode).toBe(201);
+    const paymentId = init.json().payment.id as string;
+    const failCredit = vi.spyOn(wallet, 'creditWithin').mockRejectedValueOnce(new Error('credit failed'));
+    try {
+      await expect(payments.refund(app, paymentId, { actorId: patientUserId })).rejects.toThrow('credit failed');
+    } finally {
+      failCredit.mockRestore();
+    }
+    expect((await app.prisma.payment.findUniqueOrThrow({ where: { id: paymentId } })).status).toBe('COMPLETED');
+    expect(Number((await app.prisma.wallet.findUniqueOrThrow({ where: { userId: patientUserId } })).balance)).toBe(5000);
+    expect(await app.prisma.walletTransaction.count({ where: { reference: paymentId, type: 'REFUND_IN' } })).toBe(0);
+    await payments.refund(app, paymentId, { actorId: patientUserId });
+    expect(Number((await app.prisma.wallet.findUniqueOrThrow({ where: { userId: patientUserId } })).balance)).toBe(10000);
   });
 
   it('abonnement professionnel : souscription d’un plan', async () => {

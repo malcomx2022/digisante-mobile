@@ -84,8 +84,9 @@ async function applyPaymentStatus(
  * Remboursement INTERNE d'un paiement (reversal côté système — AUCUN appel
  * FedaPay externe ; le retour d'argent côté opérateur reste une étape manuelle
  * tracée). Idempotent : un paiement déjà REFUNDED n'est pas retraité ; seul un
- * paiement COMPLETED est remboursable. Pour un WALLET_TOPUP, le crédit est
- * reversé (WalletTransaction REFUND). Tracé par audit PAYMENT_REFUND.
+ * paiement COMPLETED est remboursable. WALLET_TOPUP : reversal du crédit
+ * (REFUND sortant). Paiement WALLET : restitution du débit (REFUND_IN entrant).
+ * Tracé par audit PAYMENT_REFUND.
  * ⚠️ §5 — couvert par les tests refund + la non-régression des webhooks.
  */
 export async function refund(
@@ -95,7 +96,7 @@ export async function refund(
 ): Promise<{ idempotent: true; status: string } | { refunded: true; status: string }> {
   const payment = await app.prisma.payment.findUnique({
     where: { id: paymentId },
-    select: { id: true, userId: true, type: true, status: true, amount: true, fedapayId: true },
+    select: { id: true, userId: true, type: true, method: true, status: true, amount: true, fedapayId: true },
   });
   if (!payment) throw notFound('Paiement introuvable');
   if (payment.status === 'REFUNDED') return { idempotent: true, status: 'REFUNDED' };
@@ -104,12 +105,18 @@ export async function refund(
   // Transition CONDITIONNELLE COMPLETED → REFUNDED (double-clic admin, deux
   // administrateurs, annulation de RDV ∥ action admin) + reversal dans la même
   // transaction : un seul remboursement effectif, jamais de double reversal.
-  const refundWalletId = payment.type === 'WALLET_TOPUP' ? (await wallet.getOrCreateWallet(app, payment.userId)).id : null;
+  const refundWalletId = payment.type === 'WALLET_TOPUP' || payment.method === 'WALLET'
+    ? (await wallet.getOrCreateWallet(app, payment.userId)).id
+    : null;
   const won = await app.prisma.$transaction(async (tx) => {
     const { count } = await tx.payment.updateMany({ where: { id: payment.id, status: 'COMPLETED' }, data: { status: 'REFUNDED' } });
     if (count === 0) return false;
     if (refundWalletId) {
-      await wallet.refundWithin(tx, refundWalletId, payment.amount.toNumber(), payment.id, opts.reason ?? 'Remboursement');
+      if (payment.type === 'WALLET_TOPUP') {
+        await wallet.refundWithin(tx, refundWalletId, payment.amount.toNumber(), payment.id, opts.reason ?? 'Remboursement');
+      } else {
+        await wallet.creditWithin(tx, refundWalletId, payment.amount.toNumber(), payment.id, opts.reason ?? 'Remboursement', 'REFUND_IN');
+      }
     }
     return true;
   });
@@ -311,15 +318,23 @@ export async function handleWebhook(
   return applyPaymentStatus(app, payment, status, ip, 'webhook');
 }
 
+/** Critère commun au cron et à la file de supervision financière. */
+export function reconciliationWhere(now = Date.now()): Prisma.PaymentWhereInput {
+  return {
+    status: { in: ['PENDING', 'PROCESSING'] },
+    createdAt: { lt: new Date(now - 60 * 60 * 1000) },
+    fedapayId: { not: null },
+  };
+}
+
 /**
- * Réconciliation quotidienne (cron) : pour chaque paiement PENDING ancien (> 1 h),
+ * Réconciliation quotidienne (cron) : paiements PENDING ou PROCESSING anciens (> 1 h),
  * interroge FedaPay et résout son statut via la même logique que le webhook.
  * Si FedaPay n'est pas configuré, balayage seul (aucune résolution).
  */
 export async function reconcile(app: FastifyInstance) {
-  const threshold = new Date(Date.now() - 60 * 60 * 1000); // > 1 h
   const pendings = await app.prisma.payment.findMany({
-    where: { status: 'PENDING', createdAt: { lt: threshold }, fedapayId: { not: null } },
+    where: reconciliationWhere(),
     select: { id: true, userId: true, type: true, status: true, fedapayId: true, amount: true },
   });
 

@@ -135,4 +135,15 @@ describe.skipIf(!HAS_INFRA)('Chat temps réel (WebSocket)', () => {
     });
     expect(closed).toBe(1008);
   });
+
+  it('refuse la reconnexion WebSocket avec le JWT d’un compte suspendu', async () => {
+    await app.prisma.user.update({ where: { phone: PHONE_PATIENT }, data: { status: 'SUSPENDED' } });
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/api/v1/chat/ws?token=${patientToken}`);
+    const closed = await new Promise<number>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('timeout close')), 4000);
+      ws.once('close', (code) => { clearTimeout(timer); resolve(code); });
+      ws.once('error', () => { /* close donne le résultat */ });
+    });
+    expect(closed).toBe(1008);
+  });
 });
