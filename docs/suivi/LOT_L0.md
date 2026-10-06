@@ -2,7 +2,7 @@
 
 > Date : 6 octobre 2026. Responsable d'exécution/revue : Codex, sur demande du porteur.
 > Branche : `feat/l0-baseline-review`. Base main vérifiée via GitHub : `8f2f6ca24ad0543d6a08218932c783809eada9b1`.
-> Statut : **VALIDÉ LOCAL + CI — PR de reprise à contrôler sur la branche, fusion à effectuer**. Aucun déploiement ni ouverture pilote.
+> Statut : **LIVRÉ SUR MAIN — PR #178 et #179 fusionnées, CI candidate verte**. Aucune ouverture pilote ni recette production attestée.
 
 ## Périmètre et décisions
 
@@ -84,13 +84,15 @@ Ces lignes sont des **candidates à examiner**, pas des crédits autorisés. Le 
 
 ## CI et livraison
 
-Le main distant a été revérifié via le connecteur le 6 octobre. Dernier run trouvé pour cette révision : [CI n°385](https://github.com/malcomx2022/digisante-mobile/actions/runs/35799186291), créé le **22 septembre**, en échec ; jobs build-and-test/e2e sans étape exécutée, deploy sauté. Ce constat historique ne suffit pas à diagnostiquer le compte GitHub aujourd'hui.
+Base initiale vérifiée : main `8f2f6ca24ad0543d6a08218932c783809eada9b1`. Le run du 22 septembre était en échec ; les nouvelles preuves ci-dessous établissent la validation de L0.
 
-Candidate publiée : **`6edcd427f5759c4b90c7bf58184193a55f456ac5`**, tree `f30df3685c76036fdfe2085b54390b7fd07bf0e9`, identique au tree local. [PR initiale #178](https://github.com/malcomx2022/digisante-mobile/pull/178), désormais fermée, branche `feat/l0-baseline-review`, base `main`. Publication via le connecteur GitHub, l'accès Git terminal étant bloqué par le proxy ; le commit distant exact a été importé localement.
+- Candidate applicative **`6edcd427f5759c4b90c7bf58184193a55f456ac5`**, tree `f30df3685c76036fdfe2085b54390b7fd07bf0e9`, identique au tree local. [CI initiale](https://github.com/malcomx2022/digisante-mobile/actions/runs/37477134921) : **build-and-test et e2e réussis**, installation neuve pnpm 9.12.0 avec lockfile figé, migrations, lint/typecheck/tests/builds verts.
+- [PR #178](https://github.com/malcomx2022/digisante-mobile/pull/178) **fusionnée le 6 octobre à 14:16:50 UTC**, merge `e9667c6940470bb80867304ccd05f9a6d5e18e14`. Sa tête figée était celle d'une PR déjà fusionnée, pas une anomalie de synchronisation. L'interprétation antérieure est corrigée par ce suivi.
+- Complément documentaire **`fd2114e50587b37e7852ab6fbc0344e6ae37375b`** : aucune modification des sources applicatives après `6edcd427`. [CI finale](https://github.com/malcomx2022/digisante-mobile/actions/runs/37479080272) : **build-and-test et e2e réussis**, deploy sauté dans le contexte PR.
+- [PR #179](https://github.com/malcomx2022/digisante-mobile/pull/179) **fusionnée le 6 octobre à 14:31:01 UTC**, merge **`2ee3cfb247a5283553aacec0527ca0582c7c21f9`**, tree `6d656d9bdf10c8bc9eb370d9ece6141143732bff`.
+- [CI push main après fusion](https://github.com/malcomx2022/digisante-mobile/actions/runs/37479625121) : consulter son résultat et la condition deploy avant toute décision d'exploitation. Une fusion Git et les tests simulés ne certifient ni livraison VPS ni ouverture clinique.
 
-[CI candidate du 6 octobre](https://github.com/malcomx2022/digisante-mobile/actions/runs/37477134921) : **build-and-test et e2e réussis**. Installation avec lockfile figé, génération/migration Prisma, lint, typecheck, tests et build réussis ; Playwright exécuté dans son job dédié. Le job deploy est sauté conformément au déclenchement PR : aucun déploiement. La présente mise à jour documentaire ne modifie pas les sources applicatives ; ses checks de tête restent à vérifier sur la PR avant fusion.
-
-La PR initiale #178 a conservé une tête périmée malgré la mise à jour de la branche ; GitHub a refusé sa réouverture. La [liste des PR ouvertes de cette branche](https://github.com/malcomx2022/digisante-mobile/pulls?q=is%3Apr+is%3Aopen+head%3Afeat%2Fl0-baseline-review) identifie la PR de reprise et ses checks de tête. Ce lien évite de figer un numéro lors du remplacement. La PR de reprise est destinée à la revue du porteur. Aucun merge automatique ; L0 est validé pour revue, sans attestation de déploiement ni d'ouverture clinique.
+Ces fusions ont été constatées via GitHub ; cette session n'a pas appelé l'API de merge. Les commits distants exacts, y compris les merges signés, ont été importés localement. La correction de ce constat est portée sur `docs/l0-merge-evidence`, sans changement applicatif. Pour les lots suivants : vérifier aussi `merged`/`merged_at`, la tête main et les événements de livraison avant de conclure à une discordance de refs ou de modifier une PR.
 
 ## Critères de clôture
 
@@ -102,7 +104,8 @@ La PR initiale #178 a conservé une tête périmée malgré la mise à jour de l
 | E2E et migration/reprise conservatrice | Validés localement |
 | Matrice périmètre / écarts CDC | Produite ; report des autres abonnements confirmé par le porteur |
 | Revue finale et documentation Claude Code | Produites ; DOCX et concordance Markdown validés |
-| Candidate versionnée, PR et CI complète | Commit `6edcd427`, PR initiale #178 remplacée, deux jobs CI verts sur `6edcd427` ; revérifier les checks de tête avant fusion |
-| Fusion / déploiement | Non effectués |
+| Candidate versionnée, PR et CI complète | `6edcd427` puis `fd2114e` : deux jobs CI verts ; PR #178/#179 fusionnées |
+| Fusion sur main | Constatée : `2ee3cfb` après PR #178 et #179 |
+| Déploiement / ouverture pilote | Aucun PV de déploiement ou validation externe produit par L0 |
 
-La fusion ne doit pas être déduite de cette validation locale et CI. Le lot dépendant suivant reprend main après la fusion convenue et sa revue, en conservant les limites de la matrice.
+Le lot dépendant suivant repart du main fusionné et vérifié, sur une nouvelle branche L1, en conservant les limites de la matrice. Les validations externe/clinique et les lots L1–L11 restent à réaliser.

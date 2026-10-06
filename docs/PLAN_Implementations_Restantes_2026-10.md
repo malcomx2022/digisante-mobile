@@ -1,7 +1,7 @@
 # Plan d'implémentation et de finalisation — DigiSanté Mobile
 
 > Date : **6 octobre 2026**. Base inspectée : `main` @ `8f2f6ca24ad0543d6a08218932c783809eada9b1`, avec les quatre corrections locales de revue.
-> Statut : **L0 VALIDÉ LOCAL + CI**, PR de reprise à contrôler sur la branche, fusion à effectuer ; L1–L11 PLANIFIÉS. Voir `docs/suivi/LOT_L0.md` et `docs/REVUE_L0_2026-10.md`. Aucun déploiement attesté par ce plan.
+> Statut : **L0 LIVRÉ SUR MAIN**, PR #178/#179 fusionnées, CI candidate verte ; L1–L11 PLANIFIÉS. Voir `docs/suivi/LOT_L0.md` et `docs/REVUE_L0_2026-10.md`. Aucun déploiement attesté par ce plan.
 > Référence de reprise : `CLAUDE.md` puis `docs/PLAYBOOK_Codage_DigiSante.md`.
 > Version documentaire : `docs/Plan_Implementations_Restantes_2026-10.docx`, générée depuis ce fichier par `scripts/docs/generate-implementation-plan.js`.
 
@@ -11,7 +11,7 @@
 
 Terminer les boucles fonctionnelles du périmètre retenu, puis produire les preuves permettant l'ouverture d'un pilote. Les parcours des sept rôles sont largement présents ; le nombre d'écrans ou de tests ne prouve pas la clôture de chaque workflow.
 
-Quatre corrections sont regroupées sur la branche L0 `feat/l0-baseline-review` : contrôle du statut/rôle à chaque requête protégée, remboursement WALLET entrant atomique, réconciliation PENDING/PROCESSING, réservation RDV concurrente sous verrou médecin. Résultats locaux du 6 octobre : **390 tests API + 50 tests web**, **8 E2E**, lint/typecheck et builds verts ; 29 migrations, schéma validé et aucune dérive constatée. Migration 28→29 répétée sur données synthétiques ; revue du diff consignée. CI candidate `6edcd427` verte (build-and-test et e2e), PR de reprise à contrôler sur la branche ; fournisseurs réels à valider séparément, aucune fusion/déploiement. Revérifier les checks de tête avant fusion.
+Quatre corrections sont regroupées sur la branche L0 `feat/l0-baseline-review` : contrôle du statut/rôle à chaque requête protégée, remboursement WALLET entrant atomique, réconciliation PENDING/PROCESSING, réservation RDV concurrente sous verrou médecin. Résultats locaux du 6 octobre : **390 tests API + 50 tests web**, **8 E2E**, lint/typecheck et builds verts ; 29 migrations, schéma validé et aucune dérive constatée. Migration 28→29 répétée sur données synthétiques ; revue du diff consignée. CI candidates `6edcd427` et `fd2114e` vertes (build-and-test et e2e), PR #178/#179 fusionnées ; main vérifié à `2ee3cfb`. Fournisseurs réels et déploiement à valider séparément ; consulter la CI main et la fiche L0.
 
 Les preuves opérationnelles des documents du 22 septembre restent historiques. Leur absence dans le dépôt signifie « non prouvé », sans affirmer que l'opérateur n'a rien fait depuis. Ne pas remplacer les anciens PV signés ou datés par des déclarations actuelles.
 
@@ -45,7 +45,7 @@ Ces décisions bloquent uniquement leurs sous-lots dépendants. Préparer modèl
 
 | Lot | Objectif | Dépend de | Statut initial |
 |---|---|---|---|
-| L0 | Livrer la baseline et fixer le périmètre | — | Revue, baseline locale et CI validées ; PR de reprise à contrôler sur la branche, fusion à effectuer |
+| L0 | Livrer la baseline et fixer le périmètre | — | Revue et CI validées ; livré sur main par PR #178/#179 |
 | L1 | Consentements par entrée et auteurs DMP | L0 | À implémenter |
 | L2 | Habilitation laboratoire | L0 | À implémenter |
 | L3 | Rejeu des mutations sans doublon | L0 | À implémenter |
