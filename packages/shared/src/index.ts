@@ -12,3 +12,5 @@ export * from './posology.js';
 export * from './schemas.js';
 export * from './triage.js';
 export * from './i18n.js';
+
+export * from './sync.js';

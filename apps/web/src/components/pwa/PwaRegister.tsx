@@ -22,9 +22,7 @@ export function PwaRegister() {
   const [updateReady, setUpdateReady] = useState(false);
 
   useEffect(() => {
-    if (!('serviceWorker' in navigator)) return;
-
-    navigator.serviceWorker
+    if ('serviceWorker' in navigator) navigator.serviceWorker
       .register('/sw.js')
       .then((reg) => {
         reg.addEventListener('updatefound', () => {
@@ -44,7 +42,7 @@ export function PwaRegister() {
 
     const onOnline = () => void flushQueue();
     window.addEventListener('online', onOnline);
-    if (navigator.onLine) void flushQueue();
+    // AuthProvider déclenche la reprise initiale après restauration de session.
     return () => window.removeEventListener('online', onOnline);
   }, []);
 

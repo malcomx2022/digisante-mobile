@@ -6,6 +6,7 @@ import type { FastifyInstance } from 'fastify';
 import type { WebSocket } from 'ws';
 import { z } from 'zod';
 
+import { mutateOnce } from '@/lib/idempotency.js';
 import { requireRole } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
 import { currentAccessUser } from '@/plugins/authenticate.js';
@@ -79,13 +80,23 @@ export default async function chatRoutes(app: FastifyInstance) {
   app.post('/threads/:id/messages', participantOnly, async (request, reply) => {
     const { id } = zParse(idParams, request.params);
     const { body } = zParse(sendSchema, request.body);
-    const message = await chat.sendMessage(app, request.user, id, body);
-    return reply.code(201).send(message);
+    let recipients: string[] = [];
+    const result = await mutateOnce(app, request, {
+      path: `/chat/threads/${id}/messages`, status: 201, roles: ['PATIENT', 'MEDECIN'],
+      authorize: async (tx) => { const thread = await chat.authorizeThread(app, request.user, id, tx); recipients = [thread.patient.userId, thread.doctor.userId]; },
+      execute: (tx) => chat.sendMessageWithin(tx, request.user, id, body),
+    });
+    if (!result.replayed) await chat.publishMessageHint(app, { threadId: id, recipients });
+    return reply.code(201).send(result.value);
   });
 
   // Marque les messages du correspondant comme lus.
   app.post('/threads/:id/read', participantOnly, async (request) => {
     const { id } = zParse(idParams, request.params);
-    return chat.markRead(app, request.user, id);
+    return (await mutateOnce(app, request, {
+      path: `/chat/threads/${id}/read`, roles: ['PATIENT', 'MEDECIN'],
+      authorize: async (tx) => { await chat.authorizeThread(app, request.user, id, tx); },
+      execute: (tx) => chat.markRead(app, request.user, id, tx),
+    })).value;
   });
 }

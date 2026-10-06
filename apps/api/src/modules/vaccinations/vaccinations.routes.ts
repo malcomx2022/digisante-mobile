@@ -6,7 +6,9 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
-import { unauthorized } from '@/lib/errors.js';
+import { notFound, unauthorized } from '@/lib/errors.js';
+import { mutateOnce } from '@/lib/idempotency.js';
+import { mutationPatient, mutationSubject, mutationVaccination } from '@/lib/mutation-access.js';
 import { requireRole } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
 import { isValidServiceToken } from '@/lib/service-token.js';
@@ -34,20 +36,40 @@ export default async function vaccinationsRoutes(app: FastifyInstance) {
   // Ajoute un sujet et génère son calendrier PEV.
   app.post('/subjects', patientOnly, async (request, reply) => {
     const input = zParse(addSubjectSchema, request.body);
-    return reply.code(201).send(await vacc.addSubject(app, request.user.sub, input));
+    const result = await mutateOnce<Awaited<ReturnType<typeof vacc.addSubject>>>(app, request, {
+      path: '/vaccinations/subjects', status: 201, roles: ['PATIENT'],
+      authorize: async (tx, replayed, resourceId) => {
+        await mutationPatient(tx, request.user.sub);
+        if (replayed) {
+          if (!resourceId) throw notFound('Sujet introuvable');
+          await mutationSubject(tx, request.user.sub, resourceId, false);
+        }
+      },
+      resourceId: (value) => value.id,
+      execute: (tx) => vacc.addSubject(app, request.user.sub, input, tx),
+    });
+    return reply.code(201).send(result.value);
   });
 
   // Supprime un sujet (et ses vaccinations).
   app.delete('/subjects/:id', patientOnly, async (request) => {
     const { id } = zParse(idParams, request.params);
-    return vacc.removeSubject(app, request.user.sub, id);
+    return (await mutateOnce(app, request, {
+      path: `/vaccinations/subjects/${id}`, roles: ['PATIENT'],
+      authorize: (tx, replayed) => mutationSubject(tx, request.user.sub, id, replayed),
+      execute: (tx) => vacc.removeSubject(app, request.user.sub, id, tx),
+    })).value;
   });
 
   // Marque une vaccination comme faite (ou l'annule).
   app.post('/:id/administered', patientOnly, async (request) => {
     const { id } = zParse(idParams, request.params);
     const input = zParse(administeredSchema, request.body ?? {});
-    return vacc.setAdministered(app, request.user.sub, id, input);
+    return (await mutateOnce(app, request, {
+      path: `/vaccinations/${id}/administered`, roles: ['PATIENT'],
+      authorize: (tx) => mutationVaccination(tx, request.user.sub, id),
+      execute: (tx) => vacc.setAdministered(app, request.user.sub, id, input, tx),
+    })).value;
   });
 
   // Générateur des rappels dus du jour (cron interne) — jeton de service requis.

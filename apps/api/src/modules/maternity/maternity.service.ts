@@ -6,12 +6,15 @@
 // Cloisonnement §4 : une patiente ne voit/modifie QUE sa propre grossesse.
 // ─────────────────────────────────────────────────────────────
 import { buildAntenatalSchedule, computeDueDate, type Lang } from '@digisante/shared';
+import type { Prisma, PrismaClient } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
 import { badRequest, forbidden, notFound } from '@/lib/errors.js';
 
-async function patientIdOf(app: FastifyInstance, userId: string): Promise<string> {
-  const p = await app.prisma.patient.findUnique({ where: { userId }, select: { id: true } });
+type MutationDb = PrismaClient | Prisma.TransactionClient;
+
+async function patientIdOf(app: FastifyInstance, userId: string, db: MutationDb = app.prisma): Promise<string> {
+  const p = await db.patient.findUnique({ where: { userId }, select: { id: true } });
   if (!p) throw forbidden('Profil patient requis');
   return p.id;
 }
@@ -44,13 +47,13 @@ export async function getActive(app: FastifyInstance, userId: string) {
 }
 
 /** Démarre un suivi de grossesse (une seule active) et génère les CPN. */
-export async function startPregnancy(app: FastifyInstance, userId: string, input: { lmpDate: Date }) {
-  const patientId = await patientIdOf(app, userId);
-  const existing = await app.prisma.pregnancy.findFirst({ where: { patientId, endedAt: null }, select: { id: true } });
+export async function startPregnancy(app: FastifyInstance, userId: string, input: { lmpDate: Date }, db: MutationDb = app.prisma) {
+  const patientId = await patientIdOf(app, userId, db);
+  const existing = await db.pregnancy.findFirst({ where: { patientId, endedAt: null }, select: { id: true } });
   if (existing) throw badRequest('Une grossesse est déjà en cours de suivi');
   const dueDate = computeDueDate(input.lmpDate);
   const visits = buildAntenatalSchedule(input.lmpDate);
-  return app.prisma.pregnancy.create({
+  return db.pregnancy.create({
     data: {
       patientId,
       lmpDate: input.lmpDate,
@@ -76,14 +79,15 @@ export async function setVisitDone(
   userId: string,
   visitId: string,
   input: { done: boolean; doneAt?: Date },
+  db: MutationDb = app.prisma,
 ) {
-  const patientId = await patientIdOf(app, userId);
-  const visit = await app.prisma.antenatalVisit.findFirst({
+  const patientId = await patientIdOf(app, userId, db);
+  const visit = await db.antenatalVisit.findFirst({
     where: { id: visitId, pregnancy: { patientId } },
     select: { id: true },
   });
   if (!visit) throw notFound('Consultation prénatale introuvable');
-  return app.prisma.antenatalVisit.update({
+  return db.antenatalVisit.update({
     where: { id: visitId },
     data: { doneAt: input.done ? input.doneAt ?? new Date() : null },
     select: { id: true, doneAt: true },

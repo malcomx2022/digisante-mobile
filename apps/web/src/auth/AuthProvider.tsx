@@ -1,8 +1,8 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import { setAccessToken, setRefreshHandler, setSessionExpiredHandler } from '@/lib/api/client';
+import { flushQueue, refreshAccessToken, setAccessToken, setRefreshHandler, setSessionExpiredHandler } from '@/lib/api/client';
 import { authApi, type AuthUser, type OtpInfo, type RegisterBody } from '@/lib/api/auth';
 import { isOnline } from '@/lib/offline/online';
 import { purgeAll, setQueueOwner } from '@/lib/offline/queue';
@@ -25,50 +25,12 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status>('loading');
   const [user, setUser] = useState<AuthUser | null>(null);
-
-  // Reprise de session au démarrage. Le jeton d'accès vit en mémoire ; le refresh
-  // est un cookie HttpOnly (C6). On reprend en UN appel via /auth/refresh (qui
-  // renvoie { accessToken, user }). Hors-ligne : reprise OPTIMISTE depuis le cache
-  // (offline-first §3) — le jeton d'accès sera ré-obtenu au retour du réseau.
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      const cached = sessionCache.get();
-      if (!cached) {
-        if (active) setStatus('anon');
-        return;
-      }
-      // Optimiste : afficher l'app immédiatement avec le profil en cache.
-      if (active) {
-        setUser(cached);
-        setStatus('authed');
-      }
-      if (!isOnline()) return; // hors-ligne : jeton ré-obtenu au 1er appel en ligne
-      try {
-        const { accessToken, user } = await authApi.refresh();
-        setAccessToken(accessToken);
-        sessionCache.set(user);
-        if (active) setUser(user);
-        // Reprise : propage une éventuelle ROTATION du token FCM, sans jamais
-        // redemander la permission à l'ouverture de l'app.
-        void registerPushDevice({ prompt: false });
-      } catch {
-        // En ligne mais refresh refusé (session expirée/révoquée) → purge.
-        sessionCache.clear();
-        setAccessToken(null);
-        if (active) {
-          setUser(null);
-          setStatus('anon');
-        }
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
+  const sessionEpoch = useRef(0);
 
   // Purge complète de la session (utilisée par logout ET par l'expiration de session).
   const clearSession = useCallback(() => {
+    sessionEpoch.current += 1;
+    setQueueOwner(null);
     sessionCache.clear();
     setAccessToken(null);
     setUser(null);
@@ -81,10 +43,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // renvoie le nouvel access token (ou null → session expirée, le client purgera).
   useEffect(() => {
     setRefreshHandler(async () => {
+      const epoch = sessionEpoch.current;
       // Le refresh est lu dans le cookie HttpOnly côté serveur (aucun jeton en JS).
       const { accessToken, user } = await authApi.refresh();
+      if (epoch !== sessionEpoch.current) return null;
       setAccessToken(accessToken);
       sessionCache.set(user);
+      setQueueOwner(user.id);
+      setUser(user);
       return accessToken;
     });
     setSessionExpiredHandler(() => clearSession());
@@ -94,26 +60,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [clearSession]);
 
+  // Reprise de session au démarrage. Le jeton d'accès vit en mémoire ; le refresh
+  // est un cookie HttpOnly (C6). On reprend en UN appel via /auth/refresh (qui
+  // renvoie { accessToken, user }). Hors-ligne : reprise OPTIMISTE depuis le cache
+  // (offline-first §3) — le jeton d'accès sera ré-obtenu au retour du réseau.
+  useEffect(() => {
+    let active = true;
+    const epoch = sessionEpoch.current;
+    (async () => {
+      const cached = sessionCache.get();
+      if (!cached) {
+        setQueueOwner(null);
+        if (active) setStatus('anon');
+        return;
+      }
+      // Optimiste : afficher l'app immédiatement avec le profil en cache.
+      if (active) {
+        setQueueOwner(isOnline() ? null : cached.id);
+        setUser(cached);
+        setStatus('authed');
+      }
+      if (!isOnline()) return; // hors-ligne : jeton ré-obtenu au 1er appel en ligne
+      try {
+        const token = await refreshAccessToken();
+        if (!token) throw new Error('Session expirée');
+        if (active && epoch === sessionEpoch.current) void flushQueue();
+        // Reprise : propage une éventuelle ROTATION du token FCM, sans jamais
+        // redemander la permission à l'ouverture de l'app.
+        void registerPushDevice({ prompt: false });
+      } catch {
+        // Un ancien refresh ne doit pas effacer une nouvelle connexion.
+        if (active && epoch === sessionEpoch.current) clearSession();
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [clearSession]);
+
   const register = useCallback<AuthContextValue['register']>((b) => authApi.register(b).then((r) => r.otp), []);
   const requestOtp = useCallback<AuthContextValue['requestOtp']>((phone, channel) => authApi.requestOtp({ phone, channel }), []);
 
   const verifyOtp = useCallback<AuthContextValue['verifyOtp']>(async (phone, code) => {
+    const epoch = ++sessionEpoch.current;
     const res = await authApi.verifyOtp({ phone, code });
+    if (epoch !== sessionEpoch.current) throw new Error('Session changée');
     setAccessToken(res.accessToken); // le refresh est posé en cookie HttpOnly par le serveur
     sessionCache.set(res.user);
+    setQueueOwner(res.user.id);
     setUser(res.user);
+    void flushQueue();
     setStatus('authed');
     // Enregistrement du token push après connexion (best-effort, non bloquant).
     void registerPushDevice({ prompt: true });
     return res.user;
   }, []);
 
-  // La file hors-ligne appartient au compte courant (jamais rejouée sous un autre).
-  useEffect(() => {
-    setQueueOwner(user?.id ?? null);
-  }, [user]);
-
   const logout = useCallback<AuthContextValue['logout']>(async () => {
+    sessionEpoch.current += 1;
+    setQueueOwner(null); // bloque le rejeu dès le début de la déconnexion
     // 1) Révocation serveur (le refresh est lu dans le cookie) — best-effort.
     try {
       await authApi.logout();

@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────
 // DigiSanté Mobile — schéma Prisma complet
-// 48 modèles + 31 enums (cf. DocTech §5), dont la table d'audit immuable (§4).
+// 49 modèles + 31 enums (cf. DocTech §5), dont la table d'audit immuable (§4).
 // Cible : PostgreSQL 16 natif (dev local docker, prod VPS Infomaniak).
 //
 // Décisions (arbitrées) :
@@ -254,6 +254,7 @@ enum ShareType {
 
 // 1 — User : compte (auth phone/OTP, JWT). Pivot de tous les espaces.
 model User {
+  mutationReceipts MutationReceipt[]
   id           String     @id @default(cuid())
   phone        String     @unique
   email        String?    @unique
@@ -1268,4 +1269,25 @@ model AscObservation {
 
   @@index([beneficiaryId])
   @@map("asc_observations")
+}
+
+// L3 : reçu durable écrit dans la transaction métier ; aucun corps en clair.
+model MutationReceipt {
+  id                String   @id @default(cuid())
+  userId            String
+  method            String   @db.VarChar(8)
+  route             String   @db.VarChar(255)
+  key               String   @db.VarChar(80)
+  requestHash       String   @db.VarChar(64)
+  responseStatus    Int
+  encryptedResponse String
+  resourceId        String?
+  expiresAt         DateTime
+  createdAt         DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, method, route, key])
+  @@index([expiresAt])
+  @@map("mutation_receipts")
 }

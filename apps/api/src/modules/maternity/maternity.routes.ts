@@ -6,7 +6,9 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
-import { unauthorized } from '@/lib/errors.js';
+import { notFound, unauthorized } from '@/lib/errors.js';
+import { mutateOnce } from '@/lib/idempotency.js';
+import { mutationPatient, mutationVisit } from '@/lib/mutation-access.js';
 import { requireRole } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
 import { isValidServiceToken } from '@/lib/service-token.js';
@@ -25,7 +27,16 @@ export default async function maternityRoutes(app: FastifyInstance) {
   // Démarre un suivi (génère le calendrier CPN depuis la LMP).
   app.post('/', patientOnly, async (request, reply) => {
     const input = zParse(startSchema, request.body);
-    return reply.code(201).send(await maternity.startPregnancy(app, request.user.sub, input));
+    const result = await mutateOnce<Awaited<ReturnType<typeof maternity.startPregnancy>>>(app, request, {
+      path: '/maternity', status: 201, roles: ['PATIENT'],
+      authorize: async (tx, replayed, resourceId) => {
+        const patientId = await mutationPatient(tx, request.user.sub);
+        if (replayed && (!resourceId || !await tx.pregnancy.findFirst({ where: { id: resourceId, patientId }, select: { id: true } }))) throw notFound('Grossesse introuvable');
+      },
+      resourceId: (value) => value.id,
+      execute: (tx) => maternity.startPregnancy(app, request.user.sub, input, tx),
+    });
+    return reply.code(201).send(result.value);
   });
 
   // Clôt la grossesse active.
@@ -35,7 +46,11 @@ export default async function maternityRoutes(app: FastifyInstance) {
   app.post('/visits/:id/done', patientOnly, async (request) => {
     const { id } = zParse(idParams, request.params);
     const input = zParse(doneSchema, request.body ?? {});
-    return maternity.setVisitDone(app, request.user.sub, id, input);
+    return (await mutateOnce(app, request, {
+      path: `/maternity/visits/${id}/done`, roles: ['PATIENT'],
+      authorize: (tx) => mutationVisit(tx, request.user.sub, id),
+      execute: (tx) => maternity.setVisitDone(app, request.user.sub, id, input, tx),
+    })).value;
   });
 
   // Générateur des rappels CPN dus (cron interne) — jeton de service requis.

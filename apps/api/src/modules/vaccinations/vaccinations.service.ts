@@ -6,12 +6,15 @@
 // et ne modifie QUE ses propres sujets.
 // ─────────────────────────────────────────────────────────────
 import { buildVaccinationSchedule, type Lang, PEV_BY_CODE } from '@digisante/shared';
+import type { Prisma, PrismaClient } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
 import { forbidden, notFound } from '@/lib/errors.js';
 
-async function patientIdOf(app: FastifyInstance, userId: string): Promise<string> {
-  const p = await app.prisma.patient.findUnique({ where: { userId }, select: { id: true } });
+type MutationDb = PrismaClient | Prisma.TransactionClient;
+
+async function patientIdOf(app: FastifyInstance, userId: string, db: MutationDb = app.prisma): Promise<string> {
+  const p = await db.patient.findUnique({ where: { userId }, select: { id: true } });
   if (!p) throw forbidden('Profil patient requis');
   return p.id;
 }
@@ -48,10 +51,11 @@ export async function addSubject(
   app: FastifyInstance,
   userId: string,
   input: { name: string; birthDate: Date; isSelf?: boolean },
+  db: MutationDb = app.prisma,
 ) {
-  const patientId = await patientIdOf(app, userId);
+  const patientId = await patientIdOf(app, userId, db);
   const doses = buildVaccinationSchedule(input.birthDate);
-  return app.prisma.vaccinationSubject.create({
+  return db.vaccinationSubject.create({
     data: {
       patientId,
       name: input.name,
@@ -66,9 +70,9 @@ export async function addSubject(
 }
 
 /** Supprime un sujet (et ses vaccinations, cascade) — propriétaire uniquement. */
-export async function removeSubject(app: FastifyInstance, userId: string, id: string) {
-  const patientId = await patientIdOf(app, userId);
-  const { count } = await app.prisma.vaccinationSubject.deleteMany({ where: { id, patientId } });
+export async function removeSubject(app: FastifyInstance, userId: string, id: string, db: MutationDb = app.prisma) {
+  const patientId = await patientIdOf(app, userId, db);
+  const { count } = await db.vaccinationSubject.deleteMany({ where: { id, patientId } });
   if (count === 0) throw notFound('Sujet introuvable');
   return { removed: true };
 }
@@ -79,14 +83,15 @@ export async function setAdministered(
   userId: string,
   vaccinationId: string,
   input: { done: boolean; administeredAt?: Date },
+  db: MutationDb = app.prisma,
 ) {
-  const patientId = await patientIdOf(app, userId);
-  const vacc = await app.prisma.vaccination.findFirst({
+  const patientId = await patientIdOf(app, userId, db);
+  const vacc = await db.vaccination.findFirst({
     where: { id: vaccinationId, subject: { patientId } },
     select: { id: true },
   });
   if (!vacc) throw notFound('Vaccination introuvable');
-  return app.prisma.vaccination.update({
+  return db.vaccination.update({
     where: { id: vaccinationId },
     data: input.done
       ? { status: 'DONE', administeredAt: input.administeredAt ?? new Date() }
