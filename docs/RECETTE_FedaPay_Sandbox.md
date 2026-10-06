@@ -36,7 +36,7 @@ de 10 € créditée jusqu'à 5 fois). Même motif sur le remboursement admin (d
 - **« DLQ » : n'existe pas dans le dépôt.** CLAUDE.md §3.5 cite « HMAC, retry ×5, DLQ,
   réconciliation » : le *retry ×5* est côté **FedaPay** (rejeu d'un webhook non acquitté) ; il n'y a
   **aucune file de lettres mortes** côté API. Le filet réel est la **réconciliation** (cron 02:30,
-  `POST /payments/reconcile`, paiements PENDING > 1 h). Un webhook rejeté (401 : secret désynchronisé)
+  `POST /payments/reconcile`, paiements PENDING/PROCESSING > 1 h). Un webhook rejeté (401 : secret désynchronisé)
   n'est rattrapé que par ce cron. Aucune modification faite (zone gelée) ; décision produit à prendre.
 - **Préflight sans clé** (22/09) : `source=env · activé=false · clés présentes=aucune` → B4 FedaPay
   entièrement ouvert, comme attendu.
@@ -79,7 +79,7 @@ Pour chaque étape : **ID FedaPay masqué** (4 derniers caractères), **statut a
 | S2 | Consultation Mobile Money | patient → RDV confirmé → payer MTN MoMo (numéro de test sandbox) | montant = tarif médecin (serveur) ; COMPLETED par webhook | •••• | | | ☐ |
 | S3 | Paiement WALLET | patient avec solde → payer un RDV par portefeuille | COMPLETED **immédiat**, sans transaction FedaPay ; solde débité une fois | — | | | ☐ |
 | S4 | Webhook rejeté | temporairement, secret webhook FedaPay ≠ base (ou rejeu manuel altéré) | **401**, audit `AUTH_FAIL source=fedapay_webhook`, statut inchangé | •••• | | | ☐ |
-| S5 | Réconciliation manuelle | paiement laissé PENDING > 1 h puis `curl -X POST -H "x-service-token: $RECONCILE_TOKEN" https://<recette>/api/v1/payments/reconcile` | statut résolu ; relancer : **aucun** changement (idempotent) | •••• | | | ☐ |
+| S5 | Réconciliation manuelle | paiement laissé PENDING ou PROCESSING > 1 h puis `curl -X POST -H "x-service-token: $RECONCILE_TOKEN" https://<recette>/api/v1/payments/reconcile` | statut résolu ; relancer : **aucun** changement (idempotent) | •••• | | | ☐ |
 | S6 | Remboursement admin | `/admin/finance` → rembourser S1 (scope `finance:write`) | COMPLETED → REFUNDED ; reversal −6 560 **une fois** ; audit `PAYMENT_REFUND` ; 2ᵉ clic = idempotent | •••• | | | ☐ |
 | S7 | Rejeu du webhook | dashboard FedaPay → renvoyer l'événement de S1 (plusieurs fois, rapprochés) | réponse `idempotent: true` ; **aucun crédit supplémentaire** — ⚠️ **à rejouer après application du patch §1** | •••• | | | ☐ |
 

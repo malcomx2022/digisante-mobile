@@ -4,6 +4,8 @@ PWA e-santé pour le Bénin — programme **NEXT IMPACT** (FP2E / Sèmè City / 
 Offline-first · multilingue (FR, EN, Fɔ̀ngbè, Yorùbá) · téléconsultation · DMP · Mobile Money · wallet diaspora.
 
 > Les conventions et décisions verrouillées du projet sont dans [`CLAUDE.md`](./CLAUDE.md).
+> **Finalisation en cours :** [plan L0–L11](./docs/PLAN_Implementations_Restantes_2026-10.md) — DMP, labo, synchronisation/hors-ligne, Daily, abonnements/revenus, sécurité et preuves d'ouverture. L0 : baseline et revue locales validées, [fiche de livraison](./docs/suivi/LOT_L0.md) ; autres lots planifiés. Une revue par lot avant PR/merge. Planifié ne signifie pas implémenté ou déployé.
+> Maintenance du 6 octobre 2026 : contrôles JWT par requête, remboursements WALLET atomiques, réconciliation PENDING/PROCESSING et réservations sous verrou PostgreSQL. Reprise Claude Code : [`playbook de maintenance`](./docs/PLAYBOOK_Codage_DigiSante.md#maintenance-après-revue--6-octobre-2026). Migration `20261006130000_wallet_refund_in` requise avant déploiement du correctif.
 
 ## Architecture
 
@@ -90,4 +92,4 @@ release patients réels, B1). Les e2e restent `pnpm test:e2e` (build dédié, cf
 ## CI / Déploiement
 
 `.github/workflows/ci.yml` : install → prisma → lint → typecheck → test → build sur chaque PR.
-Le job `deploy` (SSH vers le VPS) est en commentaire, à activer avec les secrets `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`.
+Le job `deploy` (SSH vers le VPS) existe et dépend des jobs `build-and-test` et `e2e` ; il est conditionné par `vars.DEPLOY_ENABLED == 'true'`. Configurer les secrets `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` et le port éventuel conformément aux runbooks avant de l'activer pour un déploiement autorisé. Sa présence n'atteste aucun déploiement réussi.

@@ -31,9 +31,8 @@ export default async function adminFinanceRoutes(app: FastifyInstance) {
   app.get('/finance/overview', withScope('finance:read'), async (request) => {
     const { days } = zParse(financeQuery, request.query);
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-    // Même critère que la réconciliation cron (PENDING ancien > 1 h avec fedapayId).
-    const recThreshold = new Date(Date.now() - 60 * 60 * 1000);
-    const recWhere = { status: 'PENDING' as const, createdAt: { lt: recThreshold }, fedapayId: { not: null } };
+    // Même critère que le cron (PENDING/PROCESSING anciens avec fedapayId).
+    const recWhere = payments.reconciliationWhere();
     const [byStatus, byMethod, backlog, oldest, recentCompleted, walletAgg, walletActive, walletMoves] = await Promise.all([
       app.prisma.payment.groupBy({ by: ['status'], where: { createdAt: { gte: since } }, _count: { _all: true }, _sum: { amount: true } }),
       app.prisma.payment.groupBy({ by: ['method'], where: { createdAt: { gte: since } }, _count: { _all: true }, _sum: { amount: true } }),

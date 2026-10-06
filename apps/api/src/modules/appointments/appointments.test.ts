@@ -233,6 +233,56 @@ describe.skipIf(!HAS_INFRA)('RDV & téléconsultation (intégration)', () => {
     expect(res.statusCode).toBe(403);
   });
 
+  it('réservations concurrentes et chevauchantes : un seul créneau accepté', async () => {
+    const at = Date.now() + 4 * 24 * 3600_000;
+    const results = await Promise.all(Array.from({ length: 5 }, (_, i) => app.inject({
+      method: 'POST', url: '/api/v1/appointments', headers: auth(patientToken),
+      payload: { doctorId, type: 'PHYSICAL', scheduledAt: new Date(at + i * 60_000).toISOString() },
+    })));
+    expect(results.filter((r) => r.statusCode === 201)).toHaveLength(1);
+    expect(results.filter((r) => r.statusCode === 409)).toHaveLength(4);
+    expect(await app.prisma.appointment.count({
+      where: { doctorId, scheduledAt: { gte: new Date(at), lte: new Date(at + 4 * 60_000) } },
+    })).toBe(1);
+  });
+
+  it('un créneau qui traverse minuit bloque le chevauchement mais pas le créneau adjacent', async () => {
+    const at = new Date(Date.now() + 5 * 24 * 3600_000);
+    at.setUTCHours(23, 50, 0, 0);
+    const reserve = (minutes: number) => app.inject({
+      method: 'POST', url: '/api/v1/appointments', headers: auth(patientToken),
+      payload: { doctorId, type: 'PHYSICAL', scheduledAt: new Date(at.getTime() + minutes * 60_000).toISOString() },
+    });
+    expect((await reserve(0)).statusCode).toBe(201);
+    expect((await reserve(15)).statusCode).toBe(409);
+    expect((await reserve(30)).statusCode).toBe(201);
+  });
+
+  it('annulation médecin d’un RDV payé par wallet : solde restitué une seule fois', async () => {
+    await app.prisma.wallet.upsert({
+      where: { userId: patientUserId }, create: { userId: patientUserId, balance: 6000 }, update: { balance: 6000 },
+    });
+    const appt = await app.prisma.appointment.create({
+      data: { patientId, doctorId, type: 'PHYSICAL', status: 'CONFIRMED', scheduledAt: new Date(Date.now() + 7 * 24 * 3600_000) },
+    });
+    const pay = await app.inject({
+      method: 'POST', url: '/api/v1/payments', headers: auth(patientToken),
+      payload: { type: 'CONSULTATION', method: 'WALLET', appointmentId: appt.id },
+    });
+    expect(pay.statusCode).toBe(201);
+    expect(Number((await app.prisma.wallet.findUniqueOrThrow({ where: { userId: patientUserId } })).balance)).toBe(3000);
+    const cancel = await app.inject({
+      method: 'POST', url: `/api/v1/appointments/${appt.id}/cancel`, headers: auth(doctorToken), payload: { reason: 'Indisponible' },
+    });
+    expect(cancel.statusCode).toBe(200);
+    expect(Number((await app.prisma.wallet.findUniqueOrThrow({ where: { userId: patientUserId } })).balance)).toBe(6000);
+    const paymentId = pay.json().payment.id as string;
+    expect((await app.prisma.payment.findUniqueOrThrow({ where: { id: paymentId } })).status).toBe('REFUNDED');
+    await import('@/modules/payments/payments.service.js').then((p) => p.refund(app, paymentId, { actorId: patientUserId }));
+    expect(Number((await app.prisma.wallet.findUniqueOrThrow({ where: { userId: patientUserId } })).balance)).toBe(6000);
+    expect(await app.prisma.walletTransaction.count({ where: { reference: paymentId, type: 'REFUND_IN' } })).toBe(1);
+  });
+
   it('annulation par le médecin d’un RDV payé → audit PAYMENT_REFUND', async () => {
     const at = new Date(Date.now() + 48 * 3600_000);
     const appt = await app.prisma.appointment.create({

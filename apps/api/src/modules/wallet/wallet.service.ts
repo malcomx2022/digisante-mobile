@@ -45,9 +45,10 @@ export async function creditWithin(
   amount: number,
   reference: string,
   description?: string,
+  type: 'TOPUP' | 'REFUND_IN' = 'TOPUP',
 ) {
   await tx.walletTransaction.create({
-    data: { walletId, type: 'TOPUP', amount: new Prisma.Decimal(amount), reference, description },
+    data: { walletId, type, amount: new Prisma.Decimal(amount), reference, description },
   });
   await tx.wallet.update({ where: { id: walletId }, data: { balance: { increment: amount } } });
 }

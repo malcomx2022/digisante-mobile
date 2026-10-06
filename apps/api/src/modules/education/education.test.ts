@@ -158,8 +158,8 @@ describe.skipIf(!HAS_INFRA)('Éducation & Admin (intégration)', () => {
     const after = await app.prisma.auditLog.count({ where: { action: 'USER_SUSPEND' } });
     expect(after).toBe(before + 1);
 
-    // RBAC : un patient n'accède pas aux métriques.
+    // La suspension refuse désormais le JWT avant le contrôle du rôle.
     const forbidden = await app.inject({ method: 'GET', url: '/api/v1/admin/metrics', headers: auth(patientToken) });
-    expect(forbidden.statusCode).toBe(403);
+    expect(forbidden.statusCode).toBe(401);
   });
 });

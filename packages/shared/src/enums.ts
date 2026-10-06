@@ -132,7 +132,7 @@ export const INSURANCE_COVERAGE_STATUSES = ['ACTIVE', 'EXPIRED', 'SUSPENDED'] as
 export type InsuranceCoverageStatus = (typeof INSURANCE_COVERAGE_STATUSES)[number];
 
 /** Nature d'un mouvement de wallet (recharge, débit, remboursement, transfert). */
-export const WALLET_TRANSACTION_TYPES = ['TOPUP', 'DEBIT', 'REFUND', 'TRANSFER'] as const;
+export const WALLET_TRANSACTION_TYPES = ['TOPUP', 'DEBIT', 'REFUND', 'REFUND_IN', 'TRANSFER', 'TRANSFER_IN'] as const;
 export type WalletTransactionType = (typeof WALLET_TRANSACTION_TYPES)[number];
 
 /** Offres d'abonnement de la plateforme. */

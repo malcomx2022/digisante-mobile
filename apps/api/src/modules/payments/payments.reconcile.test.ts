@@ -3,7 +3,9 @@
 // résolu, pas de crash) et la protection par jeton de service.
 import { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+
+import { buildWebhookSignatureHeader } from '@/services/fedapay.js';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 const PHONE = '+2290191000009';
@@ -51,6 +53,8 @@ describe.skipIf(!HAS_INFRA)('Réconciliation FedaPay (intégration)', () => {
     await app.close();
   });
 
+  afterEach(() => { vi.unstubAllGlobals(); });
+
   it('balaye les paiements PENDING anciens (FedaPay non configuré → resolved 0)', async () => {
     const res = await app.inject({
       method: 'POST',
@@ -68,5 +72,45 @@ describe.skipIf(!HAS_INFRA)('Réconciliation FedaPay (intégration)', () => {
   it('rejette sans jeton de service (401)', async () => {
     const res = await app.inject({ method: 'POST', url: '/api/v1/payments/reconcile' });
     expect(res.statusCode).toBe(401);
+  });
+
+  it('rattrape PROCESSING après webhook pending, sans retraiter les terminaux ni les paiements récents', async () => {
+    const { setIntegration } = await import('@/lib/integrations.js');
+    const secret = 'whsec_test_reconcile_processing';
+    await setIntegration(app, 'FEDAPAY', { secrets: { secretKey: 'sk_sandbox_test_reconcile', publicKey: 'pk_sandbox_test_reconcile', webhookSecret: secret } });
+    const user = await app.prisma.user.findUniqueOrThrow({ where: { phone: PHONE } });
+    const old = new Date(Date.now() - 2 * 3600_000);
+    const payment = await app.prisma.payment.create({
+      data: { userId: user.id, type: 'WALLET_TOPUP', method: 'MTN_MOMO', amount: 200, status: 'PENDING', fedapayId: 'fdp_processing_recon', createdAt: old },
+    });
+    const body = JSON.stringify({ fedapayId: payment.fedapayId, status: 'pending' });
+    const pending = await app.inject({
+      method: 'POST', url: '/api/v1/payments/webhook', payload: body,
+      headers: { 'content-type': 'application/json', 'x-fedapay-signature': buildWebhookSignatureHeader(body, secret) },
+    });
+    expect(pending.statusCode).toBe(200);
+    expect((await app.prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).status).toBe('PROCESSING');
+    for (const status of ['COMPLETED', 'FAILED', 'CANCELLED', 'REFUNDED'] as const) {
+      await app.prisma.payment.create({
+        data: { userId: user.id, type: 'CONSULTATION', method: 'MTN_MOMO', amount: 200, status, fedapayId: `fdp_excluded_${status}`, createdAt: old },
+      });
+    }
+    await app.prisma.payment.create({
+      data: { userId: user.id, type: 'CONSULTATION', method: 'MTN_MOMO', amount: 200, status: 'PROCESSING', fedapayId: 'fdp_excluded_recent' },
+    });
+    await app.prisma.payment.create({
+      data: { userId: user.id, type: 'CONSULTATION', method: 'WALLET', amount: 200, status: 'PENDING', createdAt: old },
+    });
+    const fetchMock = vi.fn(async (url: string | URL | Request) => new Response(JSON.stringify({
+      'v1/transaction': { status: String(url).endsWith('/fdp_processing_recon') ? 'approved' : 'pending' },
+    }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const run = () => app.inject({ method: 'POST', url: '/api/v1/payments/reconcile', headers: { 'x-service-token': TOKEN } });
+    expect((await run()).json().resolved).toBe(1);
+    expect((await run()).json().resolved).toBe(0);
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes('fdp_excluded_'))).toBe(false);
+    expect((await app.prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).status).toBe('COMPLETED');
+    expect(Number((await app.prisma.wallet.findUniqueOrThrow({ where: { userId: user.id } })).balance)).toBe(200);
+    expect(await app.prisma.walletTransaction.count({ where: { reference: payment.id, type: 'TOPUP' } })).toBe(1);
   });
 });

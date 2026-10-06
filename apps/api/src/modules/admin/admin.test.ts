@@ -142,6 +142,31 @@ describe.skipIf(!HAS_INFRA)('Admin RBAC (intégration)', () => {
     expect(typeof body.reconciliation.backlog).toBe('number');
     expect(typeof body.wallets.count).toBe('number');
 
+    // La supervision doit afficher aussi PROCESSING après un webhook pending,
+    // et exclure les paiements terminaux, récents ou sans identifiant fournisseur.
+    const old = new Date(Date.now() - 2 * 3600_000);
+    const fixtures = await Promise.all([
+      { status: 'PENDING' as const, createdAt: old, fedapayId: 'admin-l0-pending' },
+      { status: 'PROCESSING' as const, createdAt: old, fedapayId: 'admin-l0-processing' },
+      { status: 'COMPLETED' as const, createdAt: old, fedapayId: 'admin-l0-terminal' },
+      { status: 'PROCESSING' as const, createdAt: new Date(), fedapayId: 'admin-l0-recent' },
+      { status: 'PROCESSING' as const, createdAt: old, fedapayId: null },
+    ].map((data) => app.prisma.payment.create({
+      data: { userId: promotedUserId, type: 'CONSULTATION', method: 'MTN_MOMO', amount: 100, ...data },
+      select: { id: true },
+    })));
+    try {
+      const refreshed = await app.inject({ method: 'GET', url: '/api/v1/admin/finance/overview', headers: auth(superToken) });
+      expect(refreshed.statusCode).toBe(200);
+      const reconciliation = refreshed.json().reconciliation;
+      expect(reconciliation.backlog).toBe(body.reconciliation.backlog + 2);
+      const shown = reconciliation.oldest.map((payment: { id: string }) => payment.id);
+      expect(shown).toEqual(expect.arrayContaining(fixtures.slice(0, 2).map((payment) => payment.id)));
+      expect(shown.some((id: string) => fixtures.slice(2).some((payment) => payment.id === id))).toBe(false);
+    } finally {
+      await app.prisma.payment.deleteMany({ where: { id: { in: fixtures.map((payment) => payment.id) } } });
+    }
+
     const webhooks = await app.inject({ method: 'GET', url: '/api/v1/admin/finance/webhooks', headers: auth(superToken) });
     expect(webhooks.statusCode).toBe(200);
     expect(Array.isArray(webhooks.json().data)).toBe(true);

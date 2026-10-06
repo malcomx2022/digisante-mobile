@@ -4,6 +4,7 @@
 // la logique de remboursement réelle est branchée en Phase 4 (module payments gelé).
 // ─────────────────────────────────────────────────────────────
 import type { AppointmentType, Lang } from '@digisante/shared';
+import { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
 import { badRequest, conflict, forbidden, notFound } from '@/lib/errors.js';
@@ -36,38 +37,39 @@ interface BookInput {
 /** Réserve un RDV (PATIENT). Vérifie l'absence de conflit sur le créneau du médecin. */
 export async function book(app: FastifyInstance, patientUserId: string, input: BookInput) {
   const patientId = await patientIdOf(app, patientUserId);
-  const doctor = await app.prisma.doctor.findUnique({
-    where: { id: input.doctorId },
-    select: { id: true, slotDuration: true },
-  });
-  if (!doctor) throw notFound('Médecin introuvable');
   if (!isFuture(input.scheduledAt.getTime(), Date.now())) {
     throw badRequest('La date du rendez-vous doit être dans le futur');
   }
 
-  // Conflit : RDV actifs du médecin chevauchant le créneau demandé.
-  const dayStart = new Date(input.scheduledAt);
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(dayStart);
-  dayEnd.setDate(dayEnd.getDate() + 1);
+  return app.prisma.$transaction(async (tx) => {
+    // Verrou de ligne partagé entre workers PM2 : même si le créneau est encore
+    // vide, une seule réservation par médecin contrôle les conflits à la fois.
+    // La lecture des RDV et l'insertion doivent rester DANS cette transaction.
+    const [doctor] = await tx.$queryRaw<{ id: string; slotDuration: number }[]>`
+      SELECT "id", "slotDuration" FROM "doctors" WHERE "id" = ${input.doctorId} FOR UPDATE
+    `;
+    if (!doctor) throw notFound('Médecin introuvable');
 
-  const sameDay = await app.prisma.appointment.findMany({
-    where: {
-      doctorId: doctor.id,
-      status: { in: ['PENDING', 'CONFIRMED'] },
-      scheduledAt: { gte: dayStart, lt: dayEnd },
-    },
-    select: { scheduledAt: true },
-  });
-  const reqStart = input.scheduledAt.getTime();
-  const clash = sameDay.some((a) =>
-    overlaps(reqStart, doctor.slotDuration, a.scheduledAt.getTime(), doctor.slotDuration),
-  );
-  if (clash) throw conflict('Créneau indisponible pour ce médecin');
+    // Fenêtre glissante : inclut aussi un RDV qui commence avant minuit et
+    // chevauche le jour suivant. Les créneaux exactement adjacents restent libres.
+    const reqStart = input.scheduledAt.getTime();
+    const durationMs = doctor.slotDuration * 60_000;
+    const nearby = await tx.appointment.findMany({
+      where: {
+        doctorId: doctor.id,
+        status: { in: ['PENDING', 'CONFIRMED'] },
+        scheduledAt: { gt: new Date(reqStart - durationMs), lt: new Date(reqStart + durationMs) },
+      },
+      select: { scheduledAt: true },
+    });
+    if (nearby.some((a) => overlaps(reqStart, doctor.slotDuration, a.scheduledAt.getTime(), doctor.slotDuration))) {
+      throw conflict('Créneau indisponible pour ce médecin');
+    }
 
-  return app.prisma.appointment.create({
-    data: { patientId, doctorId: doctor.id, type: input.type, status: 'PENDING', scheduledAt: input.scheduledAt },
-  });
+    return tx.appointment.create({
+      data: { patientId, doctorId: doctor.id, type: input.type, status: 'PENDING', scheduledAt: input.scheduledAt },
+    });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
 }
 
 /** RDV de l'utilisateur courant (patient → les siens ; médecin → les siens). */

@@ -1,7 +1,9 @@
 # Playbook de codage — DigiSanté Mobile avec Claude Code (CLI)
 
-> Séquence de prompts pour construire le projet de zéro, en local, jusqu'à l'état « prêt à déployer sur le VPS ».
+> Séquence historique de construction, complétée par la maintenance et le plan actif de finalisation.
 > À ranger dans `docs/`. Travaille **un prompt à la fois**.
+
+**Reprise actuelle — 6 octobre 2026 :** utiliser `docs/PLAN_Implementations_Restantes_2026-10.md` (L0–L11) et son prompt commun. Les phases 0–8 ci-dessous sont historiques : ne pas recréer les modules déjà livrés et ne pas prendre leurs compteurs ou fonctions cibles pour des preuves actuelles.
 
 ## Règles d'usage (à respecter pour garder de la qualité)
 
@@ -10,7 +12,41 @@
 3. **Nouvelle session / `/clear` entre les phases** pour ne pas saturer le contexte de Claude Code.
 4. **Laisse Claude lire d'abord.** Chaque prompt commence par lui dire quels documents consulter.
 5. **Vérifie que ça tourne** (`pnpm dev`, `curl`, navigateur) avant d'avancer.
-6. **CLAUDE.md fait loi.** Si Claude propose Supabase, Railway, Vercel ou de toucher à la logique de paiement gelée → refuse et rappelle la règle.
+6. **Lire CLAUDE.md avant toute maintenance.** Préserver la stack canonique. La zone paiement gelée exige une revue explicite et les re-tests ; les quatre corrections du 6 octobre 2026 ont été demandées explicitement après revue. Ne pas réintroduire les comportements antérieurs à partir des prompts historiques ci-dessous.
+
+---
+
+## Maintenance après revue — 6 octobre 2026
+
+Le projet initial a été produit avec Claude Code. Les corrections ci-dessous ont été appliquées par Codex à la demande de l'utilisateur ; `CLAUDE.md` §8 décrit les invariants à conserver lors de la reprise par Claude Code.
+
+1. Relire le statut et le rôle en DB à chaque requête JWT protégée (suspension → 401 immédiat à la prochaine requête). Refuser aussi les nouvelles connexions chat suspendues ; les sockets existants restent bornés par l'expiration du JWT.
+2. Distinguer remboursement **entrant** d'un paiement WALLET (`REFUND_IN`) et reversal **sortant** d'une recharge (`REFUND`). Garder mouvement + transition atomiques, y compris lors d'un remboursement concurrent ou d'un échec du crédit.
+3. Réconcilier PENDING **et** PROCESSING anciens ; partager `reconciliationWhere` avec la supervision finance.
+4. Réserver sous verrou PostgreSQL de la ligne médecin, dans une transaction READ COMMITTED couvrant lecture des conflits + insertion. Tester concurrence, chevauchement autour de minuit et créneaux adjacents.
+
+**Ordre de mise à jour** : sauvegarde → `pnpm install` → `pnpm --filter @digisante/api prisma generate` → `pnpm --filter @digisante/api prisma migrate deploy` → build → redémarrage. La migration additive `20261006130000_wallet_refund_in` doit être appliquée avant le code qui écrit REFUND_IN. Aucune ligne REFUND existante n'est reclassée automatiquement. Les anciens paiements WALLET déjà marqués REFUNDED sans restitution nécessitent un rapprochement manuel (ne pas les recréditer en masse sans preuve).
+
+**Validation** : suite API sur PostgreSQL 16 + Redis dédiés aux tests (Redis /1, jamais la base de production), suite web, lint/typecheck, build et `pnpm metrics:check`. Les tests FedaPay utilisent les signatures réelles et des réponses fournisseur simulées ; la recette sandbox S1–S7 reste requise avant bascule live. Résultats exécutés le **6 octobre 2026** sur PostgreSQL 16 et Redis dans des conteneurs locaux dédiés (Docker uniquement pour les tests, production toujours PostgreSQL natif) : **390 tests API + 50 tests web verts**, lint/typecheck API et web verts, builds shared/API/web verts, `prisma validate` vert, 29 migrations appliquées et `prisma migrate diff` sans dérive, compteurs conformes. Les 8 E2E ont ensuite été exécutés avec succès au lot L0 ; la recette fournisseur réelle reste non exécutée. Preuves et limites : `docs/suivi/LOT_L0.md`, revue : `docs/REVUE_L0_2026-10.md`. Parité i18n EN : 100 % ; le nouveau libellé REFUND_IN utilise le repli FR en FON/YOR, et les six clés critiques FON/YOR déjà manquantes restent à faire valider.
+
+---
+
+## Finalisation restante — reprise par lots L0–L11
+
+Le plan actif détaille contrats, dépendances, fichiers de départ, migrations, tests et documents à actualiser. Exécuter son prompt commun avec l'instruction du lot retenu ; une branche par fonctionnalité et des PR cohérentes, sans refonte de stack.
+
+1. **L0** : baseline et 8 E2E locaux verts, revue du diff réalisée, matrice CDC/pilote confirmée ; livraison et CI candidate à suivre dans la fiche L0.
+2. **L1/L2/L3/L5** : expiration et auteur DMP, habilitation labo, rejeu idempotent, jetons Daily privés.
+3. **L4** après L1/L3 : lectures et files médicales hors ligne protégées, gestion de clé et disponibilité réelle.
+4. **L6/L7** : abonnements confirmés par paiement, périodes/droits, statistiques et circuit financier traçable.
+5. **L8** : résiduels de sécurité ; **L9** : validation native/clinique, à préparer dès L0.
+6. **L10/L11** : préproduction/fournisseurs puis appareils réels, restauration, rollback et nouveau GO/NO-GO.
+
+**Après chaque lot :** fiche `docs/suivi/LOT_Lx.md` avec SHA, preuves et limites ; actualiser `CLAUDE.md` §1/§4/§8/§9, ce playbook et les runbooks impactés. Mesurer les compteurs ; ne pas réécrire les anciens PV. Régénérer le DOCX du plan via `node scripts/docs/generate-implementation-plan.js`, puis `python scripts/docs/validate-implementation-plan.py` (structure et concordance source ; rendu visuel à contrôler séparément). Les statuts PLANIFIÉ, IMPLÉMENTÉ, VALIDÉ et LIVRÉ sont distincts ; un commit n'atteste aucun déploiement.
+
+**Revue systématique demandée par le porteur :** après chaque implémentation, produire `docs/REVUE_Lx_<date>.md`, corriger les défauts bloquants du diff et reprendre les contrôles impactés avant PR. Ne pas fusionner automatiquement. Le pilote conserve sept rôles et les abonnements médecins L6 ; les autres abonnements sont reportés après pilote par décision du 6 octobre.
+
+**Contrôles :** tests ciblés pendant l'implémentation ; contrôles de release sur PostgreSQL/Redis dédiés, puis E2E et CI complète sur la candidate. `pnpm release:check` ne lance ni E2E, ni fournisseur, ni déploiement. Activer `--strict-i18n` à la clôture des traductions. Les changements paiements restent soumis à revue explicite et re-tests §5 selon l'autorisation de la session.
 
 ---
 
@@ -82,7 +118,7 @@ Ajoute un /api/v1/health et /ready déjà présents. Commit : "feat(api): socle 
 Implémente le module auth dans apps/api/src/modules/auth :
 - inscription/connexion par téléphone + OTP (envoi via le service Twilio — pour
   l'instant un stub si les clés ne sont pas configurées),
-- vérification OTP, JWT access + refresh,
+- vérification OTP, JWT access + refresh ; relire statut/rôle à chaque requête protégée,
 - verrouillage 30 min après 5 échecs (AUTH_FAIL journalisé dans l'audit),
 - option « OTP par appel vocal » (Fɔ̀ngbè) côté contrat d'API.
 Respecte la conformité APDP. Écris les tests Vitest du module. 
@@ -119,12 +155,14 @@ Commit : "feat(api): users, professionals, KYC".
 ### P3.2 — RDV, agenda & téléconsultation
 ```
 Implémente les modules appointments et consultations.
-- créneaux médecin, prise/confirmation/annulation de RDV, agenda,
+- créneaux médecin, prise/confirmation/annulation de RDV, agenda ; réservation sous
+  verrou de ligne médecin (FOR UPDATE), contrôle + insertion en READ COMMITTED,
 - triage/priorisation, référencement entre médecins,
 - téléconsultation via Daily.co (création de salle, jetons) — service isolé,
 - bascule chat/audio si réseau faible (côté contrat).
 Le remboursement d'un RDV annulé par le médecin doit déclencher la logique paiement
-(à brancher en Phase 4). Tests des règles de réservation. 
+(branché en Phase 4) : paiement WALLET → REFUND_IN crédité, recharge → REFUND
+sortant, dans la transaction de transition. Tests des règles et de la concurrence.
 Commit : "feat(api): RDV, agenda, téléconsultation".
 ```
 
@@ -172,7 +210,8 @@ Implémente le module payments :
 - FedaPay (MTN MoMo, Moov, cartes internationales), commission plateforme 3 %,
 - wallet diaspora (recharge € → FCFA, paiement des soins de la famille),
 - abonnements professionnels,
-- webhooks SIGNÉS HMAC vérifiés, retry x5 puis DLQ, réconciliation cron quotidienne.
+- webhooks SIGNÉS HMAC vérifiés ; retries opérateur, réconciliation quotidienne
+  des PENDING/PROCESSING > 1 h (aucune DLQ implémentée dans ce dépôt).
 ATTENTION : si une logique de paiement validée existe déjà, NE la modifie pas (gelée).
 Tests des webhooks (signature valide/invalide, idempotence). 
 Commit : "feat(api): FedaPay, wallet diaspora, abonnements".

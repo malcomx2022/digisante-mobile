@@ -10,6 +10,7 @@ import { get, post } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
 import { paymentOutcome } from '@/lib/payments';
 import { formatDate, formatNumber } from '@/i18n/format';
+import { isWalletCredit } from '@/lib/wallet';
 
 interface WalletData {
   balance: string | number;
@@ -113,8 +114,8 @@ export default function WalletPage() {
                 <span className="text-stone-500">
                   {t(`wallet.tx.${tx.type}`)} · {formatDate(tx.createdAt)}
                 </span>
-                <span className={`font-display font-bold ${tx.type === 'TOPUP' ? 'text-sante-700' : 'text-sos-600'}`}>
-                  {tx.type === 'TOPUP' ? '+' : '−'}
+                <span className={`font-display font-bold ${isWalletCredit(tx.type) ? 'text-sante-700' : 'text-sos-600'}`}>
+                  {isWalletCredit(tx.type) ? '+' : '−'}
                   {formatNumber(tx.amount)}
                 </span>
               </div>
