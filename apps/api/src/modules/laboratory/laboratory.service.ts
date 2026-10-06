@@ -8,15 +8,9 @@ import type { FastifyInstance } from 'fastify';
 
 import { writeAudit } from '@/lib/audit.js';
 import { badRequest, forbidden, notFound } from '@/lib/errors.js';
+import { authorizedLaboratory } from '@/lib/laboratory-access.js';
 import { assertCareRelationship } from '@/lib/care.js';
 import { detectCriticalValues } from './laboratory.rules.js';
-
-/** Résout l'id du laboratoire lié à l'utilisateur courant (rôle LABORATOIRE). */
-export async function labIdOf(app: FastifyInstance, userId: string): Promise<string> {
-  const l = await app.prisma.lab.findUnique({ where: { userId }, select: { id: true } });
-  if (!l) throw forbidden('Profil laboratoire requis');
-  return l.id;
-}
 
 /** Crée une demande d'analyse (médecin prescripteur). */
 export async function createOrder(
@@ -28,7 +22,7 @@ export async function createOrder(
   if (!patient) throw notFound('Patient introuvable');
   const doctor = await assertCareRelationship(app, doctorUserId, patient.id);
 
-  return app.prisma.labOrder.create({
+  const create = (tx: Prisma.TransactionClient) => tx.labOrder.create({
     data: {
       prescribedById: doctor.id,
       patientId: input.patientId,
@@ -37,6 +31,14 @@ export async function createOrder(
       status: 'PENDING',
       scheduledAt: input.scheduledAt,
     },
+  });
+  return app.prisma.$transaction(async (tx) => {
+    if (input.labId) {
+      const target = await tx.lab.findUnique({ where: { id: input.labId }, select: { userId: true } });
+      if (!target?.userId) throw forbidden('Laboratoire approuvé et actif requis');
+      await authorizedLaboratory(tx, target.userId);
+    }
+    return create(tx);
   });
 }
 
@@ -49,53 +51,46 @@ export async function submitResult(
   input: { values: Record<string, unknown>; reportUrl?: string },
   ip?: string | null,
 ) {
-  const labId = await labIdOf(app, labUserId);
-  const order = await app.prisma.labOrder.findUnique({
-    where: { id: orderId },
-    include: {
-      result: { select: { id: true } },
-      prescribedBy: { select: { userId: true } },
-      patient: { select: { userId: true } },
-    },
-  });
-  if (!order) throw notFound('Demande d’analyse introuvable');
-  if (order.labId !== labId) throw forbidden('Demande non prise en charge par ce laboratoire');
-  if (order.result) throw badRequest('Un résultat existe déjà pour cette demande');
-
   const critical = detectCriticalValues(input.values);
-
-  const result = await app.prisma.$transaction(async (tx) => {
-    const created = await tx.labResult.create({
-      data: { labOrderId: orderId, values: input.values as Prisma.InputJsonValue, reportUrl: input.reportUrl },
+  const { result, order } = await app.prisma.$transaction(async (tx) => {
+    const lab = await authorizedLaboratory(tx, labUserId);
+    const order = await tx.labOrder.findUnique({ where: { id: orderId },
+      include: { prescribedBy: { select: { userId: true } }, patient: { select: { userId: true } } } });
+    if (!order) throw notFound('Demande d’analyse introuvable');
+    if (order.labId !== lab.id) throw forbidden('Demande non prise en charge par ce laboratoire');
+    // Compare-and-set avant résultat : un seul effet, même en concurrence.
+    const changed = await tx.labOrder.updateMany({ where: { id: orderId, labId: lab.id, status: 'PROCESSING', result: { is: null } }, data: { status: 'COMPLETED' } });
+    if (changed.count !== 1) throw badRequest('Demande en traitement sans résultat requise');
+    const result = await tx.labResult.create({ data: { labOrderId: orderId, values: input.values as Prisma.InputJsonValue, reportUrl: input.reportUrl } });
+    // Notifie le patient que son résultat est disponible (non-critique, in-app).
+    await tx.notification.create({
+      data: {
+        recipientId: order.patient.userId,
+        type: 'LAB_RESULT',
+        channel: 'IN_APP',
+        title: 'Résultat d’analyse disponible',
+        body: 'Votre résultat de laboratoire est prêt.',
+        status: 'PENDING',
+      },
     });
-    await tx.labOrder.update({ where: { id: orderId }, data: { status: 'COMPLETED' } });
-    return created;
-  });
 
-  // Notifie le patient que son résultat est disponible (non-critique, in-app).
-  await app.prisma.notification.create({
-    data: {
-      recipientId: order.patient.userId,
-      type: 'LAB_RESULT',
-      channel: 'IN_APP',
-      title: 'Résultat d’analyse disponible',
-      body: 'Votre résultat de laboratoire est prêt.',
-      status: 'PENDING',
-    },
+    if (critical.length > 0) {
+      // Alerte prioritaire au prescripteur : PUSH + SMS (envoi réel en P4.2).
+      await tx.notification.createMany({
+        data: (['PUSH_FCM', 'SMS_TWILIO'] as const).map((channel) => ({
+          recipientId: order.prescribedBy.userId,
+          type: 'LAB_RESULT' as const,
+          channel,
+          title: 'Résultat de laboratoire CRITIQUE',
+          body: `Valeurs critiques : ${critical.map((c) => `${c.key} ${c.reason}`).join(', ')}`,
+          status: 'PENDING' as const,
+        })),
+      });
+    }
+    return { result, order };
   });
 
   if (critical.length > 0) {
-    // Alerte prioritaire au prescripteur : PUSH + SMS (envoi réel en P4.2).
-    await app.prisma.notification.createMany({
-      data: (['PUSH_FCM', 'SMS_TWILIO'] as const).map((channel) => ({
-        recipientId: order.prescribedBy.userId,
-        type: 'LAB_RESULT' as const,
-        channel,
-        title: 'Résultat de laboratoire CRITIQUE',
-        body: `Valeurs critiques : ${critical.map((c) => `${c.key} ${c.reason}`).join(', ')}`,
-        status: 'PENDING' as const,
-      })),
-    });
     await writeAudit(app.prisma, {
       action: 'LAB_CRITICAL',
       actorId: labUserId,
@@ -120,6 +115,7 @@ export async function listOrders(app: FastifyInstance, actor: { sub: string; rol
   if (actor.role === 'LABORATOIRE') {
     return listIncoming(app, actor.sub);
   }
+  if (actor.role !== 'PATIENT') throw forbidden('Accès aux analyses refusé');
   const patient = await app.prisma.patient.findUnique({ where: { userId: actor.sub }, select: { id: true } });
   if (!patient) throw forbidden('Profil patient requis');
   return app.prisma.labOrder.findMany({ where: { patientId: patient.id }, orderBy: { createdAt: 'desc' }, include: { result: true } });
@@ -129,65 +125,65 @@ const patientName = {
   patient: { select: { user: { select: { profile: { select: { firstName: true, lastName: true } } } } } },
 } as const;
 
-/** Pool des demandes en attente NON assignées — projection ANONYMISÉE (§4 :
+/** Pool des demandes en attente non assignées ou ciblées sur ce laboratoire — projection ANONYMISÉE (§4 :
  *  aucune identité patient avant prise en charge ; seuls le type d'analyse et
  *  l'échéance sont exposés). */
 export async function listAvailable(app: FastifyInstance, labUserId: string) {
-  await labIdOf(app, labUserId); // garantit le rôle/profil
-  return app.prisma.labOrder.findMany({
-    where: { status: 'PENDING', labId: null },
-    select: { id: true, testType: true, scheduledAt: true, createdAt: true },
-    orderBy: { createdAt: 'asc' },
-    take: 50,
+  return app.prisma.$transaction(async (tx) => {
+    const lab = await authorizedLaboratory(tx, labUserId);
+    return tx.labOrder.findMany({
+      // Inclut les prescriptions ciblées pour CE laboratoire, sans identité avant claim.
+      where: { status: 'PENDING', OR: [{ labId: null }, { labId: lab.id }] },
+      select: { id: true, testType: true, scheduledAt: true, createdAt: true },
+      orderBy: { createdAt: 'asc' }, take: 50,
+    });
   });
 }
 
 /** File des demandes prises en charge par ce laboratoire (identité patient visible). */
 export async function listIncoming(app: FastifyInstance, labUserId: string) {
-  const labId = await labIdOf(app, labUserId);
-  const rows = await app.prisma.labOrder.findMany({
-    where: { labId, status: { in: ['SAMPLE_COLLECTED', 'PROCESSING', 'COMPLETED'] } },
-    select: {
-      id: true,
-      testType: true,
-      status: true,
-      scheduledAt: true,
-      createdAt: true,
-      result: { select: { id: true } },
-      prescribedBy: { select: { user: { select: { profile: { select: { firstName: true, lastName: true } } } } } },
-      ...patientName,
-    },
-    orderBy: { updatedAt: 'desc' },
-    take: 50,
+  return app.prisma.$transaction(async (tx) => {
+    const { id: labId } = await authorizedLaboratory(tx, labUserId);
+    const rows = await tx.labOrder.findMany({
+      where: { labId, status: { in: ['SAMPLE_COLLECTED', 'PROCESSING', 'COMPLETED'] } },
+      select: {
+        id: true,
+        testType: true,
+        status: true,
+        scheduledAt: true,
+        createdAt: true,
+        result: { select: { id: true } },
+        prescribedBy: { select: { user: { select: { profile: { select: { firstName: true, lastName: true } } } } } },
+        ...patientName,
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 50,
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      testType: r.testType,
+      status: r.status,
+      scheduledAt: r.scheduledAt,
+      hasResult: Boolean(r.result),
+      patient: r.patient.user.profile,
+      prescribedBy: r.prescribedBy.user.profile,
+    }));
   });
-  return rows.map((r) => ({
-    id: r.id,
-    testType: r.testType,
-    status: r.status,
-    scheduledAt: r.scheduledAt,
-    hasResult: Boolean(r.result),
-    patient: r.patient.user.profile,
-    prescribedBy: r.prescribedBy.user.profile,
-  }));
 }
 
 /** Prise en charge d'une demande du pool : l'assigne à ce labo (PENDING → SAMPLE_COLLECTED). */
 export async function claimOrder(app: FastifyInstance, labUserId: string, orderId: string, ip?: string | null) {
-  const labId = await labIdOf(app, labUserId);
-  const order = await app.prisma.labOrder.findUnique({
-    where: { id: orderId },
-    select: { id: true, labId: true, status: true, patient: { select: { userId: true } } },
+  const updated = await app.prisma.$transaction(async (tx) => {
+    const lab = await authorizedLaboratory(tx, labUserId);
+    const changed = await tx.labOrder.updateMany({
+      where: { id: orderId, status: 'PENDING', OR: [{ labId: null }, { labId: lab.id }] },
+      data: { labId: lab.id, status: 'SAMPLE_COLLECTED' },
+    });
+    if (changed.count !== 1) throw badRequest('Demande indisponible ou déjà prise en charge');
+    return tx.labOrder.findUniqueOrThrow({ where: { id: orderId }, select: { id: true, status: true, patient: { select: { userId: true } } } });
   });
-  if (!order) throw notFound('Demande d’analyse introuvable');
-  if (order.labId || order.status !== 'PENDING') throw badRequest('Demande déjà prise en charge');
-
-  const updated = await app.prisma.labOrder.update({
-    where: { id: orderId },
-    data: { labId, status: 'SAMPLE_COLLECTED' },
-    select: { id: true, status: true },
-  });
-  await writeAudit(app.prisma, { action: 'LAB_ORDER_CLAIM', actorId: labUserId, targetId: order.patient.userId, ip, meta: { orderId } });
-  return updated;
+  await writeAudit(app.prisma, { action: 'LAB_ORDER_CLAIM', actorId: labUserId, targetId: updated.patient.userId, ip, meta: { orderId } });
+  return { id: updated.id, status: updated.status };
 }
 
 async function doctorIdOf(app: FastifyInstance, userId: string): Promise<string> {
@@ -262,15 +258,15 @@ export async function interpretResult(
   return updated;
 }
 
-const NEXT_STATUS: Record<string, 'PROCESSING'> = { SAMPLE_COLLECTED: 'PROCESSING' };
-
-/** Avance le statut d'une demande prise en charge (SAMPLE_COLLECTED → PROCESSING). */
+/** Avance le statut de sa demande (SAMPLE_COLLECTED → PROCESSING). */
 export async function advanceStatus(app: FastifyInstance, labUserId: string, orderId: string) {
-  const labId = await labIdOf(app, labUserId);
-  const order = await app.prisma.labOrder.findUnique({ where: { id: orderId }, select: { labId: true, status: true } });
-  if (!order) throw notFound('Demande d’analyse introuvable');
-  if (order.labId !== labId) throw forbidden('Demande non prise en charge par ce laboratoire');
-  const next = NEXT_STATUS[order.status];
-  if (!next) throw badRequest('Transition de statut non permise');
-  return app.prisma.labOrder.update({ where: { id: orderId }, data: { status: next }, select: { id: true, status: true } });
+  return app.prisma.$transaction(async (tx) => {
+    const lab = await authorizedLaboratory(tx, labUserId);
+    const order = await tx.labOrder.findUnique({ where: { id: orderId }, select: { labId: true } });
+    if (!order) throw notFound('Demande d’analyse introuvable');
+    if (order.labId !== lab.id) throw forbidden('Demande non prise en charge par ce laboratoire');
+    const changed = await tx.labOrder.updateMany({ where: { id: orderId, labId: lab.id, status: 'SAMPLE_COLLECTED' }, data: { status: 'PROCESSING' } });
+    if (changed.count !== 1) throw badRequest('Transition de statut non permise');
+    return { id: orderId, status: 'PROCESSING' };
+  });
 }

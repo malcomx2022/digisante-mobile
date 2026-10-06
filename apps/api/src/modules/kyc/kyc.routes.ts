@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { requireRole, requireScope } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
 import { CAREGIVER_ROLES } from './kyc.service.js';
+import * as laboratory from './kyc.laboratory.js';
 import * as kyc from './kyc.service.js';
 
 // Upload RÉEL d'une pièce (P1) : contenu en base64, chiffré AES-256-GCM sur le
@@ -39,6 +40,16 @@ const idParams = z.object({ id: z.string().cuid() });
 export default async function kycRoutes(app: FastifyInstance) {
   const caregiver = { preHandler: [app.authenticate, requireRole(...CAREGIVER_ROLES)] };
   const admin = { preHandler: [app.authenticate, requireRole('ADMIN'), requireScope('kyc:review')] };
+
+  const labOnly = { preHandler: [app.authenticate, requireRole('LABORATOIRE')] };
+  app.get('/laboratory', labOnly, (request) => laboratory.profile(app, request.user.sub));
+  app.put('/laboratory', labOnly, (request) => {
+    const identity = zParse(z.object({
+      name: z.string().trim().min(2).max(160), address: z.string().trim().min(3).max(300),
+      phone: z.string().trim().regex(/^\+229[0-9]{10}$/), licenseNumber: z.string().trim().min(2).max(120),
+    }), request.body);
+    return laboratory.saveIdentity(app, request.user.sub, identity);
+  });
 
   // ── Professionnel : gestion de son dossier ──
   app.post('/', caregiver, async (request, reply) => {

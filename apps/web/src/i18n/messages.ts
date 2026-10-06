@@ -15,6 +15,18 @@ import type { Lang } from '@digisante/shared';
 export type Messages = Record<string, string>;
 
 const fr: Messages = {
+  "labkyc.title": "Habilitation du laboratoire",
+  "labkyc.required": "Validation administrative requise",
+  "labkyc.blocked": "Les demandes et résultats sont accessibles après approbation du laboratoire et avec un compte actif.",
+  "labkyc.active": "Laboratoire habilité : vous pouvez prendre en charge et traiter vos demandes.",
+  "labkyc.open": "Ouvrir un dossier de validation",
+  "labkyc.name": "Nom de la structure",
+  "labkyc.address": "Adresse de la structure",
+  "labkyc.phone": "Téléphone de la structure (+229, 10 chiffres)",
+  "labkyc.licenseNumber": "Numéro d’autorisation d’exercice",
+  "labkyc.save": "Enregistrer la structure",
+  "labkyc.documents": "Pièces obligatoires : identité du responsable et autorisation d’exercice de la structure.",
+
   'common.greeting': 'Bonjour',
   'common.spoken': 'Langues parlées',
   'common.language': 'Langue',
@@ -971,6 +983,18 @@ const fr: Messages = {
 };
 
 const en: Messages = {
+  "labkyc.title": "Laboratory accreditation",
+  "labkyc.required": "Administrative approval required",
+  "labkyc.blocked": "Orders and results are accessible after laboratory approval and with an active account.",
+  "labkyc.active": "Accredited laboratory: you can claim and process your orders.",
+  "labkyc.open": "Open an accreditation application",
+  "labkyc.name": "Establishment name",
+  "labkyc.address": "Establishment address",
+  "labkyc.phone": "Establishment phone (+229, 10 digits)",
+  "labkyc.licenseNumber": "Practice authorization number",
+  "labkyc.save": "Save establishment details",
+  "labkyc.documents": "Required documents: responsible person’s identity and establishment practice authorization.",
+
   'common.greeting': 'Hello',
   'common.spoken': 'Spoken languages',
   'common.language': 'Language',

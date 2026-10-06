@@ -43,7 +43,7 @@ export default function AdminKycPage() {
                 <CardPagne key={k.id} className="p-4 flex items-center justify-between gap-2">
                   <div className="min-w-0">
                     <p className="font-display font-bold text-[0.875rem] truncate">
-                      {k.user.profile ? `${k.user.profile.firstName} ${k.user.profile.lastName}` : k.user.phone}
+                      {k.user.lab?.name ?? (k.user.profile ? `${k.user.profile.firstName} ${k.user.profile.lastName}` : k.user.phone)}
                     </p>
                     <p className="text-[0.75rem] text-stone-400">{k.user.role}</p>
                   </div>
@@ -70,7 +70,7 @@ export default function AdminKycPage() {
                     {items.map((k) => (
                       <tr key={k.id} className="hover:bg-creme cursor-pointer" onClick={() => setSelected(k.id)}>
                         <td className="px-5 py-2.5 font-bold text-[0.8125rem] text-stone-900">
-                          {k.user.profile ? `${k.user.profile.firstName} ${k.user.profile.lastName}` : k.user.phone}
+                          {k.user.lab?.name ?? (k.user.profile ? `${k.user.profile.firstName} ${k.user.profile.lastName}` : k.user.phone)}
                         </td>
                         <td className="px-3 py-2.5"><span className="px-2 py-0.5 card-pagne bg-indigo-50 text-indigo-600 text-[0.59375rem] font-extrabold">{k.user.role}</span></td>
                         <td className="px-3 py-2.5"><Badge variant="eleve">{t(`kyc.status.${k.status}`)}</Badge></td>
@@ -152,6 +152,9 @@ function KycDetailPanel({ id, onBack, onDone }: { id: string; onBack: () => void
               {data.user.profile ? `${data.user.profile.firstName} ${data.user.profile.lastName}` : data.user.phone}
             </p>
             <p className="text-[0.75rem] text-stone-400">{data.user.role} · {data.user.phone}</p>
+            {data.labIdentity && <dl className="mt-3 space-y-1 text-sm">
+              {(['name', 'address', 'phone', 'licenseNumber'] as const).map((key) => <div key={key}><dt className="font-bold">{t(`labkyc.${key}`)}</dt><dd>{data.labIdentity![key]}</dd></div>)}
+            </dl>}
             {data.user.doctor && (
               <p className="text-[0.75rem] mt-1">
                 {t('adminkyc.license')} : <span className="font-mono">{data.user.doctor.licenseNumber}</span>{' '}
@@ -203,7 +206,7 @@ function KycDetailPanel({ id, onBack, onDone }: { id: string; onBack: () => void
             {!allVerified && <p className="text-[0.75rem] text-ocre-600 mt-1"><span aria-hidden="true">⚠ </span>{t('adminkyc.warn_unverified')}</p>}
             {actionError && <p className="text-[0.75rem] text-sos-600 font-bold mt-1">{actionError}</p>}
             <div className="grid grid-cols-3 gap-2 mt-3">
-              <Button variant="terre" className="text-[0.75rem] px-2 py-2" onClick={() => decide('APPROVED')} disabled={busy}>
+              <Button variant="terre" className="text-[0.75rem] px-2 py-2" onClick={() => decide('APPROVED')} disabled={busy || (data.user.role === 'LABORATOIRE' && (!allVerified || !data.labIdentity || !['NATIONAL_ID', 'PRACTICE_LICENSE'].every((type) => data.documents.some((d) => d.type === type))))}>
                 {t('admin.approve')}
               </Button>
               <Button variant="ocre" className="text-[0.75rem] px-2 py-2" onClick={() => decide('NEEDS_REVISION')} disabled={busy}>

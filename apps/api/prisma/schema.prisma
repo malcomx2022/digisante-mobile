@@ -636,6 +636,7 @@ model KycSubmission {
   submittedAt     DateTime?
   reviewedAt      DateTime?
   rejectionReason String?
+  labIdentity     Json? // Identité administrative figée à la soumission (L2).
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -736,6 +737,8 @@ model Lab {
   address         String
   phone           String
   servicesOffered String[]
+  licenseNumber   String?
+  verifiedAt      DateTime? // NULL pour les comptes historiques ; revue L2 requise.
   geolat          Float?
   geolong         Float?
   createdAt       DateTime @default(now())
