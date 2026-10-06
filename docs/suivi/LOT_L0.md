@@ -15,7 +15,7 @@ La structure initiale Claude Code, la stack, les droits, le design et la zone pa
 - Node **24.19.0** ; pnpm disponible **11.19.0**. Le dépôt/CI restent épinglés à **9.12.0**, sans changement du packageManager.
 - Dépendances déjà provisionnées, lockfiles racine et node_modules concordants : SHA-256 `33a3f9fd827d3c3f082bcc7750242853ca5375ed0748137fae0f6a79a9f853eb`.
 - `pnpm_config_verify_deps_before_run=false` utilisé uniquement dans l'environnement de test : pnpm 11 tente sinon une réinstallation dans un répertoire home indisponible. Aucune modification de configuration du dépôt pour masquer cet écart. Installation neuve avec pnpm 9 : non prouvée localement, **confirmée en CI** sur la candidate `6edcd427f5759c4b90c7bf58184193a55f456ac5` via `pnpm install --frozen-lockfile`, suivie des tests et builds verts.
-- Conteneurs temporaires PostgreSQL **16** et Redis **7**, distincts des services dev préexistants ; bases séparées `digisante_l0_test`, `digisante_l0_e2e`, `digisante_l0_upgrade` ; Redis /1 et /2. Aucun outil ni test connecté à la production.
+- Conteneurs temporaires PostgreSQL **16** et Redis **7**, distincts des services dev préexistants ; bases séparées `digisante_l0_test`, `digisante_l0_e2e`, `digisante_l0_upgrade` ; Redis /1 et /2. Aucun outil ni test connecté à la production. Conteneurs L0 supprimés après les vérifications ; les services dev préexistants sont conservés.
 - Chromium système **151.0.7922.173**, émulation Pixel 5. `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium` ; ne remplace pas un appareil Android réel.
 - Build E2E : `NEXT_PUBLIC_API_URL=` et `E2E_API_PROXY=http://127.0.0.1:3011` au build. API en mode test, fournisseurs simulés.
 
