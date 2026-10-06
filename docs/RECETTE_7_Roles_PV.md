@@ -120,3 +120,18 @@ Les tests API/navigateur dans LOT_L2 ne cochent aucune ligne du PV. Utiliser des
 | LAB-L2.10 Laboratoire approuvé complet, smartphone/desktop | Structure → pièces → admin → claim → traitement → résultat → lecture/interprétation ; langues et erreurs lisibles | | ☐ |
 
 Aucune remise automatique au pool ou transfert des demandes d'une structure suspendue. Confirmer les autorisations d'exercice réelles et le circuit opérateur pour une interruption durable avant ouverture du pilote.
+
+## 6. Addendum L3 — Rejeu sans doublon, à exécuter en recette
+
+Préparer une candidate homogène après migration, comptes synthétiques, appareil partagé et deux onglets. Contrat : `CONTRAT_Synchronisation_L3.md`. Tests automatiques et émulation Pixel 5 ne remplacent pas ces preuves physiques ; cases laissées non cochées.
+
+- [ ] PEV : couper la réponse après confirmation du commit serveur, recharger puis reprendre ; même clé et un seul sujet/calendrier. Répéter avec un message chat et une CPN, vérifier les dates stables.
+- [ ] Deux onglets d'un compte reprennent la même entrée : une seule écriture ; une action volontaire différente conserve sa propre clé.
+- [ ] Redémarrer l'API après commit avant réponse : reçu durable retrouvé ; aucune dépendance au cache Redis.
+- [ ] Modifier le corps sous une même clé : 409 et archive pour revue ; ne pas créer une clé de remplacement sans vérifier l'effet réel.
+- [ ] Révoquer/suspendre la session : 401 arrête la file ; reconnecter le même compte pour reprendre. Changer vers B pendant refresh : aucune mutation de A envoyée sous B.
+- [ ] Ancienne file sans clé, route exclue et horloge future : conservation pour revue sans envoi. Entrée >7 j : 410 ; après purge des reçus expirés, elle reste refusée.
+- [ ] Paiement/SOS/OTP/consentement/partage DMP et fermeture de grossesse : hors ligne refusé avant la file.
+- [ ] Vérifier les métadonnées et le contenu opaque des reçus, la purge interne authentifiée et sa fraîcheur ; ne pas imprimer les réponses cliniques dans les journaux.
+
+Consigner appareil/version, SHA candidate, heures/conditions réseau, identités synthétiques et résultats observés. Protection du stockage local, interface de revue manuelle et disponibilité hors réseau à compléter en L4 ; ne pas attester ces fonctions à partir du seul test L3.

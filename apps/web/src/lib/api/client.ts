@@ -2,10 +2,10 @@
 // Client API typé (fetch) — base NEXT_PUBLIC_API_URL, retry sur GET,
 // mise en file IndexedDB des mutations effectuées hors-ligne.
 // ─────────────────────────────────────────────────────────────
-import type { ApiError } from '@digisante/shared';
+import { MUTATION_CLOCK_SKEW_MS, MUTATION_MAX_AGE_MS, isReplayableMutation, mutationKeyTime, type ApiError } from '@digisante/shared';
 
 import { isOnline } from '@/lib/offline/online';
-import { enqueue, flush, PermanentReplayError, type QueuedMutation } from '@/lib/offline/queue';
+import { archiveFailed, enqueue, flush, getQueueOwner, hasReplayIdentity, PermanentReplayError, remove, type QueuedMutation } from '@/lib/offline/queue';
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? '';
 const PREFIX = '/api/v1';
@@ -179,23 +179,8 @@ export class OfflineError extends Error {
  * session suivante), administration et secrets d'intégration (écrits en clair
  * dans IndexedDB), fichiers du dossier médical, consentements et alertes SOS.
  */
-const NEVER_QUEUE: readonly RegExp[] = [
-  /^\/auth\//,
-  /^\/admin\//,
-  /^\/payments(\/|$)/,
-  /^\/wallet\//,
-  /^\/beneficiaries\/[^/]+\/send$/,
-  /^\/dmp\/(records\/[^/]+\/documents|consents)/,
-  /^\/users\/me\/device$/,
-  /^\/kyc(\/|$)/,
-  // Une alerte SOS rejouée des heures plus tard serait une fausse urgence : hors-ligne,
-  // l'écran SOS bascule sur le repli SMS / appel (le refus immédiat le déclenche).
-  /^\/sos(\/|$)/,
-];
-
-/** Cette mutation peut-elle être différée hors-ligne ? (pure, testée) */
-export function isQueueable(path: string): boolean {
-  return !NEVER_QUEUE.some((re) => re.test(path));
+export function isQueueable(path: string, method: string = 'POST'): boolean {
+  return isReplayableMutation(method, path);
 }
 
 export async function mutate<T>(
@@ -204,44 +189,60 @@ export async function mutate<T>(
   body?: unknown,
   opts: { queue?: boolean } = {},
 ): Promise<T | { queued: true }> {
-  if (!isOnline()) {
-    // Refus AVANT toute écriture en file : auparavant `online()` levait l'erreur
-    // APRÈS la mise en file — l'utilisateur lisait « connexion requise » et
-    // l'action partait quand même au retour du réseau (ex. envoi d'argent).
-    if (opts.queue === false || !isQueueable(path)) throw new OfflineError();
-    await enqueue({ method, path, body });
-    return { queued: true };
+  const covered = isQueueable(path, method);
+  if (!isOnline() && (opts.queue === false || !covered)) throw new OfflineError();
+  if (covered && opts.queue !== false && !getQueueOwner()) throw new Error('Session requise pour cette mutation');
+  // Une seule photographie JSON pour la file et le premier envoi.
+  body = body === undefined ? undefined : JSON.parse(JSON.stringify(body));
+  // Persister AVANT fetch : la fermeture d'onglet après commit serveur reste reprenable.
+  const pending = covered && opts.queue !== false ? await enqueue({ method, path, body }) : null;
+  const key = pending?.idempotencyKey ?? (covered ? `v1.${Date.now()}.${crypto.randomUUID()}` : undefined);
+  if (!isOnline()) return { queued: true };
+  try {
+    const res = await withAuthRetry(path, () => {
+      if (pending && pending.owner !== getQueueOwner()) throw new Error('Session de mutation changée');
+      return fetch(`${BASE}${PREFIX}${path}`, {
+        method, headers: headers(key ? { 'Idempotency-Key': key } : undefined, body !== undefined),
+        credentials: 'include', body: body === undefined ? undefined : JSON.stringify(body),
+      });
+    });
+    const result = await parse<T>(res);
+    if (pending) await remove(pending.id);
+    return result;
+  } catch (error) {
+    // 401/429/réseau/5xx restent en attente ; aucun nouveau UUID au prochain envoi.
+    if (pending && error instanceof ApiRequestError && error.status >= 400 && error.status < 500 && ![401, 408, 429].includes(error.status)) {
+      await archiveFailed(pending, error.status);
+    }
+    throw error;
   }
-  const res = await withAuthRetry(path, () =>
-    fetch(`${BASE}${PREFIX}${path}`, {
-      method,
-      headers: headers(undefined, body !== undefined),
-      credentials: 'include',
-      body: body === undefined ? undefined : JSON.stringify(body),
-    }),
-  );
-  return parse<T>(res);
 }
 
 /**
  * Rejoue la file des mutations en attente (à appeler au retour du réseau).
  * - 5xx / réseau → on relance (le `flush` s'arrête et réessaiera).
  * - 4xx → `PermanentReplayError` : la mutation est archivée (jamais perdue, point 2).
- * Chaque rejeu porte un en-tête `Idempotency-Key` = id de la mutation pour éviter
+ * Premier envoi et rejeux portent le même `Idempotency-Key` persisté pour éviter
  * les doublons si le réseau coupe après envoi mais avant réception de la réponse.
  */
 export async function flushQueue(): Promise<{ flushed: number; failed: number }> {
   return flush(async (m) => {
-    const res = await withAuthRetry(m.path, () =>
-      fetch(`${BASE}${PREFIX}${m.path}`, {
+    if (!isQueueable(m.path, m.method) || !hasReplayIdentity(m)) throw new PermanentReplayError(409);
+    const createdAt = mutationKeyTime(m.idempotencyKey!)!;
+    const age = Date.now() - createdAt;
+    if (age > MUTATION_MAX_AGE_MS) throw new PermanentReplayError(410);
+    if (age < -MUTATION_CLOCK_SKEW_MS) throw new PermanentReplayError(400);
+    const res = await withAuthRetry(m.path, () => {
+      if (m.owner !== getQueueOwner()) throw new Error('Session de mutation changée');
+      return fetch(`${BASE}${PREFIX}${m.path}`, {
         method: m.method,
-        headers: headers({ 'Idempotency-Key': m.id }, m.body !== undefined),
-        credentials: 'include',
-        body: m.body === undefined ? undefined : JSON.stringify(m.body),
-      }),
-    );
-    if (res.ok) return; // succès → retirée de la file
-    if (res.status >= 500) throw new Error('retry'); // serveur/réseau : on réessaiera
+        headers: headers({ 'Idempotency-Key': m.idempotencyKey! }, m.body !== undefined),
+        credentials: 'include', body: m.body === undefined ? undefined : JSON.stringify(m.body),
+      });
+    });
+    if (res.ok) return;
+    // Authentification/rate-limit temporaires : arrêter, préserver l'ordre et la donnée.
+    if (res.status === 401 || res.status === 408 || res.status === 429 || res.status >= 500) throw new Error('retry');
     // 4xx : rejet définitif. On NE perd PAS la donnée : journalisation + archivage.
     console.warn(
       `[offline] mutation rejetée au rejeu (${res.status}) : ${m.method} ${m.path} — conservée dans le magasin d'échecs`,

@@ -4,6 +4,7 @@
 // chiffré au repos (§4 : potentiellement des données de santé) via crypto.
 // Accès réservé aux deux participants du fil.
 // ─────────────────────────────────────────────────────────────
+import type { Prisma, PrismaClient } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
 import { openSensitiveText, sealSensitiveText } from '@/lib/crypto.js';
@@ -84,8 +85,8 @@ function counterpartOf(thread: ThreadWithParticipants, isDoctor: boolean) {
   };
 }
 
-async function loadThread(app: FastifyInstance, threadId: string): Promise<ThreadWithParticipants> {
-  const thread = await app.prisma.chatThread.findUnique({
+async function loadThread(app: FastifyInstance, threadId: string, db: PrismaClient | Prisma.TransactionClient = app.prisma): Promise<ThreadWithParticipants> {
+  const thread = await db.chatThread.findUnique({
     where: { id: threadId },
     select: { id: true, patientId: true, doctorId: true, lastMessageAt: true, ...threadInclude },
   });
@@ -199,40 +200,44 @@ export async function listMessages(
   }));
 }
 
-/** Envoie un message dans un fil (participant) ; corps chiffré au repos. */
+/** Autorisation courante, appelée avant toute restitution d'un reçu. */
+export async function authorizeThread(app: FastifyInstance, actor: Actor, threadId: string, tx: Prisma.TransactionClient) {
+  const thread = await loadThread(app, threadId, tx);
+  assertParticipant(thread, actor.sub);
+  return thread;
+}
+
+/** Écriture DB seulement : le reçu est ajouté dans cette même transaction. */
+export async function sendMessageWithin(tx: Prisma.TransactionClient, actor: Actor, threadId: string, body: string) {
+  const sealed = sealSensitiveText(body);
+  const message = await tx.chatMessage.create({
+    data: { threadId, senderId: actor.sub, body: sealed.plain, encryptedBody: sealed.encrypted },
+    select: { id: true, readAt: true, createdAt: true },
+  });
+  await tx.chatThread.update({ where: { id: threadId }, data: { lastMessageAt: message.createdAt } });
+  return { id: message.id, body, mine: true, readAt: message.readAt, createdAt: message.createdAt };
+}
+
+/** Hint temps réel après commit : le message durable reste lisible via REST. */
+export async function publishMessageHint(app: FastifyInstance, event: ChatEvent) {
+  try { await app.redis.publish(CHAT_CHANNEL, JSON.stringify(event)); }
+  catch { app.log.warn({ threadId: event.threadId }, 'Hint chat indisponible ; message conservé'); }
+}
+
+/** Envoi interne sans reçu (les routes publiques ajoutent le contrat L3). */
 export async function sendMessage(app: FastifyInstance, actor: Actor, threadId: string, body: string) {
   const thread = await loadThread(app, threadId);
   assertParticipant(thread, actor.sub);
-
-  const sealed = sealSensitiveText(body);
-  const now = new Date();
-  const [message] = await app.prisma.$transaction([
-    app.prisma.chatMessage.create({
-      data: { threadId, senderId: actor.sub, body: sealed.plain, encryptedBody: sealed.encrypted },
-      select: { id: true, senderId: true, readAt: true, createdAt: true },
-    }),
-    app.prisma.chatThread.update({ where: { id: threadId }, data: { lastMessageAt: now } }),
-  ]);
-
-  // Diffusion temps réel aux deux participants (fan-out inter-workers via Redis).
-  const event: ChatEvent = { threadId, recipients: [thread.patient.userId, thread.doctor.userId] };
-  await app.redis.publish(CHAT_CHANNEL, JSON.stringify(event));
-
-  return {
-    id: message.id,
-    body,
-    mine: true,
-    readAt: message.readAt,
-    createdAt: message.createdAt,
-  };
+  const message = await app.prisma.$transaction((tx) => sendMessageWithin(tx, actor, threadId, body));
+  await publishMessageHint(app, { threadId, recipients: [thread.patient.userId, thread.doctor.userId] });
+  return message;
 }
 
 /** Marque comme lus les messages du correspondant dans un fil. */
-export async function markRead(app: FastifyInstance, actor: Actor, threadId: string) {
-  const thread = await loadThread(app, threadId);
+export async function markRead(app: FastifyInstance, actor: Actor, threadId: string, db: PrismaClient | Prisma.TransactionClient = app.prisma) {
+  const thread = await loadThread(app, threadId, db);
   assertParticipant(thread, actor.sub);
-
-  const { count } = await app.prisma.chatMessage.updateMany({
+  const { count } = await db.chatMessage.updateMany({
     where: { threadId, readAt: null, senderId: { not: actor.sub } },
     data: { readAt: new Date() },
   });

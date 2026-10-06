@@ -5,7 +5,8 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 
-import { unauthorized } from '@/lib/errors.js';
+import { notFound, unauthorized } from '@/lib/errors.js';
+import { mutateOnce } from '@/lib/idempotency.js';
 import { zParse } from '@/lib/validation.js';
 import { isValidServiceToken } from '@/lib/service-token.js';
 import * as notifications from './notifications.service.js';
@@ -21,7 +22,11 @@ export default async function notificationsRoutes(app: FastifyInstance) {
   // Marquer comme lue.
   app.post('/:id/read', authed, async (request) => {
     const { id } = zParse(idParams, request.params);
-    return notifications.markRead(app, request.user.sub, id);
+    return (await mutateOnce(app, request, {
+      path: `/notifications/${id}/read`,
+      authorize: async (tx) => { if (!await tx.notification.findFirst({ where: { id, recipientId: request.user.sub }, select: { id: true } })) throw notFound('Notification introuvable'); },
+      execute: (tx) => notifications.markRead(app, request.user.sub, id, tx),
+    })).value;
   });
 
   // Dispatch des notifications dues (cron interne) — jeton de service requis.

@@ -4,6 +4,7 @@
 // Branché sur les Notification créées en PENDING par les autres modules.
 // ─────────────────────────────────────────────────────────────
 import type { Lang, NotificationType } from '@digisante/shared';
+import type { Prisma, PrismaClient } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
 import { notFound } from '@/lib/errors.js';
@@ -90,8 +91,8 @@ export async function listMine(app: FastifyInstance, userId: string) {
 }
 
 /** Marque une notification comme lue (destinataire). */
-export async function markRead(app: FastifyInstance, userId: string, id: string) {
-  const n = await app.prisma.notification.findFirst({ where: { id, recipientId: userId }, select: { id: true } });
+export async function markRead(app: FastifyInstance, userId: string, id: string, db: PrismaClient | Prisma.TransactionClient = app.prisma) {
+  const n = await db.notification.findFirst({ where: { id, recipientId: userId }, select: { id: true } });
   if (!n) throw notFound('Notification introuvable');
-  return app.prisma.notification.update({ where: { id }, data: { status: 'READ', readAt: new Date() } });
+  return db.notification.update({ where: { id }, data: { status: 'READ', readAt: new Date() } });
 }

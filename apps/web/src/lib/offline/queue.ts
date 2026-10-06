@@ -1,15 +1,16 @@
 // ─────────────────────────────────────────────────────────────
 // File de synchronisation hors-ligne (IndexedDB, sans dépendance).
-// Les MUTATIONS effectuées hors-ligne (ex. saisie de constantes) sont mises en
-// file, puis rejouées au retour du réseau. JAMAIS de données de santé en clair
-// au-delà du strict nécessaire ; la file est locale à l'appareil.
+// Contrat L3 : identité persistée avant envoi, archivage atomique des rejets.
+// Les corps restent en clair dans IndexedDB : chiffrement local prévu au lot L4.
 // ─────────────────────────────────────────────────────────────
+import { mutationKeyTime } from '@digisante/shared';
+
 const DB_NAME = 'digisante-offline';
 const STORE = 'mutations';
 // Magasin des mutations rejouées en échec « définitif » (4xx) : on ne les perd PAS
 // silencieusement, on les déplace ici pour consultation/diagnostic (point 2).
 const FAILED_STORE = 'failed';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 export interface QueuedMutation {
   id: string;
@@ -19,6 +20,8 @@ export interface QueuedMutation {
   ts: number;
   /** Compte auquel appartient la mutation (appareil partagé : jamais rejouée sous un autre compte). */
   owner?: string | null;
+  /** Absente sur les anciennes files : jamais inventée lors de leur migration. */
+  idempotencyKey?: string;
 }
 
 /** Mutation hors-ligne rejouée puis rejetée définitivement par le serveur (4xx). */
@@ -52,15 +55,17 @@ function tx<T>(
   run: (store: IDBObjectStore) => IDBRequest<T>,
   store: string = STORE,
 ): Promise<T> {
-  return openDb().then(
-    (db) =>
-      new Promise<T>((resolve, reject) => {
-        const transaction = db.transaction(store, mode);
-        const request = run(transaction.objectStore(store));
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      }),
-  );
+  return openDb().then((db) => new Promise<T>((resolve, reject) => {
+    const transaction = db.transaction(store, mode);
+    let result: T;
+    try {
+      const request = run(transaction.objectStore(store));
+      request.onsuccess = () => { result = request.result; };
+    } catch (error) { transaction.abort(); db.close(); reject(error); return; }
+    // Un succès de requête ne prouve PAS le commit IndexedDB.
+    transaction.oncomplete = () => { db.close(); resolve(result); };
+    transaction.onabort = transaction.onerror = () => { db.close(); reject(transaction.error ?? new Error('Transaction IndexedDB annulée')); };
+  }));
 }
 
 // `Date.now()` a une résolution de la milliseconde : plusieurs mutations mises en
@@ -79,13 +84,17 @@ function nextTs(): number {
 // ne doit JAMAIS être rejouée sous la session du compte B (appareil partagé : les
 // constantes de A écrites dans le dossier de B) — §4.
 let owner: string | null = null;
+export function getQueueOwner(): string | null { return owner; }
+
 export function setQueueOwner(userId: string | null): void {
   owner = userId;
 }
 
 /** Ajoute une mutation à la file. L'`id` sert aussi de clé d'idempotence (point 2). */
-export async function enqueue(item: Omit<QueuedMutation, 'id' | 'ts' | 'owner'>): Promise<QueuedMutation> {
-  const entry: QueuedMutation = { ...item, id: crypto.randomUUID(), ts: nextTs(), owner };
+export async function enqueue(item: Omit<QueuedMutation, 'id' | 'ts' | 'owner' | 'idempotencyKey'>): Promise<QueuedMutation> {
+  const id = crypto.randomUUID();
+  const body = item.body === undefined ? undefined : JSON.parse(JSON.stringify(item.body));
+  const entry: QueuedMutation = { ...item, body, id, ts: nextTs(), owner, idempotencyKey: `v1.${Date.now()}.${id}` };
   await tx('readwrite', (s) => s.add(entry));
   return entry;
 }
@@ -130,6 +139,29 @@ export async function removeFailed(id: string): Promise<void> {
   await tx('readwrite', (s) => s.delete(id), FAILED_STORE);
 }
 
+/** Déplacement atomique : une panne ne laisse pas la même mutation dans deux magasins. */
+export async function archiveFailed(item: QueuedMutation, status: number): Promise<void> {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORE, FAILED_STORE], 'readwrite');
+    transaction.objectStore(FAILED_STORE).put({ ...item, failedStatus: status, failedAt: Date.now() });
+    transaction.objectStore(STORE).delete(item.id);
+    transaction.oncomplete = () => { db.close(); resolve(); };
+    transaction.onabort = transaction.onerror = () => { db.close(); reject(transaction.error); };
+  });
+}
+
+/** v2 n'avait aucune preuve du premier envoi : conserver pour revue, sans nouveau jeton. */
+export function hasReplayIdentity(item: QueuedMutation): boolean {
+  return Boolean(item.idempotencyKey && mutationKeyTime(item.idempotencyKey) !== null && item.owner);
+}
+
+let flushFlight: Promise<{ flushed: number; failed: number }> | null = null;
+export function flush(send: (m: QueuedMutation) => Promise<void>): Promise<{ flushed: number; failed: number }> {
+  if (!flushFlight) flushFlight = flushWithin(send).finally(() => { flushFlight = null; });
+  return flushFlight;
+}
+
 /**
  * Rejoue les mutations en attente via `send`.
  * - Succès → retirée de la file.
@@ -138,7 +170,7 @@ export async function removeFailed(id: string): Promise<void> {
  * - Toute autre erreur (réseau / 5xx) → on s'arrête pour réessayer plus tard, en
  *   préservant l'ordre des mutations restantes.
  */
-export async function flush(
+async function flushWithin(
   send: (m: QueuedMutation) => Promise<void>,
 ): Promise<{ flushed: number; failed: number }> {
   // Seules les mutations du compte courant sont rejouées ; celles d'un autre compte
@@ -147,6 +179,7 @@ export async function flush(
   let flushed = 0;
   let failed = 0;
   for (const item of items) {
+    if ((item.owner ?? null) !== owner) break; // arrêt au changement de session
     try {
       await send(item);
       await remove(item.id);
@@ -154,9 +187,7 @@ export async function flush(
     } catch (err) {
       if (err instanceof PermanentReplayError) {
         // 4xx : rejet métier définitif → on archive au lieu de perdre la donnée.
-        const failedEntry: FailedMutation = { ...item, failedStatus: err.status, failedAt: Date.now() };
-        await tx('readwrite', (s) => s.put(failedEntry), FAILED_STORE);
-        await remove(item.id);
+        await archiveFailed(item, err.status);
         failed += 1;
         continue;
       }

@@ -34,6 +34,7 @@ import professionalsRoutes from '@/modules/professionals/professionals.routes.js
 import referralsRoutes from '@/modules/referrals/referrals.routes.js';
 import remindersRoutes from '@/modules/reminders/reminders.routes.js';
 import sosRoutes from '@/modules/sos/sos.routes.js';
+import syncRoutes from '@/modules/sync/sync.routes.js';
 import subscriptionsRoutes from '@/modules/subscriptions/subscriptions.routes.js';
 import usersRoutes from '@/modules/users/users.routes.js';
 import vaccinationsRoutes from '@/modules/vaccinations/vaccinations.routes.js';
@@ -130,6 +131,7 @@ export async function buildServer() {
   await app.register(realtime);
 
   // ── Modules métier (préfixe /api/v1) ──
+  await app.register(syncRoutes, { prefix: '/api/v1/sync' });
   await app.register(healthRoutes, { prefix: '/api/v1' });
   await app.register(authRoutes, { prefix: '/api/v1/auth' });
   await app.register(usersRoutes, { prefix: '/api/v1/users' });

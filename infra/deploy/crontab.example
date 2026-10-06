@@ -53,3 +53,6 @@ J=/var/www/digisante-mobile/infra/deploy/scripts/internal_job.sh
 
 # Renouvellement SSL Certbot — deux fois par jour (no-op si pas dû)
 15 3,15 * * * certbot renew --quiet --deploy-hook "systemctl reload nginx"
+
+# L3 : reçus chiffrés conservés 14 jours, mutations acceptées au plus 7 jours.
+10 3 * * * $J /api/v1/sync/receipts/prune >> /var/log/digisante/sync_receipts.log 2>&1

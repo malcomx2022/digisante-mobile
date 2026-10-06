@@ -1,7 +1,7 @@
 # Plan d'implémentation et de finalisation — DigiSanté Mobile
 
 > Date : **6 octobre 2026**. Base inspectée : `main` @ `8f2f6ca24ad0543d6a08218932c783809eada9b1`, avec les quatre corrections locales de revue.
-> Statut : **L0 LIVRÉ SUR MAIN**, PR #178/#179 fusionnées, CI candidate verte ; L1 LIVRÉ SUR MAIN par PR #181 (`53775be`) ; L2 VALIDÉ LOCALEMENT (livraison/CI : PR du lot) ; L3–L11 PLANIFIÉS. Voir `docs/suivi/LOT_L0.md` et `docs/REVUE_L0_2026-10.md`. Aucun déploiement attesté par ce plan.
+> Statut : **L0 LIVRÉ SUR MAIN**, PR #178/#179 fusionnées, CI candidate verte ; L1 LIVRÉ SUR MAIN par PR #181 (`53775be`) ; L2 LIVRÉ SUR MAIN par PR #182 (`eb1ba6e`) ; L3 VALIDÉ LOCALEMENT (preuves/CI : LOT_L3 et PR du lot) ; L4–L11 PLANIFIÉS. Voir `docs/suivi/LOT_L0.md` et `docs/REVUE_L0_2026-10.md`. Aucun déploiement attesté par ce plan.
 > Référence de reprise : `CLAUDE.md` puis `docs/PLAYBOOK_Codage_DigiSante.md`.
 > Version documentaire : `docs/Plan_Implementations_Restantes_2026-10.docx`, générée depuis ce fichier par `scripts/docs/generate-implementation-plan.js`.
 
@@ -47,8 +47,8 @@ Ces décisions bloquent uniquement leurs sous-lots dépendants. Préparer modèl
 |---|---|---|---|
 | L0 | Livrer la baseline et fixer le périmètre | — | Revue et CI validées ; livré sur main par PR #178/#179 |
 | L1 | Consentements par entrée et auteurs DMP | L0 | Livré sur main par PR #181 ; preuves dans LOT_L1 |
-| L2 | Habilitation laboratoire | L0 | Validé localement ; livraison/CI dans LOT_L2 et PR du lot |
-| L3 | Rejeu des mutations sans doublon | L0 | À implémenter |
+| L2 | Habilitation laboratoire | L0 | Livré sur main par PR #182 ; preuves dans LOT_L2 |
+| L3 | Rejeu des mutations sans doublon | L0 | Validé localement ; preuves et livraison dans LOT_L3 |
 | L4 | Stockage hors ligne protégé et disponibilité exacte | L1, L3 | À implémenter |
 | L5 | Salles Daily privées et jetons participants | L0 | À implémenter |
 | L6 | Abonnements payants de bout en bout | L0, décisions commerciales | À implémenter |
@@ -101,6 +101,8 @@ L1/L2/L3/L5 et la préparation fournisseurs/validation humaine peuvent avancer i
 **Acceptation.** Réponse perdue après commit, requêtes concurrentes, redémarrage API et deux onglets : un seul effet métier. Même clé/contenu différent : conflit. Comptes distincts : aucune collision ni fuite. Durée de conservation des reçus cohérente avec l'âge maximal de la file ; mutation trop ancienne refusée explicitement. Un 401 interrompt le rejeu en attendant réauthentification. Aucun paiement, SOS, OTP ou consentement ne devient rejouable.
 
 **Documentation.** Contrat `Idempotency-Key`, routes couvertes et exclusions, TTL, codes d'erreur, comportement de reprise ; nouveau piège dans `CLAUDE.md` §8 et recette coupure réseau.
+
+**Implémentation L3.** Branche `feat/l3-idempotent-sync` depuis main `eb1ba6e` après #182. Huit routes positives partagées, clé avant fetch, effet/reçu AES-GCM dans une transaction sous verrou User, contrôles courants et HMAC du contenu. Âge 7 j, reçus 14 j, purge 03:10 ; 401 arrête la file, anciens envois ambigus conservés pour revue. Exclusions financières/auth/SOS/consentements, fermeture de grossesse à cible mouvante en ligne. Contrat/revue/preuves : `docs/CONTRAT_Synchronisation_L3.md`, `docs/REVUE_L3_2026-10.md`, `docs/suivi/LOT_L3.md`. 460 API +64 web +11 E2E verts ; release:check 11 étapes, reprise 31→32 sans altération historique. Chiffrement des corps locaux et UX de reprise restent L4.
 
 ### L4 — Hors ligne médical et protection du stockage local
 
