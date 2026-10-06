@@ -31,6 +31,12 @@ Le projet initial a été produit avec Claude Code. Les corrections ci-dessous o
 
 ---
 
+## Lot L1 — DMP (6 octobre 2026)
+
+Implémentation sur `feat/l1-dmp-consent-authorship` : échéance par ConsentRecord, auteur authentifié sur MedicalRecord, garde commune pour lectures/export/documents et verrou par patient sur les transitions. Migration 29→30 additive : tous les anciens liens restent NULL (fermés), sans inférence d'auteur ni de bail depuis un QR réémis. Un ré-octroi explicite ne rend pas un lien NULL lisible ; nouveau partage requis. Aucun droit de lecture du fait d'être auteur.
+
+Relire `docs/suivi/LOT_L1.md` (droits, reprise/rollback, preuves et statut), `docs/REVUE_L1_2026-10.md` et l'addendum X1/X2. Compteurs actuels : 412 tests API + 50 web, 30 migrations ; release:check final vert (11 étapes), 8 E2E verts ; livraison/CI dans la fiche et PR du lot. Les chiffres L0 ci-dessus restent historiques. La recette physique/clinique demeure non exécutée.
+
 ## Finalisation restante — reprise par lots L0–L11
 
 Le plan actif détaille contrats, dépendances, fichiers de départ, migrations, tests et documents à actualiser. Exécuter son prompt commun avec l'instruction du lot retenu ; une branche par fonctionnalité et des PR cohérentes, sans refonte de stack.

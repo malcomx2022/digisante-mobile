@@ -4,8 +4,10 @@ PWA e-santé pour le Bénin — programme **NEXT IMPACT** (FP2E / Sèmè City / 
 Offline-first · multilingue (FR, EN, Fɔ̀ngbè, Yorùbá) · téléconsultation · DMP · Mobile Money · wallet diaspora.
 
 > Les conventions et décisions verrouillées du projet sont dans [`CLAUDE.md`](./CLAUDE.md).
-> **Finalisation en cours :** [plan L0–L11](./docs/PLAN_Implementations_Restantes_2026-10.md) — DMP, labo, synchronisation/hors-ligne, Daily, abonnements/revenus, sécurité et preuves d'ouverture. L0 : baseline et revue locales validées, [fiche de livraison](./docs/suivi/LOT_L0.md) ; autres lots planifiés. Une revue par lot avant PR/merge. Planifié ne signifie pas implémenté ou déployé.
+> **Finalisation en cours :** [plan L0–L11](./docs/PLAN_Implementations_Restantes_2026-10.md) — DMP, labo, synchronisation/hors-ligne, Daily, abonnements/revenus, sécurité et preuves d'ouverture. L0 fusionné ; L1 implémenté, [suivi DMP et migration](./docs/suivi/LOT_L1.md) ; L2–L11 planifiés. Une revue par lot avant PR/merge. Planifié ne signifie pas implémenté ou déployé.
 > Maintenance du 6 octobre 2026 : contrôles JWT par requête, remboursements WALLET atomiques, réconciliation PENDING/PROCESSING et réservations sous verrou PostgreSQL. Reprise Claude Code : [`playbook de maintenance`](./docs/PLAYBOOK_Codage_DigiSante.md#maintenance-après-revue--6-octobre-2026). Migration `20261006130000_wallet_refund_in` requise avant déploiement du correctif.
+
+> L1 : échéances et auteurs DMP côté serveur, [revue](./docs/REVUE_L1_2026-10.md). Migration additive `20261006144830_dmp_entry_expiry_authorship` : les liens historiques non prouvés restent fermés jusqu’à une nouvelle réclamation valide ; anciens auteurs inconnus conservés. Procédure de maintenance et limites de reprise dans la fiche L1.
 
 ## Architecture
 

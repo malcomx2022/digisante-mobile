@@ -6,13 +6,13 @@
   "patientPages": 23,
   "models": 48,
   "enums": 31,
-  "migrations": 29,
-  "apiTestFiles": 72,
+  "migrations": 30,
+  "apiTestFiles": 73,
   "webTestFiles": 8,
   "e2eSpecFiles": 2,
   "smokeTestFiles": 5,
-  "apiTests": 390,
+  "apiTests": 412,
   "webTests": 50,
   "e2eTests": 8,
-  "unitTests": 440
+  "unitTests": 462
 }
