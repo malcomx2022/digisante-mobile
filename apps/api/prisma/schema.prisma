@@ -484,6 +484,11 @@ model MedicalRecord {
   patientId     String
   type          MedicalRecordType
   title         String
+  // Identité authentifiée à la création, conservée même après suppression du compte.
+  // Pas de FK vers User : une suppression ne doit pas effacer la preuve d'auteur.
+  // Les entrées historiques non attribuables restent null, jamais « attribuées » au patient.
+  authorId      String?
+  authorRole    Role?
   data          Json?
   encryptedData String?
   shareToken    String?           @unique
@@ -981,6 +986,8 @@ model ConsentRecord {
   consentId String
   recordId  String
   createdAt DateTime @default(now())
+  // Source d'autorisation par entrée. null = historique non reconstructible, accès refusé.
+  expiresAt DateTime?
 
   consent Consent       @relation(fields: [consentId], references: [id], onDelete: Cascade)
   record  MedicalRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)

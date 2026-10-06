@@ -11,7 +11,7 @@ import type { FastifyInstance } from 'fastify';
 
 import { writeAudit } from '@/lib/audit.js';
 import { openMedicalData, sealMedicalData } from '@/lib/crypto.js';
-import { assertDmpAccess, resolveDmpScope } from '@/lib/dmp-consent.js';
+import { assertDmpAccess, resolveDmpScope, syncLegacyConsentExpiry, withDmpConsentLock } from '@/lib/dmp-consent.js';
 import { badRequest, forbidden, notFound } from '@/lib/errors.js';
 import { readEncryptedFile, storeEncryptedFile } from '@/lib/filestore.js';
 import { checksumOf, decodeUpload } from '@/lib/upload.js';
@@ -51,10 +51,12 @@ export async function createRecord(app: FastifyInstance, actor: Actor, input: Cr
       patientId,
       type: input.type,
       title: input.title,
+      authorId: actor.sub,
+      authorRole: actor.role,
       data: sealed.data === undefined ? undefined : (sealed.data as object),
       encryptedData: sealed.encryptedData,
     },
-    select: { id: true, type: true, title: true, createdAt: true },
+    select: { id: true, type: true, title: true, authorId: true, authorRole: true, createdAt: true },
   });
 }
 
@@ -79,6 +81,8 @@ export async function listRecords(
     id: r.id,
     type: r.type,
     title: r.title,
+    authorId: r.authorId,
+    authorRole: r.authorRole,
     data: openMedicalData(r),
     documentCount: r._count.documents,
     createdAt: r.createdAt,
@@ -102,6 +106,8 @@ export async function getRecord(app: FastifyInstance, actor: Actor, recordId: st
     id: record.id,
     type: record.type,
     title: record.title,
+    authorId: record.authorId,
+    authorRole: record.authorRole,
     data: openMedicalData(record),
     documents: record.documents,
     createdAt: record.createdAt,
@@ -227,15 +233,17 @@ export async function shareRecord(
   input: { shareType: ShareType; ttlHours: number },
   ip?: string | null,
 ) {
-  const record = await app.prisma.medicalRecord.findUnique({ where: { id: recordId }, select: { id: true, patient: { select: { userId: true } } } });
+  const record = await app.prisma.medicalRecord.findUnique({ where: { id: recordId }, select: { id: true, patientId: true, patient: { select: { userId: true } } } });
   if (!record) throw notFound('Entrée de dossier introuvable');
   if (record.patient.userId !== patientUserId) throw forbidden('Seul le patient propriétaire peut partager');
 
   const shareToken = randomBytes(24).toString('hex');
   const shareExpiry = new Date(Date.now() + input.ttlHours * 3600_000);
-  await app.prisma.medicalRecord.update({
-    where: { id: recordId },
-    data: { shareToken, shareType: input.shareType, shareExpiry },
+  await withDmpConsentLock(app, record.patientId, async (tx) => {
+    await tx.medicalRecord.update({
+      where: { id: recordId },
+      data: { shareToken, shareType: input.shareType, shareExpiry },
+    });
   });
   await writeAudit(app.prisma, { action: 'DMP_SHARE', actorId: patientUserId, targetId: recordId, ip, meta: { shareType: input.shareType, ttlHours: input.ttlHours } });
   return { shareToken, shareType: input.shareType, expiresAt: shareExpiry };
@@ -251,7 +259,7 @@ async function ownPatientId(app: FastifyInstance, patientUserId: string): Promis
 /** Liste les soignants disposant (ou ayant disposé) d'un consentement sur le dossier du patient. */
 export async function listConsents(app: FastifyInstance, patientUserId: string) {
   const patientId = await ownPatientId(app, patientUserId);
-  const now = new Date();
+  const now = new Date(Date.now());
   const consents = await app.prisma.consent.findMany({
     where: { patientId },
     orderBy: { createdAt: 'desc' },
@@ -263,25 +271,42 @@ export async function listConsents(app: FastifyInstance, patientUserId: string) 
       grantee: {
         select: {
           role: true,
+          status: true,
           profile: { select: { firstName: true, lastName: true } },
-          doctor: { select: { speciality: true } },
+          doctor: { select: { speciality: true, verifiedAt: true } },
         },
       },
-      _count: { select: { records: true } },
+      records: {
+        where: { record: { patientId } },
+        select: { recordId: true, expiresAt: true },
+        orderBy: { createdAt: 'asc' },
+      },
     },
   });
-  return consents.map((c) => ({
-    granteeId: c.granteeId,
-    name: c.grantee.profile ? `${c.grantee.profile.firstName} ${c.grantee.profile.lastName}`.trim() : '—',
-    role: c.grantee.role,
-    speciality: c.grantee.doctor?.speciality ?? null,
-    expiresAt: c.expiresAt,
-    grantedAt: c.createdAt,
-    active: !c.revokedAt && c.expiresAt > now,
-    revokedAt: c.revokedAt,
-    // Nombre d'entrées effectivement partagées avec ce soignant (portée §4).
-    recordCount: c._count.records,
-  }));
+  return consents.map((c) => {
+    const eligibleGrantee = c.grantee.role === 'MEDECIN' && c.grantee.status === 'ACTIVE' && Boolean(c.grantee.doctor?.verifiedAt);
+    const records = c.records.map((r) => ({
+      recordId: r.recordId,
+      expiresAt: r.expiresAt,
+      active: eligibleGrantee && !c.revokedAt && r.expiresAt !== null && r.expiresAt > now,
+    }));
+    const activeRecords = records.filter((r) => r.active);
+    const expiries = records.flatMap((r) => r.expiresAt ? [r.expiresAt.getTime()] : []);
+    return {
+      granteeId: c.granteeId,
+      name: c.grantee.profile ? `${c.grantee.profile.firstName} ${c.grantee.profile.lastName}`.trim() : '—',
+      role: c.grantee.role,
+      speciality: c.grantee.doctor?.speciality ?? null,
+      // Résumé d'affichage uniquement : la plus tardive des échéances par entrée.
+      expiresAt: expiries.length ? new Date(Math.max(...expiries)) : c.expiresAt,
+      grantedAt: c.createdAt,
+      active: activeRecords.length > 0,
+      revokedAt: c.revokedAt,
+      // Nombre d'entrées effectivement partagées avec ce soignant (portée §4).
+      recordCount: activeRecords.length,
+      records,
+    };
+  });
 }
 
 /** Révoque le consentement d'un soignant précis (révocation persistante). */
@@ -292,13 +317,16 @@ export async function revokeConsent(
   ip?: string | null,
 ) {
   const patientId = await ownPatientId(app, patientUserId);
-  const consent = await app.prisma.consent.findUnique({
-    where: { patientId_granteeId: { patientId, granteeId } },
-    select: { id: true, revokedAt: true },
+  const changed = await withDmpConsentLock(app, patientId, async (tx) => {
+    const consent = await tx.consent.findUnique({
+      where: { patientId_granteeId: { patientId, granteeId } }, select: { id: true, revokedAt: true },
+    });
+    if (!consent) throw notFound('Consentement introuvable');
+    if (consent.revokedAt) return false;
+    await tx.consent.update({ where: { id: consent.id }, data: { revokedAt: new Date() } });
+    return true;
   });
-  if (!consent) throw notFound('Consentement introuvable');
-  if (!consent.revokedAt) {
-    await app.prisma.consent.update({ where: { id: consent.id }, data: { revokedAt: new Date() } });
+  if (changed) {
     await writeAudit(app.prisma, { action: 'DMP_CONSENT_REVOKE', actorId: patientUserId, targetId: granteeId, ip });
   }
   return { revoked: true };
@@ -317,39 +345,46 @@ export async function regrantConsent(
   ip?: string | null,
 ) {
   const patientId = await ownPatientId(app, patientUserId);
-  const consent = await app.prisma.consent.findUnique({
-    where: { patientId_granteeId: { patientId, granteeId } },
-    select: { id: true },
-  });
-  if (!consent) throw notFound('Consentement introuvable');
-
   const expiresAt = new Date(Date.now() + ttlHours * 3600_000);
-  await app.prisma.consent.update({
-    where: { id: consent.id },
-    data: { revokedAt: null, expiresAt, grantedVia: 'regrant' },
+  const recordCount = await withDmpConsentLock(app, patientId, async (tx) => {
+    const consent = await tx.consent.findUnique({
+      where: { patientId_granteeId: { patientId, granteeId } }, select: { id: true },
+    });
+    if (!consent) throw notFound('Consentement introuvable');
+    // Les liens historiques non reconstructibles ne sont pas autorisés par ce bouton.
+    // Le patient doit fournir un nouveau partage pour ces entrées.
+    const result = await tx.consentRecord.updateMany({
+      where: { consentId: consent.id, expiresAt: { not: null }, record: { patientId } },
+      data: { expiresAt },
+    });
+    // Même sans lien attribuable, le patient peut lever la révocation persistante.
+    // Cela n'accorde aucun accès : une nouvelle réclamation valide reste nécessaire.
+    await tx.consent.update({ where: { id: consent.id }, data: { revokedAt: null, grantedVia: 'regrant' } });
+    await syncLegacyConsentExpiry(tx, consent.id);
+    return result.count;
   });
   await writeAudit(app.prisma, {
     action: 'DMP_CONSENT_GRANT',
     actorId: patientUserId,
     targetId: granteeId,
     ip,
-    meta: { via: 'regrant', ttlHours },
+    meta: { via: 'regrant', ttlHours, recordCount },
   });
-  return { granteeId, expiresAt };
+  return { granteeId, expiresAt, recordCount, requiresNewShare: recordCount === 0 };
 }
 
 /** Révoque un partage (patient propriétaire). */
 export async function revokeShare(app: FastifyInstance, patientUserId: string, recordId: string) {
-  const record = await app.prisma.medicalRecord.findUnique({ where: { id: recordId }, select: { patient: { select: { userId: true } } } });
+  const record = await app.prisma.medicalRecord.findUnique({ where: { id: recordId }, select: { patientId: true, patient: { select: { userId: true } } } });
   if (!record) throw notFound('Entrée de dossier introuvable');
   if (record.patient.userId !== patientUserId) throw forbidden('Seul le patient propriétaire peut révoquer');
   // Révoquer le partage retire AUSSI l'entrée des portées déjà réclamées : sinon un
   // soignant qui avait scanné le QR gardait l'accès jusqu'à l'échéance de son
   // consentement, et le patient pensait l'avoir coupé.
-  await app.prisma.$transaction([
-    app.prisma.medicalRecord.update({ where: { id: recordId }, data: { shareToken: null, shareType: null, shareExpiry: null } }),
-    app.prisma.consentRecord.deleteMany({ where: { recordId } }),
-  ]);
+  await withDmpConsentLock(app, record.patientId, async (tx) => {
+    await tx.medicalRecord.update({ where: { id: recordId }, data: { shareToken: null, shareType: null, shareExpiry: null } });
+    await tx.consentRecord.deleteMany({ where: { recordId } });
+  });
   return { revoked: true };
 }
 
@@ -378,6 +413,11 @@ export async function exportFhir(app: FastifyInstance, actor: Actor, patientIdPa
         category: r.type,
         code: { text: r.title },
         effectiveDateTime: r.createdAt.toISOString(),
+        // Attribution conservée dans l'export ; omission pour l'héritage inconnu.
+        ...(r.authorId ? { performer: [{
+          reference: `urn:digisante:user:${r.authorId}`,
+          ...(r.authorRole ? { type: r.authorRole === 'MEDECIN' ? 'Practitioner' : 'Patient' } : {}),
+        }] } : {}),
         valueAttachment: openMedicalData(r),
       },
     })),

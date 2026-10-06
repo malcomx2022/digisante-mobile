@@ -7,6 +7,9 @@ export interface DmpRecord {
   id: string;
   type: string;
   title: string;
+  /** Identité et rôle authentifiés à la création ; null pour l'héritage inconnu. */
+  authorId: string | null;
+  authorRole: string | null;
   data?: unknown;
   /** Nombre de pièces jointes (fourni par la liste, évite un appel par entrée). */
   documentCount?: number;
@@ -46,6 +49,9 @@ export interface DmpConsent {
   grantedAt: string;
   active: boolean;
   revokedAt: string | null;
+  recordCount: number;
+  /** Échéances indépendantes ; expiresAt du parent est un résumé d'affichage. */
+  records: { recordId: string; expiresAt: string | null; active: boolean }[];
 }
 
 /** Lève si la mutation a été mise en file hors-ligne (action exigeant le réseau). */
@@ -85,7 +91,7 @@ export const dmpApi = {
 
   /** Ré-autorise un soignant précédemment révoqué (action délibérée du patient). */
   regrantConsent: (granteeId: string, ttlHours = 72) =>
-    postNow<{ granteeId: string; expiresAt: string }>(`/dmp/consents/${granteeId}/regrant`, { ttlHours }).then(online),
+    postNow<{ granteeId: string; expiresAt: string; recordCount: number; requiresNewShare: boolean }>(`/dmp/consents/${granteeId}/regrant`, { ttlHours }).then(online),
 
   // ── Pièces jointes ──────────────────────────────────────────────────────────
   /** Détail d'une entrée, pièces jointes comprises. */
