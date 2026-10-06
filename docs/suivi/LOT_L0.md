@@ -2,7 +2,7 @@
 
 > Date : 6 octobre 2026. Responsable d'exécution/revue : Codex, sur demande du porteur.
 > Branche : `feat/l0-baseline-review`. Base main vérifiée via GitHub : `8f2f6ca24ad0543d6a08218932c783809eada9b1`.
-> Statut : **VALIDÉ LOCALEMENT — candidate/PR et CI à finaliser**. Aucun déploiement ni ouverture pilote.
+> Statut : **VALIDÉ LOCAL + CI — PR de reprise à contrôler sur la branche, fusion à effectuer**. Aucun déploiement ni ouverture pilote.
 
 ## Périmètre et décisions
 
@@ -14,8 +14,8 @@ La structure initiale Claude Code, la stack, les droits, le design et la zone pa
 
 - Node **24.19.0** ; pnpm disponible **11.19.0**. Le dépôt/CI restent épinglés à **9.12.0**, sans changement du packageManager.
 - Dépendances déjà provisionnées, lockfiles racine et node_modules concordants : SHA-256 `33a3f9fd827d3c3f082bcc7750242853ca5375ed0748137fae0f6a79a9f853eb`.
-- `pnpm_config_verify_deps_before_run=false` utilisé uniquement dans l'environnement de test : pnpm 11 tente sinon une réinstallation dans un répertoire home indisponible. Aucune modification de configuration du dépôt pour masquer cet écart. Installation neuve avec pnpm 9 : **non prouvée localement**, à confirmer en CI.
-- Conteneurs temporaires PostgreSQL **16** et Redis **7**, distincts des services dev préexistants ; bases séparées `digisante_l0_test`, `digisante_l0_e2e`, `digisante_l0_upgrade` ; Redis /1 et /2. Aucun outil ni test connecté à la production.
+- `pnpm_config_verify_deps_before_run=false` utilisé uniquement dans l'environnement de test : pnpm 11 tente sinon une réinstallation dans un répertoire home indisponible. Aucune modification de configuration du dépôt pour masquer cet écart. Installation neuve avec pnpm 9 : non prouvée localement, **confirmée en CI** sur la candidate `6edcd427f5759c4b90c7bf58184193a55f456ac5` via `pnpm install --frozen-lockfile`, suivie des tests et builds verts.
+- Conteneurs temporaires PostgreSQL **16** et Redis **7**, distincts des services dev préexistants ; bases séparées `digisante_l0_test`, `digisante_l0_e2e`, `digisante_l0_upgrade` ; Redis /1 et /2. Aucun outil ni test connecté à la production. Conteneurs L0 supprimés après les vérifications ; les services dev préexistants sont conservés.
 - Chromium système **151.0.7922.173**, émulation Pixel 5. `PLAYWRIGHT_CHROMIUM_EXECUTABLE=/usr/bin/chromium` ; ne remplace pas un appareil Android réel.
 - Build E2E : `NEXT_PUBLIC_API_URL=` et `E2E_API_PROXY=http://127.0.0.1:3011` au build. API en mode test, fournisseurs simulés.
 
@@ -86,7 +86,11 @@ Ces lignes sont des **candidates à examiner**, pas des crédits autorisés. Le 
 
 Le main distant a été revérifié via le connecteur le 6 octobre. Dernier run trouvé pour cette révision : [CI n°385](https://github.com/malcomx2022/digisante-mobile/actions/runs/35799186291), créé le **22 septembre**, en échec ; jobs build-and-test/e2e sans étape exécutée, deploy sauté. Ce constat historique ne suffit pas à diagnostiquer le compte GitHub aujourd'hui.
 
-L'accès Git terminal échoue sur le proxy de session (connexion proxy:8080 refusée). Le connecteur permet lecture/publication GitHub : préparer une candidate identique au tree local, ouvrir la PR et inspecter les nouveaux jobs. **Aucune CI candidate verte n'est affirmée avant son exécution.**
+Candidate publiée : **`6edcd427f5759c4b90c7bf58184193a55f456ac5`**, tree `f30df3685c76036fdfe2085b54390b7fd07bf0e9`, identique au tree local. [PR initiale #178](https://github.com/malcomx2022/digisante-mobile/pull/178), désormais fermée, branche `feat/l0-baseline-review`, base `main`. Publication via le connecteur GitHub, l'accès Git terminal étant bloqué par le proxy ; le commit distant exact a été importé localement.
+
+[CI candidate du 6 octobre](https://github.com/malcomx2022/digisante-mobile/actions/runs/37477134921) : **build-and-test et e2e réussis**. Installation avec lockfile figé, génération/migration Prisma, lint, typecheck, tests et build réussis ; Playwright exécuté dans son job dédié. Le job deploy est sauté conformément au déclenchement PR : aucun déploiement. La présente mise à jour documentaire ne modifie pas les sources applicatives ; ses checks de tête restent à vérifier sur la PR avant fusion.
+
+La PR initiale #178 a conservé une tête périmée malgré la mise à jour de la branche ; GitHub a refusé sa réouverture. La [liste des PR ouvertes de cette branche](https://github.com/malcomx2022/digisante-mobile/pulls?q=is%3Apr+is%3Aopen+head%3Afeat%2Fl0-baseline-review) identifie la PR de reprise et ses checks de tête. Ce lien évite de figer un numéro lors du remplacement. La PR de reprise est destinée à la revue du porteur. Aucun merge automatique ; L0 est validé pour revue, sans attestation de déploiement ni d'ouverture clinique.
 
 ## Critères de clôture
 
@@ -97,8 +101,8 @@ L'accès Git terminal échoue sur le proxy de session (connexion proxy:8080 refu
 | Quatre corrections et régression | Validés localement |
 | E2E et migration/reprise conservatrice | Validés localement |
 | Matrice périmètre / écarts CDC | Produite ; report des autres abonnements confirmé par le porteur |
-| Revue finale et documentation Claude Code | Produites ; vérifications documentaires finales à consigner |
-| Candidate versionnée, PR et CI complète | En attente |
+| Revue finale et documentation Claude Code | Produites ; DOCX et concordance Markdown validés |
+| Candidate versionnée, PR et CI complète | Commit `6edcd427`, PR initiale #178 remplacée, deux jobs CI verts sur `6edcd427` ; revérifier les checks de tête avant fusion |
 | Fusion / déploiement | Non effectués |
 
-La fusion ne doit pas être déduite de cette validation locale. Le lot dépendant suivant reprend main après la fusion convenue et sa revue, en conservant les limites de la matrice.
+La fusion ne doit pas être déduite de cette validation locale et CI. Le lot dépendant suivant reprend main après la fusion convenue et sa revue, en conservant les limites de la matrice.

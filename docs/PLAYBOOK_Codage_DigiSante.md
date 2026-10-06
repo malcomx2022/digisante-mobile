@@ -35,7 +35,7 @@ Le projet initial a été produit avec Claude Code. Les corrections ci-dessous o
 
 Le plan actif détaille contrats, dépendances, fichiers de départ, migrations, tests et documents à actualiser. Exécuter son prompt commun avec l'instruction du lot retenu ; une branche par fonctionnalité et des PR cohérentes, sans refonte de stack.
 
-1. **L0** : baseline et 8 E2E locaux verts, revue du diff réalisée, matrice CDC/pilote confirmée ; livraison et CI candidate à suivre dans la fiche L0.
+1. **L0** : baseline et 8 E2E locaux verts, revue du diff réalisée, matrice CDC/pilote confirmée ; CI candidate verte, PR de reprise à contrôler sur la branche ; fusion et checks de tête à suivre dans la fiche L0.
 2. **L1/L2/L3/L5** : expiration et auteur DMP, habilitation labo, rejeu idempotent, jetons Daily privés.
 3. **L4** après L1/L3 : lectures et files médicales hors ligne protégées, gestion de clé et disponibilité réelle.
 4. **L6/L7** : abonnements confirmés par paiement, périodes/droits, statistiques et circuit financier traçable.
