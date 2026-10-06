@@ -2,7 +2,7 @@
 
 > Date : 6 octobre 2026. Responsable d'exécution/revue : Codex, sur demande du porteur.
 > Branche : `feat/l0-baseline-review`. Base main vérifiée via GitHub : `8f2f6ca24ad0543d6a08218932c783809eada9b1`.
-> Statut : **VALIDÉ LOCAL + CI — PR #178 ouverte, fusion à effectuer**. Aucun déploiement ni ouverture pilote.
+> Statut : **VALIDÉ LOCAL + CI — PR de reprise à contrôler sur la branche, fusion à effectuer**. Aucun déploiement ni ouverture pilote.
 
 ## Périmètre et décisions
 
@@ -86,11 +86,11 @@ Ces lignes sont des **candidates à examiner**, pas des crédits autorisés. Le 
 
 Le main distant a été revérifié via le connecteur le 6 octobre. Dernier run trouvé pour cette révision : [CI n°385](https://github.com/malcomx2022/digisante-mobile/actions/runs/35799186291), créé le **22 septembre**, en échec ; jobs build-and-test/e2e sans étape exécutée, deploy sauté. Ce constat historique ne suffit pas à diagnostiquer le compte GitHub aujourd'hui.
 
-Candidate publiée : **`6edcd427f5759c4b90c7bf58184193a55f456ac5`**, tree `f30df3685c76036fdfe2085b54390b7fd07bf0e9`, identique au tree local. [PR #178](https://github.com/malcomx2022/digisante-mobile/pull/178), branche `feat/l0-baseline-review`, base `main`. Publication via le connecteur GitHub, l'accès Git terminal étant bloqué par le proxy ; le commit distant exact a été importé localement.
+Candidate publiée : **`6edcd427f5759c4b90c7bf58184193a55f456ac5`**, tree `f30df3685c76036fdfe2085b54390b7fd07bf0e9`, identique au tree local. [PR initiale #178](https://github.com/malcomx2022/digisante-mobile/pull/178), désormais fermée, branche `feat/l0-baseline-review`, base `main`. Publication via le connecteur GitHub, l'accès Git terminal étant bloqué par le proxy ; le commit distant exact a été importé localement.
 
 [CI candidate du 6 octobre](https://github.com/malcomx2022/digisante-mobile/actions/runs/37477134921) : **build-and-test et e2e réussis**. Installation avec lockfile figé, génération/migration Prisma, lint, typecheck, tests et build réussis ; Playwright exécuté dans son job dédié. Le job deploy est sauté conformément au déclenchement PR : aucun déploiement. La présente mise à jour documentaire ne modifie pas les sources applicatives ; ses checks de tête restent à vérifier sur la PR avant fusion.
 
-La PR est destinée à la revue du porteur. Aucun merge automatique ; L0 est validé pour revue, sans attestation de déploiement ni d'ouverture clinique.
+La PR initiale #178 a conservé une tête périmée malgré la mise à jour de la branche ; GitHub a refusé sa réouverture. La [liste des PR ouvertes de cette branche](https://github.com/malcomx2022/digisante-mobile/pulls?q=is%3Apr+is%3Aopen+head%3Afeat%2Fl0-baseline-review) identifie la PR de reprise et ses checks de tête. Ce lien évite de figer un numéro lors du remplacement. La PR de reprise est destinée à la revue du porteur. Aucun merge automatique ; L0 est validé pour revue, sans attestation de déploiement ni d'ouverture clinique.
 
 ## Critères de clôture
 
@@ -102,7 +102,7 @@ La PR est destinée à la revue du porteur. Aucun merge automatique ; L0 est val
 | E2E et migration/reprise conservatrice | Validés localement |
 | Matrice périmètre / écarts CDC | Produite ; report des autres abonnements confirmé par le porteur |
 | Revue finale et documentation Claude Code | Produites ; DOCX et concordance Markdown validés |
-| Candidate versionnée, PR et CI complète | Commit `6edcd427`, PR #178 ouverte, deux jobs CI verts ; revérifier les checks de tête avant fusion |
+| Candidate versionnée, PR et CI complète | Commit `6edcd427`, PR initiale #178 remplacée, deux jobs CI verts sur `6edcd427` ; revérifier les checks de tête avant fusion |
 | Fusion / déploiement | Non effectués |
 
 La fusion ne doit pas être déduite de cette validation locale et CI. Le lot dépendant suivant reprend main après la fusion convenue et sa revue, en conservant les limites de la matrice.
