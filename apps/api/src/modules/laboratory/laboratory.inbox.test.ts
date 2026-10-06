@@ -39,10 +39,10 @@ describe.skipIf(!HAS_INFRA)('Inbox laboratoire (intégration)', () => {
       data: { phone: PHONES[1], role: 'MEDECIN', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Dr', lastName: 'B' } }, doctor: { create: { speciality: 'Bio', licenseNumber: 'BJ-MED-7001', consultFee: 3000, verifiedAt: new Date() } } },
     });
     const labTech = await app.prisma.user.create({
-      data: { phone: PHONES[2], role: 'LABORATOIRE', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Lab', lastName: 'One' } }, lab: { create: { name: 'Labo 1', address: 'Cotonou', phone: PHONES[2], servicesOffered: [] } } },
+      data: { phone: PHONES[2], role: 'LABORATOIRE', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Lab', lastName: 'One' } }, lab: { create: { name: 'Labo 1', address: 'Cotonou', phone: PHONES[2], servicesOffered: [], verifiedAt: new Date(), licenseNumber: 'L2-FIXTURE' } } },
     });
     const otherLab = await app.prisma.user.create({
-      data: { phone: PHONES[3], role: 'LABORATOIRE', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Lab', lastName: 'Two' } }, lab: { create: { name: 'Labo 2', address: 'Porto-Novo', phone: PHONES[3], servicesOffered: [] } } },
+      data: { phone: PHONES[3], role: 'LABORATOIRE', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Lab', lastName: 'Two' } }, lab: { create: { name: 'Labo 2', address: 'Porto-Novo', phone: PHONES[3], servicesOffered: [], verifiedAt: new Date(), licenseNumber: 'L2-FIXTURE' } } },
     });
 
     doctorToken = app.jwt.sign({ sub: doctor.id, role: 'MEDECIN' }, { expiresIn: '15m' });

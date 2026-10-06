@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useState } from 'react';
 
+import { LaboratoryGate } from '@/components/auth/LaboratoryGate';
 import { Button, CardPagne } from '@/components/ui';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
@@ -62,7 +63,7 @@ function findImplausible(rows: ValueRow[]): string[] {
 export default function LaboPage() {
   return (
     <Suspense fallback={null}>
-      <LaboResult />
+      <LaboratoryGate><LaboResult /></LaboratoryGate>
     </Suspense>
   );
 }

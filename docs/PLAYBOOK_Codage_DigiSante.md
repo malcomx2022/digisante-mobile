@@ -35,7 +35,15 @@ Le projet initial a été produit avec Claude Code. Les corrections ci-dessous o
 
 Implémentation sur `feat/l1-dmp-consent-authorship` : échéance par ConsentRecord, auteur authentifié sur MedicalRecord, garde commune pour lectures/export/documents et verrou par patient sur les transitions. Migration 29→30 additive : tous les anciens liens restent NULL (fermés), sans inférence d'auteur ni de bail depuis un QR réémis. Un ré-octroi explicite ne rend pas un lien NULL lisible ; nouveau partage requis. Aucun droit de lecture du fait d'être auteur.
 
-Relire `docs/suivi/LOT_L1.md` (droits, reprise/rollback, preuves et statut), `docs/REVUE_L1_2026-10.md` et l'addendum X1/X2. Compteurs actuels : 412 tests API + 50 web, 30 migrations ; release:check final vert (11 étapes), 8 E2E verts ; livraison/CI dans la fiche et PR du lot. Les chiffres L0 ci-dessus restent historiques. La recette physique/clinique demeure non exécutée.
+Relire `docs/suivi/LOT_L1.md` (droits, reprise/rollback, preuves et statut), `docs/REVUE_L1_2026-10.md` et l'addendum X1/X2. Compteurs à la validation L1 : 412 tests API + 50 web, 30 migrations ; release:check final vert (11 étapes), 8 E2E verts ; livraison/CI dans la fiche et PR du lot. Les chiffres L0 ci-dessus restent historiques. La recette physique/clinique demeure non exécutée.
+
+## Lot L2 — Laboratoires (6 octobre 2026)
+
+L1 fusionné par PR #181 sur main `53775be` ; L2 repart de cette base sur `feat/l2-laboratory-verification`. Identité de structure, pièces obligatoires du responsable/autorisation, soumission figée et revue manuelle réutilisent le KYC existant. Le médecin conserve sa politique CNOM. Badge laboratoire + compte actif sous verrou pour lire/prendre/traiter ses demandes ; prescriptions ciblées compatibles, claim concurrent conditionnel ; publication et notifications DB atomiques.
+
+Lire LOT_L2, REVUE_L2 et l'addendum X3 avant toute maintenance. Migration 30→31 : aucun laboratoire historique habilité automatiquement. APPROVED sans badge → nouveau dossier ; ancien UNDER_REVIEW sans identité figée → correction/resoumission. Chaque nouvelle soumission réinitialise la vérification des pièces. Suspension : droits fermés, attribution conservée, réactivation explicite seulement. Ne pas revenir aux anciens guards ni recopier les historiques en badges.
+
+Parcours `/labo/kyc` et admin existant, design depuis la skill versionnée dans `docs/skill/digisante-design-system-skill.zip`. Actions en ligne, FR/EN et repli FR FON/YOR sans validation native. La fiche L2 porte résultats/limites/livraison ; aucune recette juridique, physique ou clinique n'est déduite du navigateur émulé. Actualiser le plan/DOCX et les compteurs, puis attendre la fusion du lot avant la prochaine branche dépendante.
 
 ## Finalisation restante — reprise par lots L0–L11
 
@@ -63,7 +71,7 @@ Le plan actif détaille contrats, dépendances, fichiers de départ, migrations,
 Lis CLAUDE.md, docs/INDEX_Documentation_DigiSante.docx puis README.md.
 Fais un état des lieux du monorepo actuel (apps/web, apps/api, packages, infra) :
 ce qui est en place vs ce qui manque pour atteindre un projet complet
-(163 endpoints REST + 1 WebSocket / 27 modules, 48 modèles Prisma, 66 pages, 4 langues, offline-first).
+(165 endpoints REST + 1 WebSocket / 27 modules, 48 modèles Prisma, 67 pages, 4 langues, offline-first).
 Ne code rien encore. Propose-moi un PLAN DE CONSTRUCTION par lots, avec l'ordre
 des dépendances (données → API → intégrations → frontend → tests). Liste les
 risques et les points à clarifier.

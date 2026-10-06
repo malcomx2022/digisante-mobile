@@ -1,7 +1,7 @@
 # Plan d'implémentation et de finalisation — DigiSanté Mobile
 
 > Date : **6 octobre 2026**. Base inspectée : `main` @ `8f2f6ca24ad0543d6a08218932c783809eada9b1`, avec les quatre corrections locales de revue.
-> Statut : **L0 LIVRÉ SUR MAIN**, PR #178/#179 fusionnées, CI candidate verte ; L1 VALIDÉ LOCALEMENT (livraison/CI : PR du lot) ; L2–L11 PLANIFIÉS. Voir `docs/suivi/LOT_L0.md` et `docs/REVUE_L0_2026-10.md`. Aucun déploiement attesté par ce plan.
+> Statut : **L0 LIVRÉ SUR MAIN**, PR #178/#179 fusionnées, CI candidate verte ; L1 LIVRÉ SUR MAIN par PR #181 (`53775be`) ; L2 VALIDÉ LOCALEMENT (livraison/CI : PR du lot) ; L3–L11 PLANIFIÉS. Voir `docs/suivi/LOT_L0.md` et `docs/REVUE_L0_2026-10.md`. Aucun déploiement attesté par ce plan.
 > Référence de reprise : `CLAUDE.md` puis `docs/PLAYBOOK_Codage_DigiSante.md`.
 > Version documentaire : `docs/Plan_Implementations_Restantes_2026-10.docx`, générée depuis ce fichier par `scripts/docs/generate-implementation-plan.js`.
 
@@ -46,8 +46,8 @@ Ces décisions bloquent uniquement leurs sous-lots dépendants. Préparer modèl
 | Lot | Objectif | Dépend de | Statut initial |
 |---|---|---|---|
 | L0 | Livrer la baseline et fixer le périmètre | — | Revue et CI validées ; livré sur main par PR #178/#179 |
-| L1 | Consentements par entrée et auteurs DMP | L0 | Validé localement ; livraison/CI dans LOT_L1 et PR du lot |
-| L2 | Habilitation laboratoire | L0 | À implémenter |
+| L1 | Consentements par entrée et auteurs DMP | L0 | Livré sur main par PR #181 ; preuves dans LOT_L1 |
+| L2 | Habilitation laboratoire | L0 | Validé localement ; livraison/CI dans LOT_L2 et PR du lot |
 | L3 | Rejeu des mutations sans doublon | L0 | À implémenter |
 | L4 | Stockage hors ligne protégé et disponibilité exacte | L1, L3 | À implémenter |
 | L5 | Salles Daily privées et jetons participants | L0 | À implémenter |
@@ -89,6 +89,8 @@ L1/L2/L3/L5 et la préparation fournisseurs/validation humaine peuvent avancer i
 **Acceptation.** Non vérifié, rejeté ou suspendu : aucune prise en charge ni accès à l'identité/résultat. Deux claims simultanés : un seul laboratoire gagne. Un laboratoire ne lit/modifie jamais les commandes de l'autre. Les approbations administratives ne révèlent aucun contenu clinique.
 
 **Documentation.** Workflow KYC laboratoire, droits et reprise des comptes existants ; `CLAUDE.md`, playbook, addendum X3 et recette laboratoire.
+
+**Implémentation L2.** Branche `feat/l2-laboratory-verification` depuis main `53775be` après #181. Structure et pièces obligatoires figées à soumission, badge après vérification manuelle, accès actif/approuvé, claim/avance/publication conditionnels. Les commandes suspendues restent attribuées ; lecture patient/médecin conservée, aucun transfert automatique. Migration 30→31 sans approbation héritée. Preuves, reprise, revue et statut de livraison : `docs/suivi/LOT_L2.md`, `docs/REVUE_L2_2026-10.md`, addendum X3. Les tests ne remplacent pas la recette humaine et les autorisations réelles.
 
 ### L3 — Synchronisation serveur idempotente
 

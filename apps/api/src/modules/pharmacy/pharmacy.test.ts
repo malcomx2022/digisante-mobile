@@ -35,7 +35,7 @@ describe.skipIf(!HAS_INFRA)('Pharmacie & Laboratoire (intégration)', () => {
       data: { phone: PHONES[1], role: 'MEDECIN', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Awa', lastName: 'K' } }, doctor: { create: { speciality: 'Bio', licenseNumber: 'BJ-MED-5001', consultFee: 3000, verifiedAt: new Date() } } },
     });
     const pharma = await app.prisma.user.create({ data: { phone: PHONES[2], role: 'PHARMACIE', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Pharma', lastName: 'X' } }, pharmacy: { create: { name: 'Pharmacie Centrale', address: 'Cotonou', phone: PHONES[2] } } } });
-    const labTech = await app.prisma.user.create({ data: { phone: PHONES[3], role: 'LABORATOIRE', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Labo', lastName: 'Y' } }, lab: { create: { name: 'Labo Central', address: 'Cotonou', phone: PHONES[3], servicesOffered: [] } } } });
+    const labTech = await app.prisma.user.create({ data: { phone: PHONES[3], role: 'LABORATOIRE', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Labo', lastName: 'Y' } }, lab: { create: { name: 'Labo Central', address: 'Cotonou', phone: PHONES[3], servicesOffered: [], verifiedAt: new Date(), licenseNumber: 'L2-FIXTURE' } } } });
 
     patientId = patient.patient!.id;
     doctorToken = app.jwt.sign({ sub: doctor.id, role: 'MEDECIN' }, { expiresIn: '15m' });
@@ -143,6 +143,9 @@ describe.skipIf(!HAS_INFRA)('Pharmacie & Laboratoire (intégration)', () => {
     // Le labo prend en charge la demande avant de pouvoir saisir un résultat.
     const claim = await app.inject({ method: 'POST', url: `/api/v1/lab/orders/${orderId}/claim`, headers: auth(labToken) });
     expect(claim.statusCode).toBe(200);
+
+    const advance = await app.inject({ method: 'POST', url: `/api/v1/lab/orders/${orderId}/advance`, headers: auth(labToken) });
+    expect(advance.statusCode).toBe(200);
 
     const before = await app.prisma.auditLog.count({ where: { action: 'LAB_CRITICAL' } });
     const result = await app.inject({

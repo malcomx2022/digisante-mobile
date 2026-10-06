@@ -42,7 +42,7 @@ describe.skipIf(!HAS_INFRA)('Interprétation des résultats (médecin, intégrat
       data: { phone: PHONES[2], role: 'MEDECIN', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Dr', lastName: 'Autre' } }, doctor: { create: { speciality: 'Bio', licenseNumber: 'BJ-MED-8002', consultFee: 3000, verifiedAt: new Date() } } },
     });
     const labTech = await app.prisma.user.create({
-      data: { phone: PHONES[3], role: 'LABORATOIRE', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Lab', lastName: 'Z' } }, lab: { create: { name: 'Labo Z', address: 'Cotonou', phone: PHONES[3], servicesOffered: [] } } },
+      data: { phone: PHONES[3], role: 'LABORATOIRE', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Lab', lastName: 'Z' } }, lab: { create: { name: 'Labo Z', address: 'Cotonou', phone: PHONES[3], servicesOffered: [], verifiedAt: new Date(), licenseNumber: 'L2-FIXTURE' } } },
     });
 
     doctorToken = app.jwt.sign({ sub: doctor.id, role: 'MEDECIN' }, { expiresIn: '15m' });
@@ -54,6 +54,7 @@ describe.skipIf(!HAS_INFRA)('Interprétation des résultats (médecin, intégrat
     const order = await app.inject({ method: 'POST', url: '/api/v1/lab/orders', headers: auth(doctorToken), payload: { patientId, testType: 'Kaliémie' } });
     orderId = order.json().id as string;
     await app.inject({ method: 'POST', url: `/api/v1/lab/orders/${orderId}/claim`, headers: auth(labToken) });
+    await app.inject({ method: 'POST', url: `/api/v1/lab/orders/${orderId}/advance`, headers: auth(labToken) });
     await app.inject({ method: 'POST', url: `/api/v1/lab/orders/${orderId}/result`, headers: auth(labToken), payload: { values: { potassium: 6.8 } } });
   });
 

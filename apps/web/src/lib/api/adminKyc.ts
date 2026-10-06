@@ -11,12 +11,13 @@ export interface KycDocument {
 export interface KycQueueItem {
   id: string;
   status: string;
-  user: { phone: string; role: string; profile: { firstName: string; lastName: string } | null };
+  user: { phone: string; role: string; lab: { name: string } | null; profile: { firstName: string; lastName: string } | null };
 }
 
 export interface KycDetail {
   id: string;
   status: string;
+  labIdentity: { name: string; address: string; phone: string; licenseNumber: string } | null;
   user: {
     phone: string;
     role: string;

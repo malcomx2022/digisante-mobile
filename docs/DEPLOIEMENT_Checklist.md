@@ -3,6 +3,8 @@
 > Cible : VPS Ubuntu 22.04 LTS. PostgreSQL 16 **natif**, Redis natif, Nginx + SSL Certbot,
 > PM2 (API cluster ×2 + web). **Aucun Docker en prod** (CLAUDE.md §3). Scripts : `infra/deploy/`.
 
+> État de finalisation au 6 octobre 2026 : L0/L1 livrés sur main, L2 candidat validé localement (LOT_L2/PR). Aucun déploiement ou GO pilote attesté ; L3–L11 et la recette réelle restent à traiter.
+
 ## 0. Pré-requis
 - [ ] Nom de domaine pointant (A) vers l'IP du VPS (`digisante.example.bj` + `www`).
 - [ ] Accès SSH root/sudo.
@@ -24,6 +26,8 @@
 ## 3. Premier déploiement
 - [ ] Mise à jour du 06/10/2026 : migration `20261006130000_wallet_refund_in` appliquée avant le code de remboursement WALLET ; vérifier restitution + signe entrant dans l’historique.
 - [ ] L1 : sauvegarde validée, maintenance et anciens workers API arrêtés avant `20261006144830_dmp_entry_expiry_authorship` ; redémarrer uniquement le code avec contrôle d'échéance par entrée. Prévenir les patients que les anciens liens nécessitent un nouveau partage. Pas de retour à l'ancien guard sur les liens NULL ; procédure détaillée `docs/suivi/LOT_L1.md`.
+- [ ] L2 : annoncer la validation obligatoire des laboratoires, arrêter les anciens workers puis appliquer `20261006154628_laboratory_verification` avant le nouveau code. Aucune approbation héritée, commandes conservées/gelées jusqu'à habilitation ; procédure complète dans LOT_L2.
+- [ ] Revue administrative explicite de chaque structure : responsable + autorisation, identité figée et toutes les pièces vérifiées. Tester non-vérifié/refusé/suspendu, concurrence d'attribution et lecture patient/médecin. Pas de retour au guard sans badge ni réattribution automatique.
 - [ ] `sudo -u digisante bash infra/deploy/scripts/deploy.sh`
       → install gelé → `prisma generate` → **`migrate deploy`** → `pnpm build` → `pm2 startOrReload`.
 - [ ] `pm2 status` : `digisante-api` (×2, online) + `digisante-web` (online).
@@ -75,14 +79,13 @@
 
 ---
 
-**Tout est prêt pour la production.** Le code (backend **27 modules** / **163 endpoints REST + 1 WS**
-+ frontend **7 espaces**, **66 pages**) est testé (**462 tests verts** — 412 API + 50 web, + 8 e2e
-Playwright — vérifié le 22/09/2026), l'infra scriptée, et la sécurité auditée. Reste l'exécution sur
+**Contrôles techniques actuels ; ouverture pilote non attestée.** Le code (backend **27 modules** / **165 endpoints REST + 1 WS**
++ frontend **7 espaces**, **67 pages**) est testé (**489 tests verts** — 439 API + 50 web, + 9 e2e
+Playwright — preuves du 6 octobre 2026 dans LOT_L2), l'infra scriptée. Restent la finalisation L3–L11, la validation humaine et l'exécution sur
 le VPS réel (étapes ci-dessus).
 
 > Les revues d'écarts sont **closes** : `docs/REVUE_Ecarts_et_Plan_2026-08.md` (C1→C9) et
-> `docs/AUDIT_Fonctionnel_2026-08.md` (D1→D10). **Aucun écart ouvert ne bloque cette mise en
-> production.**
+> `docs/AUDIT_Fonctionnel_2026-08.md` (D1→D10). Ces clôtures historiques ne ferment pas le plan actif L3–L11 ni ses conditions de GO pilote.
 
 ## 9. Deux points à traiter AVANT les premiers patients réels
 

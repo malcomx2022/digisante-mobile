@@ -41,6 +41,11 @@ export async function registerAndLogin(
     await page.getByLabel(/numéro d’ordre|numéro d'ordre/i).fill(`BJ-MED-${phone.slice(-5)}`);
   }
 
+  if (opts.role === 'Laboratoire' || opts.role === 'Pharmacie') {
+    await page.getByLabel(/nom de l’établissement|establishment name/i).fill('Structure E2E');
+    await page.getByLabel(/adresse|address/i).fill('Cotonou');
+  }
+
   await page.getByLabel(/téléphone|phone/i).fill(phone);
   await page.getByRole('button', { name: /recevoir le code|send code/i }).click();
 

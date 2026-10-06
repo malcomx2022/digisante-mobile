@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
+import { LaboratoryGate } from '@/components/auth/LaboratoryGate';
 import { Badge, Button, CardPagne, Nkyinkyim } from '@/components/ui';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
 import { Empty, ErrorState, SkeletonCards } from '@/components/ui/States';
@@ -20,6 +21,10 @@ const STATUS_VARIANT: Record<string, 'eleve' | 'indigo' | 'normal'> = {
 
 // D-24 — Laboratoire : file des demandes (pool disponible + prises en charge).
 export default function LabOrdersPage() {
+  return <LaboratoryGate><LabOrdersContent /></LaboratoryGate>;
+}
+
+function LabOrdersContent() {
   const { t } = useLocale();
   const router = useRouter();
   const [tick, setTick] = useState(0);
@@ -89,7 +94,7 @@ export default function LabOrdersPage() {
                     {t('labo.to_processing')}
                   </Button>
                 )}
-                {!o.hasResult && (
+                {!o.hasResult && o.status === 'PROCESSING' && (
                   <Button variant="sos" className="text-[0.8125rem] px-3 py-2" onClick={() => router.push(`/labo?order=${o.id}`)}>
                     {t('labo.enter_result')}
                   </Button>

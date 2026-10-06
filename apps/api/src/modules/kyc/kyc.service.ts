@@ -13,6 +13,7 @@ import { readEncryptedFile, storeEncryptedFile } from '@/lib/filestore.js';
 import { paginate } from '@/lib/http.js';
 import { loadAdminScopes } from '@/lib/rbac.js';
 import { decodeUpload } from '@/lib/upload.js';
+import * as laboratory from './kyc.laboratory.js';
 import { verifyOrderNumber } from './kyc.cnom.js';
 
 /** Rôles soignants soumis à vérification KYC. */
@@ -23,6 +24,7 @@ const OPEN_STATUSES: Prisma.KycSubmissionWhereInput['status'] = { in: ['NOT_SUBM
 
 /** Récupère le dossier ouvert du professionnel, ou le crée. */
 export async function getOrCreateSubmission(app: FastifyInstance, userId: string) {
+  if (await laboratory.isLaboratory(app, userId)) return laboratory.open(app, userId);
   const existing = await app.prisma.kycSubmission.findFirst({
     where: { userId, status: OPEN_STATUSES },
     include: { documents: true },
@@ -44,6 +46,7 @@ export async function addDocument(
   userId: string,
   input: { type: KycDocumentType; mimeType: string; fileName?: string; dataBase64: string; maxBytes: number },
 ) {
+  if (await laboratory.isLaboratory(app, userId)) return laboratory.addDocument(app, userId, input);
   const submission = await app.prisma.kycSubmission.findFirst({
     where: { userId, status: OPEN_STATUSES },
     select: { id: true },
@@ -90,6 +93,7 @@ export async function readDocumentFile(app: FastifyInstance, request: FastifyReq
 
 /** Finalise la soumission : passe le dossier en revue (UNDER_REVIEW). */
 export async function submitForReview(app: FastifyInstance, userId: string, ip?: string | null) {
+  if (await laboratory.isLaboratory(app, userId)) return laboratory.submit(app, userId, ip);
   const submission = await app.prisma.kycSubmission.findFirst({
     where: { userId, status: OPEN_STATUSES },
     include: { _count: { select: { documents: true } } },
@@ -121,7 +125,7 @@ export async function submitForReview(app: FastifyInstance, userId: string, ip?:
 export async function getMySubmission(app: FastifyInstance, userId: string) {
   const submission = await app.prisma.kycSubmission.findFirst({
     where: { userId },
-    orderBy: { createdAt: 'desc' },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     include: { documents: true, reviews: { orderBy: { createdAt: 'desc' } } },
   });
   if (!submission) throw notFound('Aucun dossier KYC');
@@ -143,7 +147,7 @@ export async function listQueue(
       skip: (params.page - 1) * params.pageSize,
       take: params.pageSize,
       include: {
-        user: { select: { id: true, phone: true, role: true, profile: { select: { firstName: true, lastName: true } } } },
+        user: { select: { id: true, phone: true, role: true, lab: { select: { name: true } }, profile: { select: { firstName: true, lastName: true } } } },
         _count: { select: { documents: true } },
       },
     }),
@@ -172,8 +176,9 @@ export async function getSubmissionForReview(app: FastifyInstance, submissionId:
 
 /** Coche/décoche une pièce justificative comme vérifiée (matérialise la checklist). */
 export async function setDocumentVerified(app: FastifyInstance, documentId: string, verified: boolean) {
-  const doc = await app.prisma.kycDocument.findUnique({ where: { id: documentId }, select: { id: true } });
+  const doc = await app.prisma.kycDocument.findUnique({ where: { id: documentId }, select: { id: true, submission: { select: { userId: true } } } });
   if (!doc) throw notFound('Pièce justificative introuvable');
+  if (await laboratory.isLaboratory(app, doc.submission.userId)) return laboratory.verifyDocument(app, doc.submission.userId, documentId, verified);
   return app.prisma.kycDocument.update({
     where: { id: documentId },
     data: { verified, verifiedAt: verified ? new Date() : null },
@@ -200,6 +205,7 @@ export async function reviewSubmission(
     include: { user: { select: { id: true, role: true, doctor: { select: { id: true, licenseNumber: true } } } } },
   });
   if (!submission) throw notFound('Dossier KYC introuvable');
+  if (submission.user.role === 'LABORATOIRE') return laboratory.review(app, adminId, submission.user.id, submissionId, input, ip);
   if (submission.status !== 'UNDER_REVIEW') {
     throw forbidden('Seuls les dossiers en revue peuvent être traités');
   }
