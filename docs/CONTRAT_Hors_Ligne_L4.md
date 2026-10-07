@@ -38,6 +38,8 @@ Synchronisation **explicite**, uniquement par un patient authentifié, depuis `/
 
 Les lectures expirent **24 h après synchronisation** ; avertissement après 6 h, date toujours affichée. À l’échéance, le corps est retiré et seules les dates subsistent pour informer. L’interface rafraîchit à ces échéances. Horodatage futur de plus de 5 min : lecture refusée. Ce délai est une règle applicative, pas une horloge inviolable. Un statut d’ordonnance annulée/expirée reste visible ; une copie datée n’autorise jamais une délivrance. Les numéros d’urgence existants demandent toujours la validation opérationnelle L9/L10 ; ce lot n’atteste pas leur disponibilité réelle.
 
+Les réponses API portent `Cache-Control: no-store` et le client les demande avec `cache: no-store`, y compris reçus/fichiers/auth : aucune conservation automatique dans le cache HTTP navigateur/proxy. Ceci est distinct de CacheStorage. Les caches HTTP ou sauvegardes de versions antérieures ne sont pas effacés rétroactivement par cet en-tête ; vider aussi le cache navigateur avant partage d’un ancien appareil.
+
 Le SW v3 ne conserve que les coquilles publiques `/`, `/patient/offline`, `/patient/triage`, le secours `offline.html`, les icônes/manifest et les assets `/_next/static`. Jamais API, RSC (`RSC`/`_rsc`), document médical, réponse de navigation authentifiée ou jeton. Une route non préparée revient au secours générique. Activation : seuls les anciens caches `digisante-*` sont retirés.
 
 ## Actions et résultat incertain

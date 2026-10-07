@@ -147,7 +147,7 @@ Contrat : `CONTRAT_Hors_Ligne_L4.md`. Répéter sur Android installé et iOS/Saf
 - [ ] A→B puis A : B ne lit/compte rien de A, lectures A purgées, file chiffrée A récupérable uniquement après réauthentification/phrase A. Logout efface tous les comptes locaux.
 - [ ] Migration v3 avec corps/clé, absence de clé et owner NULL : identité conservée, aucune attribution/re-cléage ; quota/lock pendant migration laisse l’ancien intact. Chaque compte migré ou effacement explicite après vérification des effets ; magasins historiques vides avant partage de l’appareil.
 - [ ] Purge pendant sync/création/file : rien réintroduit après effacement. Échec stockage/purge affiché ; données navigateur effacées avant prêt si confirmation impossible.
-- [ ] CacheStorage sans API/RSC/fichier médical/jeton ; shell/chunks seulement. Route non préparée présente le secours générique ; triage local, vidéo/paiement/SOS serveur exigent réseau, appel/SMS exigent couverture.
+- [ ] CacheStorage sans API/RSC/fichier médical/jeton ; shell/chunks seulement. API/fetch no-store vérifiés via le proxy ; anciens caches HTTP navigateur vidés avant partage. Route non préparée présente le secours générique ; triage local, vidéo/paiement/SOS serveur exigent réseau, appel/SMS exigent couverture.
 - [ ] Rejet de file : revue des effets en ligne et suppression volontaire après confirmation ; pas de ressaisie automatique. Phrase oubliée : aucune récupération promise.
 - [ ] Connectivité annoncée mais API inaccessible : contexte local conservé sans jeton/rejeu ; session réellement révoquée : fermeture. Phrases françaises de fallback FON/YOR et numéros d’urgence soumis à validation L9/L10.
 

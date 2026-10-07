@@ -3,13 +3,13 @@
 > 7 octobre 2026 (Africa/Lagos). Implémentation et auto-revue : Codex à la demande du porteur, suivant les conventions Claude Code.
 > Branche : `feat/l4-protected-offline`. Base main : `ce1cae85fc2fcae33c657aa39dffd98620fb4dd9`, après fusion de PR #183 le 6 octobre à 17:25:24 UTC.
 > Statut : **VALIDÉ LOCALEMENT — livraison/CI à consulter sur la PR du lot**. Aucune fusion automatique ni déploiement.
-> Commit applicatif : `3e7104e1884be28e9f95189caf7fa29a0fcc614d`. [PR et checks L4](https://github.com/malcomx2022/digisante-mobile/pulls?q=is%3Apr+head%3Afeat%2Fl4-protected-offline).
+> Commit applicatif testé : `9e1dcaf28abaedc5a1a9c01fefabff5999f6c11e` (complète le coffre initial `3e7104e` avec le contrôle du cache HTTP). [PR et checks L4](https://github.com/malcomx2022/digisante-mobile/pulls?q=is%3Apr+head%3Afeat%2Fl4-protected-offline).
 
 ## Résultat et reprise Claude Code
 
 Coffre à phrase locale opt-in, clé AES-256-GCM aléatoire enveloppée par PBKDF2-SHA256 600 000 ; clé ouverte non exportable en mémoire, jamais phrase/clé serveur/JWT persistés. Fermeture/reload/masquage et inactivité 15 min verrouillent ; BroadcastChannel propage lock/purge. Owner/génération recontrôlés dans les écritures pour empêcher une réintroduction après purge. Compte B ne lit/compte aucune action A ; changement purge les lectures A et conserve seulement ses actions chiffrées pour reprise authentifiée. Logout/effacement : tous les magasins dans une transaction, avertissement si échec.
 
-Lecture explicite sur `/patient/offline` : 20 résumés DMP, 10 ordonnances ×20 lignes sans QR, urgence sans assurance/adresse ; date visible, avertissement 6 h, expiration 24 h et retrait du payload. Aucun cache API générique. Pages classiques en ligne avec lien vers le coffre ; SW v3 prépare seulement coquilles et assets publics, exclut API/RSC/documents/tokens. SOS serveur et vidéo/paiements/partage restent en ligne ; SMS/appel nécessitent couverture téléphonique, disponibilité des numéros non attestée ici.
+Lecture explicite sur `/patient/offline` : 20 résumés DMP, 10 ordonnances ×20 lignes sans QR, urgence sans assurance/adresse ; date visible, avertissement 6 h, expiration 24 h et retrait du payload. Aucun cache API générique : Cache-Control: no-store serveur et fetch no-store client ; anciens caches HTTP navigateur à vider avant appareil partagé. Pages classiques en ligne avec lien vers le coffre ; SW v3 prépare seulement coquilles et assets publics, exclut API/RSC/documents/tokens. SOS serveur et vidéo/paiements/partage restent en ligne ; SMS/appel nécessitent couverture téléphonique, disponibilité des numéros non attestée ici.
 
 File chiffrée conservant les identités L3. Sans coffre ouvert : premier envoi en ligne précédé d’un ticket minimal sans corps/méthode/route ; réponse perdue récupérée par GET reçu minimal, jamais nouveau POST. Refus/ambiguïté/absence de reçu conservés pour revue et bloquent toute nouvelle mutation couverte jusqu’à vérification. Rejets accessibles depuis coffre/profil, dates/catégories, détails chiffrés après unlock et lien vers effets en ligne ; suppression volontaire après confirmation, pas de ressaisie automatique. Panne temporaire de refresh garde le contexte local sans jeton/rejeu, refus 401/403 ferme la session ; `navigator.onLine` ne prouve pas la connectivité API.
 
@@ -31,7 +31,7 @@ Pile isolée : Node 24.19.0, PostgreSQL 16, Redis 7 ; conteneurs `digisante-l4-d
 |---|---|
 | API ciblée | 28 scénarios sync verts : huit routes L3 +7 nouveaux contrôles L4, lecture sans effet/contenu, clé seule/ambiguïté, droits/propriétaire/expiration |
 | Web ciblé | Coffre 20, tickets 7, SW 6, refresh 2 nouveaux, cache session 4 ; migration, lock, purge en vol, quota, TTL, isolement et aucune écriture clinique en clair |
-| Release et E2E | **467 API +103 web +15 E2E verts**, aucun skip ; release:check **11 étapes en 85 s**, 28 tests outillage, lint/types/build/Prisma et scan 111 fichiers web sans secret verts |
+| Release et E2E | **467 API +103 web +15 E2E verts**, aucun skip ; release:check **11 étapes en 83 s**, 28 tests outillage, lint/types/build/Prisma et scan 111 fichiers web sans secret verts |
 | Compteurs mesurés | 167 REST/1 WS, 28 modules, 67 pages ; 49 modèles/31 enums/32 migrations ; 467 API +103 web +15 E2E recensés |
 | Plan DOCX | Régénéré et validé ZIP/XML/relations/A4/tableaux/concordance avec le Markdown ; rendu Word/signatures humaines non attestés |
 
