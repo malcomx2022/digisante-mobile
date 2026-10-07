@@ -2,16 +2,18 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import { flushQueue, refreshAccessToken, setAccessToken, setRefreshHandler, setSessionExpiredHandler } from '@/lib/api/client';
+import { flushQueue, refreshAccessToken, RefreshUnavailableError, setAccessToken, setRefreshHandler, setSessionExpiredHandler } from '@/lib/api/client';
 import { authApi, type AuthUser, type OtpInfo, type RegisterBody } from '@/lib/api/auth';
 import { isOnline } from '@/lib/offline/online';
-import { purgeAll, setQueueOwner } from '@/lib/offline/queue';
+import { installLocalGuards, lockVault } from '@/lib/offline/vault';
+import { getQueueOwner, purgeAll, setQueueOwner } from '@/lib/offline/queue';
 import { registerPushDevice } from './push';
 import { sessionCache } from './storage';
 
 type Status = 'loading' | 'authed' | 'anon';
 
 interface AuthContextValue {
+  cleanupFailed: boolean;
   status: Status;
   user: AuthUser | null;
   register: (b: RegisterBody) => Promise<OtpInfo>;
@@ -25,16 +27,19 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status>('loading');
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [cleanupFailed, setCleanupFailed] = useState(false);
+  useEffect(() => { try { setCleanupFailed(sessionStorage.getItem('digisante.cleanupFailed') === '1'); } catch { /* état mémoire disponible */ } }, []);
   const sessionEpoch = useRef(0);
+  useEffect(() => installLocalGuards(), []);
 
   // Purge complète de la session (utilisée par logout ET par l'expiration de session).
   const clearSession = useCallback(() => {
     sessionEpoch.current += 1;
     setQueueOwner(null);
-    sessionCache.clear();
     setAccessToken(null);
     setUser(null);
     setStatus('anon');
+    try { sessionCache.clear(); } catch { setCleanupFailed(true); }
   }, []);
 
   // ── Intercepteur de refresh (point 1) : branché sur le client API ───────────
@@ -88,14 +93,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Reprise : propage une éventuelle ROTATION du token FCM, sans jamais
         // redemander la permission à l'ouverture de l'app.
         void registerPushDevice({ prompt: false });
-      } catch {
+      } catch (error) {
         // Un ancien refresh ne doit pas effacer une nouvelle connexion.
-        if (active && epoch === sessionEpoch.current) clearSession();
+        if (active && epoch === sessionEpoch.current) {
+          if (error instanceof RefreshUnavailableError && sessionCache.get()?.id === cached.id) {
+            // navigator.onLine est indicatif : garder uniquement la lecture locale,
+            // sans jeton réseau ni reprise, jusqu'à une authentification réussie.
+            setAccessToken(null); setQueueOwner(cached.id);
+          } else clearSession();
+        }
       }
     })();
     return () => {
       active = false;
     };
+  }, [clearSession]);
+
+  useEffect(() => {
+    const changed = (e: StorageEvent) => {
+      if (e.key !== 'digisante.session') return;
+      lockVault();
+      // Ne pas effacer la nouvelle session de l'autre onglet.
+      const next = sessionCache.get();
+      if (!next || next.id !== getQueueOwner()) {
+        sessionEpoch.current += 1; setAccessToken(null); setQueueOwner(null); setUser(null); setStatus('anon');
+      }
+    };
+    window.addEventListener('storage', changed);
+    return () => window.removeEventListener('storage', changed);
   }, [clearSession]);
 
   const register = useCallback<AuthContextValue['register']>((b) => authApi.register(b).then((r) => r.otp), []);
@@ -127,14 +152,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     // 2) Purge de la file hors-ligne : ses corps (constantes, messages…) ne doivent
     //    pas rester en clair sur un appareil partagé après une déconnexion (§4).
-    await purgeAll().catch(() => undefined);
+    try { await purgeAll(); setCleanupFailed(false); try { sessionStorage.removeItem('digisante.cleanupFailed'); } catch { /* purge déjà confirmée */ } }
+    catch { setCleanupFailed(true); try { sessionStorage.setItem('digisante.cleanupFailed', '1'); } catch { /* avertissement mémoire */ } clearSession(); throw new Error('Purge locale échouée'); }
     // 3) Purge locale + redirection (assurée par la garde Protected → /onboarding).
     clearSession();
   }, [clearSession]);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ status, user, register, requestOtp, verifyOtp, logout }),
-    [status, user, register, requestOtp, verifyOtp, logout],
+    () => ({ cleanupFailed, status, user, register, requestOtp, verifyOtp, logout }),
+    [cleanupFailed, status, user, register, requestOtp, verifyOtp, logout],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

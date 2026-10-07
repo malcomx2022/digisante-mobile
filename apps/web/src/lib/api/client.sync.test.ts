@@ -3,19 +3,21 @@ import 'fake-indexeddb/auto';
 import { MUTATION_MAX_AGE_MS } from '@digisante/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { allFailed, allQueued, enqueue, purgeAll, setQueueOwner, type QueuedMutation } from '@/lib/offline/queue';
+import { createVault, purgeLocal, unlockVault } from '@/lib/offline/vault';
+import { allFailed, allQueued, enqueue, migrateLegacy, setQueueOwner, type QueuedMutation } from '@/lib/offline/queue';
 import { flushQueue, isQueueable, post, setRefreshHandler, setSessionExpiredHandler } from './client';
 
 const path = '/vaccinations/subjects';
 const body = { name: 'Synthétique', birthDate: '2025-01-01' };
 async function rawEntry(entry: QueuedMutation) {
-  const db = await new Promise<IDBDatabase>((resolve) => { const r = indexedDB.open('digisante-offline', 3); r.onsuccess = () => resolve(r.result); });
+  const db = await new Promise<IDBDatabase>((resolve) => { const r = indexedDB.open('digisante-offline', 4); r.onsuccess = () => resolve(r.result); });
   await new Promise<void>((resolve, reject) => { const t = db.transaction('mutations', 'readwrite'); t.objectStore('mutations').put(entry); t.oncomplete = () => resolve(); t.onerror = () => reject(t.error); });
   db.close();
+  await migrateLegacy();
 }
 beforeEach(async () => {
   vi.stubGlobal('navigator', { onLine: true }); vi.stubGlobal('fetch', vi.fn());
-  setQueueOwner('patient-A'); setRefreshHandler(null); setSessionExpiredHandler(null); await purgeAll();
+  await purgeLocal(); setQueueOwner('patient-A'); await createVault('phrase synthétique locale L4'); setRefreshHandler(null); setSessionExpiredHandler(null);
 });
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); setRefreshHandler(null); setSessionExpiredHandler(null); });
 
@@ -67,7 +69,8 @@ describe('Premier envoi et rejeu L3', () => {
     vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 401 }));
     setRefreshHandler(async () => { setQueueOwner('patient-B'); return 'other-account-token'; });
     expect(await flushQueue()).toEqual({ flushed: 0, failed: 0 }); expect(fetch).toHaveBeenCalledTimes(1);
-    expect((await allQueued())[0].owner).toBe('patient-A');
+    expect(await allQueued()).toEqual([]);
+    setQueueOwner('patient-A'); await unlockVault('phrase synthétique locale L4'); expect((await allQueued())[0].owner).toBe('patient-A');
   });
   it('aucune identité de compte : refuse avant toute persistance ou envoi', async () => {
     setQueueOwner(null); await expect(post(path, body)).rejects.toThrow('Session requise');

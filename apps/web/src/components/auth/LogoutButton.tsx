@@ -34,6 +34,8 @@ export function LogoutButton({
     setBusy(true);
     try {
       await logout();
+    } catch {
+      // AuthProvider verrouille la session et signale l'échec de purge dans la bannière.
     } finally {
       router.replace('/login');
     }

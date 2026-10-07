@@ -1,5 +1,6 @@
 'use client';
 
+import { OfflineMedicalLink } from '@/components/offline/OfflineMedicalLink';
 import { PatientHeader } from '@/components/patient/PatientHeader';
 import { PrescriptionPosology } from '@/components/patient/PrescriptionPosology';
 import { Badge, CardPagne, KenteBar } from '@/components/ui';
@@ -36,6 +37,7 @@ export default function PrescriptionsPage() {
     <>
       <PatientHeader title={t('prescriptions.title')} />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto lg:w-full">
+        <OfflineMedicalLink />
         {loading && <SkeletonCards label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && (data?.length ?? 0) === 0 && <Empty label={t('common.empty')} />}

@@ -3,6 +3,8 @@
 // disparaître dans AUCUN scénario de rejeu.
 import 'fake-indexeddb/auto';
 
+import { createVault, purgeLocal, unlockVault } from './vault';
+
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -14,16 +16,13 @@ import {
   pendingCount,
   PermanentReplayError,
   purgeAll,
-  remove,
-  removeFailed,
   setQueueOwner,
   type QueuedMutation,
 } from './queue';
 
 /** Vide les deux magasins entre les tests (l'IndexedDB simulée persiste dans le run). */
 async function reset() {
-  for (const m of await allQueued()) await remove(m.id);
-  for (const f of await allFailed()) await removeFailed(f.id);
+  await purgeLocal(); setQueueOwner('patient-A'); await createVault('phrase synthétique locale L4');
 }
 
 describe('file hors-ligne — rejeu des mutations', () => {
@@ -161,8 +160,8 @@ describe('file hors-ligne — appareil partagé (§4)', () => {
     const r = await flush(async (m) => { sent.push(m.owner ?? ''); });
     expect(r.flushed).toBe(0);
     expect(sent).toEqual([]);
-    expect(await pendingCount()).toBe(1); // conservée pour le retour de A
-    setQueueOwner('patient-A');
+    expect(await pendingCount()).toBe(0); // isolée pour le retour de A
+    setQueueOwner('patient-A'); await unlockVault('phrase synthétique locale L4');
     expect((await flush(async () => {})).flushed).toBe(1);
   });
 

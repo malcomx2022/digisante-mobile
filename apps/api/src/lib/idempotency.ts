@@ -60,3 +60,21 @@ export async function mutateOnce<T>(app: FastifyInstance, request: FastifyReques
     return { value, replayed: false };
   });
 }
+
+/** Vérification sans corps sauvegardé côté navigateur : lecture seulement, jamais d'effet. */
+export async function inspectReceipt(app: FastifyInstance, request: FastifyRequest, scope: { method?: string; route?: string; key: string }, authorize: (tx: Prisma.TransactionClient, receipt: { route: string; method: string; resourceId: string | null }) => Promise<void>) {
+  if (mutationKeyTime(scope.key) === null || (scope.method && (!scope.route || !isReplayableMutation(scope.method, scope.route)))) throw badRequest('Identité de mutation invalide');
+  return app.prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM users WHERE id = ${request.user.sub} FOR UPDATE`;
+    const user = await tx.user.findUnique({ where: { id: request.user.sub }, select: { status: true, role: true } });
+    if (!user || user.status === 'SUSPENDED') throw unauthorized('Session révoquée');
+    request.user.role = user.role;
+    const receipts = await tx.mutationReceipt.findMany({ where: { userId: request.user.sub, ...scope, key: scope.key.toLowerCase(), expiresAt: { gt: new Date() } }, take: 2 });
+    if (!receipts.length) return null;
+    if (receipts.length !== 1) throw conflict('Identité ambiguë ; revue manuelle requise');
+    const receipt = receipts[0];
+    if (!isReplayableMutation(receipt.method, receipt.route)) throw badRequest('Reçu hors contrat');
+    await authorize(tx, receipt);
+    return { confirmed: true, status: receipt.responseStatus }; // aucun contenu clinique retourné
+  });
+}

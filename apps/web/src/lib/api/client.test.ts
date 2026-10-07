@@ -4,6 +4,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  ApiRequestError,
+  RefreshUnavailableError,
   get,
   post,
   setAccessToken,
@@ -39,6 +41,18 @@ afterEach(() => {
 });
 
 describe('client API — intercepteur de refresh', () => {
+  it('refresh en panne réseau : ne déclare pas une révocation et ne rejoue pas', async () => {
+    fetchMock.mockResolvedValue(res(401)); const expired = vi.fn(); setSessionExpiredHandler(expired);
+    setRefreshHandler(async () => { throw new TypeError('offline'); });
+    await expect(get('/users/me', { retries: 0 })).rejects.toBeInstanceOf(RefreshUnavailableError);
+    expect(expired).not.toHaveBeenCalled(); expect(fetchMock).toHaveBeenCalledOnce();
+  });
+  it('refresh refusé 401 : ferme la session, sans lecture réseau optimiste', async () => {
+    fetchMock.mockResolvedValue(res(401)); const expired = vi.fn(); setSessionExpiredHandler(expired);
+    setRefreshHandler(async () => { throw new ApiRequestError(401, { code: 'UNAUTHORIZED', message: 'revoked' }); });
+    await expect(get('/users/me', { retries: 0 })).rejects.toBeInstanceOf(ApiRequestError);
+    expect(expired).toHaveBeenCalledOnce(); expect(fetchMock).toHaveBeenCalledOnce();
+  });
   it('rejoue UNE fois après un refresh réussi', async () => {
     fetchMock.mockResolvedValueOnce(res(401)).mockResolvedValueOnce(res(200, { ok: true }));
     const refresh = vi.fn(async () => {

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 import { DmpShareDialog } from '@/components/patient/DmpShareDialog';
+import { OfflineMedicalLink } from '@/components/offline/OfflineMedicalLink';
 import { PatientHeader } from '@/components/patient/PatientHeader';
 import { RecordDocuments } from '@/components/patient/RecordDocuments';
 import { CardPagne } from '@/components/ui';
@@ -74,6 +75,7 @@ export default function DmpPage() {
     <>
       <PatientHeader title={t('dmp.title')} />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto lg:w-full">
+        <OfflineMedicalLink />
         <Link
           href="/patient/vitals"
           className="flex items-center gap-2 bg-white card-pagne border border-stone-200 px-4 py-3 font-display font-bold text-[0.875rem] text-sante-700"

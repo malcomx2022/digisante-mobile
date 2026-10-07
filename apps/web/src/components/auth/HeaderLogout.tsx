@@ -22,6 +22,8 @@ export function HeaderLogout({ dark = true }: { dark?: boolean }) {
     setBusy(true);
     try {
       await logout();
+    } catch {
+      // L'échec d'effacement reste visible via AuthProvider ; session verrouillée.
     } finally {
       router.replace('/login');
     }
