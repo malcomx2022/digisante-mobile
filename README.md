@@ -15,7 +15,7 @@ Monorepo **pnpm** :
 
 ```
 apps/web      Next.js 14 (App Router, PWA) — 67 pages
-apps/api      Fastify — 167 endpoints REST + 1 WebSocket / 28 modules + Prisma + Redis
+apps/api      Fastify — 168 endpoints REST + 1 WebSocket / 28 modules + Prisma + Redis
 packages/shared   types, enums, schémas zod partagés
 packages/config   tsconfig de base
 infra/        docker-compose dev (Postgres 16 + Redis) · scripts deploy VPS
@@ -95,3 +95,6 @@ release patients réels, B1). Les e2e restent `pnpm test:e2e` (build dédié, cf
 
 `.github/workflows/ci.yml` : install → prisma → lint → typecheck → test → build sur chaque PR.
 Le job `deploy` (SSH vers le VPS) existe et dépend des jobs `build-and-test` et `e2e` ; il est conditionné par `vars.DEPLOY_ENABLED == 'true'`. Configurer les secrets `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` et le port éventuel conformément aux runbooks avant de l'activer pour un déploiement autorisé. Sa présence n'atteste aucun déploiement réussi.
+
+
+Téléconsultation privée L5 (candidate du 7 octobre) : SDK Daily officiel, accès nominatif sans token dans URL, contrôle de salle/participants/échéances et bascule média. [Contrat](docs/CONTRAT_Teleconsultation_L5.md), [suivi et preuves](docs/suivi/LOT_L5.md), [revue](docs/REVUE_L5_2026-10.md). Appel fournisseur réel et validation avant pilote restent L10/L11 ; aucune mise en production attestée.

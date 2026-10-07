@@ -1,58 +1,42 @@
-# Recette Daily.co — téléconsultation et mode dégradé (B4)
+# Recette Daily privée — lot L5 et fournisseur L10
 
-> **Prérequis humains** : compte Daily (free tier suffisant), `apiKey` + `domain` saisis dans
-> `/admin/integrations` (carte **DAILY**), **deux appareils** (un patient, un médecin vérifié),
-> dont au moins un Android d'entrée de gamme. Ne cocher B4 qu'après exécution **réelle**.
+> 7 octobre 2026 (Africa/Lagos). Implémentation candidate décrite dans `GUIDE_DailyCo_Teleconsultation.md` et `CONTRAT_Teleconsultation_L5.md`. Tests locaux simulés et E2E sans identifiants ne valident pas ces cases. Aucun appel réel entre appareils n'est attesté ici. Reporter les résultats, incidents, appareils et preuve d'opérateur avant le GO L11.
 
-## 0. Ce que le dépôt garantit (vérifié le 22/09/2026)
+## Smoke serveur réel, opt-in
 
-| Point | Où | Preuve |
-|---|---|---|
-| Salle **privée** (jeton obligatoire) | `services/daily.ts` `createRoom` | `daily.test.ts` |
-| Salle **expirant 4 h** après création, éjection à l'échéance | `roomProperties` | `daily.test.ts` |
-| Jeton **expirant 2 h** (≤ salle), éjection à l'échéance ; un retour rappelle `join` | `tokenProperties` | `daily.test.ts` |
-| Salle **supprimée à la clôture** (le lien meurt aussitôt) | `consultations.end` → `deleteRoom` | `daily.test.ts` |
-| Mode dégradé **VIDEO → AUDIO → CHAT**, plancher CHAT, **restitué à la reconnexion** | `consultations.rules`, `downgrade`, `join` | `appointments.test.ts` |
-| Consultation close : ni `join`, ni `downgrade`, ni **re-clôture** (notes préservées) | `consultations.service` | `appointments.test.ts` |
-| apiKey jamais journalisée, jeton de salle jamais journalisé | `services/daily.ts` | `daily.test.ts` |
-
-⚠️ **Corrigé ce jour** : avant, salles et jetons **n'expiraient jamais** (un jeton fuité ouvrait
-la salle indéfiniment) et une consultation close pouvait être « re-clôturée » (écrasement des
-notes). Les salles déjà créées avant ce correctif restent sans échéance : les supprimer depuis le
-tableau de bord Daily si des tests ont eu lieu.
-
-## 1. Smoke test serveur (opt-in)
+Configurer Daily via l'admin (`apiKey`, `domain`) ou le fallback serveur `.env`. Aucun secret dans un document/log. Sur une pile de recette autorisée, appliquer les migrations puis lancer :
 
 ```bash
 SMOKE_DAILY=1 pnpm --filter @digisante/api test:smoke -- daily
 ```
 
-Crée `smoke-<horodatage>`, vérifie `privacy=private`, `exp` ≤ 4 h, `eject_at_room_exp`, émet un
-jeton, **supprime** la salle et constate le 404. Sortie publiable :
-`[smoke:daily] salle smoke-… · privée=true · exp=… · jeton émis=oui`. Échoue explicitement en stub.
+Création `smoke-<horodatage>`, lecture effective de salle privée et protections, émission de JWT fournisseur borné, suppression et constat de 404. Le service vérifie aussi frappe interdite, limite de participants, identité unique et capacités désactivées. Le smoke ne prouve pas les médias ni l'éjection de participants connectés. Échec explicite si non configuré. Nettoyage dans afterAll ; aucun token ni clé publiés.
 
-## 2. Matrice manuelle — patient / médecin sur deux appareils
+## Matrice sur deux appareils + un tiers
 
-| # | Scénario | Patient | Médecin | Résultat attendu | OK |
-|---|---|---|---|---|---|
-| D1 | Démarrage | reçoit la notification « Téléconsultation » (sa langue) | `/pro/agenda` → **Démarrer** | salle ouverte côté médecin | ☐ |
-| D2 | Entrée patient | `/patient/appointments` → **Rejoindre** | — | les deux se voient et s'entendent | ☐ |
-| D3 | Permission caméra **refusée** | refuser caméra | — | message clair ; audio possible ; bouton de bascule AUDIO | ☐ |
-| D4 | Permission micro refusée | refuser micro | — | message clair ; bascule CHAT proposée | ☐ |
-| D5 | Réseau faible → AUDIO | limiter à 2G/3G (réglage téléphone ou point d'accès) | — | bascule AUDIO ; la conversation continue | ☐ |
-| D6 | AUDIO → CHAT | couper la donnée mobile 10 s puis rétablir | — | bascule CHAT ; messages déjà échangés **conservés** | ☐ |
-| D7 | Reconnexion | recharger la page | — | revient en **CHAT** (pas de relance vidéo) | ☐ |
-| D8 | Jeton expiré | laisser la salle ouverte > 2 h (ou recette dédiée) | — | éjection ; « Rejoindre » redonne l'accès tant que la consultation est active | ☐ |
-| D9 | Clôture | — | `/pro/teleconsult` → **Terminer** | les deux sont éjectés ; « Rejoindre » disparaît ; RDV `COMPLETED` | ☐ |
-| D10 | Lien réutilisé après clôture | rouvrir l'URL de salle copiée | — | **refus** (salle supprimée) | ☐ |
-| D11 | Tiers | 3ᵉ appareil sans compte ouvre l'URL | — | **refus** (salle privée) | ☐ |
+| # | Action | Résultat attendu | Preuve / OK |
+|---|---|---|---|
+| D1 | Médecin actif/vérifié ouvre un RDV confirmé depuis agenda | consultation et notification patient dans sa langue ; aucune salle/notification dupliquée | ☐ |
+| D2 | Patient rejoint depuis ses rendez-vous | chacun voit et entend l'autre ; SDK utilise son token nominatif | ☐ |
+| D3 | Refuser caméra, accepter micro | état fournisseur clair ; AUDIO possible, caméra réellement éteinte | ☐ |
+| D4 | Refuser micro | message fournisseur clair ; bouton Ouvrir le chat accessible | ☐ |
+| D5 | Bouton AUDIO puis réseau très faible | caméra et émission vidéo coupées, voix continue ; autre client converge au palier serveur | ☐ |
+| D6 | Nouvelle dégradation vers CHAT | caméra/micro libérés, messagerie DigiSanté accessible ; pas de contenu envoyé au chat Daily | ☐ |
+| D7 | Recharger/revenir | AUDIO/CHAT serveur conservé ; aucun redémarrage vidéo silencieux | ☐ |
+| D8 | Attendre l'expiration du bearer (≤ 15 min) | éjection ; message et Réessayer ; rejoin seulement si droits actuels et salle < 4 h | ☐ |
+| D9 | Médecin clôture | DB COMPLETED ; éjection/ban nominatif Daily + DELETE ; autres clients quittent | ☐ |
+| D10 | Ouvrir URL seule et ancien bearer après clôture | aucun accès ; contrôler séparément suppression ET éjection session déjà ouverte | ☐ |
+| D11 | Tiers ouvre l'URL sans token | refus, aucune frappe/admission anonyme ; tiers/admin API refusés | ☐ |
+| D12 | Token expiré réutilisé directement hors application | refus fournisseur réel, pas seulement contrôle de l'API | ☐ |
+| D13 | Suspendre patient ou médecin / retirer habilitation médecin | nouveaux join refusés ; client connecté ferme au prochain polling ; bearer externe borné 15 min | ☐ |
+| D14 | Annuler RDV puis tenter join et clôturer le média | join refusé ; clôture conserve CANCELLED sans changer le remboursement | ☐ |
+| D15 | Inspecter historique, DOM iframe, URLs, logs/API/cache/SW | token absent des URLs/attributs/stockages ; pas de réponse cacheable ; clé API jamais exposée | ☐ |
+| D16 | Quitter/raccrocher/fermer page puis Réessayer rapidement | périphériques libérés ; pas d'ancienne session qui redémarre après réponse tardive | ☐ |
+| D17 | Daily 401/5xx/timeout ou configuration absente | pas d'iframe/jeton fictif ; erreur normalisée ou vidéo indisponible explicite, chat accessible | ☐ |
+| D18 | Deux connexions de même identité puis troisième identité | unicité d'identité et limite deux vérifiées ; documenter le comportement fournisseur réel | ☐ |
 
-Consigner pour chaque ligne : date, appareils (modèle/OS/navigateur), réseau, résultat, sévérité
-si échec. Critère de sortie B4 Daily : **D1, D2, D5, D6, D9, D10, D11 OK**.
+Consigner date, modèle/OS/navigateur Android et iOS, réseau, version/commit, opérateur, résultat par case et incident. Vérifier Permissions-Policy/CSP après Nginx en HTTPS : caméra/micro délégués au seul domaine Daily, pas bloqués par un en-tête proxy. Recette B4/Daily L10 : toutes les garanties privées/médias critiques et les cas D1–D18 examinés, aucun échec bloquant ouvert. La qualification fournisseur (région, télémétrie, traitements, contrat de sous-traitance) reste à valider par le porteur avant usage médical.
 
-## 3. Rollback
+## Retour sûr et héritage
 
-`/admin/integrations` → **DAILY** → **Désactiver** : les nouvelles consultations repassent en
-stub (URL factice) — la téléconsultation vidéo est alors **indisponible** ; le chat reste le
-canal de consultation. Rotation de clé : régénérer chez Daily puis `PUT` du jeu complet
-(`apiKey`, `domain`).
+Désactiver DAILY dans l'admin : aucune nouvelle salle/token ; message vidéo indisponible et chat. Une salle externe déjà ouverte garde son bearer jusqu'à échéance si les tentatives d'éjection/suppression échouent. Supprimer les salles historiques sans privacy/expiration/frappe conforme avant recette. Ne pas remettre l'ancien stub externe ou un token dans `?t=`. Rotation chez Daily puis configuration write-only admin ; ne jamais copier un JWT dans le PV.

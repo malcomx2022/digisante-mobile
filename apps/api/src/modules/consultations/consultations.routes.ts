@@ -16,6 +16,12 @@ export default async function consultationsRoutes(app: FastifyInstance) {
   const authed = { preHandler: [app.authenticate] };
   const doctorOnly = { preHandler: [app.authenticate, requireRole('MEDECIN')] };
 
+  // Surveillance de l'état courant sans émission de jeton ni contenu médical.
+  app.get('/:id/session', authed, async (request) => {
+    const { id } = zParse(idParams, request.params);
+    return consultations.session(app, request.user.sub, id);
+  });
+
   // Démarrage par le médecin (crée la salle Daily.co).
   app.post('/', doctorOnly, async (request, reply) => {
     const { appointmentId } = zParse(startSchema, request.body);

@@ -83,7 +83,7 @@ Le plan actif détaille contrats, dépendances, fichiers de départ, migrations,
 Lis CLAUDE.md, docs/INDEX_Documentation_DigiSante.docx puis README.md.
 Fais un état des lieux du monorepo actuel (apps/web, apps/api, packages, infra) :
 ce qui est en place vs ce qui manque pour atteindre un projet complet
-(167 endpoints REST + 1 WebSocket / 28 modules, 49 modèles Prisma, 67 pages, 4 langues, offline-first).
+(168 endpoints REST + 1 WebSocket / 28 modules, 49 modèles Prisma, 67 pages, 4 langues, offline-first).
 Ne code rien encore. Propose-moi un PLAN DE CONSTRUCTION par lots, avec l'ordre
 des dépendances (données → API → intégrations → frontend → tests). Liste les
 risques et les points à clarifier.
@@ -185,7 +185,8 @@ Implémente les modules appointments et consultations.
   verrou de ligne médecin (FOR UPDATE), contrôle + insertion en READ COMMITTED,
 - triage/priorisation, référencement entre médecins,
 - téléconsultation via Daily.co (création de salle, jetons) — service isolé,
-- bascule chat/audio si réseau faible (côté contrat).
+- SDK Daily officiel : load sans token puis join sur instance chargée (piège SDK §8), jeton transmis par message hors URL/stockage, salle privée relue et deux jetons sans owner/admin ;
+- AUDIO coupe réellement la caméra, CHAT/sortie/expiration détruit le média ; contrôle d’accès courant via polling (contrat L5), aucune file offline.
 Le remboursement d'un RDV annulé par le médecin doit déclencher la logique paiement
 (branché en Phase 4) : paiement WALLET → REFUND_IN crédité, recharge → REFUND
 sortant, dans la transaction de transition. Tests des règles et de la concurrence.
@@ -408,3 +409,8 @@ pour le provisioning du serveur.
 Relis CLAUDE.md et docs/INDEX_Documentation_DigiSante.docx. Où en est-on dans le
 playbook docs/PLAYBOOK_Codage_DigiSante.md ? Reprenons à l'étape [PX.Y].
 ```
+
+
+## Reprise L5 — 7 octobre 2026
+
+L4 livré par PR #184, base main `0d3cb74`. L5 candidate : lire `suivi/LOT_L5.md`, `REVUE_L5_2026-10.md` et le guide Daily. Tests fournisseur simulés, admission API DB réelle, média SDK simulé et E2E sans fournisseur ; l'appel réel deux appareils reste L10. Ne pas renouveler silencieusement les accès ni rétablir un mode moins dégradé. Une branche/revue/PR par lot ; L6 suivant, abonnement médecin seulement pour le pilote, autres abonnements après pilote.

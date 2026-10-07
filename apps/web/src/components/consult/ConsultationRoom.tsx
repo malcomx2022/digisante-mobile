@@ -1,18 +1,20 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { useLocale } from '@/i18n/LocaleProvider';
-import { ApiRequestError, post } from '@/lib/api/client';
+import { ApiRequestError, get, postNow } from '@/lib/api/client';
 import { useOnline } from '@/lib/offline/online';
 
-export type ConsultMode = 'VIDEO' | 'AUDIO' | 'CHAT';
+import { DailyMediaSession, restrictMode, validateDailyAccess, type ConsultMode } from '@/lib/consult/daily-session';
+export type { ConsultMode } from '@/lib/consult/daily-session';
 
 interface JoinResult {
   roomUrl: string | null;
   mode: ConsultMode;
-  token?: string;
+  token: string | null;
+  expiresAt: number | null;
 }
 
 /**
@@ -21,8 +23,7 @@ interface JoinResult {
  * Extraite de `patient/teleconsult` au lot 7 : les deux côtés rejoignent la MÊME
  * salle par le MÊME endpoint (`/consultations/:id/join`, qui autorise les deux
  * participants), avec la même bascule réseau faible `VIDEO → AUDIO → CHAT`.
- * Dupliquer ce fichier aurait imposé de tenir deux copies synchronisées de la
- * gestion de file hors-ligne, du repli chat et de la liste `allow` de l'iframe.
+ * Le média exige le réseau, sans file hors ligne ; SDK et repli chat sont communs.
  *
  * Ce qui diffère par espace est passé en props : où raccrocher, où ouvrir le chat,
  * et l'action de clôture (`onEnd`) réservée au médecin.
@@ -50,64 +51,141 @@ export function ConsultationRoom({
   const online = useOnline();
 
   const [mode, setMode] = useState<ConsultMode>('VIDEO');
-  const [roomUrl, setRoomUrl] = useState<string | null>(null);
+  const [hasMedia, setHasMedia] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const container = useRef<HTMLDivElement>(null);
+  const media = useRef<DailyMediaSession | null>(null);
+  const modeRef = useRef<ConsultMode>('VIDEO');
+  const downgradeBusy = useRef(false);
+  const degradeAfter = useRef(0);
+  const scope = useRef(0);
+  const previousId = useRef(consultationId);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const join = useCallback(async () => {
-    if (!consultationId) {
-      setError(t('teleconsult.no_session'));
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setError(null);
+  const applyMode = useCallback((next: ConsultMode) => {
+    const restricted = restrictMode(modeRef.current, next);
+    modeRef.current = restricted;
+    media.current?.applyMode(restricted);
+    setMode(restricted);
+    if (restricted === 'CHAT') router.push(chatPath);
+  }, [chatPath, router]);
+
+  const downgrade = useCallback(async () => {
+    if (!consultationId || downgradeBusy.current || modeRef.current === 'CHAT') return;
+    const generation = scope.current;
+    downgradeBusy.current = true;
+    setBusy(true);
+    // Le réseau faible doit couper le média même si l'API n'est plus joignable.
+    const local = modeRef.current === 'VIDEO' ? 'AUDIO' : 'CHAT';
+    applyMode(local);
     try {
-      const res = await post<JoinResult>(`/consultations/${consultationId}/join`, {});
-      if ('queued' in res) {
-        setError(t('teleconsult.needs_network'));
-        return;
-      }
-      setRoomUrl(res.roomUrl);
-      setMode(res.mode);
+      const res = await postNow<{ mode: ConsultMode }>(`/consultations/${consultationId}/downgrade`, {});
+      if (generation === scope.current) applyMode(res.mode);
     } catch (e) {
-      if (e instanceof ApiRequestError && e.status === 400) {
+      if (generation === scope.current && e instanceof ApiRequestError && [400, 401, 403, 404].includes(e.status)) {
+        media.current?.close();
+        setHasMedia(false);
         setError(t('teleconsult.not_active'));
-      } else {
-        setError(t('teleconsult.join_error'));
       }
     } finally {
-      setLoading(false);
+      if (generation === scope.current) { downgradeBusy.current = false; setBusy(false); }
     }
-  }, [consultationId, t]);
+  }, [consultationId, applyMode, t]);
 
   useEffect(() => {
-    void join();
-  }, [join]);
+    scope.current += 1;
+    downgradeBusy.current = false;
+    setBusy(false);
+    if (previousId.current !== consultationId) {
+      previousId.current = consultationId; modeRef.current = 'VIDEO'; setMode('VIDEO');
+    }
+    let cancelled = false;
+    let ownMedia: DailyMediaSession | null = null;
+    let poll: ReturnType<typeof setInterval> | undefined;
+    let expires: ReturnType<typeof setTimeout> | undefined;
+    let polling = false;
+    const stop = () => {
+      clearInterval(poll); clearTimeout(expires);
+      ownMedia?.close();
+      if (media.current === ownMedia) media.current = null;
+    };
+    setLoading(true);
+    setError(null);
+    setHasMedia(false);
+    async function connect() {
+      if (!consultationId) { setError(t('teleconsult.no_session')); setLoading(false); return; }
+      try {
+        const res = await postNow<JoinResult>(`/consultations/${consultationId}/join`, {});
+        if (cancelled) return;
+        applyMode(res.mode);
+        if (modeRef.current === 'CHAT') return;
+        if (!res.roomUrl || !res.token || !res.expiresAt) return;
+        const access = { roomUrl: res.roomUrl, token: res.token, expiresAt: res.expiresAt, mode: modeRef.current };
+        validateDailyAccess(access);
+        // Le chunk Daily n'est téléchargé que pour un accès réellement émis.
+        const { default: Daily } = await import('@daily-co/daily-js');
+        if (cancelled || !container.current) return;
+        const call = Daily.createFrame(container.current, {
+          iframeStyle: { width: '100%', height: '100%', border: '0' },
+          showLeaveButton: false, showUserNameChangeUI: false,
+        });
+        const frame = call.iframe();
+        if (frame) { frame.referrerPolicy = 'no-referrer'; frame.title = t('teleconsult.title'); frame.allow = 'camera; microphone; fullscreen'; }
+        ownMedia = new DailyMediaSession(call);
+        media.current = ownMedia;
+        call.on('participant-updated', (event) => {
+          if (event.participant.local && event.participant.video && modeRef.current !== 'VIDEO') ownMedia?.applyMode(modeRef.current);
+        });
+        call.on('network-quality-change', (event) => {
+          if (!cancelled && event.threshold === 'very-low' && Date.now() >= degradeAfter.current) {
+            degradeAfter.current = Date.now() + 15_000;
+            void downgrade();
+          }
+        });
+        call.on('error', () => { if (!cancelled) { stop(); setHasMedia(false); setError(t('teleconsult.join_error')); } });
+        call.on('left-meeting', () => { if (!cancelled) { stop(); setHasMedia(false); setError(t('teleconsult.session_expired')); } });
+        // Expiration locale indépendante du succès de la surveillance API.
+        expires = setTimeout(() => {
+          if (!cancelled) { stop(); setHasMedia(false); setError(t('teleconsult.session_expired')); }
+        }, Math.max(0, res.expiresAt * 1000 - Date.now()));
+        setHasMedia(true);
+        await ownMedia.connect(access);
+        if (cancelled || media.current !== ownMedia) return;
+        poll = setInterval(() => {
+          if (polling || cancelled) return;
+          polling = true;
+          void get<{ mode: ConsultMode }>(`/consultations/${consultationId}/session`, { retries: 0 })
+            .then((state) => { if (!cancelled) applyMode(state.mode); })
+            .catch((e: unknown) => {
+              if (!cancelled && e instanceof ApiRequestError && [400, 401, 403, 404].includes(e.status)) {
+                stop(); setHasMedia(false); setError(t('teleconsult.not_active'));
+              }
+            }).finally(() => { polling = false; });
+        }, 15_000);
+      } catch (e) {
+        stop();
+        if (!cancelled) { setHasMedia(false); setError(t(e instanceof ApiRequestError && [400, 401, 403, 404].includes(e.status) ? 'teleconsult.not_active' : 'teleconsult.join_error')); }
+      } finally { if (!cancelled) setLoading(false); }
+    }
+    void connect();
+    const pageExit = () => stop();
+    window.addEventListener('pagehide', pageExit);
+    return () => {
+      cancelled = true; scope.current += 1; stop(); clearInterval(poll); clearTimeout(expires);
+      window.removeEventListener('pagehide', pageExit);
+    };
+  }, [consultationId, attempt, t, applyMode, downgrade]);
 
-  // Bascule de mode (réseau faible) branchée sur l'endpoint downgrade réel.
-  async function downgrade() {
-    if (!consultationId) {
-      setMode((m) => (m === 'VIDEO' ? 'AUDIO' : 'CHAT'));
-      return;
-    }
-    // Le nouveau mode provient de la réponse (et non de l'état `mode` potentiellement périmé).
-    let nextMode: ConsultMode;
-    try {
-      const res = await post<{ mode: ConsultMode }>(`/consultations/${consultationId}/downgrade`, {});
-      nextMode = 'queued' in res ? mode : res.mode;
-      setMode(nextMode);
-    } catch {
-      // En cas d'échec réseau, on dégrade localement l'affichage (sécurité réseau faible).
-      nextMode = mode === 'VIDEO' ? 'AUDIO' : 'CHAT';
-      setMode(nextMode);
-    }
-    if (nextMode === 'CHAT') router.push(chatPath);
-  }
+  useEffect(() => { if (!online && hasMedia) void downgrade(); }, [online, hasMedia, downgrade]);
+
+  function leave(path: string) { media.current?.close(); setHasMedia(false); router.push(path); }
 
   return (
     <div className="flex-1 bg-nuit text-white flex flex-col">
       <div className="relative flex-1 wax-dark flex items-center justify-center">
+        <div ref={container} className="absolute inset-0" />
         {loading ? (
           <div className="card-pagne bg-indigo-900/60 px-6 py-4">
             <p className="text-white/80 text-sm">{t('teleconsult.connecting')}</p>
@@ -118,40 +196,31 @@ export function ConsultationRoom({
             {consultationId && (
               <button
                 type="button"
-                onClick={() => void join()}
+                onClick={() => setAttempt((value) => value + 1)}
                 className="mt-3 text-ocre-400 underline decoration-dotted underline-offset-4 text-[0.8125rem] font-bold"
               >
                 {t('common.retry')}
               </button>
             )}
           </div>
-        ) : roomUrl && mode !== 'CHAT' ? (
-          <iframe
-            title={t('teleconsult.title')}
-            src={roomUrl}
-            allow="camera; microphone; fullscreen; speaker; display-capture"
-            className="absolute inset-0 w-full h-full border-0"
-          />
-        ) : mode === 'CHAT' ? (
+        ) : hasMedia && mode !== 'CHAT' ? null : mode === 'CHAT' ? (
           <div className="card-pagne stitch-light bg-indigo-900/60 w-[78%] grid place-items-center p-6 text-center">
             <p className="text-white/80 text-sm">{t('teleconsult.chat_mode')}</p>
             <button
               type="button"
-              onClick={() => router.push(chatPath)}
+              onClick={() => leave(chatPath)}
               className="mt-3 bg-ocre-400 text-stone-900 font-display font-bold card-pagne px-4 py-2 text-[0.8125rem]"
             >
               {t('teleconsult.open_chat')}
             </button>
           </div>
         ) : (
-          // roomUrl absent : Daily non configuré côté serveur → état gracieux.
+          // Fournisseur absent : aucun iframe ni jeton fictif, messagerie accessible.
           <div className="card-pagne stitch-light bg-indigo-900/60 w-[78%] aspect-[3/4] grid place-items-center p-6 text-center">
-            <p className="text-white/80 text-sm">{t('teleconsult.room_preparing')}</p>
+            <p className="text-white/80 text-sm">{t('teleconsult.provider_unavailable')}</p>
           </div>
         )}
 
-        {/* PiP */}
-        <div className="absolute bottom-4 right-4 w-20 h-28 card-pagne border-2 border-ocre-400 bg-black/40" />
 
         {(!online || mode !== 'VIDEO') && (
           <div className="absolute top-3 left-3 right-3 bg-ocre-400 text-stone-900 text-[0.75rem] font-display font-bold card-pagne px-3 py-1 text-center">
@@ -168,10 +237,13 @@ export function ConsultationRoom({
         <button
           type="button"
           onClick={downgrade}
-          disabled={mode === 'CHAT'}
+          disabled={busy || mode === 'CHAT' || !consultationId}
           className="bg-indigo-600 text-white font-display font-bold card-pagne px-4 py-3 text-[0.8125rem] disabled:opacity-50 focus-visible:ring-inset"
         >
           {t('teleconsult.downgrade')}
+        </button>
+        <button type="button" onClick={() => leave(chatPath)} className="bg-indigo-600 text-white font-display font-bold card-pagne px-4 py-3 text-[0.8125rem] focus-visible:ring-inset">
+          {t('teleconsult.open_chat')}
         </button>
         {onEnd && (
           <button
@@ -185,7 +257,7 @@ export function ConsultationRoom({
         )}
         <button
           type="button"
-          onClick={() => router.push(homePath)}
+          onClick={() => leave(homePath)}
           className="bg-sos-500 text-white font-display font-extrabold card-pagne px-5 py-3 rotate-3 focus-visible:ring-inset"
         >
           {t('teleconsult.hangup')}

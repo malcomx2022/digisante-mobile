@@ -56,8 +56,8 @@ describe.skipIf(!ENABLED)('SMOKE Daily.co (réel, opt-in)', () => {
     expect(info.config!.exp!).toBeLessThanOrEqual(now + ROOM_TTL_SECONDS + 60);
     expect(info.config?.eject_at_room_exp).toBe(true);
 
-    const token = await createMeetingToken({ app, room: name, userId: 'smoke-user', isOwner: false });
-    expect(token.split('.').length, 'jeton Daily (JWT) attendu, pas un repli').toBe(3);
+    const token = await createMeetingToken({ app, room: name, userId: 'smoke-user', roomExpiresAt: room.expiresAt });
+    expect(token!.token.split('.').length, 'jeton Daily (JWT) attendu, pas un repli').toBe(3);
     // eslint-disable-next-line no-console -- sortie destinée à l’opérateur de recette
     console.info(`[smoke:daily] salle ${name} · privée=${info.privacy === 'private'} · exp=${new Date(info.config!.exp! * 1000).toISOString()} · jeton émis=oui`);
   });

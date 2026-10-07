@@ -1,148 +1,122 @@
-// ─────────────────────────────────────────────────────────────
-// Service Daily.co — salles de téléconsultation WebRTC + jetons de réunion.
-// Config résolue DYNAMIQUEMENT via le resolver d'intégrations (base → `.env`, §3.6) :
-// STUB tant que apiKey/domain ne sont pas configurés.
-// Piège (CLAUDE.md §8) : prévoir la bascule auto téléconsultation → chat (D-10)
-// quand la bande passante chute — gérée côté contrat via le mode de consultation.
-// ─────────────────────────────────────────────────────────────
-import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
+// Daily : contrat privé, aucun accès inventé en cas d'échec fournisseur.
+import type { FastifyInstance } from 'fastify';
 
+import { badGateway, badRequest } from '@/lib/errors.js';
 import { resolveConfiguredSecrets } from '@/lib/integrations.js';
 
-/**
- * Durées de vie (confidentialité) : sans `exp`, une salle privée et ses jetons
- * restaient valides INDÉFINIMENT — un jeton fuité (capture d'écran, historique,
- * appareil partagé) permettait de rejoindre la salle des jours plus tard.
- * - salle : 4 h après création (une consultation ne dure pas plus), éjection à l'échéance ;
- * - jeton : 2 h, borné par la salle — un participant qui revient rappelle `join`
- *   et obtient un jeton neuf.
- */
 export const ROOM_TTL_SECONDS = 4 * 60 * 60;
-export const TOKEN_TTL_SECONDS = 2 * 60 * 60;
+export const TOKEN_TTL_SECONDS = 15 * 60;
+const nowSeconds = () => Math.floor(Date.now() / 1000);
 
-/** Propriétés de salle envoyées à Daily (pure, testée). */
-export function roomProperties(nowSeconds: number) {
-  return { exp: nowSeconds + ROOM_TTL_SECONDS, eject_at_room_exp: true };
-}
-
-/** Propriétés du jeton de réunion (pure, testée). */
-export function tokenProperties(opts: { room: string; userId: string; isOwner: boolean; nowSeconds: number }) {
+export function roomProperties(now: number) {
   return {
-    room_name: opts.room,
-    user_id: opts.userId,
-    is_owner: opts.isOwner,
-    exp: opts.nowSeconds + TOKEN_TTL_SECONDS,
-    eject_at_token_exp: true,
+    exp: now + ROOM_TTL_SECONDS, eject_at_room_exp: true,
+    enable_knocking: false, max_participants: 2, enforce_unique_user_ids: true,
+    enable_chat: false, enable_screenshare: false, enable_recording: false,
+    enable_transcription_storage: false,
+    permissions: { canAdmin: false, canSend: ['audio', 'video'] },
   };
 }
 
-const nowSeconds = () => Math.floor(Date.now() / 1000);
-
-export interface DailyRoom {
-  name: string;
-  url: string;
+export function tokenProperties(opts: {
+  room: string; userId: string; nowSeconds: number; roomExpiresAt: number; audioOnly?: boolean;
+}) {
+  const exp = Math.min(opts.nowSeconds + TOKEN_TTL_SECONDS, opts.roomExpiresAt);
+  if (exp <= opts.nowSeconds) throw badRequest('La salle a expiré');
+  return {
+    room_name: opts.room, user_id: opts.userId, is_owner: false,
+    exp, eject_at_token_exp: true, enable_screenshare: false,
+    start_video_off: opts.audioOnly === true,
+    permissions: { canAdmin: false, canSend: opts.audioOnly ? ['audio'] : ['audio', 'video'] },
+  };
 }
 
-interface DailyCreds {
-  apiKey: string;
-  domain: string;
-}
-
-/** Résout apiKey/domain Daily (base → `.env`) ou null si config incomplète. */
+export interface DailyRoom { name: string; url: string | null; expiresAt: number }
+interface DailyCreds { apiKey: string; domain: string }
 async function resolveCreds(app: FastifyInstance): Promise<DailyCreds | null> {
   const secrets = await resolveConfiguredSecrets(app, 'DAILY');
   if (!secrets) return null;
-  return { apiKey: secrets.apiKey!, domain: secrets.domain! };
+  // L'admin historique accepte le sous-domaine ou le nom complet.
+  const domain = secrets.domain!.replace(/\.daily\.co$/i, '').toLowerCase();
+  if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(domain)) throw badGateway('Configuration Daily invalide');
+  return { apiKey: secrets.apiKey!, domain };
 }
 
-/** Crée (ou réutilise) une salle de téléconsultation. */
+async function request(app: FastifyInstance, creds: DailyCreds, path: string, method = 'GET', body?: unknown) {
+  try {
+    return await fetch(`https://api.daily.co/v1/${path}`, {
+      method, redirect: 'error', signal: AbortSignal.timeout(8_000),
+      headers: { Authorization: `Bearer ${creds.apiKey}`, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+  } catch {
+    // Ni exception brute, ni réponse fournisseur : peuvent contenir un secret.
+    app.log.error({ operation: method }, '[Daily] service indisponible');
+    throw badGateway('Téléconsultation indisponible, réessayez ou utilisez le chat');
+  }
+}
+
+/** Contrôle aussi les salles historiques : jamais de confiance dans l'URL en DB. */
+async function inspectRoom(app: FastifyInstance, creds: DailyCreds, name: string): Promise<DailyRoom> {
+  const res = await request(app, creds, `rooms/${encodeURIComponent(name)}`);
+  if (!res.ok) throw badGateway('Salle Daily indisponible');
+  let data: { name?: string; url?: string; privacy?: string; config?: Record<string, unknown> };
+  try { data = await res.json() as typeof data; } catch { throw badGateway('Réponse Daily invalide'); }
+  const p = data.config;
+  const url = `https://${creds.domain}.daily.co/${encodeURIComponent(name)}`;
+  if (data.name !== name || data.url !== url || data.privacy !== 'private' ||
+      p?.enable_knocking !== false || p.eject_at_room_exp !== true ||
+      p.max_participants !== 2 || p.enforce_unique_user_ids !== true || p.enable_chat !== false || p.enable_screenshare !== false ||
+      p.enable_recording !== false || typeof p.exp !== 'number' || !Number.isSafeInteger(p.exp)) {
+    throw badGateway('Salle Daily non conforme à la confidentialité requise');
+  }
+  if (p.exp <= nowSeconds()) throw badRequest('La salle a expiré');
+  return { name, url, expiresAt: p.exp };
+}
+
+/** Sans configuration : absence explicite de média, jamais d'iframe stub externe. */
 export async function createRoom(opts: { app: FastifyInstance; name: string }): Promise<DailyRoom> {
-  const log: FastifyBaseLogger = opts.app.log;
   const creds = await resolveCreds(opts.app);
-  if (!creds) {
-    log.warn({ room: opts.name }, '[STUB Daily] salle simulée (Daily.co non configuré)');
-    return { name: opts.name, url: `https://stub.daily.co/${opts.name}` };
-  }
-  // Appel réel : POST https://api.daily.co/v1/rooms (privée). Si la salle existe
-  // déjà (409) ou en cas d'erreur réseau, on retombe sur l'URL déterministe.
-  const fallbackUrl = `https://${creds.domain}.daily.co/${opts.name}`;
-  try {
-    const res = await fetch('https://api.daily.co/v1/rooms', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${creds.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ name: opts.name, privacy: 'private', properties: roomProperties(nowSeconds()) }),
-    });
-    if (res.ok) {
-      const room = (await res.json()) as { name?: string; url?: string };
-      return { name: room.name ?? opts.name, url: room.url ?? fallbackUrl };
-    }
-    if (res.status !== 409) {
-      log.error({ status: res.status }, '[Daily] création salle en échec');
-    }
-  } catch (err) {
-    log.error({ err }, '[Daily] erreur réseau création salle');
-  }
-  return { name: opts.name, url: fallbackUrl };
+  if (!creds) return { name: opts.name, url: null, expiresAt: nowSeconds() + ROOM_TTL_SECONDS };
+  const res = await request(opts.app, creds, 'rooms', 'POST', {
+    name: opts.name, privacy: 'private', properties: roomProperties(nowSeconds()),
+  });
+  if (!res.ok && res.status !== 409) throw badGateway('Création de salle Daily impossible');
+  return inspectRoom(opts.app, creds, opts.name);
 }
 
-/** Émet un jeton de réunion pour un participant donné. */
+/** Jeton nominatif à privilèges minimaux, borné par la salle ET le début en DB. */
 export async function createMeetingToken(opts: {
-  app: FastifyInstance;
-  room: string;
-  userId: string;
-  isOwner: boolean;
-}): Promise<string> {
-  const log: FastifyBaseLogger = opts.app.log;
+  app: FastifyInstance; room: string; userId: string; roomExpiresAt: number; audioOnly?: boolean;
+}): Promise<{ token: string; roomUrl: string; expiresAt: number } | null> {
   const creds = await resolveCreds(opts.app);
-  if (!creds) {
-    return `stub-token.${opts.room}.${opts.userId}${opts.isOwner ? '.owner' : ''}`;
-  }
-  // Appel réel : POST https://api.daily.co/v1/meeting-tokens. En cas d'échec
-  // réseau on retombe sur un jeton déterministe pour ne pas bloquer l'appelant.
-  try {
-    const res = await fetch('https://api.daily.co/v1/meeting-tokens', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${creds.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        properties: tokenProperties({ room: opts.room, userId: opts.userId, isOwner: opts.isOwner, nowSeconds: nowSeconds() }),
-      }),
-    });
-    if (res.ok) {
-      const data = (await res.json()) as { token?: string };
-      if (data.token) return data.token;
-    } else {
-      log.error({ status: res.status }, '[Daily] émission jeton en échec');
-    }
-  } catch (err) {
-    log.error({ err }, '[Daily] erreur réseau émission jeton');
-  }
-  return `daily-token.${opts.room}.${opts.userId}`;
+  if (!creds) return null;
+  const room = await inspectRoom(opts.app, creds, opts.room);
+  const properties = tokenProperties({ ...opts, nowSeconds: nowSeconds(), roomExpiresAt: Math.min(room.expiresAt, opts.roomExpiresAt) });
+  const res = await request(opts.app, creds, 'meeting-tokens', 'POST', { properties });
+  if (!res.ok) throw badGateway('Émission du jeton Daily impossible');
+  let data: { token?: unknown };
+  try { data = await res.json() as typeof data; } catch { throw badGateway('Réponse Daily invalide'); }
+  if (typeof data.token !== 'string' || !/^[\w-]+\.[\w-]+\.[\w-]+$/.test(data.token)) throw badGateway('Jeton Daily invalide');
+  return { token: data.token, roomUrl: room.url!, expiresAt: properties.exp };
 }
 
-/**
- * Supprime une salle (clôture de consultation) : le lien cesse de fonctionner tout
- * de suite, sans attendre l'échéance. Best-effort — ne bloque jamais la clôture.
- * Renvoie true si la salle n'existe plus (supprimée, ou déjà absente : 404).
- */
-export async function deleteRoom(opts: { app: FastifyInstance; name: string }): Promise<boolean> {
-  const log: FastifyBaseLogger = opts.app.log;
-  const creds = await resolveCreds(opts.app);
-  if (!creds) return true; // stub : aucune salle réelle
+/** DELETE ne prouve pas l'éjection des participants déjà connectés. */
+export async function ejectParticipants(opts: { app: FastifyInstance; name: string; userIds: string[] }): Promise<boolean> {
   try {
-    const res = await fetch(`https://api.daily.co/v1/rooms/${encodeURIComponent(opts.name)}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${creds.apiKey}` },
-    });
-    if (res.ok || res.status === 404) return true;
-    log.error({ status: res.status }, '[Daily] suppression salle en échec');
-  } catch (err) {
-    log.error({ err: err instanceof Error ? err.message : String(err) }, '[Daily] erreur réseau suppression salle');
-  }
-  return false;
+    const creds = await resolveCreds(opts.app);
+    if (!creds) return true;
+    const res = await request(opts.app, creds, `rooms/${encodeURIComponent(opts.name)}/eject`, 'POST', { user_ids: opts.userIds, ban: true });
+    return res.ok || res.status === 404;
+  } catch { return false; }
+}
+
+/** Best effort : l'échéance et l'éjection du jeton restent les filets indépendants. */
+export async function deleteRoom(opts: { app: FastifyInstance; name: string }): Promise<boolean> {
+  try {
+    const creds = await resolveCreds(opts.app);
+    if (!creds) return true;
+    const res = await request(opts.app, creds, `rooms/${encodeURIComponent(opts.name)}`, 'DELETE');
+    return res.ok || res.status === 404;
+  } catch { return false; }
 }

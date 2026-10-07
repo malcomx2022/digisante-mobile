@@ -152,3 +152,7 @@ Contrat : `CONTRAT_Hors_Ligne_L4.md`. Répéter sur Android installé et iOS/Saf
 - [ ] Connectivité annoncée mais API inaccessible : contexte local conservé sans jeton/rejeu ; session réellement révoquée : fermeture. Phrases françaises de fallback FON/YOR et numéros d’urgence soumis à validation L9/L10.
 
 Consigner SHA, appareil/OS/navigateur, compte synthétique, heure et preuves de cache/DB **sans corps/secret en capture publique**. Auto-revue et tests locaux ne valent pas signature clinique ni GO pilote.
+
+## Addendum L5 — patient et médecin, téléconsultation privée
+
+Candidate/revue : `suivi/LOT_L5.md`, `REVUE_L5_2026-10.md`. Contrats SDK/fournisseur simulés et parcours UI/API/DB sans identifiants ne remplacent pas la recette physique/fournisseur. Compléter les cases D1–D18 de `RECETTE_Daily_Teleconsultation.md` : deux appareils Android/iOS, accès nominatif, URL seule et bearer expiré refusés, caméra coupée en AUDIO, micro/caméra libérés en CHAT/sortie, suspension/KYC/annulation/clôture, en-têtes après proxy. Aucune case fournisseur n'est cochée automatiquement par ce lot ; GO/NO-GO L11 reste requis.

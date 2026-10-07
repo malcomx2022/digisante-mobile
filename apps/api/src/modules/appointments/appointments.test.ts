@@ -74,12 +74,14 @@ describe.skipIf(!HAS_INFRA)('RDV & téléconsultation (intégration)', () => {
 
     const startC = await app.inject({ method: 'POST', url: '/api/v1/consultations', headers: auth(doctorToken), payload: { appointmentId: apptId } });
     expect(startC.statusCode).toBe(201);
-    expect(startC.json().roomUrl).toContain('daily.co');
+    expect(startC.json().roomUrl).toBeNull();
+    expect(startC.json().provider).toBe('UNAVAILABLE');
     const consultId = startC.json().consultation.id as string;
 
     const join = await app.inject({ method: 'POST', url: `/api/v1/consultations/${consultId}/join`, headers: auth(patientToken) });
     expect(join.statusCode).toBe(200);
-    expect(join.json().token).toBeTruthy();
+    expect(join.json().token).toBeNull();
+    expect(join.json().roomUrl).toBeNull();
 
     const down = await app.inject({ method: 'POST', url: `/api/v1/consultations/${consultId}/downgrade`, headers: auth(patientToken) });
     expect(down.json().mode).toBe('AUDIO');

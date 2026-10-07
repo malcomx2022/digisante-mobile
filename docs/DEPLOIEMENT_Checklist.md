@@ -81,8 +81,8 @@
 
 ---
 
-**Contrôles techniques actuels ; ouverture pilote non attestée.** Le code (backend **28 modules** / **167 endpoints REST + 1 WS**
-+ frontend **7 espaces**, **67 pages**) est testé (**570 tests verts** — 467 API + 103 web, + 15 e2e
+**Contrôles techniques actuels ; ouverture pilote non attestée.** Le code (backend **28 modules** / **168 endpoints REST + 1 WS**
++ frontend **7 espaces**, **67 pages**) est testé (**611 tests verts** — 499 API + 112 web, + 15 e2e
 Playwright — preuves du 7 octobre 2026 dans LOT_L4), l'infra scriptée. Restent la finalisation L5–L11, la validation humaine et l'exécution sur
 le VPS réel (étapes ci-dessus).
 
@@ -98,3 +98,13 @@ le VPS réel (étapes ci-dessus).
    machine** (§6).
 2. **Validation clinique** (`docs/VALIDATION_Clinique.md`) : triage OMS/PCIME, calendrier PEV et
    phrasier attendent la signature d'un professionnel de santé.
+
+## Addendum L5 — téléconsultation privée, avant ouverture
+
+- [ ] Candidate L5 revue/fusionnée, CI vérifiée sur son SHA final ; API/client/en-têtes homogènes, anciens onglets fermés.
+- [ ] Salles historiques Daily publiques/sans frappe interdite/échéance inconnue supprimées après clôture ; nouveaux accès contrôlés selon le contrat L5.
+- [ ] Permissions-Policy/CSP effectivement servis après Nginx en HTTPS vérifiés sur Android et iOS ; caméra/micro délégués au domaine Daily.
+- [ ] Smoke fournisseur réel et recette D1–D18 signés, dont URL seule, bearer expiré, éjection/ban de session déjà ouverte, AUDIO réel et CHAT.
+- [ ] Qualification sous-traitant/région/télémétrie validée par le porteur ; absence de token dans historique/DOM/log/stockages/cache contrôlée.
+
+En incident : désactiver Daily, garder la messagerie, corriger en avant. Les clients app surveillent l'accès, les bearers déjà copiés restent bornés par 15 min ; éjection/suppression best effort et salle 4 h comme filets. Ne pas revenir au stub externe ni à un propriétaire médecin. Lire `CONTRAT_Teleconsultation_L5.md`.
