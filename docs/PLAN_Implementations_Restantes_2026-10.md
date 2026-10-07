@@ -1,7 +1,7 @@
 # Plan d'implémentation et de finalisation — DigiSanté Mobile
 
 > Date : **6 octobre 2026**. Base inspectée : `main` @ `8f2f6ca24ad0543d6a08218932c783809eada9b1`, avec les quatre corrections locales de revue.
-> Statut : **L0 LIVRÉ SUR MAIN**, PR #178/#179 fusionnées, CI candidate verte ; L1 LIVRÉ SUR MAIN par PR #181 (`53775be`) ; L2 LIVRÉ SUR MAIN par PR #182 (`eb1ba6e`) ; L3 LIVRÉ SUR MAIN par PR #183 (`ce1cae8`) ; L4 LIVRÉ SUR MAIN par PR #184 (`0d3cb74`) ; L5 LIVRÉ SUR MAIN par PR #185 (`2e5cc77`) ; L6 CANDIDATE VALIDÉE LOCALEMENT (preuves/CI : LOT_L6 et PR du lot) ; L7–L11 OUVERTS. Mise à jour : 7 octobre 2026. Voir `docs/suivi/LOT_L0.md` et `docs/REVUE_L0_2026-10.md`. Aucun déploiement attesté par ce plan.
+> Statut : **L0 LIVRÉ SUR MAIN**, PR #178/#179 fusionnées, CI candidate verte ; L1 LIVRÉ SUR MAIN par PR #181 (`53775be`) ; L2 LIVRÉ SUR MAIN par PR #182 (`eb1ba6e`) ; L3 LIVRÉ SUR MAIN par PR #183 (`ce1cae8`) ; L4 LIVRÉ SUR MAIN par PR #184 (`0d3cb74`) ; L5 LIVRÉ SUR MAIN par PR #185 (`2e5cc77`) ; L6 LIVRÉ SUR MAIN par PR #186 (`91a0fc9`) ; L7 CANDIDATE (preuves/revue/PR : LOT_L7) ; L8–L11 OUVERTS. Mise à jour : 7 octobre 2026. Voir `docs/suivi/LOT_L0.md` et `docs/REVUE_L0_2026-10.md`. Aucun déploiement attesté par ce plan.
 > Référence de reprise : `CLAUDE.md` puis `docs/PLAYBOOK_Codage_DigiSante.md`.
 > Version documentaire : `docs/Plan_Implementations_Restantes_2026-10.docx`, générée depuis ce fichier par `scripts/docs/generate-implementation-plan.js`.
 
@@ -33,7 +33,7 @@ Les preuves opérationnelles des documents du 22 septembre restent historiques. 
 |---|---|---|
 | Périmètre commercial du pilote | **Confirmé par le porteur en L0** : sept rôles et offre médecin au lot L6 ; autres abonnements reportés après pilote. Aucun plan payant commercialisé avant validation de L6/L7. | L0 puis L6 |
 | Tarifs, période, renouvellement, droits des plans | **Approuvé par le porteur le 7 octobre** : FREE + PRO 5 000 XOF/mois calendaire Africa/Lagos, renouvellement manuel ; STARTER/CLINIC désactivés. PRO réserve nouveau démarrage téléconsultation et revenus L7 ; FREE conserve base/soins ouverts. Aucun débit récurrent. | L6 |
-| Reversements professionnels et remboursement opérateur | Circuit manuel traçable pour le pilote ; automatisation séparée si contrat/API fournisseur vérifiés. | L7 |
+| Reversements professionnels et remboursement opérateur | Circuit manuel traçable pour le pilote ; automatisation séparée si contrat/API fournisseur vérifiés. CSV et reçu non fiscal **approuvés le 7 octobre** ; facture fiscale hors pilote. | L7 |
 | Lecture médicale hors ligne sur appareil partagé | Opt-in, données minimales et clé locale déverrouillée ; pas de stockage médical persistant sans modèle de protection validé. | L4 |
 | Validation des laboratoires | Dossier administratif et approbation avant prise en charge ; statuts existants repris après vérification, jamais approuvés automatiquement. | L2 |
 
@@ -51,8 +51,8 @@ Ces décisions bloquent uniquement leurs sous-lots dépendants. Préparer modèl
 | L3 | Rejeu des mutations sans doublon | L0 | Livré sur main par PR #183 ; preuves dans LOT_L3 |
 | L4 | Stockage hors ligne protégé et disponibilité exacte | L1, L3 | Livré sur main par PR #184 ; preuves dans LOT_L4 |
 | L5 | Salles Daily privées et jetons participants | L0 | Livré sur main par PR #185 ; recette réelle en L10 |
-| L6 | Abonnements payants de bout en bout | L0, décisions commerciales approuvées | Candidate sur feat/l6-paid-doctor-subscriptions ; preuves LOT_L6 |
-| L7 | Revenus, exports et opérations financières | L6 pour revenus d'abonnement ; L0 pour consultations | À implémenter |
+| L6 | Abonnements payants de bout en bout | L0, décisions commerciales approuvées | Livré sur main par PR #186 ; preuves LOT_L6 |
+| L7 | Revenus, exports et opérations financières | L6 pour accès PRO aux statistiques ; L0 pour consultations | Candidate feat/l7-revenues-finance-operations ; preuves LOT_L7 |
 | L8 | Fermer ou arbitrer les autres résiduels de sécurité | L0 ; revue finale après L1–L7 | À traiter |
 | L9 | Traductions natives et validation clinique | Démarrage dès L0 ; clôture après gel des textes | Preuves externes à obtenir |
 | L10 | Préproduction et fournisseurs réels | L0 pour préparer ; L1–L8 pour candidate complète | À exécuter |
@@ -132,7 +132,7 @@ Afficher date de dernière synchronisation, périmètre disponible et données p
 
 ### L6 — Abonnements réellement payants
 
-**Reprise du 7 octobre.** Candidate implémentée selon les choix commerciaux approuvés, depuis main après #185. Catalogue FREE/PRO 5 000 XOF/mois calendaire, UUID stable, paiement/activation/audit transactionnels, renouvellement manuel, expiration au contrôle courant, arrêt à échéance et abandon sans activation tardive. Nouvelle téléconsultation réservée PRO ; accès aux soins ouverts conservé. Migration additive 33 ferme les plans historiques non prouvés sans inventer de paiement. Contrat, recette, suivi/revue L6 : `CONTRAT_Abonnements_L6.md`, `RECETTE_Abonnements_L6.md`, `suivi/LOT_L6.md`, `REVUE_L6_2026-10.md`. Re-tests §5 ; fournisseurs réels L10, revenus L7. Preuves locales : 534 API +117 web et 21 E2E verts, release:check 11 étapes, migration sans dérive ; commit applicatif `ca90ce0e`. Livraison/CI finales à vérifier sur la PR L6.
+**Reprise du 7 octobre.** Livré sur main par PR #186 (`91a0fc9`), fusion à 14:51:11 Africa/Lagos, CI main 37631822824 verte ; implémenté selon les choix commerciaux approuvés depuis main après #185. Catalogue FREE/PRO 5 000 XOF/mois calendaire, UUID stable, paiement/activation/audit transactionnels, renouvellement manuel, expiration au contrôle courant, arrêt à échéance et abandon sans activation tardive. Nouvelle téléconsultation réservée PRO ; accès aux soins ouverts conservé. Migration additive 33 ferme les plans historiques non prouvés sans inventer de paiement. Contrat, recette, suivi/revue L6 : `CONTRAT_Abonnements_L6.md`, `RECETTE_Abonnements_L6.md`, `suivi/LOT_L6.md`, `REVUE_L6_2026-10.md`. Re-tests §5 ; fournisseurs réels L10, revenus L7. Preuves locales : 534 API +117 web et 21 E2E verts, release:check 11 étapes, migration sans dérive ; commit applicatif `ca90ce0e`. CI PR finale 37629254298 verte sur `3fb0969` ; preuves LOT_L6.
 
 **Fichiers de départ.** `modules/subscriptions/subscriptions.routes.ts` et tests, `modules/payments`, modèles Doctor/Payment, shared, `/pro/stats`.
 
@@ -143,6 +143,8 @@ Afficher date de dernière synchronisation, périmètre disponible et données p
 **Documentation.** Catalogue, machine à états, droits, reprise des données et limites du renouvellement ; `CLAUDE.md`, runbooks FedaPay, recette abonnements. Ne pas annoncer de débit récurrent si le contrat fournisseur ne le permet pas.
 
 ### L7 — Revenus, exports et opérations financières
+
+**Reprise du 7 octobre.** Candidate depuis main `91a0fc9` après #186, CI main 37631822824 verte. Journal causal CAPTURE/REFUND consultation append-only, snapshots commission/net, statistiques et CSV propres au médecin actif/vérifié/PRO courant ; activité/notes et créance globale distinctes du montant effectivement reversé. PAYOUT/REFUND externes manuels, verrou/allocation/compensation/idempotence, prise en charge et preuve tracées, anomalies legacy sans backfill. CSV et reçu non fiscal **approuvés par le porteur**. Aucun fournisseur réel/déploiement déduit des tests ; L8–L11 ouverts. Contrat/recette/revue/suivi : `CONTRAT_Finances_L7.md`, `RECETTE_Finances_L7.md`, `REVUE_L7_2026-10.md`, `suivi/LOT_L7.md`. Preuves locales : 571 API +117 web, 23 E2E, release:check 11 étapes ; commit applicatif `3c0c9dfb`. CI finale à consulter sur la PR, aucune fusion/déploiement automatique.
 
 **Fichiers de départ.** Page `/pro/stats`, paiements/consultations, finance admin, calcul de commission existant.
 

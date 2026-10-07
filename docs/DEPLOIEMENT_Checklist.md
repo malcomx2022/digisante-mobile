@@ -3,7 +3,7 @@
 > Cible : VPS Ubuntu 22.04 LTS. PostgreSQL 16 **natif**, Redis natif, Nginx + SSL Certbot,
 > PM2 (API cluster ×2 + web). **Aucun Docker en prod** (CLAUDE.md §3). Scripts : `infra/deploy/`.
 
-> État de finalisation au 7 octobre 2026 : L0–L5 livrés sur main (#185/2e5cc77 pour L5) ; L6 candidate (LOT_L6/PR). Aucun déploiement ou GO pilote attesté ; L7–L11 et la recette réelle restent à traiter.
+> État de finalisation au 7 octobre 2026 : L0–L6 livrés sur main (#186/91a0fc9 pour L6) ; L7 candidate (LOT_L7/PR). Aucun déploiement ou GO pilote attesté ; livraison L7, L8–L11 et la recette réelle restent à traiter.
 
 ## 0. Pré-requis
 - [ ] Nom de domaine pointant (A) vers l'IP du VPS (`digisante.example.bj` + `www`).
@@ -81,9 +81,9 @@
 
 ---
 
-**Contrôles techniques actuels ; ouverture pilote non attestée.** Le code (backend **28 modules** / **171 endpoints REST + 1 WS**
-+ frontend **7 espaces**, **67 pages**) est testé (**651 tests verts** — 534 API + 117 web, + 15 e2e
-Playwright — preuves du 7 octobre 2026 dans LOT_L4), l'infra scriptée. Restent la finalisation L7–L11 et la livraison L6, la validation humaine et l'exécution sur
+**Contrôles techniques actuels ; ouverture pilote non attestée.** Le code (backend **28 modules** / **182 endpoints REST + 1 WS**
++ frontend **7 espaces**, **67 pages**) est testé (**688 tests verts** — 571 API + 117 web, + 15 e2e
+Playwright — preuves du 7 octobre 2026 dans LOT_L4), l'infra scriptée. Restent la livraison L7 et la finalisation L8–L11, la validation humaine et l'exécution sur
 le VPS réel (étapes ci-dessus).
 
 > Les revues d'écarts sont **closes** : `docs/REVUE_Ecarts_et_Plan_2026-08.md` (C1→C9) et
@@ -119,3 +119,13 @@ En incident : désactiver Daily, garder la messagerie, corriger en avant. Les cl
 - [ ] L7 revenus/finance, L8 résiduels FedaPay et L9 textes validés ; aucun prélèvement automatique ni remboursement externe déclaré sur seule transition interne.
 
 Lire `CONTRAT_Abonnements_L6.md`, `RECETTE_Abonnements_L6.md` et LOT_L6. Corriger en avant ; aucun retour à l’activation gratuite. Cases opérationnelles volontairement non cochées : preuves locales/CI ne prouvent pas un déploiement ou un règlement réel.
+
+## Addendum L7 — revenus et opérations manuelles
+
+- [ ] PR L7 revue/fusionnée et CI du SHA final vérifiée ; sauvegarde et arrêt des anciens workers avant migration 34.
+- [ ] Inventaire legacy : paiements non prouvés exclus, aucun backfill date/commission ; retours déjà exécutés rapprochés sans second transfert.
+- [ ] Recette finance F1–F8 signée : identité bénéficiaire, montant/devise, journal et pièce externe ; aucun payout/refund réel déduit d’une preuve synthétique.
+- [ ] EXECUTING incertain reste à rapprocher ; aucune annulation/remise en file automatique ; procédure d’opérateur suspendu.
+- [ ] CSV/receipt non fiscaux approuvés ; politique de conservation, effacement/archivage et sauvegarde journal/proofs validée au GO.
+
+Lire contrat/recette/revue/LOT_L7. Cases opérationnelles non cochées tant que preuves requises absentes ; automatisation FedaPay et facture fiscale sont hors pilote de ce lot.

@@ -4,7 +4,7 @@ PWA e-santé pour le Bénin — programme **NEXT IMPACT** (FP2E / Sèmè City / 
 Offline-first · multilingue (FR, EN, Fɔ̀ngbè, Yorùbá) · téléconsultation · DMP · Mobile Money · wallet diaspora.
 
 > Les conventions et décisions verrouillées du projet sont dans [`CLAUDE.md`](./CLAUDE.md).
-> **Finalisation en cours :** [plan L0–L11](./docs/PLAN_Implementations_Restantes_2026-10.md) — DMP, labo, synchronisation/hors-ligne, Daily, abonnements/revenus, sécurité et preuves d'ouverture. L0–L5 fusionnés (#184/#185 pour L4/L5) ; L6 candidate, [contrat hors ligne protégé](./docs/CONTRAT_Hors_Ligne_L4.md) et [preuves L4](./docs/suivi/LOT_L4.md) ; [contrat de synchronisation](./docs/CONTRAT_Synchronisation_L3.md) et [preuves du lot](./docs/suivi/LOT_L3.md) ; L7–L11 ouverts. Une revue par lot avant PR/merge. Planifié ne signifie pas implémenté ou déployé.
+> **Finalisation en cours :** [plan L0–L11](./docs/PLAN_Implementations_Restantes_2026-10.md) — DMP, labo, synchronisation/hors-ligne, Daily, abonnements/revenus, sécurité et preuves d'ouverture. L0–L6 fusionnés (#186/91a0fc9 pour L6) ; L7 candidate, [contrat hors ligne protégé](./docs/CONTRAT_Hors_Ligne_L4.md) et [preuves L4](./docs/suivi/LOT_L4.md) ; [contrat de synchronisation](./docs/CONTRAT_Synchronisation_L3.md) et [preuves du lot](./docs/suivi/LOT_L3.md) ; L8–L11 ouverts. Une revue par lot avant PR/merge. Planifié ne signifie pas implémenté ou déployé.
 > Maintenance du 6 octobre 2026 : contrôles JWT par requête, remboursements WALLET atomiques, réconciliation PENDING/PROCESSING et réservations sous verrou PostgreSQL. Reprise Claude Code : [`playbook de maintenance`](./docs/PLAYBOOK_Codage_DigiSante.md#maintenance-après-revue--6-octobre-2026). Migration `20261006130000_wallet_refund_in` requise avant déploiement du correctif.
 
 > L1 : échéances et auteurs DMP côté serveur, [revue](./docs/REVUE_L1_2026-10.md). Migration additive `20261006144830_dmp_entry_expiry_authorship` : les liens historiques non prouvés restent fermés jusqu’à une nouvelle réclamation valide ; anciens auteurs inconnus conservés. Procédure de maintenance et limites de reprise dans la fiche L1.
@@ -15,7 +15,7 @@ Monorepo **pnpm** :
 
 ```
 apps/web      Next.js 14 (App Router, PWA) — 67 pages
-apps/api      Fastify — 171 endpoints REST + 1 WebSocket / 28 modules + Prisma + Redis
+apps/api      Fastify — 182 endpoints REST + 1 WebSocket / 28 modules + Prisma + Redis
 packages/shared   types, enums, schémas zod partagés
 packages/config   tsconfig de base
 infra/        docker-compose dev (Postgres 16 + Redis) · scripts deploy VPS
@@ -88,7 +88,7 @@ release patients réels, B1). Les e2e restent `pnpm test:e2e` (build dédié, cf
 
 - pages Next.js → `apps/web/src/app/`
 - modules Fastify → `apps/api/src/modules/<domaine>/` (1 dossier par domaine, fichier `*.routes.ts` enregistré dans `src/server.ts`)
-- schéma Prisma (50 modèles, 31 enums) → remplacer `apps/api/prisma/schema.prisma`
+- schéma Prisma (53 modèles, 31 enums) → remplacer `apps/api/prisma/schema.prisma`
 - types partagés → `packages/shared/src/`
 
 ## CI / Déploiement
@@ -99,4 +99,6 @@ Le job `deploy` (SSH vers le VPS) existe et dépend des jobs `build-and-test` et
 
 Téléconsultation privée L5 (livrée par PR #185 le 7 octobre) : SDK Daily officiel, accès nominatif sans token dans URL, contrôle de salle/participants/échéances et bascule média. [Contrat](docs/CONTRAT_Teleconsultation_L5.md), [suivi et preuves](docs/suivi/LOT_L5.md), [revue](docs/REVUE_L5_2026-10.md). Appel fournisseur réel et validation avant pilote restent L10/L11 ; aucune mise en production attestée.
 
-Abonnement médecin L6 : catalogue approuvé FREE + PRO 5 000 XOF/mois calendaire, paiement confirmé/période/droits, renouvellement manuel ; aucun prélèvement automatique. [Contrat](docs/CONTRAT_Abonnements_L6.md), [preuves/PR](docs/suivi/LOT_L6.md), [revue](docs/REVUE_L6_2026-10.md). STARTER/CLINIC désactivés et autres offres après pilote ; revenus L7 et paiement fournisseur réel L10 restent à valider.
+Abonnement médecin L6 : catalogue approuvé FREE + PRO 5 000 XOF/mois calendaire, paiement confirmé/période/droits, renouvellement manuel ; aucun prélèvement automatique. [Contrat](docs/CONTRAT_Abonnements_L6.md), [preuves/PR](docs/suivi/LOT_L6.md), [revue](docs/REVUE_L6_2026-10.md). STARTER/CLINIC désactivés et autres offres après pilote ; revenus/finance L7 en candidate, paiement fournisseur réel L10 restant.
+
+Finances L7 : journal consultation immuable, statistiques PRO et CSV, reçu non fiscal approuvé ; opérations de reversement/remboursement externes **manuelles**, réservations et preuve tracées sans DMP. [Contrat](docs/CONTRAT_Finances_L7.md), [suivi et preuves](docs/suivi/LOT_L7.md), [auto-revue](docs/REVUE_L7_2026-10.md), [recette opérateur](docs/RECETTE_Finances_L7.md). Aucun transfert fournisseur ou déploiement déduit des tests.

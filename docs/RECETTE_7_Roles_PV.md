@@ -160,3 +160,7 @@ Candidate/revue : `suivi/LOT_L5.md`, `REVUE_L5_2026-10.md`. Contrats SDK/fournis
 ## Addendum L6 — offre médecin du pilote
 
 Reprendre A1–A17 de `RECETTE_Abonnements_L6.md` : FREE/PRO 5 000 XOF/mois approuvés, démarrage PRO uniquement, soins ouverts conservés, paiement/renouvellement/expiration/arrêt, refus et reprise, abandon réglé tardivement, restitution wallet/intervention opérateur. Tests locaux et CI ne valent ni recette fournisseur ni signature humaine ; consulter LOT_L6/REVUE_L6. Autres abonnements après pilote, revenus L7 restant.
+
+## Addendum L7 — recette finance du pilote
+
+Le porteur a approuvé CSV et reçu non fiscal le 7 octobre. Ajouter les lignes F1–F8 de `RECETTE_Finances_L7.md` : statistiques/exports isolés PRO, identité et net, demande/prise en charge avant exécution externe, preuve vérifiée, doute opérateur, legacy et conservation. Aucun transfert réel ni preuve bancaire déduit des E2E synthétiques. REFUNDED interne et remboursement opérateur exécuté restent deux étapes ; signature finance à obtenir avec L10/L11.

@@ -1,6 +1,6 @@
 # Matrice CDC → périmètre du pilote → preuves → lots
 
-> Baseline L0 · 6 octobre 2026 ; mise à jour L6 le 7 octobre, branche `feat/l6-paid-doctor-subscriptions`.
+> Baseline L0 · 6 octobre 2026 ; mise à jour L7 le 7 octobre, branche `feat/l7-revenues-finance-operations`.
 > Source fonctionnelle : `docs/fonctionnel/CDC_DigiSante_Mobile_v1.0.docx`, §3 et §9.
 > Décisions actuelles : `CLAUDE.md` prime sur les choix historiques contradictoires du CDC.
 > Périmètre de travail : le plan L0–L11 demandé par le porteur, sept rôles et offre médecin L6.
@@ -30,8 +30,8 @@ Les points du CDC incompatibles avec les décisions persistantes sont remplacés
 | P12 | Annulation médecin et restitution WALLET | REFUND_IN atomique ajouté et testé ; ancien REFUND reste reversal de recharge. | L0, rapprochement L7 |
 | P13 | Réconciliation et supervision financière | PENDING/PROCESSING anciens, identifiant fournisseur présent ; tests cron et aperçu admin. | L0, recette fournisseur L10 |
 | P14 | Abonnements médecins et droits de plan | L6 : FREE/PRO approuvés, paiement/période/audit atomiques, droits courants, renouvellement manuel et arrêt/abandon ; faux plans historiques fermés. | LOT_L6/REVUE_L6 ; recettes financières réelles L10 et revenus L7, aucune commercialisation avant validation |
-| P15 | Revenus, annulations, satisfaction, export comptable | Page revenus indisponibles ; commission calculée, pas de boucle comptable complète attestée. | L7 |
-| P16 | Reversement et remboursement externe sous 48 h ouvrables | Remboursement interne ≠ versement opérateur ; action externe actuellement manuelle. | L7 procédure/preuve ; automatisation séparée |
+| P15 | Revenus, annulations, satisfaction, export comptable | L7 candidate : journal/agrégats propres PRO, snapshots, activité/notes, CSV/receipt non fiscaux approuvés. | LOT_L7/REVUE_L7 ; preuves réelles L10 |
+| P16 | Reversement et remboursement externe sous 48 h ouvrables | L7 candidate : demande/allocation/prise en charge/exécution déclarée avec preuve ; REFUNDED interne distinct du retour réel. Aucun SLA 48 h attesté par les tests. | Recette F1–F8/L10 ; automatisation séparée |
 | P17 | Diaspora : proches, recharge, transfert | Tests beneficiaries/wallet ; transfert interne au bénéficiaire présent, aucun accès médical au payeur. | L11 ; lien accepté du bénéficiaire après pilote |
 | P18 | Rappels, observance, vaccination, maternité | Tests reminders/adherence/vaccinations/maternity présents ; contenu embarqué et envois réels à valider. | L9, L10/L11 |
 | P19 | SOS, géolocalisation et suivi de clôture | Module/test SOS présents ; sans réseau, aucune alerte serveur ne peut être promise. Un stub ou une notification au patient ne prouve pas que le contact a reçu le SMS. | L9 textes et numéros ; L10/L11 preuve opérateur et exactitude du statut |
