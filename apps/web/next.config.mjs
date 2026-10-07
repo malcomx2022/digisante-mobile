@@ -41,7 +41,7 @@ const securityHeaders = [
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   // La QR (caméra), la téléconsultation (micro) et le SOS (géoloc) sont autorisés
   // sur la même origine ; l'API Payment Request n'est pas utilisée.
-  { key: 'Permissions-Policy', value: 'camera=(self), microphone=(self), geolocation=(self), payment=()' },
+  { key: 'Permissions-Policy', value: 'camera=(self "https://*.daily.co"), microphone=(self "https://*.daily.co"), geolocation=(self), payment=()' },
 ];
 
 // Analyseur de bundle (opt-in) : `ANALYZE=true pnpm --filter @digisante/web analyze`

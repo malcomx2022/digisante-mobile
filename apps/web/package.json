@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@daily-co/daily-js": "0.93.0",
     "@digisante/shared": "workspace:*",
     "firebase": "^12.14.0",
     "jsqr": "^1.4.0",

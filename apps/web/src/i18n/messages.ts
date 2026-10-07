@@ -15,6 +15,9 @@ import type { Lang } from '@digisante/shared';
 export type Messages = Record<string, string>;
 
 const fr: Messages = {
+  'teleconsult.provider_unavailable': 'La vidéo est indisponible. Vous pouvez poursuivre par messagerie.',
+  'teleconsult.session_expired': 'La session vidéo a expiré ou a été interrompue. Rejoignez de nouveau ou poursuivez par messagerie.',
+
   "vault.check_online": "Vérifier les effets en ligne",
   "vault.legacy_device": "Des anciennes données locales restent en clair sur cet appareil. Chaque compte doit migrer ses actions, ou l’appareil doit être effacé après vérification. Ne le prêtez pas avant cette étape.",
   "vault.prescription_notice": "Copie datée pour lecture seulement : ni preuve de validité actuelle, ni autorisation de délivrance. Vérifiez les changements en ligne.",
@@ -1035,6 +1038,9 @@ const fr: Messages = {
 };
 
 const en: Messages = {
+  'teleconsult.provider_unavailable': 'Video is unavailable. You can continue by messaging.',
+  'teleconsult.session_expired': 'The video session has expired or was interrupted. Rejoin or continue by messaging.',
+
   "vault.check_online": "Check actual effects online",
   "vault.legacy_device": "Old local data remain unencrypted on this device. Each account must migrate its actions, or the device must be erased after checking actual effects. Do not share it before this step.",
   "vault.prescription_notice": "Dated copy for reading only: neither proof of current validity nor permission to dispense. Check changes online.",
