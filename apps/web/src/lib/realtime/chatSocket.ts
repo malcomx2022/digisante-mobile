@@ -42,7 +42,7 @@ export function openChatSocket(onEvent: (event: ChatRealtimeEvent) => void): () 
     let token = getAccessToken();
     if (!everOpened && attempt > 0 && token) {
       // Tentative précédente non ouverte → refresh (single-flight, partagé avec le 401).
-      const refreshed = await refreshAccessToken();
+      const refreshed = await refreshAccessToken().catch(() => null);
       if (closed) return;
       if (refreshed) token = refreshed;
     }

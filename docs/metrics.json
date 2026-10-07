@@ -1,5 +1,5 @@
 {
-  "rest": 166,
+  "rest": 167,
   "websocket": 1,
   "modules": 28,
   "pages": 67,
@@ -8,11 +8,11 @@
   "enums": 31,
   "migrations": 32,
   "apiTestFiles": 75,
-  "webTestFiles": 9,
-  "e2eSpecFiles": 4,
+  "webTestFiles": 13,
+  "e2eSpecFiles": 5,
   "smokeTestFiles": 5,
-  "apiTests": 460,
-  "webTests": 64,
-  "e2eTests": 11,
-  "unitTests": 524
+  "apiTests": 467,
+  "webTests": 103,
+  "e2eTests": 15,
+  "unitTests": 570
 }

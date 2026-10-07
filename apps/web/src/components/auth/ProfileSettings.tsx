@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { LANGUAGE_LIST, type Lang } from '@digisante/shared';
 
 import { Button, CardPagne, Nkyinkyim } from '@/components/ui';
+import { SyncActions } from '@/components/offline/SyncActions';
+import { VaultControls } from '@/components/offline/VaultControls';
 import { LogoutButton } from '@/components/auth/LogoutButton';
 import { useAuth } from '@/auth/AuthProvider';
 import { useLocale } from '@/i18n/LocaleProvider';
@@ -102,6 +104,8 @@ export function ProfileSettings({
 
   return (
     <div className="space-y-4">
+      <VaultControls accent={accent} />
+      <SyncActions />
       {children}
 
       <div className={cn('space-y-4', columns && 'lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-4 lg:items-start')}>

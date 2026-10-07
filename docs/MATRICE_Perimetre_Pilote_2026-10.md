@@ -1,6 +1,6 @@
 # Matrice CDC → périmètre du pilote → preuves → lots
 
-> Lot L0 · 6 octobre 2026 · branche `feat/l0-baseline-review`.
+> Baseline L0 · 6 octobre 2026 ; mise à jour L4 le 7 octobre, branche `feat/l4-protected-offline`.
 > Source fonctionnelle : `docs/fonctionnel/CDC_DigiSante_Mobile_v1.0.docx`, §3 et §9.
 > Décisions actuelles : `CLAUDE.md` prime sur les choix historiques contradictoires du CDC.
 > Périmètre de travail : le plan L0–L11 demandé par le porteur, sept rôles et offre médecin L6.
@@ -35,7 +35,7 @@ Les points du CDC incompatibles avec les décisions persistantes sont remplacés
 | P17 | Diaspora : proches, recharge, transfert | Tests beneficiaries/wallet ; transfert interne au bénéficiaire présent, aucun accès médical au payeur. | L11 ; lien accepté du bénéficiaire après pilote |
 | P18 | Rappels, observance, vaccination, maternité | Tests reminders/adherence/vaccinations/maternity présents ; contenu embarqué et envois réels à valider. | L9, L10/L11 |
 | P19 | SOS, géolocalisation et suivi de clôture | Module/test SOS présents ; sans réseau, aucune alerte serveur ne peut être promise. Un stub ou une notification au patient ne prouve pas que le contact a reçu le SMS. | L9 textes et numéros ; L10/L11 preuve opérateur et exactitude du statut |
-| P20 | Hors-ligne médical, QR d'urgence et synchronisation | Triage local E2E vert ; DMP/ordonnances/fiche urgence nécessitent le réseau après rechargement ; file IndexedDB sans chiffrement explicite ni déduplication serveur. | L3/L4 ; tests appareils L11 |
+| P20 | Hors-ligne médical, QR d'urgence et synchronisation | L3 livré sur main (#183) : huit mutations dédupliquées par reçus transactionnels. L4 candidate : coffre opt-in, lectures minimales datées 24 h et files scellées, tickets sans corps/GET seuls ; héritage en clair à migrer/effacer explicitement avant appareil partagé. QR/partage/validité courante et SOS serveur exigent le réseau. | Livraison/revue L4 : LOT_L4 ; tests appareils L11 |
 | P21 | Déclaration de couverture assurance | Module/tests insurance présents. Déclarer une couverture ne constitue ni contrôle assureur ni tiers payant. | Recette déclaration L11 ; intégration assureur hors pilote |
 | P22 | ASC et relais village | Module/tests ASC et roster présents ; pas de DMP tiers ni réservation au nom d'autrui. | L11 ; ASC v2 après pilote |
 | P23 | Administration, KYC, support, CMS, campagnes, intégrations | Tests admin/kyc/education/campaigns/integrations ; scopes et cloisonnement médical. | L2 habilitation labo ; L8 sécurité ; L11 recette |

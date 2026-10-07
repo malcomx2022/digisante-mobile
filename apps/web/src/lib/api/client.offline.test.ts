@@ -5,6 +5,7 @@ import 'fake-indexeddb/auto';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { createVault, purgeLocal } from '@/lib/offline/vault';
 import { allQueued, remove, setQueueOwner } from '@/lib/offline/queue';
 
 import { isQueueable, OfflineError, post, postNow } from './client';
@@ -12,7 +13,7 @@ import { isQueueable, OfflineError, post, postNow } from './client';
 beforeEach(async () => {
   vi.stubGlobal('navigator', { onLine: false });
   vi.stubGlobal('fetch', vi.fn());
-  setQueueOwner('user-A');
+  await purgeLocal(); setQueueOwner('user-A'); await createVault('phrase synthétique locale L4');
   for (const m of await allQueued()) await remove(m.id);
 });
 afterEach(() => vi.unstubAllGlobals());

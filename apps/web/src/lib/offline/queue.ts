@@ -1,208 +1,125 @@
-// ─────────────────────────────────────────────────────────────
-// File de synchronisation hors-ligne (IndexedDB, sans dépendance).
-// Contrat L3 : identité persistée avant envoi, archivage atomique des rejets.
-// Les corps restent en clair dans IndexedDB : chiffrement local prévu au lot L4.
-// ─────────────────────────────────────────────────────────────
+// L4 : corps scellés sous le coffre du compte ; tickets en ligne sans aucun corps.
 import { mutationKeyTime } from '@digisante/shared';
 
-const DB_NAME = 'digisante-offline';
-const STORE = 'mutations';
-// Magasin des mutations rejouées en échec « définitif » (4xx) : on ne les perd PAS
-// silencieusement, on les déplace ici pour consultation/diagnostic (point 2).
-const FAILED_STORE = 'failed';
-const DB_VERSION = 3;
+import { localAll, localTx, type LocalStore } from './db';
+import { captureLocalGuard, currentOwner, isVaultOpen, notifyLocal, openLocal, purgeLocal, sealLocal, setLocalOwner, VaultLockedError, type Sealed } from './vault';
 
 export interface QueuedMutation {
-  id: string;
-  method: 'POST' | 'PATCH' | 'PUT' | 'DELETE';
-  path: string;
-  body?: unknown;
-  ts: number;
-  /** Compte auquel appartient la mutation (appareil partagé : jamais rejouée sous un autre compte). */
-  owner?: string | null;
-  /** Absente sur les anciennes files : jamais inventée lors de leur migration. */
-  idempotencyKey?: string;
+  id: string; method: 'POST' | 'PATCH' | 'PUT' | 'DELETE'; path: string; body?: unknown; ts: number;
+  owner?: string | null; idempotencyKey?: string;
+  /** Premier envoi en ligne sans coffre : vérifier le reçu, jamais rejouer un corps absent. */
+  onlineOnly?: boolean;
 }
-
-/** Mutation hors-ligne rejouée puis rejetée définitivement par le serveur (4xx). */
-export interface FailedMutation extends QueuedMutation {
-  /** Statut HTTP renvoyé au rejeu (ex. 422, 409). */
-  failedStatus: number;
-  /** Horodatage de l'échec. */
-  failedAt: number;
+export interface FailedMutation extends QueuedMutation { failedStatus: number; failedAt: number }
+interface StoredMutation {
+  id: string; owner: string; ts: number; idempotencyKey?: string; sealed?: Sealed;
+  onlineOnly?: true; method?: QueuedMutation['method']; path?: string; failedStatus?: number; failedAt?: number;
 }
-
-function openDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = () => {
-      const db = req.result;
-      if (!db.objectStoreNames.contains(STORE)) {
-        db.createObjectStore(STORE, { keyPath: 'id' });
-      }
-      // v2 : magasin des échecs définitifs (rétro-compatible — créé si absent).
-      if (!db.objectStoreNames.contains(FAILED_STORE)) {
-        db.createObjectStore(FAILED_STORE, { keyPath: 'id' });
-      }
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-function tx<T>(
-  mode: IDBTransactionMode,
-  run: (store: IDBObjectStore) => IDBRequest<T>,
-  store: string = STORE,
-): Promise<T> {
-  return openDb().then((db) => new Promise<T>((resolve, reject) => {
-    const transaction = db.transaction(store, mode);
-    let result: T;
-    try {
-      const request = run(transaction.objectStore(store));
-      request.onsuccess = () => { result = request.result; };
-    } catch (error) { transaction.abort(); db.close(); reject(error); return; }
-    // Un succès de requête ne prouve PAS le commit IndexedDB.
-    transaction.oncomplete = () => { db.close(); resolve(result); };
-    transaction.onabort = transaction.onerror = () => { db.close(); reject(transaction.error ?? new Error('Transaction IndexedDB annulée')); };
-  }));
-}
-
-// `Date.now()` a une résolution de la milliseconde : plusieurs mutations mises en
-// file dans la même milliseconde (rafale programmatique — plusieurs champs d'un
-// formulaire, marquages de prises enchaînés) partageraient le même `ts`, et leur
-// ordre de rejeu deviendrait arbitraire. Or rejouer DANS L'ORDRE est toute la
-// raison d'être de cette file (un PATCH puis un DELETE ne commutent pas).
-// On force donc un horodatage STRICTEMENT croissant dans la session.
+const aad = (m: Pick<StoredMutation, 'id' | 'ts' | 'idempotencyKey'>) => `mutation-v1|${m.id}|${m.ts}|${m.idempotencyKey ?? ''}`;
 let lastTs = 0;
-function nextTs(): number {
-  lastTs = Math.max(Date.now(), lastTs + 1);
-  return lastTs;
+export const getQueueOwner = currentOwner;
+export const setQueueOwner = setLocalOwner;
+async function storeEntry(item: QueuedMutation): Promise<StoredMutation> {
+  if (!item.owner || item.owner !== currentOwner()) throw new VaultLockedError();
+  if (item.onlineOnly) return { id: item.id, owner: item.owner, ts: item.ts, idempotencyKey: item.idempotencyKey, onlineOnly: true };
+  const sealed = await sealLocal(item, aad(item));
+  return { id: item.id, owner: item.owner, ts: item.ts, idempotencyKey: item.idempotencyKey, sealed };
 }
-
-// Compte courant (posé par AuthProvider). Une mutation mise en file par le compte A
-// ne doit JAMAIS être rejouée sous la session du compte B (appareil partagé : les
-// constantes de A écrites dans le dossier de B) — §4.
-let owner: string | null = null;
-export function getQueueOwner(): string | null { return owner; }
-
-export function setQueueOwner(userId: string | null): void {
-  owner = userId;
+async function unpack(row: StoredMutation): Promise<QueuedMutation> {
+  if (row.owner !== currentOwner()) throw new VaultLockedError();
+  const item = row.onlineOnly
+    ? { id: row.id, owner: row.owner, ts: row.ts, idempotencyKey: row.idempotencyKey, method: 'POST' as const, path: '/sync/receipts/verify', onlineOnly: true }
+    : await openLocal<QueuedMutation>(row.sealed!, aad(row));
+  if (item.owner !== row.owner || item.id !== row.id || item.idempotencyKey !== row.idempotencyKey) throw new Error('Identité locale altérée');
+  return { ...item, ...(row.failedStatus === undefined ? {} : { failedStatus: row.failedStatus, failedAt: row.failedAt }) };
 }
-
-/** Ajoute une mutation à la file. L'`id` sert aussi de clé d'idempotence (point 2). */
 export async function enqueue(item: Omit<QueuedMutation, 'id' | 'ts' | 'owner' | 'idempotencyKey'>): Promise<QueuedMutation> {
-  const id = crypto.randomUUID();
-  const body = item.body === undefined ? undefined : JSON.parse(JSON.stringify(item.body));
-  const entry: QueuedMutation = { ...item, body, id, ts: nextTs(), owner, idempotencyKey: `v1.${Date.now()}.${id}` };
-  await tx('readwrite', (s) => s.add(entry));
-  return entry;
+  const owner = currentOwner(); if (!owner) throw new VaultLockedError();
+  const valid = captureLocalGuard(!item.onlineOnly);
+  if (!item.onlineOnly && !isVaultOpen()) throw new VaultLockedError();
+  const id = crypto.randomUUID(); lastTs = Math.max(Date.now(), lastTs + 1);
+  const entry: QueuedMutation = { ...item, body: item.onlineOnly || item.body === undefined ? undefined : JSON.parse(JSON.stringify(item.body)), id, ts: lastTs, owner, idempotencyKey: `v1.${Date.now()}.${id}` };
+  const row = await storeEntry(entry);
+  await localTx(['pendingSealed'], 'readwrite', (tx) => { if (!valid()) throw new VaultLockedError(); tx.objectStore('pendingSealed').add(row); }); notifyLocal(); return entry;
 }
-
-/** Liste les mutations en attente (ordre chronologique). */
-export async function allQueued(): Promise<QueuedMutation[]> {
-  const items = await tx<QueuedMutation[]>('readonly', (s) => s.getAll() as IDBRequest<QueuedMutation[]>);
-  return items.sort((a, b) => a.ts - b.ts);
-}
-
-/** Retire une mutation de la file. */
-export async function remove(id: string): Promise<void> {
-  await tx('readwrite', (s) => s.delete(id));
-}
-
-/** Nombre de mutations en attente. */
-export async function pendingCount(): Promise<number> {
-  return tx<number>('readonly', (s) => s.count());
-}
-
-/** Erreur « définitive » au rejeu (4xx) : la mutation ne doit PAS être réessayée. */
-export class PermanentReplayError extends Error {
-  constructor(public readonly status: number) {
-    super(`replay rejected with status ${status}`);
-    this.name = 'PermanentReplayError';
+async function rows(store: LocalStore) { return (await localAll<StoredMutation>(store)).filter((r) => r.owner === currentOwner()).sort((a, b) => a.ts - b.ts); }
+async function readable(store: LocalStore) {
+  const owner = currentOwner(); const result: QueuedMutation[] = [];
+  for (const row of await rows(store)) {
+    if (currentOwner() !== owner) throw new VaultLockedError();
+    if (row.sealed && !isVaultOpen()) continue;
+    result.push(await unpack(row));
   }
+  return result;
 }
-
-/** Liste les mutations en échec définitif (4xx) conservées pour diagnostic. */
-export async function allFailed(): Promise<FailedMutation[]> {
-  const items = await tx<FailedMutation[]>('readonly', (s) => s.getAll() as IDBRequest<FailedMutation[]>, FAILED_STORE);
-  return items.sort((a, b) => a.failedAt - b.failedAt);
+export const allQueued = () => readable('pendingSealed');
+export const allFailed = async () => await readable('failedSealed') as FailedMutation[];
+export const pendingCount = async () => (await rows('pendingSealed')).length;
+export const failedCount = async () => (await rows('failedSealed')).length;
+async function removeOwn(store: LocalStore, id: string) {
+  const owner = currentOwner();
+  await localTx([store], 'readwrite', (tx) => {
+    const s = tx.objectStore(store); const r = s.get(id); r.onsuccess = () => { if (r.result?.owner === owner) s.delete(id); };
+  }); notifyLocal();
 }
-
-/** Nombre de mutations en échec définitif (récupérable par l'UI / la supervision). */
-export async function failedCount(): Promise<number> {
-  return tx<number>('readonly', (s) => s.count(), FAILED_STORE);
-}
-
-/** Purge une mutation en échec (ex. après revue manuelle). */
-export async function removeFailed(id: string): Promise<void> {
-  await tx('readwrite', (s) => s.delete(id), FAILED_STORE);
-}
-
-/** Déplacement atomique : une panne ne laisse pas la même mutation dans deux magasins. */
+export const remove = (id: string) => removeOwn('pendingSealed', id);
+export const removeFailed = (id: string) => removeOwn('failedSealed', id);
+export class PermanentReplayError extends Error { constructor(public readonly status: number) { super(`replay rejected with status ${status}`); this.name = 'PermanentReplayError'; } }
 export async function archiveFailed(item: QueuedMutation, status: number): Promise<void> {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction([STORE, FAILED_STORE], 'readwrite');
-    transaction.objectStore(FAILED_STORE).put({ ...item, failedStatus: status, failedAt: Date.now() });
-    transaction.objectStore(STORE).delete(item.id);
-    transaction.oncomplete = () => { db.close(); resolve(); };
-    transaction.onabort = transaction.onerror = () => { db.close(); reject(transaction.error); };
-  });
+  if (item.owner !== currentOwner()) throw new VaultLockedError();
+  const valid = captureLocalGuard(!item.onlineOnly);
+  await localTx(['pendingSealed', 'failedSealed'], 'readwrite', (tx) => {
+    if (!valid()) throw new VaultLockedError();
+    const pending = tx.objectStore('pendingSealed'); const r = pending.get(item.id);
+    r.onsuccess = () => {
+      const row = r.result as StoredMutation | undefined;
+      if (!valid()) { tx.abort(); return; }
+      if (row?.owner === item.owner) { tx.objectStore('failedSealed').put({ ...row, failedStatus: status, failedAt: Date.now() }); pending.delete(item.id); }
+    };
+  }); notifyLocal();
 }
-
-/** v2 n'avait aucune preuve du premier envoi : conserver pour revue, sans nouveau jeton. */
-export function hasReplayIdentity(item: QueuedMutation): boolean {
-  return Boolean(item.idempotencyKey && mutationKeyTime(item.idempotencyKey) !== null && item.owner);
+export const hasReplayIdentity = (m: QueuedMutation) => Boolean(m.idempotencyKey && mutationKeyTime(m.idempotencyKey) !== null && m.owner);
+let flight: Promise<{ flushed: number; failed: number }> | null = null;
+export function flush(send: (m: QueuedMutation) => Promise<void>) {
+  if (!flight) flight = flushWithin(send).finally(() => { flight = null; }); return flight;
 }
-
-let flushFlight: Promise<{ flushed: number; failed: number }> | null = null;
-export function flush(send: (m: QueuedMutation) => Promise<void>): Promise<{ flushed: number; failed: number }> {
-  if (!flushFlight) flushFlight = flushWithin(send).finally(() => { flushFlight = null; });
-  return flushFlight;
-}
-
-/**
- * Rejoue les mutations en attente via `send`.
- * - Succès → retirée de la file.
- * - `PermanentReplayError` (4xx) → DÉPLACÉE dans le magasin des échecs (jamais perdue
- *   silencieusement, point 2) ; on poursuit avec les suivantes.
- * - Toute autre erreur (réseau / 5xx) → on s'arrête pour réessayer plus tard, en
- *   préservant l'ordre des mutations restantes.
- */
-async function flushWithin(
-  send: (m: QueuedMutation) => Promise<void>,
-): Promise<{ flushed: number; failed: number }> {
-  // Seules les mutations du compte courant sont rejouées ; celles d'un autre compte
-  // restent en file (elles repartiront quand CE compte se reconnectera).
-  const items = (await allQueued()).filter((m) => (m.owner ?? null) === owner);
-  let flushed = 0;
-  let failed = 0;
-  for (const item of items) {
-    if ((item.owner ?? null) !== owner) break; // arrêt au changement de session
-    try {
-      await send(item);
-      await remove(item.id);
-      flushed += 1;
-    } catch (err) {
-      if (err instanceof PermanentReplayError) {
-        // 4xx : rejet métier définitif → on archive au lieu de perdre la donnée.
-        await archiveFailed(item, err.status);
-        failed += 1;
-        continue;
-      }
-      break; // toujours hors-ligne / 5xx : on réessaiera plus tard
-    }
+async function flushWithin(send: (m: QueuedMutation) => Promise<void>) {
+  let flushed = 0; let failed = 0;
+  for (const item of await allQueued()) {
+    if (item.owner !== currentOwner() || (!item.onlineOnly && !isVaultOpen())) break;
+    try { await send(item); await remove(item.id); flushed++; }
+    catch (e) { if (e instanceof PermanentReplayError) { await archiveFailed(item, e.status); failed++; } else break; }
   }
   return { flushed, failed };
 }
-
-/**
- * Purge COMPLÈTE de la file et des échecs (déconnexion explicite) : les corps en
- * attente peuvent contenir des données de santé ou des messages — rien ne doit
- * rester en clair sur un appareil partagé après la déconnexion.
- */
-export async function purgeAll(): Promise<void> {
-  await tx('readwrite', (s) => s.clear());
-  await tx('readwrite', (s) => s.clear(), FAILED_STORE);
+export const purgeAll = purgeLocal;
+export async function legacyCount() {
+  const owner = currentOwner(); if (!owner) return 0;
+  return (await Promise.all([localAll<QueuedMutation>('mutations'), localAll<QueuedMutation>('failed')])).flat().filter((m) => m.owner === owner || !m.owner).length;
+}
+/** Avertissement appareil sans révéler le compte ou le corps des anciennes entrées. */
+export async function legacyPresent() { return (await Promise.all([localAll('mutations'), localAll('failed')])).some((rows) => rows.length > 0); }
+/** Aucune clé d'idempotence inventée. Les entrées non attribuables restent en quarantaine. */
+export async function migrateLegacy() {
+  const owner = currentOwner(); if (!owner || !isVaultOpen()) throw new VaultLockedError();
+  const valid = captureLocalGuard();
+  for (const [oldStore, newStore] of [['mutations', 'pendingSealed'], ['failed', 'failedSealed']] as const) {
+    for (const item of (await localAll<FailedMutation>(oldStore)).filter((m) => m.owner === owner)) {
+      const row = await storeEntry(item);
+      if (currentOwner() !== owner || !isVaultOpen()) throw new VaultLockedError();
+      await localTx([oldStore, newStore], 'readwrite', (tx) => {
+        if (!valid()) throw new VaultLockedError();
+        const old = tx.objectStore(oldStore); const r = old.get(item.id);
+        r.onsuccess = () => { if (!valid()) { tx.abort(); return; } if (r.result && JSON.stringify(r.result) === JSON.stringify(item)) {
+          tx.objectStore(newStore).put({ ...row, ...(item.failedStatus === undefined ? {} : { failedStatus: item.failedStatus, failedAt: item.failedAt }) }); old.delete(item.id);
+        } };
+      });
+    }
+  } notifyLocal();
+}
+/** Suppression volontaire après avertissement UI ; jamais rattacher owner NULL à un patient. */
+export async function purgeUnownedLegacy() {
+  await localTx(['mutations', 'failed'], 'readwrite', (tx) => {
+    for (const name of ['mutations', 'failed']) { const store = tx.objectStore(name); const r = store.getAll(); r.onsuccess = () => { for (const row of r.result) if (!row.owner) store.delete(row.id); }; }
+  }); notifyLocal();
 }

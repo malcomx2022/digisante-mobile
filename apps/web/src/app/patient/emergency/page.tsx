@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 
 import { normalizeBeninPhone } from '@digisante/shared';
 
+import { OfflineMedicalLink } from '@/components/offline/OfflineMedicalLink';
 import { PatientHeader } from '@/components/patient/PatientHeader';
 import { Button, CardPagne, Nkyinkyim } from '@/components/ui';
 import { ErrorState, Loading } from '@/components/ui/States';
@@ -90,6 +91,7 @@ export default function EmergencyCardPage() {
     <>
       <PatientHeader title={t('emergency.title')} subtitle={t('emergency.subtitle')} />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto lg:w-full">
+        <OfflineMedicalLink />
         {loading && <Loading label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
 

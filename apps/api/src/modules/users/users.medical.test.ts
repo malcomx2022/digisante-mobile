@@ -53,6 +53,7 @@ describe.skipIf(!HAS_INFRA)('Fiche médicale d’urgence (intégration)', () => 
     expect(patch.json().bloodGroup).toBe('O+');
 
     const get = await app.inject({ method: 'GET', url: '/api/v1/users/me/medical', headers: auth(patientToken) });
+    expect(get.headers['cache-control']).toBe('no-store');
     expect(get.statusCode).toBe(200);
     const body = get.json();
     expect(body.allergies).toContain('Pénicilline');

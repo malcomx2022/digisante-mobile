@@ -90,6 +90,12 @@ export async function buildServer() {
   // ── Gestion d'erreurs + hooks transverses (avant tout le reste) ──
   await app.register(errorHandler);
   await app.register(requestContext);
+  // L4 : aucun corps API/session médical dans le cache HTTP du navigateur/proxy.
+  // Le cache offline autorisé est uniquement la projection chiffrée explicite.
+  app.addHook('onSend', async (_request, reply, payload) => {
+    reply.header('Cache-Control', 'no-store');
+    return payload;
+  });
 
   // ── Sécurité de base ──
   await app.register(helmet);

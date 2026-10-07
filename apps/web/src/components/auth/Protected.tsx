@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { Fragment, useEffect } from 'react';
 
 import type { Role } from '@digisante/shared';
 
@@ -30,5 +30,5 @@ export function Protected({ role, children }: { role?: Role; children: React.Rea
       </div>
     );
   }
-  return <>{children}</>;
+  return <Fragment key={user?.id}>{children}</Fragment>;
 }

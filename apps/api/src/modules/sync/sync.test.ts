@@ -25,6 +25,9 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.REDIS_URL)('Reçus de 
     expect(retry.statusCode, retry.body).toBe(first.statusCode);
     expect(retry.json()).toEqual(first.json());
     expect(await app.prisma.mutationReceipt.count({ where: { userId: a, route: path, key: k } })).toBe(1);
+    const verification = await app.inject({ method: 'GET', url: `/api/v1/sync/receipts/${k}?method=${method}&route=${encodeURIComponent(path)}`, headers: { authorization: `Bearer ${token}`, 'x-forwarded-for': `192.0.2.${++ip}` } });
+    expect(verification.statusCode, verification.body).toBe(200);
+    expect(verification.json()).toEqual({ confirmed: true, status: first.statusCode });
     return first.json();
   }
   const subject = async () => (await send('/vaccinations/subjects', subjectBody)).json();
@@ -174,4 +177,49 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.REDIS_URL)('Reçus de 
       expect(retry.statusCode, retry.body).toBe(201); expect(retry.json()).toEqual(first.json());
     } finally { await restarted.close(); }
   });
+  const verify = (k: string, path = '/vaccinations/subjects', bearer = token, method = 'POST') => app.inject({ method: 'GET', url: `/api/v1/sync/receipts/${k}?method=${method}&route=${encodeURIComponent(path)}`, headers: bearer ? { authorization: `Bearer ${bearer}`, 'x-forwarded-for': `192.0.2.${++ip}` } : {} });
+  it('vérification L4 sans corps : reçu seulement, aucun résultat clinique ni nouvelle écriture', async () => {
+    const k = key(); const first = await send('/vaccinations/subjects', subjectBody, k);
+    expect(first.statusCode).toBe(201); const before = await app.prisma.vaccinationSubject.count();
+    const result = await verify(k); expect(result.statusCode).toBe(200); expect(result.json()).toEqual({ confirmed: true, status: 201 });
+    expect(result.headers['cache-control']).toBe('no-store');
+    expect(result.body).not.toContain(subjectBody.name); expect(await app.prisma.vaccinationSubject.count()).toBe(before);
+  });
+  it('ticket minimal L4 : clé seule suffit, sans divulguer route ni ressource', async () => {
+    const k = key(); await send('/vaccinations/subjects', subjectBody, k);
+    const result = await app.inject({ method: 'GET', url: `/api/v1/sync/receipts/${k}`, headers: { authorization: `Bearer ${token}` } });
+    expect(result.statusCode).toBe(200); expect(result.json()).toEqual({ confirmed: true, status: 201 });
+  });
+  it('ticket minimal ambigu sur deux routes : conflit conservateur, aucun effet supplémentaire', async () => {
+    const k = key(); await send('/vaccinations/subjects', subjectBody, k); await send(`/chat/threads/${thread}/read`, undefined, k);
+    const before = await app.prisma.mutationReceipt.count({ where: { userId: a, key: k } });
+    const result = await app.inject({ method: 'GET', url: `/api/v1/sync/receipts/${k}`, headers: { authorization: `Bearer ${token}` } });
+    expect(result.statusCode).toBe(409); expect(await app.prisma.mutationReceipt.count({ where: { userId: a, key: k } })).toBe(before);
+  });
+  it('vérification absente ou autre utilisateur : 404 sans tentative métier', async () => {
+    const k = key(); await send('/vaccinations/subjects', subjectBody, k); const before = await app.prisma.vaccinationSubject.count();
+    expect((await verify(k, '/vaccinations/subjects', otherToken)).statusCode).toBe(404);
+    expect((await verify(key())).statusCode).toBe(404); expect(await app.prisma.vaccinationSubject.count()).toBe(before);
+  });
+  it('vérification L4 : session, rôle et propriété courants obligatoires', async () => {
+    const k = key(); const result = await send('/vaccinations/subjects', subjectBody, k);
+    expect((await verify(k, '/vaccinations/subjects', '')).statusCode).toBe(401);
+    await app.prisma.user.update({ where: { id: a }, data: { status: 'SUSPENDED' } });
+    try { expect((await verify(k)).statusCode).toBe(401); } finally { await app.prisma.user.update({ where: { id: a }, data: { status: 'ACTIVE' } }); }
+    await app.prisma.user.update({ where: { id: a }, data: { role: 'DIASPORA' } });
+    try { expect((await verify(k)).statusCode).toBe(403); } finally { await app.prisma.user.update({ where: { id: a }, data: { role: 'PATIENT' } }); }
+    await app.prisma.vaccinationSubject.update({ where: { id: result.json().id }, data: { patientId: patientB } });
+    expect((await verify(k)).statusCode).toBe(404);
+  });
+  it('vérification refusée pour clé/méthode/route hors contrat', async () => {
+    expect((await verify('invalid')).statusCode).toBe(400);
+    expect((await verify(key(), '/payments')).statusCode).toBe(400);
+    expect((await verify(key(), '/vaccinations/subjects', token, 'PUT')).statusCode).toBe(422);
+  });
+  it('reçu expiré : vérification manuelle requise, aucun effet recréé', async () => {
+    const k = key(); await send('/vaccinations/subjects', subjectBody, k);
+    await app.prisma.mutationReceipt.updateMany({ where: { key: k }, data: { expiresAt: new Date(0) } });
+    expect((await verify(k)).statusCode).toBe(404);
+  });
+
 });

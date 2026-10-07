@@ -1,6 +1,6 @@
 # Contrat de synchronisation — lot L3
 
-> 6 octobre 2026. Contrat commun : `packages/shared/src/sync.ts`. Preuves et livraison : `suivi/LOT_L3.md`. Les corps locaux seront protégés au lot L4 ; ils restent en clair dans IndexedDB à ce stade.
+> 6 octobre 2026. Contrat commun : `packages/shared/src/sync.ts`. Preuves et livraison : `suivi/LOT_L3.md`. Contrat complété le 7 octobre par `CONTRAT_Hors_Ligne_L4.md` : corps scellés sous coffre ouvert, ticket minimal sans corps sinon ; héritage non migré toujours en clair et signalé.
 
 ## Routes couvertes
 
@@ -21,7 +21,7 @@ Argent, paiements, abonnements, SOS, OTP/session, consentements/partages DMP, re
 
 ## Identité avant le premier envoi
 
-Le client doit connaître le compte courant. Il prend une photographie JSON du corps, génère un UUID v4 et construit `Idempotency-Key: v1.<epoch-ms sur 13 chiffres>.<UUID-v4>`. UUID normalisé en minuscules côté serveur. L'identité, le compte, le corps et la route sont committés dans IndexedDB **avant fetch**, même en ligne. Échec du stockage : aucun envoi. Toutes les reprises emploient exactement la même clé ; ne jamais renouveler la clé pour un essai dont l'issue est inconnue.
+Le client doit connaître le compte courant. Il prend une photographie JSON du corps, génère un UUID v4 et construit `Idempotency-Key: v1.<epoch-ms sur 13 chiffres>.<UUID-v4>`. UUID normalisé en minuscules côté serveur. Sous le coffre L4 ouvert, l’identité, le compte et le corps/route chiffrés sont committés dans IndexedDB **avant fetch**. Sans coffre, seul un ticket minimal est persisté avant le premier envoi en ligne : reprise par GET reçu, jamais par un corps absent. Échec du stockage : aucun envoi. Toutes les reprises emploient exactement la même clé ; ne jamais renouveler la clé pour un essai dont l'issue est inconnue.
 
 Portée serveur : `(userId, méthode, chemin canonique complet incluant l'identifiant, clé)`. Les clés JSON sont triées récursivement ; une empreinte HMAC-SHA256 compare le contenu reçu, y compris les champs supplémentaires. L'ordre des propriétés JSON ne change pas le contenu ; une valeur différente produit 409. Deux actions volontaires distinctes ont deux clés. Ni l'identifiant de ligne ni la seule similitude du corps ne prouvent une même action.
 
@@ -58,7 +58,7 @@ Le hint chat Redis est publié après commit, en best-effort, uniquement pour un
 
 La file est ordonnée ; un flush unique par onglet évite les envois doublés locaux. Deux onglets partagent la même entrée IndexedDB et la même clé ; la transaction serveur arbitre leurs envois. L'ordre global entre deux onglets et deux actions **distinctes** n'est pas garanti par ce lot. Un changement de compte arrête chaque envoi et sa reprise après refresh ; aucune mutation de A ne part avec le jeton de B. Le propriétaire est posé immédiatement par AuthProvider ; reprise déclenchée après restauration de session et au retour du réseau.
 
-IndexedDB v3 conserve les anciennes entrées. Sans identité démontrable ou pour une route désormais exclue : archivage 409, aucun nouveau UUID et aucun envoi automatique. Les entrées sans propriétaire attendent une revue manuelle et ne sont pas rattachées au compte courant. Les helpers `allFailed`/`removeFailed` existent pour diagnostic/revue ; il n'y a pas encore d'interface complète de reprise manuelle. Ne pas recréer automatiquement une action expirée/ambiguë : vérifier l'effet réel avant toute nouvelle saisie volontaire. Déconnexion explicite : purge locale existante ; expiration de session : conservation pour réauthentification. Chiffrement local, politique de purge/clé et UX de disponibilité/reprise restent L4.
+IndexedDB v4 conserve les anciennes entrées v3 pour migration explicite par compte sous le coffre L4 ouvert. Sans identité démontrable ou pour une route désormais exclue : archivage 409, aucun nouveau UUID et aucun envoi automatique. Les entrées sans propriétaire attendent une revue manuelle et ne sont pas rattachées au compte courant. Les helpers `allFailed`/`removeFailed` et l’interface L4 du coffre/profil servent à la vérification et à l’effacement volontaire après revue. Ne pas recréer automatiquement une action expirée/ambiguë : vérifier l'effet réel avant toute nouvelle saisie volontaire. Déconnexion explicite : purge locale existante ; expiration de session : conservation pour réauthentification. Chiffrement local, politique de purge/clé et UX de disponibilité/reprise restent L4.
 
 ## Vérifier et déployer
 

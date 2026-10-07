@@ -4,8 +4,9 @@
 // ─────────────────────────────────────────────────────────────
 import { MUTATION_CLOCK_SKEW_MS, MUTATION_MAX_AGE_MS, isReplayableMutation, mutationKeyTime, type ApiError } from '@digisante/shared';
 
+import { isVaultOpen, VaultLockedError } from '@/lib/offline/vault';
 import { isOnline } from '@/lib/offline/online';
-import { archiveFailed, enqueue, flush, getQueueOwner, hasReplayIdentity, PermanentReplayError, remove, type QueuedMutation } from '@/lib/offline/queue';
+import { allFailed, allQueued, archiveFailed, enqueue, flush, getQueueOwner, hasReplayIdentity, PermanentReplayError, remove, type QueuedMutation } from '@/lib/offline/queue';
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? '';
 const PREFIX = '/api/v1';
@@ -22,6 +23,10 @@ export class ApiRequestError extends Error {
     super(error.message);
     this.name = 'ApiRequestError';
   }
+}
+/** Indisponibilité réseau/serveur : ne prouve pas une révocation de session. */
+export class RefreshUnavailableError extends Error {
+  constructor() { super('Renouvellement de session temporairement indisponible'); this.name = 'RefreshUnavailableError'; }
 }
 
 /** Jeton d'accès courant (injecté par la couche auth en P5.4). */
@@ -68,7 +73,10 @@ function refreshOnce(): Promise<string | null> {
   if (!refreshHandler) return Promise.resolve(null);
   if (!refreshInFlight) {
     refreshInFlight = refreshHandler()
-      .catch(() => null)
+      .catch((error) => {
+        if (error instanceof ApiRequestError && [401, 403].includes(error.status)) return null;
+        throw new RefreshUnavailableError();
+      })
       .finally(() => {
         refreshInFlight = null;
       });
@@ -135,7 +143,7 @@ export async function get<T>(path: string, opts: number | GetOptions = {}): Prom
     typeof opts === 'number' ? { retries: opts, headers: undefined } : opts;
   try {
     const res = await withAuthRetry(path, () =>
-      fetch(`${BASE}${PREFIX}${path}`, { headers: headers(extra), credentials: 'include' }),
+      fetch(`${BASE}${PREFIX}${path}`, { headers: headers(extra), credentials: 'include', cache: 'no-store' }),
     );
     return await parse<T>(res);
   } catch (err) {
@@ -152,7 +160,7 @@ export async function get<T>(path: string, opts: number | GetOptions = {}): Prom
  */
 export async function getBlob(path: string): Promise<Blob> {
   const res = await withAuthRetry(path, () =>
-    fetch(`${BASE}${PREFIX}${path}`, { headers: headers(), credentials: 'include' }),
+    fetch(`${BASE}${PREFIX}${path}`, { headers: headers(), credentials: 'include', cache: 'no-store' }),
   );
   if (!res.ok) throw new ApiRequestError(res.status, { code: 'HTTP_ERROR', message: `HTTP ${res.status}` });
   return res.blob();
@@ -192,17 +200,23 @@ export async function mutate<T>(
   const covered = isQueueable(path, method);
   if (!isOnline() && (opts.queue === false || !covered)) throw new OfflineError();
   if (covered && opts.queue !== false && !getQueueOwner()) throw new Error('Session requise pour cette mutation');
-  // Une seule photographie JSON pour la file et le premier envoi.
+  if (covered && opts.queue !== false && !isOnline() && !isVaultOpen()) throw new VaultLockedError();
+  const mutationOwner = getQueueOwner();
+  // Photographie synchrone avant tout await : l'appelant ne peut plus modifier le corps.
   body = body === undefined ? undefined : JSON.parse(JSON.stringify(body));
+  if (covered && opts.queue !== false) {
+    if ((await Promise.all([allQueued(), allFailed()])).flat().some((m) => m.onlineOnly)) throw new Error('Action précédente à vérifier avant une nouvelle saisie');
+    if (mutationOwner !== getQueueOwner()) throw new VaultLockedError();
+  }
   // Persister AVANT fetch : la fermeture d'onglet après commit serveur reste reprenable.
-  const pending = covered && opts.queue !== false ? await enqueue({ method, path, body }) : null;
+  const pending = covered && opts.queue !== false ? await enqueue({ method, path, body, onlineOnly: !isVaultOpen() }) : null;
   const key = pending?.idempotencyKey ?? (covered ? `v1.${Date.now()}.${crypto.randomUUID()}` : undefined);
   if (!isOnline()) return { queued: true };
   try {
     const res = await withAuthRetry(path, () => {
-      if (pending && pending.owner !== getQueueOwner()) throw new Error('Session de mutation changée');
+      if (pending && (pending.owner !== getQueueOwner() || (!pending.onlineOnly && !isVaultOpen()))) throw new VaultLockedError();
       return fetch(`${BASE}${PREFIX}${path}`, {
-        method, headers: headers(key ? { 'Idempotency-Key': key } : undefined, body !== undefined),
+        method, cache: 'no-store', headers: headers(key ? { 'Idempotency-Key': key } : undefined, body !== undefined),
         credentials: 'include', body: body === undefined ? undefined : JSON.stringify(body),
       });
     });
@@ -227,15 +241,30 @@ export async function mutate<T>(
  */
 export async function flushQueue(): Promise<{ flushed: number; failed: number }> {
   return flush(async (m) => {
-    if (!isQueueable(m.path, m.method) || !hasReplayIdentity(m)) throw new PermanentReplayError(409);
+    if ((!m.onlineOnly && !isQueueable(m.path, m.method)) || !hasReplayIdentity(m)) throw new PermanentReplayError(409);
     const createdAt = mutationKeyTime(m.idempotencyKey!)!;
+    if (m.onlineOnly) {
+      const verifyPath = `/sync/receipts/${m.idempotencyKey}`;
+      const receipt = await withAuthRetry(verifyPath, () => {
+        if (m.owner !== getQueueOwner()) throw new Error('Session de mutation changée');
+        return fetch(`${BASE}${PREFIX}${verifyPath}`, { headers: headers(), credentials: 'include', cache: 'no-store' });
+      });
+      if (receipt.ok) {
+        const confirmation = await receipt.json().catch(() => null);
+        if (confirmation?.confirmed === true && confirmation.status >= 200 && confirmation.status < 300) return;
+        throw new Error('Confirmation de reçu invalide');
+      }
+      if ([401, 408, 429].includes(receipt.status) || receipt.status >= 500) throw new Error('retry');
+      // Sans corps on ne peut pas tenter l'effet : conserver l'identité pour revue.
+      throw new PermanentReplayError(receipt.status);
+    }
     const age = Date.now() - createdAt;
     if (age > MUTATION_MAX_AGE_MS) throw new PermanentReplayError(410);
     if (age < -MUTATION_CLOCK_SKEW_MS) throw new PermanentReplayError(400);
     const res = await withAuthRetry(m.path, () => {
-      if (m.owner !== getQueueOwner()) throw new Error('Session de mutation changée');
+      if (m.owner !== getQueueOwner() || !isVaultOpen()) throw new VaultLockedError();
       return fetch(`${BASE}${PREFIX}${m.path}`, {
-        method: m.method,
+        method: m.method, cache: 'no-store',
         headers: headers({ 'Idempotency-Key': m.idempotencyKey! }, m.body !== undefined),
         credentials: 'include', body: m.body === undefined ? undefined : JSON.stringify(m.body),
       });
@@ -245,7 +274,7 @@ export async function flushQueue(): Promise<{ flushed: number; failed: number }>
     if (res.status === 401 || res.status === 408 || res.status === 429 || res.status >= 500) throw new Error('retry');
     // 4xx : rejet définitif. On NE perd PAS la donnée : journalisation + archivage.
     console.warn(
-      `[offline] mutation rejetée au rejeu (${res.status}) : ${m.method} ${m.path} — conservée dans le magasin d'échecs`,
+      `[offline] mutation rejetée au rejeu (${res.status}) — conservée pour vérification`,
     );
     throw new PermanentReplayError(res.status);
   });

@@ -3,7 +3,7 @@
 > Cible : VPS Ubuntu 22.04 LTS. PostgreSQL 16 **natif**, Redis natif, Nginx + SSL Certbot,
 > PM2 (API cluster ×2 + web). **Aucun Docker en prod** (CLAUDE.md §3). Scripts : `infra/deploy/`.
 
-> État de finalisation au 6 octobre 2026 : L0–L2 livrés sur main ; L3 candidate (LOT_L3/PR). Aucun déploiement ou GO pilote attesté ; L4–L11 et la recette réelle restent à traiter.
+> État de finalisation au 7 octobre 2026 : L0–L3 livrés sur main ; L4 candidate (LOT_L4/PR). Aucun déploiement ou GO pilote attesté ; L5–L11 et la recette réelle restent à traiter.
 
 ## 0. Pré-requis
 - [ ] Nom de domaine pointant (A) vers l'IP du VPS (`digisante.example.bj` + `www`).
@@ -28,6 +28,7 @@
 - [ ] L1 : sauvegarde validée, maintenance et anciens workers API arrêtés avant `20261006144830_dmp_entry_expiry_authorship` ; redémarrer uniquement le code avec contrôle d'échéance par entrée. Prévenir les patients que les anciens liens nécessitent un nouveau partage. Pas de retour à l'ancien guard sur les liens NULL ; procédure détaillée `docs/suivi/LOT_L1.md`.
 - [ ] L2 : annoncer la validation obligatoire des laboratoires, arrêter les anciens workers puis appliquer `20261006154628_laboratory_verification` avant le nouveau code. Aucune approbation héritée, commandes conservées/gelées jusqu'à habilitation ; procédure complète dans LOT_L2.
 - [ ] L3 : sauvegarde, arrêt des anciens workers et migration `20261006164320_mutation_receipts` avant démarrage homogène ; renouveler les clients/SW, valider rejeu et cron `/sync/receipts/prune` à 03:10. Aucun backfill/rejeu des anciennes files ambiguës, aucun rollback vers un serveur ignorant les clés ; contrat et reprise dans LOT_L3.
+- [ ] L4 : déployer API/client/SW v3 homogènes, fermer les anciens onglets ; tester upgrade IndexedDB v3→v4, erreur quota/blocked et tickets GET. Migrer chaque compte ou effacer volontairement après vérification des effets ; aucun appareil partagé/pilote avec héritage en clair. Vérifier cache public sans API/RSC/jetons, API Cache-Control et fetch no-store, vider les anciens caches HTTP navigateur avant partage ; reload sans réseau puis phrase, lock/TTL/purge. Contrat/limites dans LOT_L4 et CONTRAT_Hors_Ligne_L4 ; rollback client v3 incompatible, privilégier correction en avant.
 - [ ] Revue administrative explicite de chaque structure : responsable + autorisation, identité figée et toutes les pièces vérifiées. Tester non-vérifié/refusé/suspendu, concurrence d'attribution et lecture patient/médecin. Pas de retour au guard sans badge ni réattribution automatique.
 - [ ] `sudo -u digisante bash infra/deploy/scripts/deploy.sh`
       → install gelé → `prisma generate` → **`migrate deploy`** → `pnpm build` → `pm2 startOrReload`.
@@ -80,13 +81,13 @@
 
 ---
 
-**Contrôles techniques actuels ; ouverture pilote non attestée.** Le code (backend **28 modules** / **166 endpoints REST + 1 WS**
-+ frontend **7 espaces**, **67 pages**) est testé (**524 tests verts** — 460 API + 64 web, + 9 e2e
-Playwright — preuves du 6 octobre 2026 dans LOT_L3), l'infra scriptée. Restent la finalisation L4–L11, la validation humaine et l'exécution sur
+**Contrôles techniques actuels ; ouverture pilote non attestée.** Le code (backend **28 modules** / **167 endpoints REST + 1 WS**
++ frontend **7 espaces**, **67 pages**) est testé (**570 tests verts** — 467 API + 103 web, + 15 e2e
+Playwright — preuves du 7 octobre 2026 dans LOT_L4), l'infra scriptée. Restent la finalisation L5–L11, la validation humaine et l'exécution sur
 le VPS réel (étapes ci-dessus).
 
 > Les revues d'écarts sont **closes** : `docs/REVUE_Ecarts_et_Plan_2026-08.md` (C1→C9) et
-> `docs/AUDIT_Fonctionnel_2026-08.md` (D1→D10). Ces clôtures historiques ne ferment pas le plan actif L4–L11 ni ses conditions de GO pilote.
+> `docs/AUDIT_Fonctionnel_2026-08.md` (D1→D10). Ces clôtures historiques ne ferment pas le plan actif L5–L11 ni ses conditions de GO pilote.
 
 ## 9. Deux points à traiter AVANT les premiers patients réels
 
