@@ -13,6 +13,10 @@ describe('generateOtp', () => {
 });
 
 describe('hashOtp', () => {
+  it('la clé serveur modifie l’empreinte sans exposer le secret', () => {
+    expect(hashOtp('+229', '123456', 'cle-a')).not.toBe(hashOtp('+229', '123456', 'cle-b'));
+    expect(hashOtp('+229', '123456', 'cle-a')).not.toContain('cle-a');
+  });
   it('est déterministe pour un même (phone, code)', () => {
     expect(hashOtp('+2290197000000', '123456')).toBe(hashOtp('+2290197000000', '123456'));
   });

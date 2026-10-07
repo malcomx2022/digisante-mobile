@@ -35,7 +35,7 @@ test.describe('inscription et session', () => {
     await expect(page).toHaveURL(/\/onboarding$/);
   });
 
-  test('un numéro déjà inscrit ne peut pas se réinscrire (409)', async ({ page }) => {
+  test('réinscription : réponse générique et OTP, sans révéler l’existence du compte', async ({ page }) => {
     const phone = uniquePhone();
     await registerAndLogin(page, { phone, firstName: 'Yao', lastName: 'Doublon' });
     await expect(page).toHaveURL(/\/patient$/);
@@ -47,7 +47,7 @@ test.describe('inscription et session', () => {
     await page.getByLabel(/téléphone|phone/i).fill(phone);
     await page.getByRole('button', { name: /recevoir le code|send code/i }).click();
 
-    // Message d'erreur traduit, pas un écran blanc ni un code envoyé.
-    await expect(page.getByText(/déjà utilisé|already/i)).toBeVisible();
+    await expect(page.getByText(/si ce numéro|if this number/i)).toBeVisible();
+    await expect(page.getByText(/déjà utilisé|already used/i)).toHaveCount(0);
   });
 });

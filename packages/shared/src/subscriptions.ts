@@ -27,5 +27,5 @@ export function isFedapayCheckoutUrl(value: unknown): value is string {
   if (typeof value !== 'string') return false;
   // zod valide l'URL WHATWG ; la grammaire de l'autorité interdit credentials,
   // ports arbitraires, antislashs, espaces et suffixes trompeurs.
-  return z.string().url().safeParse(value).success && /^https:\/\/([a-z0-9-]+\.)*fedapay\.com(?::443)?(?:[/?#]|$)/i.test(value);
+  return z.string().url().safeParse(value).success && /^https:\/\/(?:checkout|sandbox-checkout)\.fedapay\.com(?::443)?(?:[/?#]|$)/i.test(value) && !/[\\\s]/.test(value) && ![...value].some((char) => char.charCodeAt(0) < 32);
 }

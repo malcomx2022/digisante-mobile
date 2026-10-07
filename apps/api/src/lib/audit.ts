@@ -67,10 +67,12 @@ export async function writeAuditWithin(tx: Prisma.TransactionClient, entry: Audi
   // lire le même dernier hash et forker la chaîne d'intégrité. Libéré au commit.
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(4021957)`;
   const last = await tx.auditLog.findFirst({
-    orderBy: { createdAt: 'desc' },
-    select: { hash: true },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    select: { hash: true, createdAt: true },
   });
-  const createdAt = new Date();
+  // Un départage par CUID seul ne garantit pas l'ordre causal des insertions.
+  // Horloge logique sous le verrou : égalité/recul d'horloge → dernier + 1 ms.
+  const createdAt = new Date(Math.max(Date.now(), last ? last.createdAt.getTime() + 1 : 0));
   const prevHash = last?.hash ?? null;
   const hash = computeAuditHash(prevHash, entry, createdAt.toISOString());
 

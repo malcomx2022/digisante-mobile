@@ -151,7 +151,7 @@ export async function sendPush(opts: {
 
     const json = (await res.json().catch(() => ({}))) as { error?: { status?: string } };
     const { invalidToken } = classifyFcmError(res.status, json.error?.status);
-    log.warn({ status: res.status, fcm: json.error?.status }, '[FCM] envoi non abouti');
+    log.warn({ status: res.status, invalidToken }, '[FCM] envoi non abouti');
     return { delivered: false, stub: false, invalidToken };
   } catch (err) {
     log.error({ err }, '[FCM] erreur réseau lors de l’envoi push');

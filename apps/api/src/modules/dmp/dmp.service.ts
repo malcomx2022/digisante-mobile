@@ -9,7 +9,7 @@ import { randomBytes } from 'node:crypto';
 import type { MedicalRecordType, Role, ShareType } from '@digisante/shared';
 import type { FastifyInstance } from 'fastify';
 
-import { writeAudit } from '@/lib/audit.js';
+import { writeAudit, writeAuditWithin } from '@/lib/audit.js';
 import { openMedicalData, sealMedicalData } from '@/lib/crypto.js';
 import { assertDmpAccess, resolveDmpScope, syncLegacyConsentExpiry, withDmpConsentLock } from '@/lib/dmp-consent.js';
 import { badRequest, forbidden, notFound } from '@/lib/errors.js';
@@ -244,8 +244,8 @@ export async function shareRecord(
       where: { id: recordId },
       data: { shareToken, shareType: input.shareType, shareExpiry },
     });
+    await writeAuditWithin(tx, { action: 'DMP_SHARE', actorId: patientUserId, targetId: recordId, ip, meta: { shareType: input.shareType, ttlHours: input.ttlHours } });
   });
-  await writeAudit(app.prisma, { action: 'DMP_SHARE', actorId: patientUserId, targetId: recordId, ip, meta: { shareType: input.shareType, ttlHours: input.ttlHours } });
   return { shareToken, shareType: input.shareType, expiresAt: shareExpiry };
 }
 
@@ -317,18 +317,16 @@ export async function revokeConsent(
   ip?: string | null,
 ) {
   const patientId = await ownPatientId(app, patientUserId);
-  const changed = await withDmpConsentLock(app, patientId, async (tx) => {
+  await withDmpConsentLock(app, patientId, async (tx) => {
     const consent = await tx.consent.findUnique({
       where: { patientId_granteeId: { patientId, granteeId } }, select: { id: true, revokedAt: true },
     });
     if (!consent) throw notFound('Consentement introuvable');
     if (consent.revokedAt) return false;
     await tx.consent.update({ where: { id: consent.id }, data: { revokedAt: new Date() } });
+    await writeAuditWithin(tx, { action: 'DMP_CONSENT_REVOKE', actorId: patientUserId, targetId: granteeId, ip });
     return true;
   });
-  if (changed) {
-    await writeAudit(app.prisma, { action: 'DMP_CONSENT_REVOKE', actorId: patientUserId, targetId: granteeId, ip });
-  }
   return { revoked: true };
 }
 
@@ -361,14 +359,9 @@ export async function regrantConsent(
     // Cela n'accorde aucun accès : une nouvelle réclamation valide reste nécessaire.
     await tx.consent.update({ where: { id: consent.id }, data: { revokedAt: null, grantedVia: 'regrant' } });
     await syncLegacyConsentExpiry(tx, consent.id);
+    await writeAuditWithin(tx, { action: 'DMP_CONSENT_GRANT', actorId: patientUserId, targetId: granteeId, ip,
+      meta: { via: 'regrant', ttlHours, recordCount: result.count } });
     return result.count;
-  });
-  await writeAudit(app.prisma, {
-    action: 'DMP_CONSENT_GRANT',
-    actorId: patientUserId,
-    targetId: granteeId,
-    ip,
-    meta: { via: 'regrant', ttlHours, recordCount },
   });
   return { granteeId, expiresAt, recordCount, requiresNewShare: recordCount === 0 };
 }
@@ -384,6 +377,7 @@ export async function revokeShare(app: FastifyInstance, patientUserId: string, r
   await withDmpConsentLock(app, record.patientId, async (tx) => {
     await tx.medicalRecord.update({ where: { id: recordId }, data: { shareToken: null, shareType: null, shareExpiry: null } });
     await tx.consentRecord.deleteMany({ where: { recordId } });
+    await writeAuditWithin(tx, { action: 'DMP_SHARE_REVOKE', actorId: patientUserId, targetId: recordId });
   });
   return { revoked: true };
 }

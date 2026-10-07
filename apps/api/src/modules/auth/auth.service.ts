@@ -10,8 +10,8 @@ import { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
 import { writeAudit } from '@/lib/audit.js';
-import { env } from '@/lib/env.js';
-import { badRequest, conflict, notFound, tooManyRequests, unauthorized } from '@/lib/errors.js';
+import { env, refreshTtlSeconds } from '@/lib/env.js';
+import { tooManyRequests, unauthorized } from '@/lib/errors.js';
 import {
   generateOtp,
   hashOtp,
@@ -24,7 +24,7 @@ import {
 } from './auth.otp.js';
 import { sendOtp, type OtpChannel } from '@/services/twilio.js';
 
-const REFRESH_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 jours
+const invalidOtp = () => unauthorized('Code invalide ou expiré. Demandez un nouveau code.');
 
 interface PublicUser {
   id: string;
@@ -70,8 +70,8 @@ function otpResponse(channel: OtpChannel, code: string) {
   return {
     channel,
     expiresInSec: OTP_TTL_SECONDS,
-    // Confort dev/test : le code n'est JAMAIS renvoyé en production.
-    ...(env.NODE_ENV !== 'production' ? { devCode: code } : {}),
+    // Diagnostic des tests synthétiques seulement : le code n'est JAMAIS renvoyé en production.
+    ...(env.NODE_ENV === 'test' ? { devCode: code } : {}),
   };
 }
 
@@ -94,13 +94,14 @@ async function ensureNotLocked(app: FastifyInstance, phone: string): Promise<voi
 
 /** Signe access + refresh et enregistre le jti du refresh dans l'allowlist Redis. */
 async function issueTokens(app: FastifyInstance, userId: string, role: Role) {
+  const refreshTtl = refreshTtlSeconds(env.JWT_REFRESH_TTL);
   const accessToken = app.jwt.sign({ sub: userId, role }, { expiresIn: env.JWT_ACCESS_TTL });
   const jti = randomUUID();
   const refreshToken = app.jwt.sign(
     { sub: userId, role, typ: 'refresh', jti },
-    { expiresIn: REFRESH_TTL_SECONDS },
+    { expiresIn: refreshTtl },
   );
-  await app.redis.set(refreshKey(jti), userId, 'EX', REFRESH_TTL_SECONDS);
+  await app.redis.set(refreshKey(jti), userId, 'EX', refreshTtl);
   return { accessToken, refreshToken };
 }
 
@@ -108,14 +109,17 @@ async function generateAndSendOtp(
   app: FastifyInstance,
   user: { phone: string; lang: string },
   channel: OtpChannel,
+  quotaChecked = false,
+  deliver = true,
 ): Promise<string> {
-  await assertSendQuota(app, user.phone);
+  if (!quotaChecked) await assertSendQuota(app, user.phone);
   const code = generateOtp();
   await app.redis.set(otpKey(user.phone), hashOtp(user.phone, code), 'EX', OTP_TTL_SECONDS);
   // Le compteur d'échecs n'est PAS remis à zéro par un nouvel envoi : sinon
   // « 4 essais → nouveau code → 4 essais… » contournait le verrou de 5 échecs.
   // Il ne se remet à zéro que sur un succès (ou au déverrouillage support).
-  await sendOtp({ app, to: user.phone, code, channel, lang: user.lang });
+  // Numéro inconnu : même état de vérification et quotas, aucun SMS payant.
+  if (deliver) await sendOtp({ app, to: user.phone, code, channel, lang: user.lang });
   return code;
 }
 
@@ -132,6 +136,8 @@ export async function register(app: FastifyInstance, input: RegisterInput) {
   // persistance pour que User.phone (et Pharmacy/Lab.phone) reste canonique.
   // Les numéros diaspora (autre indicatif) sont laissés intacts par le helper.
   const phone = normalizeBeninPhone(input.phone);
+  await ensureNotLocked(app, phone);
+  await assertSendQuota(app, phone);
   try {
     const user = await app.prisma.$transaction(async (tx) => {
       const created = await tx.user.create({
@@ -206,17 +212,15 @@ export async function register(app: FastifyInstance, input: RegisterInput) {
       return created;
     });
 
-    const code = await generateAndSendOtp(app, user, 'SMS');
-    return { user: publicUser(user), otp: otpResponse('SMS', code) };
+    const code = await generateAndSendOtp(app, user, 'SMS', true);
+    // L'identité n'est publique qu'après possession du téléphone. Diagnostic CI seulement.
+    return { ...(env.NODE_ENV === 'test' ? { user: publicUser(user) } : {}), otp: otpResponse('SMS', code) };
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-      // target indique le ou les champs en conflit (unique).
-      const target = err.meta?.target;
-      const fields = Array.isArray(target) ? target.join(',') : String(target ?? '');
-      if (fields.includes('licenseNumber')) {
-        throw conflict("Ce numéro d'ordre / de licence est déjà utilisé");
-      }
-      throw conflict('Un compte existe déjà pour ce numéro ou cet e-mail');
+      // Téléphone/e-mail/licence en conflit : réponse identique, aucun profil modifié.
+      const existing = await app.prisma.user.findUnique({ where: { phone }, select: { phone: true, lang: true } });
+      const code = await generateAndSendOtp(app, existing ?? { phone, lang: input.lang }, 'SMS', true, Boolean(existing));
+      return { otp: otpResponse('SMS', code) };
     }
     throw err;
   }
@@ -234,8 +238,7 @@ export async function requestOtp(
     where: { phone },
     select: { phone: true, lang: true },
   });
-  if (!user) throw notFound('Aucun compte associé à ce numéro');
-  const code = await generateAndSendOtp(app, user, input.channel);
+  const code = await generateAndSendOtp(app, user ?? { phone, lang: 'FR' }, input.channel, false, Boolean(user));
   return otpResponse(input.channel, code);
 }
 
@@ -250,7 +253,6 @@ export async function verifyOtp(
   await ensureNotLocked(app, phone);
 
   const stored = await app.redis.get(otpKey(phone));
-  if (!stored) throw badRequest('Code expiré ou inexistant. Demandez un nouveau code.');
 
   // Compté AVANT la comparaison (INCR atomique) : des vérifications lancées en
   // parallèle obtiennent chacune un rang distinct, donc au plus OTP_MAX_ATTEMPTS
@@ -264,7 +266,7 @@ export async function verifyOtp(
     throw tooManyRequests("Trop d'échecs. Compte verrouillé 30 minutes.");
   }
 
-  if (!safeEqualHex(stored, hashOtp(phone, input.code))) {
+  if (!stored || !safeEqualHex(stored, hashOtp(phone, input.code))) {
     await writeAudit(app.prisma, { action: 'AUTH_FAIL', ip, meta: { phone, attempts } });
 
     if (attempts >= OTP_MAX_ATTEMPTS) {
@@ -273,16 +275,23 @@ export async function verifyOtp(
       await writeAudit(app.prisma, { action: 'AUTH_LOCKOUT', ip, meta: { phone } });
       throw tooManyRequests("Trop d'échecs. Compte verrouillé 30 minutes.");
     }
-    throw unauthorized(`Code invalide (${OTP_MAX_ATTEMPTS - attempts} tentative(s) restante(s))`);
+    throw invalidOtp();
   }
 
-  await app.redis.del(otpKey(phone), attemptsKey(phone));
+  // Un seul vérificateur peut consommer le code ; un renvoi concurrent ne doit
+  // pas être effacé par la vérification de l'ancien code lu avant ce renvoi.
+  const consumed = await app.redis.eval(`
+    if redis.call('GET', KEYS[1]) ~= ARGV[1] then return 0 end
+    redis.call('DEL', KEYS[1], KEYS[2])
+    return 1
+  `, 2, otpKey(phone), attemptsKey(phone), stored);
+  if (consumed !== 1) throw invalidOtp();
 
   const user = await app.prisma.user.findUnique({
     where: { phone },
     select: { id: true, phone: true, email: true, role: true, status: true, lang: true },
   });
-  if (!user) throw notFound('Compte introuvable');
+  if (!user) throw invalidOtp();
 
   // Compte suspendu : refuser la délivrance de jetons. La suspension doit bloquer
   // la reconnexion par OTP, pas seulement l'accès en cours (§4).

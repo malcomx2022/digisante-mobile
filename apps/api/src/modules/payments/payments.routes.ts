@@ -6,7 +6,7 @@ import { PAYMENT_METHODS, PAYMENT_TYPES } from '@digisante/shared';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
-import { env } from '@/lib/env.js';
+import { isValidServiceToken } from '@/lib/service-token.js';
 import { unauthorized } from '@/lib/errors.js';
 import { getIntegration } from '@/lib/integrations.js';
 import { zParse } from '@/lib/validation.js';
@@ -68,7 +68,7 @@ export default async function paymentsRoutes(app: FastifyInstance) {
   // Réconciliation (cron interne) — protégée par jeton de service.
   app.post('/reconcile', async (request) => {
     const token = request.headers['x-service-token'];
-    if (!env.RECONCILE_TOKEN || token !== env.RECONCILE_TOKEN) {
+    if (!isValidServiceToken(token)) {
       throw unauthorized('Jeton de service invalide');
     }
     return payments.reconcile(app);

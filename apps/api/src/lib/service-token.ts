@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 // Jeton de service des tâches internes (cron : générateurs, dispatch). Comparaison
 // en TEMPS CONSTANT ; refus si le jeton n'est pas configuré (fail-closed).
-// ⚠️ La route de réconciliation FedaPay (zone gelée §5) garde sa propre comparaison.
+// Réutilisé aussi par la réconciliation FedaPay (revue §5 L8).
 // ─────────────────────────────────────────────────────────────
 import { createHash, timingSafeEqual } from 'node:crypto';
 

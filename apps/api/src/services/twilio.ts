@@ -43,13 +43,13 @@ export async function twilioPost(
     });
     const data = (await res.json().catch(() => ({}))) as { sid?: string; code?: number; more_info?: string };
     if (!res.ok) {
-      log.error({ status: res.status, twilioCode: data.code, moreInfo: data.more_info, to: maskPhone(params.To) }, `[Twilio] ${resource} en échec`);
+      log.error({ status: res.status, ...(typeof data.code === 'number' && Number.isSafeInteger(data.code) ? { twilioCode: data.code } : {}), to: maskPhone(params.To) }, `[Twilio] ${resource} en échec`);
       return { ok: false };
     }
     return { ok: true, sid: data.sid };
-  } catch (err) {
+  } catch {
     // Erreur réseau : on ne crashe jamais l'appelant (CLAUDE.md §4, l'urgence prime).
-    log.error({ err: err instanceof Error ? err.message : String(err) }, `[Twilio] erreur réseau ${resource}`);
+    log.error({ operation: resource }, '[Twilio] erreur réseau');
     return { ok: false };
   }
 }
@@ -75,7 +75,7 @@ export async function sendOtp(opts: SendOtpOptions): Promise<{ delivered: boolea
   const log = opts.app.log;
   const creds = await resolveCreds(opts.app);
   if (!creds) {
-    // Code lisible en dev/test seulement : en production, un stub = Twilio non
+    // Code lisible en test seulement : en production, un stub = Twilio non
     // configuré, et un code OTP dans les journaux permettrait de prendre le compte.
     log.warn(
       { to: maskPhone(opts.to), channel: opts.channel, lang: opts.lang },

@@ -1,5 +1,11 @@
 import { z } from 'zod';
 
+/** TTL explicite en secondes/minutes/heures/jours, borné à 90 jours. */
+export function refreshTtlSeconds(ttl: string): number {
+  const match = /^(\d+)(s|m|h|d)$/.exec(ttl);
+  return match ? Number(match[1]) * ({ s: 1, m: 60, h: 3600, d: 86400 }[match[2] as 's' | 'm' | 'h' | 'd']) : NaN;
+}
+
 // NODE_ENV est REQUIS (aucun défaut) : un environnement qui ne le déclare pas est
 // une erreur de configuration, pas un mode « développement » silencieux (fail-safe).
 export const envSchema = z.object({
@@ -13,7 +19,10 @@ export const envSchema = z.object({
 
   // ── JWT (durées de vie) ──
   JWT_ACCESS_TTL: z.string().default('15m'),
-  JWT_REFRESH_TTL: z.string().default('30d'),
+  JWT_REFRESH_TTL: z.string().default('30d').refine((v) => {
+    const seconds = refreshTtlSeconds(v);
+    return Number.isSafeInteger(seconds) && seconds >= 1 && seconds <= 90 * 86400;
+  }, 'JWT_REFRESH_TTL doit être un entier suivi de s/m/h/d, entre 1 seconde et 90 jours'),
 
   // ── Twilio (SMS / OTP vocal) — optionnel : stub si absent ──
   TWILIO_ACCOUNT_SID: z.string().optional(),

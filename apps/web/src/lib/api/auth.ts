@@ -47,7 +47,7 @@ export interface RegisterBody {
 
 export const authApi = {
   register: (body: RegisterBody) =>
-    api.postNow<{ user: AuthUser; otp: OtpInfo }>('/auth/register', body).then(online),
+    api.postNow<{ user?: AuthUser; otp: OtpInfo }>('/auth/register', body).then(online),
   requestOtp: (body: { phone: string; channel?: 'SMS' | 'VOICE' }) =>
     api.postNow<OtpInfo>('/auth/otp/request', body).then(online),
   // Le refresh token n'est plus dans le corps : il est posé en cookie HttpOnly (C6).

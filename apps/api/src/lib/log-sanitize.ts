@@ -6,9 +6,9 @@
 // dans les journaux applicatifs / d'agrégation.
 // ─────────────────────────────────────────────────────────────
 
-/** Masque les paramètres de query sensibles (token / access_token) d'une URL loggée. */
+/** Aucun argument/fragment journalisé, même une clé encodée ou inconnue. */
 export function sanitizeLogUrl(url: string): string {
-  return url.replace(/([?&](?:token|access_token)=)[^&]*/gi, '$1[redacted]');
+  return url.split(/[?#]/, 1)[0];
 }
 
 /**
@@ -28,7 +28,7 @@ export interface LoggedError {
 }
 
 export function serializeErrorForLog(err: unknown): LoggedError {
-  if (!(err instanceof Error)) return { type: typeof err, message: String(err), stack: '' };
+  if (!(err instanceof Error)) return { type: typeof err, message: '[erreur masquée]', stack: '' };
   if (err.name.startsWith('PrismaClient')) {
     const e = err as Error & { code?: string; meta?: Record<string, unknown>; clientVersion?: string };
     const op = /prisma\.(\w+)\.(\w+)\(\)/.exec(err.message);
@@ -44,5 +44,5 @@ export function serializeErrorForLog(err: unknown): LoggedError {
       stack: (err.stack ?? '').split('\n').filter((l) => l.trimStart().startsWith('at ')).slice(0, 8).join('\n'),
     };
   }
-  return { type: err.name, message: err.message, stack: err.stack ?? '' };
+  return { type: err.name, message: '[message masqué — peut contenir des données ou secrets]', stack: '' };
 }

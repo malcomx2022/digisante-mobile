@@ -16,7 +16,7 @@ import type { Role } from '@digisante/shared';
 import type { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
-import { writeAudit } from './audit.js';
+import { writeAudit, writeAuditWithin } from './audit.js';
 import { forbidden } from './errors.js';
 
 export interface DmpAccessCtx {
@@ -158,14 +158,12 @@ export async function resolveDmpScope(app: FastifyInstance, params: AssertDmpPar
         await syncLegacyConsentExpiry(tx, c.id);
         recordIds.add(record.id);
         grant = { recordId: record.id, expiresAt: record.shareExpiry.toISOString() };
+        await writeAuditWithin(tx, { action: 'DMP_CONSENT_GRANT', actorId, targetId: patientId, ip, meta: { via: 'share-token', ...grant } });
       }
     }
     return { recordIds, grant };
   });
-  const { recordIds, grant } = result;
-  if (grant) {
-    await writeAudit(app.prisma, { action: 'DMP_CONSENT_GRANT', actorId, targetId: patientId, ip, meta: { via: 'share-token', ...grant } });
-  }
+  const { recordIds } = result;
 
   if (recordIds.size === 0) return deny('NO_CONSENT');
 
