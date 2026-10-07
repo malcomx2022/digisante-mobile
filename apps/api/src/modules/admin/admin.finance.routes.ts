@@ -1,11 +1,10 @@
 // ─────────────────────────────────────────────────────────────
-// Admin — finances (LECTURE SEULE — la logique paiement reste GELÉE §5).
-// Tableau de bord (volumes, réconciliation, wallets), remboursement (reversal
-// interne §5-encadré) et journal webhooks dérivé de l'audit.
-// ⚠️ §5 : ce sous-module ne fait que RELOCALISER les routes existantes — la
-// logique de paiement (payments.service) est INCHANGÉE. Toute modification de
-// cette logique (pas de sa localisation) exige revue + re-tests webhooks.
-// (Sous-module de /api/v1/admin — cf. admin.routes.ts.)
+// Admin — finances : supervision, remboursements internes et opérations manuelles L7.
+// Aucune lecture DMP ni transfert fournisseur automatique. Scopes finance:read/write,
+// états et montants serveur ; audit transactionnel dans les services financiers.
+// Les modifications du chemin paiement restent soumises à revue/re-tests §3.5 ;
+// voir REVUE_L7_2026-10.md et CONTRAT_Finances_L7.md.
+// Sous-module /api/v1/admin, agrégé par admin.routes.ts.
 // ─────────────────────────────────────────────────────────────
 import { paginationSchema } from '@digisante/shared';
 import { Prisma } from '@prisma/client';
@@ -15,6 +14,7 @@ import { z } from 'zod';
 import { paginate } from '@/lib/http.js';
 import { zParse } from '@/lib/validation.js';
 import * as payments from '@/modules/payments/payments.service.js';
+import * as finance from '@/modules/payments/finance.service.js';
 
 import { adminGuards, idParams } from './admin.shared.js';
 
@@ -25,6 +25,23 @@ const refundBody = z.object({ reason: z.string().trim().max(200).optional() });
 
 export default async function adminFinanceRoutes(app: FastifyInstance) {
   const { withScope } = adminGuards(app);
+  app.get('/finance/operations', withScope('finance:read'), async (request) => {
+    const q = zParse(paginationSchema, request.query);
+    return finance.operations(app, q.page, q.pageSize);
+  });
+  app.get('/finance/anomalies', withScope('finance:read'), async (request) => {
+    const q = zParse(paginationSchema, request.query);
+    return finance.anomalies(app, q.page, q.pageSize);
+  });
+  app.get('/finance/eligible', withScope('finance:read'), async (request) => {
+    const q = zParse(paginationSchema.extend({ doctorId: z.string().cuid() }), request.query);
+    return finance.eligible(app, q.doctorId, q.page, q.pageSize);
+  });
+  app.post('/finance/payments/:id/external-refund', withScope('finance:write'), async (request) => finance.requestExternalRefund(app, request.user.sub, zParse(idParams, request.params).id));
+  app.post('/finance/payouts', withScope('finance:write'), async (request) => finance.requestPayout(app, request.user.sub, zParse(finance.payoutSchema, request.body)));
+  app.post('/finance/operations/:id/start', withScope('finance:write'), async (request) => finance.transition(app, request.user.sub, zParse(idParams, request.params).id, 'start'));
+  app.post('/finance/operations/:id/cancel', withScope('finance:write'), async (request) => finance.transition(app, request.user.sub, zParse(idParams, request.params).id, 'cancel'));
+  app.post('/finance/operations/:id/complete', withScope('finance:write'), async (request) => finance.transition(app, request.user.sub, zParse(idParams, request.params).id, 'complete', zParse(finance.proofSchema, request.body).proofRef));
 
   // Tableau de bord : volumes par statut/méthode, file de réconciliation, wallets.
   // Aucune écriture, aucun déclenchement : pure consultation (scope finance:read).

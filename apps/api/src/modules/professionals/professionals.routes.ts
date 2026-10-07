@@ -13,6 +13,7 @@ import { paginate } from '@/lib/http.js';
 import { requireRole } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
 import * as reviews from './professionals.reviews.js';
+import * as finance from '@/modules/payments/finance.service.js';
 
 // ── Cache de l'annuaire (endpoint patient le plus sollicité : 3 requêtes DB/hit) ──
 // Uniquement les pages de NAVIGATION (sans filtre libre) : les valeurs de `q`/
@@ -47,6 +48,9 @@ const listSchema = paginationSchema.extend({
 const idParams = z.object({ id: z.string().cuid() });
 
 export default async function professionalsRoutes(app: FastifyInstance) {
+  const doctor = { preHandler: [app.authenticate, requireRole('MEDECIN')] };
+  app.get('/me/revenue', doctor, async (request) => finance.stats(app, request.user.sub, zParse(finance.periodSchema, request.query)));
+  app.get('/me/revenue/export', doctor, async (request) => finance.exportJournal(app, request.user.sub, zParse(finance.periodSchema, request.query)));
   // Annuaire des professionnels VÉRIFIÉS (D-05), paginé + filtres.
   app.get('/', { preHandler: [app.authenticate] }, async (request) => {
     const q = zParse(listSchema, request.query);

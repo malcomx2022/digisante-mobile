@@ -11,6 +11,7 @@ import { unauthorized } from '@/lib/errors.js';
 import { getIntegration } from '@/lib/integrations.js';
 import { zParse } from '@/lib/validation.js';
 import * as payments from './payments.service.js';
+import * as finance from './finance.service.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -28,6 +29,10 @@ const initiateSchema = z.object({
 });
 
 export default async function paymentsRoutes(app: FastifyInstance) {
+  app.get('/:id/receipt', { preHandler: [app.authenticate] }, async (request) => {
+    const { id } = zParse(z.object({ id: z.string().cuid() }), request.params);
+    return finance.receipt(app, request.user.sub, id);
+  });
   // Parser encapsulé : conserve le corps brut pour le HMAC du webhook.
   app.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {
     (req as FastifyRequest).rawBody = typeof body === 'string' ? body : body.toString('utf8');

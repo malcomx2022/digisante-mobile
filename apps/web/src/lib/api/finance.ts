@@ -1,5 +1,5 @@
 // Admin : tableau de bord Finances. Consultation + remboursement (§5, finance:write).
-import { get, post } from './client';
+import { get, postNow } from './client';
 
 export interface PaymentBucket {
   status?: string;
@@ -60,5 +60,15 @@ export interface Paginated<T> {
 export const financeApi = {
   overview: (days = 30) => get<FinanceOverview>(`/admin/finance/overview?days=${days}`),
   webhooks: (page = 1, pageSize = 20) => get<Paginated<WebhookEntry>>(`/admin/finance/webhooks?page=${page}&pageSize=${pageSize}`),
-  refund: (id: string, reason?: string) => post<{ status: string }>(`/admin/finance/payments/${id}/refund`, { reason }),
+  refund: (id: string, reason?: string) => postNow<{ status: string }>(`/admin/finance/payments/${id}/refund`, { reason }),
 };
+
+export interface FinanceOperation {
+  id: string; requestId: string; kind: 'PAYOUT' | 'REFUND'; state: 'REQUESTED' | 'EXECUTING' | 'EXECUTED' | 'CANCELLED';
+  doctorId: string | null; amount: string; executingBy: string | null; proofRef: string | null;
+  createdAt: string; executedAt: string | null; items: { paymentId: string; providerReference: string | null; amount: string }[];
+}
+export interface EligiblePayments {
+  doctorId: string; balance: { available: string }; page: number; hasMore: boolean;
+  data: { paymentId: string; gross: string; net: string }[];
+}

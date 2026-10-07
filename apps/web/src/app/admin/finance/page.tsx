@@ -10,6 +10,7 @@ import { adminsApi } from '@/lib/api/admins';
 import { financeApi, type CompletedPayment, type FinanceOverview, type WebhookEntry } from '@/lib/api/finance';
 import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
+import FinanceOperations from '@/components/admin/FinanceOperations';
 import { formatDateTime, formatNumber } from '@/i18n/format';
 
 function xof(v: string | number): string {
@@ -20,7 +21,7 @@ function dt(s: string): string {
 }
 
 // D-25e — Finances (back-office) : volumes paiements, réconciliation, wallets,
-// journal des webhooks FedaPay. LECTURE SEULE — la logique §5 reste gelée.
+// journal webhooks et opérations manuelles L7. Modifications §5 revues/testées.
 export default function AdminFinance() {
   const { t } = useLocale();
   const [tick, setTick] = useState(0);
@@ -66,6 +67,7 @@ export default function AdminFinance() {
     <>
       <SpaceHeader title={t('admin.finance')} subtitle={t('finance.subtitle')} headerClass="bg-indigo-950" wide />
       <main className="px-6 -mt-10 relative z-20 pb-6 lg:max-w-5xl lg:mx-auto lg:w-full space-y-5">
+        <FinanceOperations canWrite={Boolean(canRefund)} tick={tick} refresh={() => setTick((x) => x + 1)} />
         {ov.error && <ErrorState label={t('auth.error')} />}
         {ov.loading && !data && <SkeletonCards count={4} label={t('common.loading')} />}
 

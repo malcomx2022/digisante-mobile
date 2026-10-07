@@ -20,6 +20,7 @@ import {
   mapFedapayStatus,
   verifyWebhookSignature,
 } from '@/services/fedapay.js';
+import { assertRefundNotReserved, captureWithin, refundFinanceWithin } from './finance.effects.js';
 
 type ResolvableStatus = 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'PROCESSING';
 
@@ -61,8 +62,9 @@ async function applyPaymentStatus(
     });
     if (count === 0) return false;
     if (topupWalletId) await wallet.creditWithin(tx, topupWalletId, payment.amount.toNumber(), payment.id, 'Recharge wallet');
-    if (status === 'COMPLETED' && payment.type === 'SUBSCRIPTION') {
-      await activateWithin(tx, payment.id);
+    if (status === 'COMPLETED') await captureWithin(tx, payment.id);
+    if (status === 'COMPLETED') {
+      if (payment.type === 'SUBSCRIPTION') await activateWithin(tx, payment.id);
       await writeAuditWithin(tx, { action: 'PAYMENT_CONFIRMED', actorId: payment.userId, targetId: payment.id, ip, meta: { fedapayId: payment.fedapayId, type: payment.type, source } });
     }
     return true;
@@ -70,16 +72,6 @@ async function applyPaymentStatus(
   if (!won) {
     const current = await app.prisma.payment.findUnique({ where: { id: payment.id }, select: { status: true } });
     return { idempotent: true, status: current?.status ?? payment.status };
-  }
-
-  if (status === 'COMPLETED' && payment.type !== 'SUBSCRIPTION') {
-    await writeAudit(app.prisma, {
-      action: 'PAYMENT_CONFIRMED',
-      actorId: payment.userId,
-      targetId: payment.id,
-      ip,
-      meta: { fedapayId: payment.fedapayId, type: payment.type, source },
-    });
   }
 
   return { processed: true, status };
@@ -114,6 +106,7 @@ export async function refund(
     ? (await wallet.getOrCreateWallet(app, payment.userId)).id
     : null;
   const won = await app.prisma.$transaction(async (tx) => {
+    await assertRefundNotReserved(tx, payment.id);
     const { count } = await tx.payment.updateMany({ where: { id: payment.id, status: 'COMPLETED' }, data: { status: 'REFUNDED' } });
     if (count === 0) return false;
     if (payment.type === 'SUBSCRIPTION') await revokeWithin(tx, payment.id);
@@ -124,21 +117,14 @@ export async function refund(
         await wallet.creditWithin(tx, refundWalletId, payment.amount.toNumber(), payment.id, opts.reason ?? 'Remboursement', 'REFUND_IN');
       }
     }
-    if (payment.type === 'SUBSCRIPTION') await writeAuditWithin(tx, {
+    await refundFinanceWithin(tx, payment.id, opts.actorId);
+    await writeAuditWithin(tx, {
       action: 'PAYMENT_REFUND', actorId: opts.actorId, targetId: payment.id, ip: opts.ip,
       meta: { fedapayId: payment.fedapayId, type: payment.type, amount: payment.amount.toString(), reason: opts.reason ?? null },
     });
     return true;
   });
   if (!won) return { idempotent: true, status: 'REFUNDED' };
-
-  if (payment.type !== 'SUBSCRIPTION') await writeAudit(app.prisma, {
-    action: 'PAYMENT_REFUND',
-    actorId: opts.actorId,
-    targetId: payment.id,
-    ip: opts.ip,
-    meta: { fedapayId: payment.fedapayId, type: payment.type, amount: payment.amount.toString(), reason: opts.reason ?? null },
-  });
 
   return { refunded: true, status: 'REFUNDED' };
 }
@@ -231,14 +217,10 @@ export async function initiate(app: FastifyInstance, userId: string, input: Init
         },
         select: { id: true, fedapayId: true, amount: true, status: true },
       });
+      await captureWithin(trx, created.id);
+      await writeAuditWithin(trx, { action: 'PAYMENT_CONFIRMED', actorId: userId,
+        targetId: created.id, meta: { type: input.type, method: 'WALLET', source: 'wallet', reference: debited.reference } });
       return { payment: created, balance: debited.balance, reference: debited.reference };
-    });
-
-    await writeAudit(app.prisma, {
-      action: 'PAYMENT_CONFIRMED',
-      actorId: userId,
-      targetId: result.payment.id,
-      meta: { type: input.type, method: 'WALLET', source: 'wallet', reference: result.reference },
     });
 
     return {
