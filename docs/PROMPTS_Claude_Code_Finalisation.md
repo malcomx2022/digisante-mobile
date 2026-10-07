@@ -1,6 +1,6 @@
 # Prompts Claude Code — finalisation des intégrations et corrections
 
-Reprise du 7 octobre 2026 : L0–L5 livrés sur main, #185 = `2e5cc77` ; L6 candidate. Lire `CLAUDE.md`, `suivi/LOT_L6.md`, `CONTRAT_Abonnements_L6.md` et les revues L5/L6 avant les prompts historiques. Catalogue FREE/PRO approuvé, aucun plan payant gratuit ni débit récurrent ; accès clinique courant et soins ouverts conservés. L7 ensuite après livraison/revue L6 ; fournisseur réel L10 et GO L11 restent distincts.
+Reprise du 7 octobre 2026 : L0–L6 livrés sur main, #186 = `91a0fc9` ; L7 candidate. Lire CLAUDE, `suivi/LOT_L7.md`, contrat/revue/recette finances avant les prompts historiques. Journal causal, revenu médecin PRO distinct des abonnements plateforme, CSV/receipt non fiscaux approuvés ; opérations externes manuelles, preuve unique et anomalies sans backfill. L8 ensuite après livraison/revue L7 ; langues natives L9, fournisseurs réels L10 et GO L11 restent distincts.
 
 > **Reprise du 6 octobre 2026 :** utiliser d'abord `PLAN_Implementations_Restantes_2026-10.md`, son prompt commun et l'instruction L0–L11. Les prompts ci-dessous conservent le contexte de la finalisation précédente ; vérifier ce qui est déjà livré avant de les exécuter et mesurer les compteurs actuels plutôt que reprendre les nombres historiques.
 

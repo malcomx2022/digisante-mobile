@@ -14,6 +14,7 @@ export interface PatientAppointment {
   fee: number;
   paid: boolean;
   paymentStatus: string | null;
+  paymentId: string | null;
 }
 
 function online<T>(result: T | { queued: true }): T {

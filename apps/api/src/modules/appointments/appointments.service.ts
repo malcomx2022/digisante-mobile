@@ -93,7 +93,7 @@ export async function listMine(
       doctor: { select: { speciality: true, consultFee: true, user: { select: { profile: { select: { firstName: true, lastName: true } } } } } },
       patient: { select: { user: { select: { profile: { select: { firstName: true, lastName: true } } } } } },
       consultation: { select: { id: true, status: true } },
-      payment: { select: { status: true } },
+      payment: { select: { id: true, status: true } },
     },
   });
 
@@ -113,6 +113,7 @@ export async function listMine(
     fee: a.doctor.consultFee.toNumber(),
     paid: a.payment?.status === 'COMPLETED',
     paymentStatus: a.payment?.status ?? null,
+    paymentId: a.payment?.id ?? null,
   }));
 }
 

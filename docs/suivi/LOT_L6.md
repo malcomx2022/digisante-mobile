@@ -2,7 +2,7 @@
 
 > 7 octobre 2026 (Africa/Lagos), implémentation et auto-revue Codex selon les conventions Claude Code.
 > Branche : `feat/l6-paid-doctor-subscriptions`. Base main : `2e5cc77caf04cff02399e5ddfcc4e578b7b023be`, après fusion PR #185 à 12:42:54 UTC.
-> Statut : **VALIDÉ LOCALEMENT — livraison/CI à consulter sur la PR finale**. Aucune fusion automatique ni mise en production attestée.
+> Statut : **LIVRÉ SUR MAIN — PR #186 fusionnée le 7 octobre à 14:51:11 Africa/Lagos, main `91a0fc9b86c27563438fd552b6fc08f9c9773d84`**. Aucune fusion automatique ni mise en production attestée.
 > Commit applicatif testé : `ca90ce0e4f8ca4a0783f311718e72d2cf6d58b8f`. [PR et checks L6](https://github.com/malcomx2022/digisante-mobile/pulls?q=is%3Apr+head%3Afeat%2Fl6-paid-doctor-subscriptions).
 
 ## Décisions approuvées et reprise Claude Code
@@ -32,3 +32,7 @@ Reproduire sur bases de test dédiées migrées : `pnpm --filter @digisante/api 
 Le lot ne comprend aucun tarif inventé, abonnement d'autre rôle, revenu pro L7 ou débit récurrent. Préparer sauvegarde/inventaire des plans/paiements hérités avant migration réelle ; informer les médecins non prouvés. Ne pas revenir à un binaire d'activation gratuite. API/client/migration cohérents et fermeture anciens onglets ; corriger en avant en incident, soin ouvert conservé. Orphan externe possible après rollback checkout, réconciliation/retry et rapprochement humain documentés.
 
 Les cases A1–A17 humaines et les règlements FedaPay réellement effectués restent à attester, notamment L10 ; remboursement opérateur/frais/circuit financier L7/L10. Aucune DLQ applicative. Résiduels sécurité L8, validation native/clinique L9, préproduction et GO L10/L11 ouverts. Documentation Claude, plan MD/DOCX, matrice, guides/runbooks, recette/checklist/PV et métriques actualisés sans modifier les preuves historiques signées. Revue humaine indépendante et ouverture pilote non remplacées par l'auto-revue/CI.
+
+## Livraison constatée à la reprise L7
+
+[PR #186](https://github.com/malcomx2022/digisante-mobile/pull/186), candidate finale `3fb09694141e23a4837a7e43e189601deb427e95`, [CI PR 37629254298](https://github.com/malcomx2022/digisante-mobile/actions/runs/37629254298) verte. Fusion constatée sur main `91a0fc9b86c27563438fd552b6fc08f9c9773d84` le 7 octobre à 14:51:11 Africa/Lagos, [CI main 37631822824](https://github.com/malcomx2022/digisante-mobile/actions/runs/37631822824) verte sur ce SHA. Aucun déploiement/règlement réel attesté.

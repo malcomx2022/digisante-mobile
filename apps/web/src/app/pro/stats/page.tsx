@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { DOCTOR_SUBSCRIPTION_CATALOG, PAYMENT_METHODS, type DoctorSubscription, type PaymentMethod } from '@digisante/shared';
 import { ProHeader } from '@/components/pro/ProHeader';
+import RevenuePanel from '@/components/pro/RevenuePanel';
+import { PaymentReceipt } from '@/components/ui/PaymentReceipt';
 import { Badge, Button, CardPagne, ConfirmDialog } from '@/components/ui';
 import { ErrorState, SkeletonCards } from '@/components/ui/States';
 import { formatDateTime, formatNumber } from '@/i18n/format';
@@ -14,7 +16,7 @@ import { subscriptionOutcome, type SubscriptionCheckout as Checkout } from '@/li
 
 interface SubscriptionHistory { id: string; amount: string; startsAt: string | null; endsAt: string | null; revokedAt: string | null; payment: { id: string; status: string } }
 
-// D-18 — revenus L7 à venir ; abonnement médecin payé et renouvelé manuellement.
+// D-18 — revenus L7 propres au médecin ; abonnement L6 à renouvellement manuel.
 export default function ProStatsPage() {
   const { t } = useLocale();
   const [tick, setTick] = useState(0);
@@ -60,11 +62,7 @@ export default function ProStatsPage() {
   return <>
     <ProHeader title={t('pro.stats')} />
     <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto">
-      <CardPagne stitch="indigo" className="p-5 bg-indigo-900 bogolan-dark text-white">
-        <p className="text-[0.75rem] text-white/70">{t('pro.revenue')}</p>
-        <p className="font-display font-extrabold text-xl">{t('pro.revenue_unavailable')}</p>
-        <p className="text-[0.75rem] text-ocre-300 mt-1">{t('pro.revenue_soon')} · {t('pro.commission')}</p>
-      </CardPagne>
+      <RevenuePanel enabled={Boolean(sub?.rights.revenueStats) && !error && !loading} tick={tick} />
       {loading && !data && <SkeletonCards count={2} />}
       {error && <ErrorState label={t('subscriptions.error')} />}
       {data && sub && <CardPagne className="p-4 space-y-3">
@@ -92,6 +90,7 @@ export default function ProStatsPage() {
           <p>{formatNumber(order.amount)} FCFA · {t(`subscriptions.payment_${order.payment.status.toLowerCase()}`)}</p>
           {order.endsAt && <p>{t('subscriptions.until', { date: formatDateTime(order.endsAt, { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Lagos' }) })}</p>}
           <p>{t('subscriptions.reference', { id: order.payment.id })}</p>
+          {['COMPLETED', 'REFUNDED'].includes(order.payment.status) && <PaymentReceipt paymentId={order.payment.id} />}
           {order.revokedAt && order.payment.status === 'COMPLETED' && <p className="font-bold text-sos-600">{t('subscriptions.abandoned')}</p>}
         </div>)}
       </CardPagne>}

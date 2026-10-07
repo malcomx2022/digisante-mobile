@@ -11,6 +11,7 @@ import { appointmentsApi, type PatientAppointment } from '@/lib/api/appointments
 import { ApiRequestError, post } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
 import { paymentOutcome } from '@/lib/payments';
+import { PaymentReceipt } from '@/components/ui/PaymentReceipt';
 import { formatDateTime, formatNumber } from '@/i18n/format';
 
 // Moyens de paiement d'une consultation (le montant est imposé par le serveur = tarif médecin).
@@ -161,6 +162,7 @@ export default function AppointmentsPage() {
         )}
 
         {/* Paiement de la consultation — montant imposé par le serveur (tarif du médecin). */}
+        {a.paymentId && ['COMPLETED', 'REFUNDED'].includes(a.paymentStatus ?? '') && <PaymentReceipt paymentId={a.paymentId} />}
         {(a.paid || paidLocal.has(a.id)) ? (
           <p className="mt-3 text-[0.75rem] text-sante-700 font-bold"><span aria-hidden="true">✓</span> {t('prescriptions.paid')}</p>
         ) : queuedLocal.has(a.id) ? (
