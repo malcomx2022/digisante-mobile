@@ -74,6 +74,7 @@ describe('client API — intercepteur de refresh', () => {
     });
 
     await get('/users/me');
+    expect(fetchMock.mock.calls[0][1].cache).toBe('no-store');
 
     const replayHeaders = fetchMock.mock.calls[1][1].headers as Record<string, string>;
     expect(replayHeaders.authorization).toBe('Bearer jeton-neuf');

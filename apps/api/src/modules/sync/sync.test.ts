@@ -182,6 +182,7 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.REDIS_URL)('Reçus de 
     const k = key(); const first = await send('/vaccinations/subjects', subjectBody, k);
     expect(first.statusCode).toBe(201); const before = await app.prisma.vaccinationSubject.count();
     const result = await verify(k); expect(result.statusCode).toBe(200); expect(result.json()).toEqual({ confirmed: true, status: 201 });
+    expect(result.headers['cache-control']).toBe('no-store');
     expect(result.body).not.toContain(subjectBody.name); expect(await app.prisma.vaccinationSubject.count()).toBe(before);
   });
   it('ticket minimal L4 : clé seule suffit, sans divulguer route ni ressource', async () => {

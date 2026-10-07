@@ -26,7 +26,9 @@ async function fixture(prisma: PrismaClient, phone: string) {
   return { userId: user.id, doctorId: doctor.id };
 }
 async function syncReadings(page: Page) {
+  const medicalResponses = Promise.all(['/dmp/records', '/prescriptions', '/users/me/medical'].map((path) => page.waitForResponse((response) => response.url().endsWith(`/api/v1${path}`) && response.request().method() === 'GET')));
   await page.getByRole('button', { name: 'Synchroniser mes lectures', exact: true }).click();
+  for (const response of await medicalResponses) expect(response.headers()['cache-control']).toBe('no-store');
   await expect(page.getByTestId('offline-medical')).toContainText(PRIVATE);
 }
 

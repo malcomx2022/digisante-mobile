@@ -143,7 +143,7 @@ export async function get<T>(path: string, opts: number | GetOptions = {}): Prom
     typeof opts === 'number' ? { retries: opts, headers: undefined } : opts;
   try {
     const res = await withAuthRetry(path, () =>
-      fetch(`${BASE}${PREFIX}${path}`, { headers: headers(extra), credentials: 'include' }),
+      fetch(`${BASE}${PREFIX}${path}`, { headers: headers(extra), credentials: 'include', cache: 'no-store' }),
     );
     return await parse<T>(res);
   } catch (err) {
@@ -160,7 +160,7 @@ export async function get<T>(path: string, opts: number | GetOptions = {}): Prom
  */
 export async function getBlob(path: string): Promise<Blob> {
   const res = await withAuthRetry(path, () =>
-    fetch(`${BASE}${PREFIX}${path}`, { headers: headers(), credentials: 'include' }),
+    fetch(`${BASE}${PREFIX}${path}`, { headers: headers(), credentials: 'include', cache: 'no-store' }),
   );
   if (!res.ok) throw new ApiRequestError(res.status, { code: 'HTTP_ERROR', message: `HTTP ${res.status}` });
   return res.blob();
@@ -216,7 +216,7 @@ export async function mutate<T>(
     const res = await withAuthRetry(path, () => {
       if (pending && (pending.owner !== getQueueOwner() || (!pending.onlineOnly && !isVaultOpen()))) throw new VaultLockedError();
       return fetch(`${BASE}${PREFIX}${path}`, {
-        method, headers: headers(key ? { 'Idempotency-Key': key } : undefined, body !== undefined),
+        method, cache: 'no-store', headers: headers(key ? { 'Idempotency-Key': key } : undefined, body !== undefined),
         credentials: 'include', body: body === undefined ? undefined : JSON.stringify(body),
       });
     });
@@ -247,7 +247,7 @@ export async function flushQueue(): Promise<{ flushed: number; failed: number }>
       const verifyPath = `/sync/receipts/${m.idempotencyKey}`;
       const receipt = await withAuthRetry(verifyPath, () => {
         if (m.owner !== getQueueOwner()) throw new Error('Session de mutation changée');
-        return fetch(`${BASE}${PREFIX}${verifyPath}`, { headers: headers(), credentials: 'include' });
+        return fetch(`${BASE}${PREFIX}${verifyPath}`, { headers: headers(), credentials: 'include', cache: 'no-store' });
       });
       if (receipt.ok) {
         const confirmation = await receipt.json().catch(() => null);
@@ -264,7 +264,7 @@ export async function flushQueue(): Promise<{ flushed: number; failed: number }>
     const res = await withAuthRetry(m.path, () => {
       if (m.owner !== getQueueOwner() || !isVaultOpen()) throw new VaultLockedError();
       return fetch(`${BASE}${PREFIX}${m.path}`, {
-        method: m.method,
+        method: m.method, cache: 'no-store',
         headers: headers({ 'Idempotency-Key': m.idempotencyKey! }, m.body !== undefined),
         credentials: 'include', body: m.body === undefined ? undefined : JSON.stringify(m.body),
       });
