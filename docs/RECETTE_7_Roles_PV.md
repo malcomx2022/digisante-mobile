@@ -134,4 +134,21 @@ Préparer une candidate homogène après migration, comptes synthétiques, appar
 - [ ] Paiement/SOS/OTP/consentement/partage DMP et fermeture de grossesse : hors ligne refusé avant la file.
 - [ ] Vérifier les métadonnées et le contenu opaque des reçus, la purge interne authentifiée et sa fraîcheur ; ne pas imprimer les réponses cliniques dans les journaux.
 
-Consigner appareil/version, SHA candidate, heures/conditions réseau, identités synthétiques et résultats observés. Protection du stockage local, interface de revue manuelle et disponibilité hors réseau à compléter en L4 ; ne pas attester ces fonctions à partir du seul test L3.
+Consigner appareil/version, SHA candidate, heures/conditions réseau, identités synthétiques et résultats observés. Protection du stockage local, interface de revue et disponibilité hors réseau complétées par L4 ci-dessous ; ne pas attester ces fonctions à partir du seul test L3.
+
+## 7. Addendum L4 — Coffre et appareil partagé, à exécuter
+
+Contrat : `CONTRAT_Hors_Ligne_L4.md`. Répéter sur Android installé et iOS/Safari/PWA réels, compte synthétique A/B et ancien appareil v3 ; ces cases ne sont pas attestées par l’émulation Pixel 5.
+
+- [ ] Sans coffre : réseau coupé, mutation couverte refusée avant stockage/envoi ; réseau actif, réponse perdue après commit, ticket minimal puis GET seul, aucun deuxième effet. Reçu absent/ambigu : revue obligatoire avant nouvelle saisie.
+- [ ] Créer une phrase longue, sync explicite, couper réseau et recharger : aucune donnée avant phrase ; mauvaise phrase refusée, bonne phrase restitue uniquement projection/date, pas QR/pièce/DMP complet/assurance.
+- [ ] Lock manuel, masquage/fermeture/reload et 15 min : disparition des lectures ; verrouillage propagé aux autres onglets.
+- [ ] Six heures : copie ancienne visible avec avertissement ; à 24 h/futur >5 min : contenu inaccessible, reconnecter. Ordonnance annulée/expirée signalée, jamais autorisation de délivrance.
+- [ ] A→B puis A : B ne lit/compte rien de A, lectures A purgées, file chiffrée A récupérable uniquement après réauthentification/phrase A. Logout efface tous les comptes locaux.
+- [ ] Migration v3 avec corps/clé, absence de clé et owner NULL : identité conservée, aucune attribution/re-cléage ; quota/lock pendant migration laisse l’ancien intact. Chaque compte migré ou effacement explicite après vérification des effets ; magasins historiques vides avant partage de l’appareil.
+- [ ] Purge pendant sync/création/file : rien réintroduit après effacement. Échec stockage/purge affiché ; données navigateur effacées avant prêt si confirmation impossible.
+- [ ] CacheStorage sans API/RSC/fichier médical/jeton ; shell/chunks seulement. Route non préparée présente le secours générique ; triage local, vidéo/paiement/SOS serveur exigent réseau, appel/SMS exigent couverture.
+- [ ] Rejet de file : revue des effets en ligne et suppression volontaire après confirmation ; pas de ressaisie automatique. Phrase oubliée : aucune récupération promise.
+- [ ] Connectivité annoncée mais API inaccessible : contexte local conservé sans jeton/rejeu ; session réellement révoquée : fermeture. Phrases françaises de fallback FON/YOR et numéros d’urgence soumis à validation L9/L10.
+
+Consigner SHA, appareil/OS/navigateur, compte synthétique, heure et preuves de cache/DB **sans corps/secret en capture publique**. Auto-revue et tests locaux ne valent pas signature clinique ni GO pilote.

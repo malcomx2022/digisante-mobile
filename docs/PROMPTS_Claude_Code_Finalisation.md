@@ -1,5 +1,7 @@
 # Prompts Claude Code — finalisation des intégrations et corrections
 
+Reprise du 7 octobre 2026 : L0–L3 livrés sur main ; L4 candidate. Lire `CLAUDE.md`, `suivi/LOT_L4.md` et `CONTRAT_Hors_Ligne_L4.md` avant les prompts historiques. Ne pas réimplémenter les fonctions L1–L4 comme si elles étaient absentes ; prochaine implémentation planifiée L5 après livraison/revue de L4.
+
 > **Reprise du 6 octobre 2026 :** utiliser d'abord `PLAN_Implementations_Restantes_2026-10.md`, son prompt commun et l'instruction L0–L11. Les prompts ci-dessous conservent le contexte de la finalisation précédente ; vérifier ce qui est déjà livré avant de les exécuter et mesurer les compteurs actuels plutôt que reprendre les nombres historiques.
 
 > **Mode d'emploi :** copier **un seul prompt à la fois** dans Claude Code. Attendre le commit et la

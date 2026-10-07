@@ -47,9 +47,15 @@ Parcours `/labo/kyc` et admin existant, design depuis la skill versionnée dans 
 
 ## Lot L3 — Rejeu sans doublon (6 octobre 2026)
 
-L2 livré sur main par #182 (`eb1ba6e`). Relire `docs/CONTRAT_Synchronisation_L3.md`, LOT_L3 et REVUE_L3 avant toute maintenance du client ou des huit mutations. Shared définit la liste positive et les durées ; conserver la clé et le corps photographié avant premier fetch. Effet métier et reçu AES-GCM restent dans la même transaction, contrôle courant avant restitution ; pas de déduplication Redis seule. Ne pas élargir les routes sans transaction et tests de panne/concurrence/droits. Les anciennes files ambiguës sont conservées pour revue, sans UUID de remplacement. Les corps en attente/échec restent en clair jusqu'à L4 ; ne pas déclarer le hors ligne médical protégé.
+L2 livré sur main par #182 (`eb1ba6e`). Relire `docs/CONTRAT_Synchronisation_L3.md`, LOT_L3 et REVUE_L3 avant toute maintenance du client ou des huit mutations. Shared définit la liste positive et les durées ; conserver la clé et le corps photographié avant premier fetch. Effet métier et reçu AES-GCM restent dans la même transaction, contrôle courant avant restitution ; pas de déduplication Redis seule. Ne pas élargir les routes sans transaction et tests de panne/concurrence/droits. Les anciennes files ambiguës sont conservées pour revue, sans UUID de remplacement. Les limites locales de L3 sont complétées par L4 ci-dessous ; l’héritage non migré reste en clair.
 
 Preuves L3 : 460 API +64 web +11 E2E, 28 tests outillage et 11 étapes de release verts ; migration 31→32 conservatrice. Livraison/CI dans LOT_L3 et la PR. Reproduire les tests de réponse perdue après commit, deux onglets, redémarrage, rollback du reçu, conflit de contenu, isolement/401 et expiration après purge. Relancer release/E2E et actualiser les documents par lot ; recette physique distincte.
+
+## Lot L4 — Coffre et disponibilité hors ligne (7 octobre 2026)
+
+L3 livré sur main par #183 (`ce1cae8`). Lire `CONTRAT_Hors_Ligne_L4.md`, LOT_L4 et REVUE_L4 avant maintenance. Réutiliser le coffre unique, la projection minimale et les contrôles du compte/génération ; pas de cache d’API, phrase/clé/JWT persistés ou clé serveur copiée. Récupérer les corps scellés seulement après unlock ; sans coffre, ticket minimal et vérification GET, aucune reconstitution d’effet. Refus de refresh 401/403 distinct d’une panne temporaire. Toute tentative en ligne non résolue impose une revue avant nouvelle saisie.
+
+Migration v3→v4 additive, corps/id/clé conservés atomiquement. L’héritage d’un autre compte/non attribuable reste en clair : migration de chaque compte ou effacement volontaire après vérification des effets avant prêt/pilote. Relire les tests purge pendant écritures, migration interrompue, quota, A→B, mauvaise phrase, expiration et réponse perdue/reload. Tests du SW + E2E réel hors réseau obligatoires ; émulation Pixel 5 ne signe aucune recette Android/iOS. Périmètre : 20 résumés DMP, 10×20 lignes sans QR, urgence minimale, TTL 24 h/alerte 6 h ; seuls les shells/assets publics entrent dans CacheStorage. L5–L11 restent ouverts ; preuves et statut final dans LOT_L4.
 
 ## Finalisation restante — reprise par lots L0–L11
 
@@ -77,7 +83,7 @@ Le plan actif détaille contrats, dépendances, fichiers de départ, migrations,
 Lis CLAUDE.md, docs/INDEX_Documentation_DigiSante.docx puis README.md.
 Fais un état des lieux du monorepo actuel (apps/web, apps/api, packages, infra) :
 ce qui est en place vs ce qui manque pour atteindre un projet complet
-(166 endpoints REST + 1 WebSocket / 28 modules, 49 modèles Prisma, 67 pages, 4 langues, offline-first).
+(167 endpoints REST + 1 WebSocket / 28 modules, 49 modèles Prisma, 67 pages, 4 langues, offline-first).
 Ne code rien encore. Propose-moi un PLAN DE CONSTRUCTION par lots, avec l'ordre
 des dépendances (données → API → intégrations → frontend → tests). Liste les
 risques et les points à clarifier.
@@ -276,9 +282,8 @@ Aucune chaîne en dur. Commit : "feat(web): i18n 4 langues".
 ```
 Rends apps/web installable et offline-first (exigence non négociable, cf. CLAUDE.md) :
 manifest, service worker (cache de l'app shell + motifs CSS), file de synchronisation
-en IndexedDB pour les actions hors-ligne (ex. saisie de constantes), indicateur d'état
-réseau, et un client API typé avec retry/queue. Le SOS doit fonctionner hors-ligne
-(repli SMS). Commit : "feat(web): PWA offline-first + sync".
+en IndexedDB chiffré pour les huit routes L3, uniquement après unlock, indicateur d'état
+réseau, et un client API typé avec retry/queue. Contrat courant L4 : coquilles/assets publics seulement, coffre opt-in pour lectures/files médicales, jamais cache générique. SOS serveur exige le réseau ; appel/SMS explicites nécessitent couverture téléphonique. Commit : "feat(web): PWA offline-first + sync".
 ```
 
 ### P5.4 — Auth front + routes protégées
@@ -343,7 +348,7 @@ l'admin ne lit jamais le contenu médical. Commit : "feat(web): espace admin".
 ### P7.1 — Parcours de bout en bout (continuités)
 ```
 Vérifie et corrige les 3 continuités inter-lots de la démo :
-(1) tension saisie hors-ligne (D-13) → sync → chat (D-10) → vue médecin (D-16) ;
+(1) action PEV saisie sous coffre ouvert hors-ligne (D-13) → sync → chat (D-10) → vue médecin (D-16) ;
 (2) ordonnance signée (D-17) → patient (D-08) → scan pharmacie (D-22) ;
 (3) wallet rechargé (D-21) → paiement (D-08) → notification diaspora (D-20).
 Écris des tests d'intégration qui couvrent ces 3 chaînes. 

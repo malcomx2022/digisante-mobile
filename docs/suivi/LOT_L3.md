@@ -2,7 +2,7 @@
 
 > 6 octobre 2026 (Africa/Lagos). Implémentation et auto-revue : Codex à la demande du porteur, selon les conventions Claude Code.
 > Branche : `feat/l3-idempotent-sync`. Base main : `eb1ba6ed70c2accf581a29bc2d10317bc5555caa`, après fusion de PR #182 le 6 octobre à 16:19:42 UTC.
-> Statut : **VALIDÉ LOCALEMENT — livraison/CI à consulter sur la PR du lot**. Aucune fusion automatique ni déploiement.
+> Statut : **LIVRÉ SUR MAIN — PR #183 fusionnée le 6 octobre à 17:25:24 UTC, main ce1cae8**. Aucune fusion automatique ni déploiement.
 > Commit applicatif : `e178a7561afea575aef3ce5a357a25fa8b4f7d24`. [PR et checks L3](https://github.com/malcomx2022/digisante-mobile/pulls?q=is%3Apr+head%3Afeat%2Fl3-idempotent-sync).
 
 ## Résultat et reprise Claude Code
@@ -35,6 +35,8 @@ Pile dédiée : Node 24.19.0, PostgreSQL 16, Redis 7 ; conteneurs `digisante-l3-
 Reproduire : migrations/generate sur pile synthétique dédiée ; tests `sync.test.ts`, `client.sync.test.ts`, puis `pnpm release:check`. Build avec `NEXT_PUBLIC_API_URL='' E2E_API_PROXY=http://127.0.0.1:3011`, E2E sur DB/Redis distincts. Le scénario navigateur fait committer via `route.fetch()` puis abandonne la réponse et recharge ; un autre fait reprendre la même entrée par deux onglets. Chromium système/Pixel 5 émulé localement, Chromium Playwright en CI. Recette physique : addendum L3 de `docs/RECETTE_7_Roles_PV.md`, cases non cochées.
 
 i18n : FR/EN 955 clés, EN complet ; FON/YOR 868 présentes et 87 manquantes chacune, dont les six critiques SOS suivies en L9. Aucun nouveau texte UI ni validation native/clinique inventée.
+
+La protection locale et l’interface de reprise sont complétées en L4 : `../CONTRAT_Hors_Ligne_L4.md`. Les limites ci-dessous décrivent L3 seul.
 
 ## Limites restantes
 

@@ -1,7 +1,7 @@
 # Plan d'implémentation et de finalisation — DigiSanté Mobile
 
 > Date : **6 octobre 2026**. Base inspectée : `main` @ `8f2f6ca24ad0543d6a08218932c783809eada9b1`, avec les quatre corrections locales de revue.
-> Statut : **L0 LIVRÉ SUR MAIN**, PR #178/#179 fusionnées, CI candidate verte ; L1 LIVRÉ SUR MAIN par PR #181 (`53775be`) ; L2 LIVRÉ SUR MAIN par PR #182 (`eb1ba6e`) ; L3 VALIDÉ LOCALEMENT (preuves/CI : LOT_L3 et PR du lot) ; L4–L11 PLANIFIÉS. Voir `docs/suivi/LOT_L0.md` et `docs/REVUE_L0_2026-10.md`. Aucun déploiement attesté par ce plan.
+> Statut : **L0 LIVRÉ SUR MAIN**, PR #178/#179 fusionnées, CI candidate verte ; L1 LIVRÉ SUR MAIN par PR #181 (`53775be`) ; L2 LIVRÉ SUR MAIN par PR #182 (`eb1ba6e`) ; L3 LIVRÉ SUR MAIN par PR #183 (`ce1cae8`) ; L4 VALIDÉ LOCALEMENT (preuves/CI : LOT_L4 et PR du lot) ; L5–L11 PLANIFIÉS. Mise à jour : 7 octobre 2026. Voir `docs/suivi/LOT_L0.md` et `docs/REVUE_L0_2026-10.md`. Aucun déploiement attesté par ce plan.
 > Référence de reprise : `CLAUDE.md` puis `docs/PLAYBOOK_Codage_DigiSante.md`.
 > Version documentaire : `docs/Plan_Implementations_Restantes_2026-10.docx`, générée depuis ce fichier par `scripts/docs/generate-implementation-plan.js`.
 
@@ -48,8 +48,8 @@ Ces décisions bloquent uniquement leurs sous-lots dépendants. Préparer modèl
 | L0 | Livrer la baseline et fixer le périmètre | — | Revue et CI validées ; livré sur main par PR #178/#179 |
 | L1 | Consentements par entrée et auteurs DMP | L0 | Livré sur main par PR #181 ; preuves dans LOT_L1 |
 | L2 | Habilitation laboratoire | L0 | Livré sur main par PR #182 ; preuves dans LOT_L2 |
-| L3 | Rejeu des mutations sans doublon | L0 | Validé localement ; preuves et livraison dans LOT_L3 |
-| L4 | Stockage hors ligne protégé et disponibilité exacte | L1, L3 | À implémenter |
+| L3 | Rejeu des mutations sans doublon | L0 | Livré sur main par PR #183 ; preuves dans LOT_L3 |
+| L4 | Stockage hors ligne protégé et disponibilité exacte | L1, L3 | Candidate sur feat/l4-protected-offline ; preuves dans LOT_L4 |
 | L5 | Salles Daily privées et jetons participants | L0 | À implémenter |
 | L6 | Abonnements payants de bout en bout | L0, décisions commerciales | À implémenter |
 | L7 | Revenus, exports et opérations financières | L6 pour revenus d'abonnement ; L0 pour consultations | À implémenter |
@@ -115,6 +115,8 @@ Afficher date de dernière synchronisation, périmètre disponible et données p
 **Acceptation.** Après fermeture/rechargement hors réseau, seules les données explicitement synchronisées et déverrouillées sont visibles. Compte B ne lit aucune donnée de A ; expiration/purge et échecs IndexedDB sont gérés. CacheStorage ne contient ni réponse médicale ni token. Coupures et réauthentification ne produisent ni doublon ni perte silencieuse.
 
 **Documentation.** Politique locale et limites de révocation sans réseau, modèle de protection, matrice « disponible hors ligne » ; `CLAUDE.md`, playbook et recette Android/iOS.
+
+**Implémentation L4 (7 octobre).** Base main `ce1cae8` après fusion #183. Coffre opt-in à phrase locale, PBKDF2/AES-GCM et clé ouverte en mémoire ; lectures minimales explicitement synchronisées, datées, avertissement 6 h/expiration 24 h. Files scellées, lock/reload/purge atomique, isolation des comptes et migration conservatrice v3→v4. Sans coffre : premier envoi en ligne avec ticket minimal, reprise GET reçu seule ; résultat non confirmé bloque toute nouvelle mutation couverte jusqu’à revue. UI Wax & Terre et reprise manuelle, SW limité aux coquilles/chunks publics, promesses SOS corrigées. Contrat : `docs/CONTRAT_Hors_Ligne_L4.md`, revue : `docs/REVUE_L4_2026-10.md`, livraison/preuves : `docs/suivi/LOT_L4.md`. 167 REST/1 WS, 67 pages, 32 migrations ; 467 API +103 web +15 E2E et 11 contrôles release verts, aucun skip ; plan DOCX régénéré et validé structurellement. L’héritage non déverrouillé reste en clair et averti jusqu’à migration de chaque compte/effacement explicite après vérification ; aucune promesse anti-XSS ni révocation hors réseau. Recette Android/iOS et validation clinique/native non attestées.
 
 ### L5 — Téléconsultation Daily privée
 
