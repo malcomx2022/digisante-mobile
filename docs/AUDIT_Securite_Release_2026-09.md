@@ -76,3 +76,7 @@ le rendez-vous (les fixtures de test passent désormais par `src/test/care-fixtu
 - Aucune revue par un tiers ; aucune validation humaine n'est inventée ici.
 - Les correctifs sont vérifiés par tests automatisés **locaux** (la CI GitHub reste bloquée au niveau
   du compte : aucun runner n'est attribué aux jobs).
+
+## Addendum L5 — 7 octobre 2026 : X10 traité dans la candidate
+
+X10 (table historique §3) est corrigé côté code candidat : SDK officiel avec `join({url,token})` hors URL/stockage/log, salle privée relue sans frappe, jetons nominatifs sans owner/admin à validité bornée, contrôles d'état/identité/suspension/KYC, coupure média et surveillance. Refus des accès fictifs après erreur fournisseur ; éjection/ban à clôture suivie de DELETE best effort. Contrat, auto-revue et preuves : `CONTRAT_Teleconsultation_L5.md`, `REVUE_L5_2026-10.md`, `suivi/LOT_L5.md`. La recette fournisseur deux appareils, token expiré/URL seule et éjection réelle reste à attester en L10 avant GO L11 ; aucune révocation instantanée absolue d'un bearer copié ni validation APDP n'est promise. Les compteurs de l'audit d'origine sont historiques, pas les compteurs de la candidate L5.

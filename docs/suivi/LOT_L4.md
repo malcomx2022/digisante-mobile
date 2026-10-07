@@ -2,7 +2,7 @@
 
 > 7 octobre 2026 (Africa/Lagos). Implémentation et auto-revue : Codex à la demande du porteur, suivant les conventions Claude Code.
 > Branche : `feat/l4-protected-offline`. Base main : `ce1cae85fc2fcae33c657aa39dffd98620fb4dd9`, après fusion de PR #183 le 6 octobre à 17:25:24 UTC.
-> Statut : **VALIDÉ LOCALEMENT — livraison/CI à consulter sur la PR du lot**. Aucune fusion automatique ni déploiement.
+> Statut : **LIVRÉ SUR MAIN** par [PR #184](https://github.com/malcomx2022/digisante-mobile/pull/184), fusion constatée le 7 octobre à 11:44:41 UTC, main `0d3cb74db55f4d807bcbd4695591c61f556835b1`. Candidate finale `f313609`, CI [37615501987](https://github.com/malcomx2022/digisante-mobile/actions/runs/37615501987) verte sur ce SHA. Fusion par le porteur ; aucun déploiement attesté.
 > Commit applicatif testé : `9e1dcaf28abaedc5a1a9c01fefabff5999f6c11e` (complète le coffre initial `3e7104e` avec le contrôle du cache HTTP). [PR et checks L4](https://github.com/malcomx2022/digisante-mobile/pulls?q=is%3Apr+head%3Afeat%2Fl4-protected-offline).
 
 ## Résultat et reprise Claude Code

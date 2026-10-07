@@ -1,130 +1,33 @@
-# Guide d'implémentation — Daily.co (téléconsultation vidéo)
+# Guide Claude Code — téléconsultation Daily privée (L5)
 
-> **Destiné à Claude Code.** À lire avec `CLAUDE.md` et `docs/PLAYBOOK_Codage_DigiSante.md`
-> (prompt **P3.2 — RDV, agenda, téléconsultation**). Stack : backend **Fastify** (crée les
-> salles et jetons), frontend **Next.js** (rejoint l'appel). Écrans concernés : **D-06**
-> (téléconsultation patient) et **D-14/D-16** (côté médecin).
+> Reprise du 7 octobre 2026 (Africa/Lagos). Lire `CLAUDE.md`, `CONTRAT_Teleconsultation_L5.md`, `suivi/LOT_L5.md` et la recette fournisseur. L'implémentation candidate remplace les exemples historiques d'URL avec jeton, de propriétaire médecin et de stub externe. Aucun appel réel ni déploiement attesté par ce guide.
 
----
+La salle reste dans `components/consult/ConsultationRoom.tsx`, commune au patient et au médecin. Garder Wax & Terre, les traductions FR/EN et le repli FR pour FON/YOR ; ne pas copier ce composant dans les deux espaces.
 
-## 1. Objet & périmètre
-- Créer une **salle privée** Daily par consultation, avec expiration.
-- Émettre des **meeting tokens** par participant (médecin = `is_owner`, patient = invité).
-- Joindre l'appel côté web ; basculer audio/chat si réseau faible.
-- Nettoyer les salles expirées.
+## Contrat serveur
 
-## 2. Prérequis (`apps/api/.env`)
-```
-DAILY_API_KEY        # onglet Developers du dashboard Daily
-DAILY_DOMAIN         # ton sous-domaine, ex. "digisante" (=> digisante.daily.co)
-```
-Frontend : pas de clé (le frontend reçoit l'URL de salle + le token depuis l'API).
+`services/daily.ts` résout `apiKey/domain` dynamiquement par `resolveConfiguredSecrets` (base chiffrée → `.env`). `DAILY_DOMAIN` accepte un sous-domaine ou son nom complet `.daily.co`, pas une URL arbitraire. Aucun secret fournisseur au build web. Le SDK web officiel `@daily-co/daily-js` est épinglé à **0.93.0**, chargé dynamiquement après obtention d'un accès ; pnpm **9.12.0** et lockfile versionné.
 
-## 3. Contraintes techniques
-- API REST Daily, **Bearer `DAILY_API_KEY`**. Endpoints :
-  - `POST https://api.daily.co/v1/rooms`
-  - `POST https://api.daily.co/v1/meeting-tokens`
-- **Ne jamais** exposer `DAILY_API_KEY` au navigateur : la création de salle et de token
-  se fait **uniquement côté Fastify**.
-- Salle **privée** + token obligatoire (un patient ne peut pas rejoindre sans token).
-- URL de jonction = `https://<DAILY_DOMAIN>.daily.co/<room>?t=<token>`.
-- **Mode stub** : sans `DAILY_API_KEY`, l'API démarre ; les fonctions loggent un warning.
+`POST /consultations` crée une consultation pour le médecin actif/vérifié du RDV confirmé, avec deux participants actifs aux rôles actuels attendus. Verrou de RDV, insertion et notification atomiques ; ne renvoie aucun jeton inutilisé. Sans Daily : `roomUrl=null`, nom de salle NULL, `provider=UNAVAILABLE`, vidéo explicitement indisponible et messagerie accessible. Une configuration ajoutée ultérieurement ne transforme pas implicitement cette consultation en salle externe.
 
----
+Salle : `privacy=private`, frappe désactivée, deux participants maximum, identités uniques, chat Daily/partage écran/enregistrement désactivés, expiration 4 h avec éjection. Après création ou conflit 409, GET relit les propriétés et l'URL effective ; contrôle identique avant chaque jeton. Une salle historique publique/non conforme/expirée est refusée. Ne jamais renvoyer une URL déterministe en secours.
 
-## 4. Tâches d'implémentation
+`POST /consultations/:id/join` est le seul émetteur : identité patient/médecin de ce RDV, rôles/statuts actuels, habilitation médecin, consultation ACTIVE et RDV CONFIRMED, début connu datant de moins de 4 h. Jeton nominatif `user_id`, lié à `room_name`, `is_owner=false` pour **les deux**, aucun droit d'administration, audio/vidéo seuls (audio seul en AUDIO), expiration au plus **15 min**, bornée par l'expiration fournisseur ET le début en base. Éjection à expiration. Relecture d'accès après l'appel fournisseur ; CHAT n'émet rien. Pas de faux jeton après erreur/timeout. Une erreur fournisseur est normalisée en 502 sans corps ni exception brute dans les logs.
 
-### T1 — Service Daily (backend)
-- `apps/api/src/services/daily.ts` (fetch natif, pas de SDK requis) :
-```ts
-const BASE = 'https://api.daily.co/v1';
-const headers = () => ({
-  Authorization: `Bearer ${process.env.DAILY_API_KEY}`,
-  'Content-Type': 'application/json',
-});
+`GET /consultations/:id/session` renvoie seulement mode/statut après les mêmes contrôles. Aucun jeton, URL ni note. `POST /:id/downgrade` compare le mode en base avant mise à jour : VIDEO → AUDIO → CHAT, aucune remontée concurrente. `POST /:id/end` est réservé au médecin ; clôture et transition de RDV transactionnelles, sans écraser un RDV déjà annulé. Puis éjection nominative avec ban et suppression indépendante, best effort, avec avertissement de métadonnées si fournisseur incomplet.
 
-export async function createRoom(consultId: string) {
-  const exp = Math.floor(Date.now() / 1000) + 60 * 60; // expire dans 1h
-  const res = await fetch(`${BASE}/rooms`, {
-    method: 'POST', headers: headers(),
-    body: JSON.stringify({
-      name: `consult-${consultId}`,
-      privacy: 'private',
-      properties: { exp, eject_at_room_exp: true, enable_prejoin_ui: true },
-    }),
-  });
-  if (!res.ok) throw new Error(`Daily room error ${res.status}`);
-  return res.json(); // { name, url, ... }
-}
+## Contrat client
 
-export async function createMeetingToken(roomName: string, userName: string, isOwner: boolean) {
-  const exp = Math.floor(Date.now() / 1000) + 60 * 60;
-  const res = await fetch(`${BASE}/meeting-tokens`, {
-    method: 'POST', headers: headers(),
-    body: JSON.stringify({ properties: { room_name: roomName, user_name: userName, is_owner: isOwner, exp } }),
-  });
-  if (!res.ok) throw new Error(`Daily token error ${res.status}`);
-  const { token } = await res.json();
-  return token;
-}
-```
+Créer l'iframe avec le SDK, déléguer seulement caméra/micro/fullscreen, `referrerPolicy=no-referrer`. Charger d’abord `await call.load({url})` **SANS token**, recontrôler fermeture/expiration, puis `call.join({url, token, startVideoOff})` sur la **même instance chargée** : **jamais** `?t=`, fragment, attribut DOM, stockage, URL de navigation ou log applicatif pour le jeton. Valider HTTPS, sous-domaine Daily, chemin salle, absence de query/fragment/credentials et expiration. Un join direct sur une instance neuve charge Prebuilt avec `?t=` (constaté dans Chromium) : interdit, ne pas passer le token aux factory/load/preAuth. Le chargement séparé permet la transmission par message, vérifiée par réception dans la fixture iframe sans token dans ses requêtes/DOM. Le SDK filtre le token dans ses propriétés de télémétrie ; la qualification de la télémétrie/du sous-traitant appartient à L10.
 
-### T2 — Lier à la consultation (Prisma)
-- Sur le modèle `Consultation`, ajouter `roomName`, `roomUrl`. La salle est créée à
-  l'ouverture de la téléconsultation (ou à la confirmation du RDV).
+En AUDIO, `setLocalVideo(false)` coupe le média réel ; un événement local qui rallume la vidéo est coupé à nouveau. CHAT, raccrocher, sortie de page, expiration et démontage coupent caméra/micro puis détruisent la session. Le mode reçu d'un polling ne remonte jamais le palier local. `network-quality-change.threshold=very-low` déclenche une dégradation avec délai 15 s ; perte réseau → dégradation locale immédiate, tentative serveur sans file/rejeu. La vidéo reste coupée même si cette tentative échoue. Retour du réseau ne relance pas automatiquement la caméra.
 
-### T3 — Endpoint « rejoindre »
-- `POST /api/v1/consultations/:id/join` (protégé JWT) :
-  1. vérifier que l'appelant est bien le **patient** ou le **médecin** de cette consultation,
-  2. créer la salle si absente,
-  3. émettre un **token** adapté au rôle (`is_owner = true` pour le médecin),
-  4. renvoyer `{ roomUrl, token }`. **Ne jamais** renvoyer la clé API.
+Surveillance toutes les 15 s tant que le média est connecté : clôture, suspension/rôle/KYC retiré/RDV annulé ferment le client dès la prochaine réponse de refus. En panne réseau, le jeton expirant reste le filet. **Une session de média peut s'arrêter après 15 min** : message explicite et bouton Réessayer, nouvelle admission seulement si les droits actuels le permettent. Ne pas ajouter un renouvellement silencieux qui contourne ces droits.
 
-### T4 — Frontend (Next.js)
-```bash
-pnpm --filter @digisante/web add @daily-co/daily-js
-```
-- Sur l'écran D-06 : appeler l'endpoint join, puis :
-```ts
-import DailyIframe from '@daily-co/daily-js';
-const call = DailyIframe.createFrame(containerEl, { showLeaveButton: true });
-await call.join({ url: roomUrl, token });
-```
-- Réseau faible : écouter les événements qualité (`network-quality-change`) et proposer
-  la **bascule audio seul / chat** (cohérent avec la maquette D-06).
-- Bouton « raccrocher » → `call.leave()` puis redirection (ex. vers l'ordonnance D-08).
+Permissions-Policy Next autorise les iframes `.daily.co` pour caméra/micro ; CSP existante autorise les frames Daily. Vérifier les en-têtes effectivement servis après Nginx et HTTPS, sur Android/iOS. Aucun élargissement du cache API, SW ou de la file L3/L4 : toutes ces routes exigent le réseau et les réponses restent `Cache-Control:no-store`.
 
-### T5 — Nettoyage
-- Les salles expirent via `exp` + `eject_at_room_exp`. Optionnel : cron qui supprime les
-  salles `consult-*` terminées (`DELETE /v1/rooms/:name`).
+## Reproduction et limites
 
-### T6 — Tests (Vitest)
-- création de salle (mock fetch),
-- token médecin = `is_owner: true`, patient = `false`,
-- refus de join si l'utilisateur n'appartient pas à la consultation,
-- mode stub.
+Tests : `daily.test.ts` (contrats fournisseur simulés), `consultations.test.ts` (vraie DB/Redis, Daily simulé), `daily-session.test.ts` (méthodes SDK simulées), puis `private-teleconsultation.spec.ts` (UI/API/DB réels sans Daily). Exécuter release:check et tous les E2E sur une pile synthétique dédiée. Smoke réel opt-in et matrice deux appareils : `RECETTE_Daily_Teleconsultation.md`, L10. Ne pas assimiler ces preuves simulées à un appel fournisseur réussi ou à une validation APDP.
 
----
-
-## 5. Critères d'acceptation
-- [ ] `POST /consultations/:id/join` renvoie `{ roomUrl, token }` au bon rôle.
-- [ ] La clé API n'apparaît jamais côté client (vérifier le bundle / réseau).
-- [ ] Médecin et patient se rejoignent dans la même salle ; le médecin est owner.
-- [ ] Une salle expirée éjecte les participants.
-- [ ] Sans clé, l'API démarre en mode stub.
-
-## 6. Sécurité & confidentialité
-- Salles **privées** + tokens à durée de vie courte (`exp`).
-- L'accès à une consultation respecte le **lien patient↔médecin** (et le consentement DMP
-  pour l'accès au dossier, géré ailleurs).
-- Ne pas enregistrer la consultation sans base légale (APDP / consentement explicite).
-
-## 7. Prompt prêt à coller
-```
-Lis CLAUDE.md, docs/PLAYBOOK_Codage_DigiSante.md et docs/GUIDE_DailyCo_Teleconsultation.md.
-Implémente l'intégration Daily.co : service backend (createRoom, createMeetingToken via
-l'API REST, clé jamais exposée, mode stub), champs roomName/roomUrl sur Consultation,
-endpoint POST /consultations/:id/join (token owner pour le médecin), intégration frontend
-@daily-co/daily-js sur l'écran D-06 avec bascule réseau faible, nettoyage des salles,
-et tests. Commit : "feat: téléconsultation Daily.co".
-```
+Références officielles vérifiées le 7 octobre 2026 : [création de salle](https://docs.daily.co/reference/rest-api/rooms/create-room), [jetons](https://docs.daily.co/reference/rest-api/meeting-tokens/create-meeting-token), [SDK load](https://docs.daily.co/reference/daily-js/instance-methods/load), [SDK join](https://docs.daily.co/reference/daily-js/instance-methods/join), [setLocalVideo](https://docs.daily.co/reference/daily-js/instance-methods/set-local-video), [éjection et ban](https://docs.daily.co/reference/rest-api/rooms/session/eject). Les types du SDK 0.93.0 confirment `token`, `startVideoOff` et `network-quality-change.threshold` ; ne pas confondre ce champ avec les événements webhook `networkQualityState`.

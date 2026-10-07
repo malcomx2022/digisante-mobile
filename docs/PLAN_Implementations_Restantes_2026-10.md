@@ -1,7 +1,7 @@
 # Plan d'implémentation et de finalisation — DigiSanté Mobile
 
 > Date : **6 octobre 2026**. Base inspectée : `main` @ `8f2f6ca24ad0543d6a08218932c783809eada9b1`, avec les quatre corrections locales de revue.
-> Statut : **L0 LIVRÉ SUR MAIN**, PR #178/#179 fusionnées, CI candidate verte ; L1 LIVRÉ SUR MAIN par PR #181 (`53775be`) ; L2 LIVRÉ SUR MAIN par PR #182 (`eb1ba6e`) ; L3 LIVRÉ SUR MAIN par PR #183 (`ce1cae8`) ; L4 VALIDÉ LOCALEMENT (preuves/CI : LOT_L4 et PR du lot) ; L5–L11 PLANIFIÉS. Mise à jour : 7 octobre 2026. Voir `docs/suivi/LOT_L0.md` et `docs/REVUE_L0_2026-10.md`. Aucun déploiement attesté par ce plan.
+> Statut : **L0 LIVRÉ SUR MAIN**, PR #178/#179 fusionnées, CI candidate verte ; L1 LIVRÉ SUR MAIN par PR #181 (`53775be`) ; L2 LIVRÉ SUR MAIN par PR #182 (`eb1ba6e`) ; L3 LIVRÉ SUR MAIN par PR #183 (`ce1cae8`) ; L4 LIVRÉ SUR MAIN par PR #184 (`0d3cb74`) ; L5 CANDIDATE VALIDÉE LOCALEMENT (preuves/CI : LOT_L5 et PR du lot) ; L6–L11 PLANIFIÉS. Mise à jour : 7 octobre 2026. Voir `docs/suivi/LOT_L0.md` et `docs/REVUE_L0_2026-10.md`. Aucun déploiement attesté par ce plan.
 > Référence de reprise : `CLAUDE.md` puis `docs/PLAYBOOK_Codage_DigiSante.md`.
 > Version documentaire : `docs/Plan_Implementations_Restantes_2026-10.docx`, générée depuis ce fichier par `scripts/docs/generate-implementation-plan.js`.
 
@@ -49,8 +49,8 @@ Ces décisions bloquent uniquement leurs sous-lots dépendants. Préparer modèl
 | L1 | Consentements par entrée et auteurs DMP | L0 | Livré sur main par PR #181 ; preuves dans LOT_L1 |
 | L2 | Habilitation laboratoire | L0 | Livré sur main par PR #182 ; preuves dans LOT_L2 |
 | L3 | Rejeu des mutations sans doublon | L0 | Livré sur main par PR #183 ; preuves dans LOT_L3 |
-| L4 | Stockage hors ligne protégé et disponibilité exacte | L1, L3 | Candidate sur feat/l4-protected-offline ; preuves dans LOT_L4 |
-| L5 | Salles Daily privées et jetons participants | L0 | À implémenter |
+| L4 | Stockage hors ligne protégé et disponibilité exacte | L1, L3 | Livré sur main par PR #184 ; preuves dans LOT_L4 |
+| L5 | Salles Daily privées et jetons participants | L0 | Candidate sur feat/l5-private-teleconsultation ; recette réelle en L10 |
 | L6 | Abonnements payants de bout en bout | L0, décisions commerciales | À implémenter |
 | L7 | Revenus, exports et opérations financières | L6 pour revenus d'abonnement ; L0 pour consultations | À implémenter |
 | L8 | Fermer ou arbitrer les autres résiduels de sécurité | L0 ; revue finale après L1–L7 | À traiter |
@@ -119,6 +119,8 @@ Afficher date de dernière synchronisation, périmètre disponible et données p
 **Implémentation L4 (7 octobre).** Base main `ce1cae8` après fusion #183. Coffre opt-in à phrase locale, PBKDF2/AES-GCM et clé ouverte en mémoire ; lectures minimales explicitement synchronisées, datées, avertissement 6 h/expiration 24 h. Files scellées, lock/reload/purge atomique, isolation des comptes et migration conservatrice v3→v4. Sans coffre : premier envoi en ligne avec ticket minimal, reprise GET reçu seule ; résultat non confirmé bloque toute nouvelle mutation couverte jusqu’à revue. UI Wax & Terre et reprise manuelle, SW limité aux coquilles/chunks publics, API/fetch no-store contre le cache HTTP, promesses SOS corrigées. Contrat : `docs/CONTRAT_Hors_Ligne_L4.md`, revue : `docs/REVUE_L4_2026-10.md`, livraison/preuves : `docs/suivi/LOT_L4.md`. 167 REST/1 WS, 67 pages, 32 migrations ; 467 API +103 web +15 E2E et 11 contrôles release verts, aucun skip ; plan DOCX régénéré et validé structurellement. L’héritage non déverrouillé reste en clair et averti jusqu’à migration de chaque compte/effacement explicite après vérification ; aucune promesse anti-XSS ni révocation hors réseau. Recette Android/iOS et validation clinique/native non attestées.
 
 ### L5 — Téléconsultation Daily privée
+
+**Reprise du 7 octobre.** Candidate implémentée/revue depuis main après #184 ; preuves `suivi/LOT_L5.md`, contrat et auto-revue L5. SDK officiel 0.93.0 (load sans token avant join sur instance chargée), jeton mémoire hors URL, salle privée relue, droits actuels et échéances bornées, coupure réelle AUDIO, CHAT/sortie et surveillance. Sans Daily : absence explicite de média, aucun iframe/token fictif. Les tests contractuels/UI sans fournisseur ne valident pas l'appel réel deux appareils, repris en L10 avant GO L11. PR/CI et livraison restent à vérifier sur le commit final.
 
 **Fichiers de départ.** `apps/api/src/services/daily.ts`, `modules/consultations`, `apps/web/src/components/consult/ConsultationRoom.tsx`.
 
@@ -220,7 +222,7 @@ en attente et termine les travaux indépendants autorisés. Aucun résultat ne d
 | L2 | Conditionne la prise en charge et les résultats à l'habilitation laboratoire, sans exposition médicale à l'admin. |
 | L3 | Protège premier envoi et rejeu par un reçu durable atomique avec l'effet métier ; teste réponse perdue et concurrence. |
 | L4 | Protège lectures et files médicales locales ; valide la gestion de clé et la disponibilité après rechargement hors réseau. |
-| L5 | Utilise les jetons Daily dans des salles privées et rends la dégradation du média effective. |
+| L5 | Charge Daily sans token puis joins sur la même instance chargée ; contrôle accès privé/échéances et coupe réellement le média en dégradation. |
 | L6 | Relie catalogue serveur, paiement et période d'abonnement ; ferme l'activation gratuite des plans payants. |
 | L7 | Remplace l'écran revenus indisponibles par des agrégats vérifiables et documente le circuit financier jusqu'à clôture. |
 | L8 | Reprends chaque résiduel d'audit ; ferme, vérifie le réglage ou documente son acceptation explicite. |
@@ -258,4 +260,4 @@ Interprète humain, console SOS administrative après arbitrage de confidentiali
 
 ### 9. Sources et traçabilité
 
-`CLAUDE.md`, playbook, CDC et documentation technique ; audit de sécurité de release septembre (X1–X15), état des lieux septembre, GO/NO-GO du 22 septembre, recette sept rôles, suivis B1–B5 et fiches fournisseurs. Constats vérifiés dans subscriptions.routes.ts, pro/stats/page.tsx, dmp-consent.ts, queue.ts/client.ts, sw.js/useApi.ts et ConsultationRoom.tsx. Nouveau constat de protection locale : `queue.ts` conserve actuellement les corps de mutation dans IndexedDB sans chiffrement explicite ; à traiter avec L4, pas à présenter comme déjà résolu.
+`CLAUDE.md`, playbook, CDC et documentation technique ; audit de sécurité de release septembre (X1–X15), état des lieux septembre, GO/NO-GO du 22 septembre, recette sept rôles, suivis B1–B5 et fiches fournisseurs. Constats vérifiés dans subscriptions.routes.ts, pro/stats/page.tsx, dmp-consent.ts, queue.ts/client.ts, sw.js/useApi.ts et ConsultationRoom.tsx. Constat initial de protection locale traité par L4 : nouveaux corps chiffrés sous coffre ouvert, tickets sans corps hors coffre ; héritage non migré encore en clair et signalé, recette appareils requise. Lire le contrat L4 avant toute promesse de protection complète.

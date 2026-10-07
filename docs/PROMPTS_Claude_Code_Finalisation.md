@@ -1,6 +1,6 @@
 # Prompts Claude Code — finalisation des intégrations et corrections
 
-Reprise du 7 octobre 2026 : L0–L3 livrés sur main ; L4 candidate. Lire `CLAUDE.md`, `suivi/LOT_L4.md` et `CONTRAT_Hors_Ligne_L4.md` avant les prompts historiques. Ne pas réimplémenter les fonctions L1–L4 comme si elles étaient absentes ; prochaine implémentation planifiée L5 après livraison/revue de L4.
+Reprise du 7 octobre 2026 : L0–L4 livrés sur main ; L5 candidate. Lire `CLAUDE.md`, `suivi/LOT_L5.md`, `CONTRAT_Teleconsultation_L5.md` et le guide Daily avant les prompts historiques. Ne pas réintroduire iframe nu, token dans URL, owner médecin ou accès fictif après erreur. Prochain lot L6 après livraison/revue L5 ; recette Daily réelle en L10, aucune case fournisseur cochée par les tests simulés.
 
 > **Reprise du 6 octobre 2026 :** utiliser d'abord `PLAN_Implementations_Restantes_2026-10.md`, son prompt commun et l'instruction L0–L11. Les prompts ci-dessous conservent le contexte de la finalisation précédente ; vérifier ce qui est déjà livré avant de les exécuter et mesurer les compteurs actuels plutôt que reprendre les nombres historiques.
 
