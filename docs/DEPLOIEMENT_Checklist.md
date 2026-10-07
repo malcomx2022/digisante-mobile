@@ -3,7 +3,7 @@
 > Cible : VPS Ubuntu 22.04 LTS. PostgreSQL 16 **natif**, Redis natif, Nginx + SSL Certbot,
 > PM2 (API cluster ×2 + web). **Aucun Docker en prod** (CLAUDE.md §3). Scripts : `infra/deploy/`.
 
-> État de finalisation au 7 octobre 2026 : L0–L3 livrés sur main ; L4 candidate (LOT_L4/PR). Aucun déploiement ou GO pilote attesté ; L5–L11 et la recette réelle restent à traiter.
+> État de finalisation au 7 octobre 2026 : L0–L5 livrés sur main (#185/2e5cc77 pour L5) ; L6 candidate (LOT_L6/PR). Aucun déploiement ou GO pilote attesté ; L7–L11 et la recette réelle restent à traiter.
 
 ## 0. Pré-requis
 - [ ] Nom de domaine pointant (A) vers l'IP du VPS (`digisante.example.bj` + `www`).
@@ -81,13 +81,13 @@
 
 ---
 
-**Contrôles techniques actuels ; ouverture pilote non attestée.** Le code (backend **28 modules** / **168 endpoints REST + 1 WS**
-+ frontend **7 espaces**, **67 pages**) est testé (**611 tests verts** — 499 API + 112 web, + 15 e2e
-Playwright — preuves du 7 octobre 2026 dans LOT_L4), l'infra scriptée. Restent la finalisation L5–L11, la validation humaine et l'exécution sur
+**Contrôles techniques actuels ; ouverture pilote non attestée.** Le code (backend **28 modules** / **171 endpoints REST + 1 WS**
++ frontend **7 espaces**, **67 pages**) est testé (**651 tests verts** — 534 API + 117 web, + 15 e2e
+Playwright — preuves du 7 octobre 2026 dans LOT_L4), l'infra scriptée. Restent la finalisation L7–L11 et la livraison L6, la validation humaine et l'exécution sur
 le VPS réel (étapes ci-dessus).
 
 > Les revues d'écarts sont **closes** : `docs/REVUE_Ecarts_et_Plan_2026-08.md` (C1→C9) et
-> `docs/AUDIT_Fonctionnel_2026-08.md` (D1→D10). Ces clôtures historiques ne ferment pas le plan actif L5–L11 ni ses conditions de GO pilote.
+> `docs/AUDIT_Fonctionnel_2026-08.md` (D1→D10). Ces clôtures historiques ne ferment pas le plan actif L7–L11 et les recettes réelles L5/L6 ni ses conditions de GO pilote.
 
 ## 9. Deux points à traiter AVANT les premiers patients réels
 
@@ -108,3 +108,14 @@ le VPS réel (étapes ci-dessus).
 - [ ] Qualification sous-traitant/région/télémétrie validée par le porteur ; absence de token dans historique/DOM/log/stockages/cache contrôlée.
 
 En incident : désactiver Daily, garder la messagerie, corriger en avant. Les clients app surveillent l'accès, les bearers déjà copiés restent bornés par 15 min ; éjection/suppression best effort et salle 4 h comme filets. Ne pas revenir au stub externe ni à un propriétaire médecin. Lire `CONTRAT_Teleconsultation_L5.md`.
+
+## Addendum L6 — abonnement médecin avant vente pilote
+
+- [ ] PR L6 revue/fusionnée, CI vérifiée sur le SHA final ; sauvegarde et inventaire des anciens plans/paiements isolés.
+- [ ] Migration 33 appliquée et rapprochement humain : anciens payants ACTIVE fermés, plan conservé ; aucun justificatif financier inventé.
+- [ ] Catalogue approuvé FREE/PRO 5 000 XOF/mois, STARTER/CLINIC fermés ; API/client cohérents, anciens onglets fermés.
+- [ ] Configuration FedaPay complète + secret webhook : abonnement absent en configuration refusé, sans stub.
+- [ ] Recette A1–A17 (dont paiement sandbox réel, abandon tardif, restitution opérateur et expiration/soin ouvert) signée ; §5 HMAC/×5/reconcile/wallet/refund re-testés.
+- [ ] L7 revenus/finance, L8 résiduels FedaPay et L9 textes validés ; aucun prélèvement automatique ni remboursement externe déclaré sur seule transition interne.
+
+Lire `CONTRAT_Abonnements_L6.md`, `RECETTE_Abonnements_L6.md` et LOT_L6. Corriger en avant ; aucun retour à l’activation gratuite. Cases opérationnelles volontairement non cochées : preuves locales/CI ne prouvent pas un déploiement ou un règlement réel.

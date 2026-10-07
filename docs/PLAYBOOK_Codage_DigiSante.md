@@ -55,7 +55,7 @@ Preuves L3 : 460 API +64 web +11 E2E, 28 tests outillage et 11 étapes de releas
 
 L3 livré sur main par #183 (`ce1cae8`). Lire `CONTRAT_Hors_Ligne_L4.md`, LOT_L4 et REVUE_L4 avant maintenance. Réutiliser le coffre unique, la projection minimale et les contrôles du compte/génération ; pas de cache d’API, phrase/clé/JWT persistés ou clé serveur copiée. Récupérer les corps scellés seulement après unlock ; sans coffre, ticket minimal et vérification GET, aucune reconstitution d’effet. Refus de refresh 401/403 distinct d’une panne temporaire. Toute tentative en ligne non résolue impose une revue avant nouvelle saisie.
 
-Migration v3→v4 additive, corps/id/clé conservés atomiquement. L’héritage d’un autre compte/non attribuable reste en clair : migration de chaque compte ou effacement volontaire après vérification des effets avant prêt/pilote. Relire les tests purge pendant écritures, migration interrompue, quota, A→B, mauvaise phrase, expiration et réponse perdue/reload. Tests du SW + E2E réel hors réseau obligatoires ; émulation Pixel 5 ne signe aucune recette Android/iOS. Périmètre : 20 résumés DMP, 10×20 lignes sans QR, urgence minimale, TTL 24 h/alerte 6 h ; seuls les shells/assets publics entrent dans CacheStorage, API/fetch no-store contre le cache HTTP ; anciens caches navigateur à vider avant partage. L5–L11 restent ouverts ; preuves et statut final dans LOT_L4.
+Migration v3→v4 additive, corps/id/clé conservés atomiquement. L’héritage d’un autre compte/non attribuable reste en clair : migration de chaque compte ou effacement volontaire après vérification des effets avant prêt/pilote. Relire les tests purge pendant écritures, migration interrompue, quota, A→B, mauvaise phrase, expiration et réponse perdue/reload. Tests du SW + E2E réel hors réseau obligatoires ; émulation Pixel 5 ne signe aucune recette Android/iOS. Périmètre : 20 résumés DMP, 10×20 lignes sans QR, urgence minimale, TTL 24 h/alerte 6 h ; seuls les shells/assets publics entrent dans CacheStorage, API/fetch no-store contre le cache HTTP ; anciens caches navigateur à vider avant partage. L5 livré par #185, L6 candidate ; L7–L11 ouverts, preuves dans les fiches de lot.
 
 ## Finalisation restante — reprise par lots L0–L11
 
@@ -83,7 +83,7 @@ Le plan actif détaille contrats, dépendances, fichiers de départ, migrations,
 Lis CLAUDE.md, docs/INDEX_Documentation_DigiSante.docx puis README.md.
 Fais un état des lieux du monorepo actuel (apps/web, apps/api, packages, infra) :
 ce qui est en place vs ce qui manque pour atteindre un projet complet
-(168 endpoints REST + 1 WebSocket / 28 modules, 49 modèles Prisma, 67 pages, 4 langues, offline-first).
+(171 endpoints REST + 1 WebSocket / 28 modules, 50 modèles Prisma, 67 pages, 4 langues, offline-first).
 Ne code rien encore. Propose-moi un PLAN DE CONSTRUCTION par lots, avec l'ordre
 des dépendances (données → API → intégrations → frontend → tests). Liste les
 risques et les points à clarifier.
@@ -413,4 +413,8 @@ playbook docs/PLAYBOOK_Codage_DigiSante.md ? Reprenons à l'étape [PX.Y].
 
 ## Reprise L5 — 7 octobre 2026
 
-L4 livré par PR #184, base main `0d3cb74`. L5 candidate : lire `suivi/LOT_L5.md`, `REVUE_L5_2026-10.md` et le guide Daily. Tests fournisseur simulés, admission API DB réelle, média SDK simulé et E2E sans fournisseur ; l'appel réel deux appareils reste L10. Ne pas renouveler silencieusement les accès ni rétablir un mode moins dégradé. Une branche/revue/PR par lot ; L6 suivant, abonnement médecin seulement pour le pilote, autres abonnements après pilote.
+L4 livré par PR #184, base main `0d3cb74`. L5 livré sur main par PR #185 (`2e5cc77`) : lire `suivi/LOT_L5.md`, `REVUE_L5_2026-10.md` et le guide Daily. Tests fournisseur simulés, admission API DB réelle, média SDK simulé et E2E sans fournisseur ; l'appel réel deux appareils reste L10. Ne pas renouveler silencieusement les accès ni rétablir un mode moins dégradé. Une branche/revue/PR par lot ; L6 candidate, abonnement médecin seulement pour le pilote ; L7 suivant après livraison L6, autres abonnements après pilote.
+
+## Contrat de reprise L6 — abonnement réellement payé
+
+Lire `CONTRAT_Abonnements_L6.md`, `suivi/LOT_L6.md`, `REVUE_L6_2026-10.md` et `RECETTE_Abonnements_L6.md`. Catalogue approuvé par le porteur : FREE + PRO 5 000 XOF/mois calendaire, renouvellement manuel, STARTER/CLINIC fermés. Pas de plan/dates/prix imposés par le client ni de débit récurrent. Commande unique par UUID stable, lien Payment unique, effet période/audit atomique, droit courant dérivé de la période payée sans cron. FREE/expiration conservent les soins ouverts ; nouveau démarrage exige PRO. Abandon avant activation + paiement tardif = argent tracé sans droits, remboursement opérateur manuel. Re-tests §5 obligatoires ; la DLQ n’existe pas, ne pas la déclarer testée. Revenus L7 doivent distinguer recette plateforme abonnement et revenu médecin ; ne pas réintroduire POST subscriptions gratuit, paiement SUBSCRIPTION générique, file offline ou callback comme preuve.

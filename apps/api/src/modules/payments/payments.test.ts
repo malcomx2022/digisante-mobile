@@ -312,10 +312,11 @@ describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
     expect(Number((await app.prisma.wallet.findUniqueOrThrow({ where: { userId: patientUserId } })).balance)).toBe(10000);
   });
 
-  it('abonnement professionnel : souscription d’un plan', async () => {
+  it('abonnement professionnel : activation gratuite fermée au lot L6', async () => {
     const sub = await app.inject({ method: 'POST', url: '/api/v1/subscriptions', headers: auth(doctorToken), payload: { plan: 'PRO' } });
-    expect(sub.statusCode).toBe(200);
-    expect(sub.json().subscriptionPlan).toBe('PRO');
+    expect(sub.statusCode).toBe(400);
+    const current = await app.inject({ method: 'GET', url: '/api/v1/subscriptions/me', headers: auth(doctorToken) });
+    expect(current.json().subscriptionPlan).toBe('FREE');
   });
 
   // ⚠️ §5/Lot E — re-test webhooks : quand FedaPay est configuré via l'ADMIN (base),

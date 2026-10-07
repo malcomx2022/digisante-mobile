@@ -1,6 +1,6 @@
 # Matrice CDC → périmètre du pilote → preuves → lots
 
-> Baseline L0 · 6 octobre 2026 ; mise à jour L5 le 7 octobre, branche `feat/l5-private-teleconsultation`.
+> Baseline L0 · 6 octobre 2026 ; mise à jour L6 le 7 octobre, branche `feat/l6-paid-doctor-subscriptions`.
 > Source fonctionnelle : `docs/fonctionnel/CDC_DigiSante_Mobile_v1.0.docx`, §3 et §9.
 > Décisions actuelles : `CLAUDE.md` prime sur les choix historiques contradictoires du CDC.
 > Périmètre de travail : le plan L0–L11 demandé par le porteur, sept rôles et offre médecin L6.
@@ -8,7 +8,7 @@
 
 ## Règles de lecture
 
-« Présent/testé localement » n'atteste ni recette fournisseur ni ouverture clinique. Chaque lot doit fermer la boucle données → API → écran → incident → preuve, avec une revue du diff avant PR. Les 8 E2E actuels couvrent l'authentification et le triage : ils ne couvrent pas tous les parcours de cette matrice.
+« Présent/testé localement » n'atteste ni recette fournisseur ni ouverture clinique. Chaque lot doit fermer la boucle données → API → écran → incident → preuve, avec une revue du diff avant PR. Les E2E incluent authentification, triage, laboratoire, sync/coffre, Daily et abonnements ; ils ne remplacent pas les recettes humaines/fournisseurs de cette matrice.
 
 Les points du CDC incompatibles avec les décisions persistantes sont remplacés : Socket.io/Workbox ne sont pas imposés à la place du WebSocket et du service worker livrés ; l'admin n'accède jamais au DMP ; le patient contrôle les consentements ; l'ASC reste un relais sans lecture DMP ; pas de traduction médicale envoyée à un tiers ; le mode FedaPay est déduit de la clé, sans variable indépendante `FEDAPAY_MODE`.
 
@@ -20,7 +20,7 @@ Les points du CDC incompatibles avec les décisions persistantes sont remplacés
 | P02 | DMP, partage temporaire, révocation, export | Tests dmp/consent/documents présents ; l'expiration par entrée et l'auteur restent incomplets. | L1 |
 | P03 | Pièces médicales chiffrées | Upload/téléchargement et tests dmp.documents présents ; droits à revérifier avec les nouvelles échéances. | L1, L11 |
 | P04 | RDV, conflits de créneaux, agenda | Tests réservation/confirmation/annulation, concurrence et minuit ; verrou médecin ajouté. | L0 ; recette L11 |
-| P05 | Téléconsultation, vidéo/audio/chat | L5 candidate : SDK token hors URL, salle privée relue, droits courants, échéances bornées, AUDIO réel commandé et libération CHAT/sortie. Tests fournisseur/SDK simulés et E2E sans fournisseur ; appel réel à attester. | L5, L10/L11 |
+| P05 | Téléconsultation, vidéo/audio/chat | L5 livré par #185 : SDK token hors URL, salle privée relue, droits courants, échéances bornées, AUDIO réel commandé et libération CHAT/sortie. Tests fournisseur/SDK simulés et E2E sans fournisseur ; appel réel à attester. | L5, L10/L11 |
 | P06 | Chat médical et communication multilingue | Chat chiffré/WS et tests présents ; phrasier local, FON/YOR et recettes faibles réseaux à valider. | L3/L4, L9, L11 |
 | P07 | Ordonnance DCI, QR, délivrance | Tests règles/signature, pharmacie et parcours API présents. Le sceau applicatif ne prouve pas une signature réglementaire qualifiée/CAMES. | L9 validation professionnelle ; L11 appareils |
 | P08 | Aide médicamenteuse | Détection de correspondances d'allergies présente ; petit catalogue de génériques. Aucune attestation de base complète d'interactions ou de prescription assistée par IA. | Référentiel complet / IA hors pilote ; validation des limites L9 |
@@ -29,7 +29,7 @@ Les points du CDC incompatibles avec les décisions persistantes sont remplacés
 | P11 | Paiement consultation Mobile Money et wallet | Tests payments/wallet ; montants imposés serveur, HMAC et idempotence. Fournisseur simulé dans la baseline. | L0 puis L10 sandbox/live contrôlé |
 | P12 | Annulation médecin et restitution WALLET | REFUND_IN atomique ajouté et testé ; ancien REFUND reste reversal de recharge. | L0, rapprochement L7 |
 | P13 | Réconciliation et supervision financière | PENDING/PROCESSING anciens, identifiant fournisseur présent ; tests cron et aperçu admin. | L0, recette fournisseur L10 |
-| P14 | Abonnements médecins et droits de plan | Changement de plan présent mais activation payante gratuite possible. Pas de cycle de période/droits lié au paiement. | L6 ; aucune commercialisation avant sa validation |
+| P14 | Abonnements médecins et droits de plan | L6 : FREE/PRO approuvés, paiement/période/audit atomiques, droits courants, renouvellement manuel et arrêt/abandon ; faux plans historiques fermés. | LOT_L6/REVUE_L6 ; recettes financières réelles L10 et revenus L7, aucune commercialisation avant validation |
 | P15 | Revenus, annulations, satisfaction, export comptable | Page revenus indisponibles ; commission calculée, pas de boucle comptable complète attestée. | L7 |
 | P16 | Reversement et remboursement externe sous 48 h ouvrables | Remboursement interne ≠ versement opérateur ; action externe actuellement manuelle. | L7 procédure/preuve ; automatisation séparée |
 | P17 | Diaspora : proches, recharge, transfert | Tests beneficiaries/wallet ; transfert interne au bénéficiaire présent, aucun accès médical au payeur. | L11 ; lien accepté du bénéficiaire après pilote |

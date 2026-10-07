@@ -5,6 +5,7 @@ import { badRequest, forbidden, notFound } from '@/lib/errors.js';
 import { localize } from '@/modules/notifications/notifications.templates.js';
 import { createMeetingToken, createRoom, deleteRoom, ejectParticipants, ROOM_TTL_SECONDS } from '@/services/daily.js';
 import { nextMode } from './consultations.rules.js';
+import { requireProWithin } from '@/modules/subscriptions/subscriptions.effects.js';
 
 const participantSelect = { userId: true, user: { select: { role: true, status: true } } } as const;
 async function loadConsultation(app: FastifyInstance, consultationId: string) {
@@ -51,6 +52,7 @@ export async function start(app: FastifyInstance, doctorUserId: string, appointm
     if (appt.type !== 'TELECONSULTATION') throw badRequest('Ce rendez-vous n’est pas une téléconsultation');
     if (appt.status !== 'CONFIRMED') throw badRequest('Le rendez-vous doit être confirmé');
     if (appt.consultation) throw badRequest('Une consultation existe déjà pour ce rendez-vous');
+    await requireProWithin(tx, doctorUserId);
     const startedAt = new Date();
     const room = await createRoom({ app, name: `consult-${appointmentId}` });
     const consult = await tx.consultation.create({

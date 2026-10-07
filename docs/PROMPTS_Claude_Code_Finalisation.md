@@ -1,6 +1,6 @@
 # Prompts Claude Code — finalisation des intégrations et corrections
 
-Reprise du 7 octobre 2026 : L0–L4 livrés sur main ; L5 candidate. Lire `CLAUDE.md`, `suivi/LOT_L5.md`, `CONTRAT_Teleconsultation_L5.md` et le guide Daily avant les prompts historiques. Ne pas réintroduire iframe nu, token dans URL, owner médecin ou accès fictif après erreur. Prochain lot L6 après livraison/revue L5 ; recette Daily réelle en L10, aucune case fournisseur cochée par les tests simulés.
+Reprise du 7 octobre 2026 : L0–L5 livrés sur main, #185 = `2e5cc77` ; L6 candidate. Lire `CLAUDE.md`, `suivi/LOT_L6.md`, `CONTRAT_Abonnements_L6.md` et les revues L5/L6 avant les prompts historiques. Catalogue FREE/PRO approuvé, aucun plan payant gratuit ni débit récurrent ; accès clinique courant et soins ouverts conservés. L7 ensuite après livraison/revue L6 ; fournisseur réel L10 et GO L11 restent distincts.
 
 > **Reprise du 6 octobre 2026 :** utiliser d'abord `PLAN_Implementations_Restantes_2026-10.md`, son prompt commun et l'instruction L0–L11. Les prompts ci-dessous conservent le contexte de la finalisation précédente ; vérifier ce qui est déjà livré avant de les exécuter et mesurer les compteurs actuels plutôt que reprendre les nombres historiques.
 
@@ -309,3 +309,7 @@ procès-verbal DOCX via build puis validate ; ne transforme jamais une déclarat
 Ne lancer le prompt 20 que lorsque tous les prompts applicables précédents ont produit des preuves
 versionnées. Claude Code peut accélérer et contrôler le processus ; il ne peut remplacer ni le porteur,
 ni les fournisseurs, ni les locuteurs natifs, ni le professionnel de santé.
+
+## Reprise L7 après livraison L6
+
+Réutiliser les commandes/périodes L6 et `requireProWithin` avec rôle/statut courant pour les revenus médecin. Une recette abonnement appartient à la plateforme, pas au revenu médecin ni à la commission consultation 3 %. Conserver CAS financiers et audit atomique SUBSCRIPTION, UUID avant premier envoi, no-store/postNow, historique/cancellation tardive. Toute modification paiement respecte §3.5 : diff explicite et re-tests HMAC/×5/reconcile/wallet/refund. Vérifier main et SHA/CI avant nouvelle branche ; produire la revue L7, sans merge automatique.

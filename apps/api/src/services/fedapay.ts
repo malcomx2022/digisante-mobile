@@ -201,6 +201,8 @@ export async function createTransaction(opts: {
   merchantReference?: string | null;
   /** Payeur — préremplit la page de paiement. Aucune donnée de santé (§4). */
   customer?: FedapayCustomer | null;
+  /** L6 borne chaque appel sous verrou de commande. */
+  timeoutMs?: number;
 }): Promise<FedapayTransaction> {
   if (!opts.secretKey) {
     const fedapayId = `fdp_${randomBytes(12).toString('hex')}`;
@@ -229,6 +231,7 @@ export async function createTransaction(opts: {
 
     const txRes = await fetch(`${base}/transactions`, {
       method: 'POST',
+      ...(opts.timeoutMs ? { signal: AbortSignal.timeout(opts.timeoutMs) } : {}),
       headers: fedapayHeaders(opts.secretKey),
       body: JSON.stringify({
         description: opts.description,
@@ -251,6 +254,7 @@ export async function createTransaction(opts: {
     // 2) Génération du token → URL de paiement hébergée.
     const tokRes = await fetch(`${base}/transactions/${id}/token`, {
       method: 'POST',
+      ...(opts.timeoutMs ? { signal: AbortSignal.timeout(opts.timeoutMs) } : {}),
       headers: fedapayHeaders(opts.secretKey),
     });
     if (!tokRes.ok) {
