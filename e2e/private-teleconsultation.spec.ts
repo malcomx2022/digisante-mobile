@@ -12,6 +12,13 @@ test('médecin ouvre, patient rejoint puis passe AUDIO → CHAT, médecin clôtu
     const doctorPhone = await registerAndLogin(page, { role: 'Médecin', firstName: 'Daily', lastName: 'Médecin' });
     const doctor = await prisma.user.findUniqueOrThrow({ where: { phone: doctorPhone }, include: { doctor: true } }); ids.push(doctor.id);
     await prisma.doctor.update({ where: { id: doctor.doctor!.id }, data: { verifiedAt: new Date() } });
+    // Fonds synthétiques, achat L6 par API réelle pour la fixture téléconsultation.
+    await prisma.wallet.create({ data: { userId: doctor.id, balance: 5000 } });
+    const session = await page.request.post('/api/v1/auth/refresh');
+    expect(session.ok()).toBe(true);
+    const { accessToken } = await session.json();
+    const paid = await page.request.post('/api/v1/subscriptions', { headers: { authorization: `Bearer ${accessToken}` }, data: { plan: 'PRO', method: 'WALLET', requestId: 'a6000000-0000-4000-8000-000000000003' } });
+    expect(paid.ok()).toBe(true);
     const patientPage = await patientContext.newPage();
     const patientPhone = await registerAndLogin(patientPage, { firstName: 'Daily', lastName: 'Patient' });
     const patient = await prisma.user.findUniqueOrThrow({ where: { phone: patientPhone }, include: { patient: true } }); ids.push(patient.id);

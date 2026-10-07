@@ -7,11 +7,12 @@ import type { PaymentMethod, PaymentType } from '@digisante/shared';
 import { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
-import { writeAudit } from '@/lib/audit.js';
+import { writeAudit, writeAuditWithin } from '@/lib/audit.js';
 import { env } from '@/lib/env.js';
 import { badRequest, forbidden, notFound, unauthorized } from '@/lib/errors.js';
 import { resolveConfiguredSecrets } from '@/lib/integrations.js';
 import * as wallet from '@/modules/wallet/wallet.service.js';
+import { activateWithin, revokeWithin } from '@/modules/subscriptions/subscriptions.effects.js';
 import {
   computeCommission,
   createTransaction,
@@ -60,6 +61,10 @@ async function applyPaymentStatus(
     });
     if (count === 0) return false;
     if (topupWalletId) await wallet.creditWithin(tx, topupWalletId, payment.amount.toNumber(), payment.id, 'Recharge wallet');
+    if (status === 'COMPLETED' && payment.type === 'SUBSCRIPTION') {
+      await activateWithin(tx, payment.id);
+      await writeAuditWithin(tx, { action: 'PAYMENT_CONFIRMED', actorId: payment.userId, targetId: payment.id, ip, meta: { fedapayId: payment.fedapayId, type: payment.type, source } });
+    }
     return true;
   });
   if (!won) {
@@ -67,7 +72,7 @@ async function applyPaymentStatus(
     return { idempotent: true, status: current?.status ?? payment.status };
   }
 
-  if (status === 'COMPLETED') {
+  if (status === 'COMPLETED' && payment.type !== 'SUBSCRIPTION') {
     await writeAudit(app.prisma, {
       action: 'PAYMENT_CONFIRMED',
       actorId: payment.userId,
@@ -111,6 +116,7 @@ export async function refund(
   const won = await app.prisma.$transaction(async (tx) => {
     const { count } = await tx.payment.updateMany({ where: { id: payment.id, status: 'COMPLETED' }, data: { status: 'REFUNDED' } });
     if (count === 0) return false;
+    if (payment.type === 'SUBSCRIPTION') await revokeWithin(tx, payment.id);
     if (refundWalletId) {
       if (payment.type === 'WALLET_TOPUP') {
         await wallet.refundWithin(tx, refundWalletId, payment.amount.toNumber(), payment.id, opts.reason ?? 'Remboursement');
@@ -118,11 +124,15 @@ export async function refund(
         await wallet.creditWithin(tx, refundWalletId, payment.amount.toNumber(), payment.id, opts.reason ?? 'Remboursement', 'REFUND_IN');
       }
     }
+    if (payment.type === 'SUBSCRIPTION') await writeAuditWithin(tx, {
+      action: 'PAYMENT_REFUND', actorId: opts.actorId, targetId: payment.id, ip: opts.ip,
+      meta: { fedapayId: payment.fedapayId, type: payment.type, amount: payment.amount.toString(), reason: opts.reason ?? null },
+    });
     return true;
   });
   if (!won) return { idempotent: true, status: 'REFUNDED' };
 
-  await writeAudit(app.prisma, {
+  if (payment.type !== 'SUBSCRIPTION') await writeAudit(app.prisma, {
     action: 'PAYMENT_REFUND',
     actorId: opts.actorId,
     targetId: payment.id,
@@ -149,6 +159,7 @@ interface InitiateInput {
  *  - le RDV doit appartenir à l'appelant et ne pas déjà porter de paiement.
  */
 export async function initiate(app: FastifyInstance, userId: string, input: InitiateInput) {
+  if (input.type === 'SUBSCRIPTION') throw badRequest('Utiliser le parcours abonnements médecin');
   let amount = input.amount;
 
   if (input.type === 'CONSULTATION') {

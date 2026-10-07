@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────
 // DigiSanté Mobile — schéma Prisma complet
-// 49 modèles + 31 enums (cf. DocTech §5), dont la table d'audit immuable (§4).
+// 50 modèles + 31 enums (cf. DocTech §5), dont la table d'audit immuable (§4).
 // Cible : PostgreSQL 16 natif (dev local docker, prod VPS Infomaniak).
 //
 // Décisions (arbitrées) :
@@ -376,28 +376,30 @@ model Profile {
 
 // 3 — Doctor : praticien (espace PRO indigo). Abonnement PRO/CLINIC.
 model Doctor {
-  id                 String             @id @default(cuid())
-  userId             String             @unique
-  speciality         String
-  licenseNumber      String             @unique
-  verifiedAt         DateTime?
-  slotDuration       Int                @default(30)
-  consultFee         Decimal            @db.Decimal(12, 2)
-  bio                String?
-  subscriptionPlan   SubscriptionPlan   @default(FREE)
-  subscriptionStatus SubscriptionStatus @default(ACTIVE)
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  id                      String             @id @default(cuid())
+  userId                  String             @unique
+  speciality              String
+  licenseNumber           String             @unique
+  verifiedAt              DateTime?
+  slotDuration            Int                @default(30)
+  consultFee              Decimal            @db.Decimal(12, 2)
+  bio                     String?
+  subscriptionPlan        SubscriptionPlan   @default(FREE)
+  subscriptionStatus      SubscriptionStatus @default(ACTIVE)
+  subscriptionCancelledAt DateTime?
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
 
-  user                  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   appointments          Appointment[]
   prescriptions         Prescription[]
   labOrders             LabOrder[]
-  labResultsInterpreted LabResult[]    @relation("LabResultInterpreter")
-  referralsFrom         Referral[]     @relation("ReferralFrom")
-  referralsTo           Referral[]     @relation("ReferralTo")
+  labResultsInterpreted LabResult[]         @relation("LabResultInterpreter")
+  referralsFrom         Referral[]          @relation("ReferralFrom")
+  referralsTo           Referral[]          @relation("ReferralTo")
   chatThreads           ChatThread[]
   reviews               DoctorReview[]
+  subscriptionOrders    SubscriptionOrder[]
 
   @@index([speciality])
   @@map("doctors")
@@ -582,8 +584,9 @@ model Payment {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  appointment Appointment? @relation(fields: [appointmentId], references: [id])
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointment       Appointment?       @relation(fields: [appointmentId], references: [id])
+  subscriptionOrder SubscriptionOrder?
 
   @@index([userId])
   @@index([status])
@@ -1290,4 +1293,27 @@ model MutationReceipt {
   @@unique([userId, method, route, key])
   @@index([expiresAt])
   @@map("mutation_receipts")
+}
+
+model SubscriptionOrder {
+  id             String           @id @default(cuid())
+  doctorId       String
+  requestId      String
+  paymentId      String           @unique
+  plan           SubscriptionPlan
+  catalogVersion String
+  amount         Decimal          @db.Decimal(12, 2)
+  currency       String           @default("XOF")
+  periodMonths   Int
+  startsAt       DateTime?
+  endsAt         DateTime?
+  revokedAt      DateTime?
+  checkoutUrl    String?
+  createdAt      DateTime         @default(now())
+  doctor         Doctor           @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  payment        Payment          @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorId, requestId])
+  @@index([doctorId, endsAt])
+  @@map("subscription_orders")
 }

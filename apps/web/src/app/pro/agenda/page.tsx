@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import type { DoctorSubscription } from '@digisante/shared';
 
 import { ProHeader } from '@/components/pro/ProHeader';
 import { Button, CardPagne } from '@/components/ui';
@@ -40,6 +42,7 @@ export default function AgendaPage() {
   const router = useRouter();
   const [startingId, setStartingId] = useState<string | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
+  const { data: subscription } = useApi<DoctorSubscription>(() => get('/subscriptions/me'));
   // Tri appliqué localement après un POST réussi : évite de recharger tout
   // l'agenda pour une pastille (réseaux lents).
   const [triaged, setTriaged] = useState<Record<string, TriageLevel>>({});
@@ -102,6 +105,7 @@ export default function AgendaPage() {
     <>
       <ProHeader title={t('pro.agenda')} wide />
       <main className="px-6 -mt-10 relative z-20 space-y-3 pb-6 lg:max-w-5xl lg:mx-auto lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
+        {!subscription?.rights.startTeleconsultation && <CardPagne className="p-4 lg:col-span-2"><Link href="/pro/stats" className="text-indigo-700 underline decoration-dotted">{t('subscriptions.required')}</Link></CardPagne>}
         {loading && <SkeletonCards columns={false} label={t('common.loading')} />}
         {error && <ErrorState label={t('auth.error')} />}
         {!loading && !error && (data?.length ?? 0) === 0 && <Empty label={t('common.empty')} />}
@@ -128,7 +132,7 @@ export default function AgendaPage() {
                 <Button
                   variant="indigo"
                   className="text-[0.6875rem] px-2.5 py-1.5 shrink-0"
-                  disabled={startingId === a.id}
+                  disabled={startingId === a.id || canStart && !subscription?.rights.startTeleconsultation}
                   onClick={() =>
                     canRejoin
                       ? router.push(`/pro/teleconsult?id=${a.consultation!.id}`)

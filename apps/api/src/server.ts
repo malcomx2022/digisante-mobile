@@ -112,6 +112,8 @@ export async function buildServer() {
           maxRetriesPerRequest: 1,
         });
   await app.register(rateLimit, {
+    // Les longues recettes financières ne partagent aucun seau de production.
+    global: env.NODE_ENV !== 'test',
     max: 100,
     timeWindow: '1 minute',
     ...(rateLimitStore ? { redis: rateLimitStore } : {}),

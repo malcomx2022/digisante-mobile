@@ -57,31 +57,34 @@ export function computeAuditHash(prevHash: string | null, entry: AuditEntry, iso
  * se font dans une transaction pour limiter les courses (la table est append-only).
  */
 export async function writeAudit(prisma: PrismaClient, entry: AuditEntry): Promise<void> {
-  await prisma.$transaction(async (tx) => {
-    // Verrou consultatif transactionnel : sérialise les écritures d'audit entre
-    // workers (cluster PM2 ×2). Sans lui, deux insertions concurrentes peuvent
-    // lire le même dernier hash et forker la chaîne d'intégrité. Libéré au commit.
-    await tx.$executeRaw`SELECT pg_advisory_xact_lock(4021957)`;
-    const last = await tx.auditLog.findFirst({
-      orderBy: { createdAt: 'desc' },
-      select: { hash: true },
-    });
-    const createdAt = new Date();
-    const prevHash = last?.hash ?? null;
-    const hash = computeAuditHash(prevHash, entry, createdAt.toISOString());
+  await prisma.$transaction((tx) => writeAuditWithin(tx, entry));
+}
 
-    await tx.auditLog.create({
-      data: {
-        action: entry.action,
-        actorId: entry.actorId ?? null,
-        targetId: entry.targetId ?? null,
-        ip: entry.ip ?? null,
-        meta: entry.meta == null ? Prisma.JsonNull : (entry.meta as Prisma.InputJsonValue),
-        prevHash,
-        hash,
-        createdAt,
-      },
-    });
+/** L6 : joindre l'audit à la transaction financière sans transaction imbriquée. */
+export async function writeAuditWithin(tx: Prisma.TransactionClient, entry: AuditEntry): Promise<void> {
+  // Verrou consultatif transactionnel : sérialise les écritures d'audit entre
+  // workers (cluster PM2 ×2). Sans lui, deux insertions concurrentes peuvent
+  // lire le même dernier hash et forker la chaîne d'intégrité. Libéré au commit.
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(4021957)`;
+  const last = await tx.auditLog.findFirst({
+    orderBy: { createdAt: 'desc' },
+    select: { hash: true },
+  });
+  const createdAt = new Date();
+  const prevHash = last?.hash ?? null;
+  const hash = computeAuditHash(prevHash, entry, createdAt.toISOString());
+
+  await tx.auditLog.create({
+    data: {
+      action: entry.action,
+      actorId: entry.actorId ?? null,
+      targetId: entry.targetId ?? null,
+      ip: entry.ip ?? null,
+      meta: entry.meta == null ? Prisma.JsonNull : (entry.meta as Prisma.InputJsonValue),
+      prevHash,
+      hash,
+      createdAt,
+    },
   });
 }
 

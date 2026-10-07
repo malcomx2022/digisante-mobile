@@ -23,6 +23,9 @@ describe.skipIf(!HAS_INFRA)('L5 — accès consultation courant', () => {
     const p = await app.prisma.user.create({ data: { phone: PHONES[0]!, role: 'PATIENT', status: 'ACTIVE', patient: { create: {} } }, include: { patient: true } });
     const d = await app.prisma.user.create({ data: { phone: PHONES[1]!, role: 'MEDECIN', status: 'ACTIVE', doctor: { create: { speciality: 'Généraliste', licenseNumber: 'L5-TEST-ONLY', consultFee: 3000, verifiedAt: new Date() } } }, include: { doctor: true } });
     patient = p.id; patientId = p.patient!.id; doctor = d.id; doctorId = d.doctor!.id;
+    await app.prisma.wallet.create({ data: { userId: doctor, balance: 5000 } });
+    const paid = await app.inject({ method: 'POST', url: '/api/v1/subscriptions', headers: auth(doctor), payload: { plan: 'PRO', method: 'WALLET', requestId: 'a6000000-0000-4000-8000-000000000002' } });
+    expect(paid.statusCode).toBe(200);
     stranger = (await app.prisma.user.create({ data: { phone: PHONES[2]!, role: 'PATIENT', status: 'ACTIVE' } })).id;
     admin = (await app.prisma.user.create({ data: { phone: PHONES[3]!, role: 'ADMIN', status: 'ACTIVE' } })).id;
   });
