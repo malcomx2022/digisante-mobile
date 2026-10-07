@@ -3,7 +3,7 @@
 > 7 octobre 2026 (Africa/Lagos). Implémentation et auto-revue Codex suivant les conventions Claude Code.
 > Branche : `feat/l5-private-teleconsultation`. Base main : `0d3cb74db55f4d807bcbd4695591c61f556835b1`, après fusion de PR #184 le 7 octobre à 11:44:41 UTC.
 > Commit applicatif testé : `ba6f398e0bb17fcdc4dc09fa38f2e7bf7709610f`. [PR et checks L5](https://github.com/malcomx2022/digisante-mobile/pulls?q=is%3Apr+head%3Afeat%2Fl5-private-teleconsultation).
-> Statut : **VALIDÉ LOCALEMENT — livraison/CI à consulter sur la PR finale**. Livraison/CI à vérifier sur la PR finale ; aucune fusion automatique ni déploiement.
+> Statut : **LIVRÉ SUR MAIN** par [PR #185](https://github.com/malcomx2022/digisante-mobile/pull/185), fusion constatée le 7 octobre à 12:42:54 UTC, commit `2e5cc77caf04cff02399e5ddfcc4e578b7b023be`. CI finale `f37cf169` et CI main [37623001929](https://github.com/malcomx2022/digisante-mobile/actions/runs/37623001929) vertes ; aucune mise en production attestée.
 
 ## Reprise et contrat Claude Code
 

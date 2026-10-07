@@ -156,3 +156,7 @@ Consigner SHA, appareil/OS/navigateur, compte synthétique, heure et preuves de 
 ## Addendum L5 — patient et médecin, téléconsultation privée
 
 Candidate/revue : `suivi/LOT_L5.md`, `REVUE_L5_2026-10.md`. Contrats SDK/fournisseur simulés et parcours UI/API/DB sans identifiants ne remplacent pas la recette physique/fournisseur. Compléter les cases D1–D18 de `RECETTE_Daily_Teleconsultation.md` : deux appareils Android/iOS, accès nominatif, URL seule et bearer expiré refusés, caméra coupée en AUDIO, micro/caméra libérés en CHAT/sortie, suspension/KYC/annulation/clôture, en-têtes après proxy. Aucune case fournisseur n'est cochée automatiquement par ce lot ; GO/NO-GO L11 reste requis.
+
+## Addendum L6 — offre médecin du pilote
+
+Reprendre A1–A17 de `RECETTE_Abonnements_L6.md` : FREE/PRO 5 000 XOF/mois approuvés, démarrage PRO uniquement, soins ouverts conservés, paiement/renouvellement/expiration/arrêt, refus et reprise, abandon réglé tardivement, restitution wallet/intervention opérateur. Tests locaux et CI ne valent ni recette fournisseur ni signature humaine ; consulter LOT_L6/REVUE_L6. Autres abonnements après pilote, revenus L7 restant.
