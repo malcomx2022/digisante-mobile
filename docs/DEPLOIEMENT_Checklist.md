@@ -3,7 +3,7 @@
 > Cible : VPS Ubuntu 22.04 LTS. PostgreSQL 16 **natif**, Redis natif, Nginx + SSL Certbot,
 > PM2 (API cluster ×2 + web). **Aucun Docker en prod** (CLAUDE.md §3). Scripts : `infra/deploy/`.
 
-> État de finalisation au 7 octobre 2026 : L0–L6 livrés sur main (#186/91a0fc9 pour L6) ; L7 candidate (LOT_L7/PR). Aucun déploiement ou GO pilote attesté ; livraison L7, L8–L11 et la recette réelle restent à traiter.
+> État de finalisation au 7 octobre 2026 : L0–L7 livrés sur main (#187/ebd0547 pour L7) ; L8 candidate technique (LOT_L8/PR). Aucun déploiement ou GO pilote attesté ; livraison L8, L9–L11 et gates externes de sécurité/recette réelle restent à traiter.
 
 ## 0. Pré-requis
 - [ ] Nom de domaine pointant (A) vers l'IP du VPS (`digisante.example.bj` + `www`).
@@ -82,7 +82,7 @@
 ---
 
 **Contrôles techniques actuels ; ouverture pilote non attestée.** Le code (backend **28 modules** / **182 endpoints REST + 1 WS**
-+ frontend **7 espaces**, **67 pages**) est testé (**688 tests verts** — 571 API + 117 web, + 15 e2e
++ frontend **7 espaces**, **67 pages**) est testé (**726 tests verts** — 605 API + 121 web, + 15 e2e
 Playwright — preuves du 7 octobre 2026 dans LOT_L4), l'infra scriptée. Restent la livraison L7 et la finalisation L8–L11, la validation humaine et l'exécution sur
 le VPS réel (étapes ci-dessus).
 
@@ -129,3 +129,14 @@ Lire `CONTRAT_Abonnements_L6.md`, `RECETTE_Abonnements_L6.md` et LOT_L6. Corrige
 - [ ] CSV/receipt non fiscaux approuvés ; politique de conservation, effacement/archivage et sauvegarde journal/proofs validée au GO.
 
 Lire contrat/recette/revue/LOT_L7. Cases opérationnelles non cochées tant que preuves requises absentes ; automatisation FedaPay et facture fiscale sont hors pilote de ce lot.
+
+## Qualification sécurité L8 — aucune case signée par les tests locaux
+
+- [ ] Vérifier `AUDIT_Securite_L8_2026-10.md` X1–X15 : X6 = Redis, X12 = tri audit. Arrêter les anciens workers, vérifier la chaîne historique sur copie restaurée avant bascule ; aucun maillon réécrit ou rollback vers l’ancien writer.
+- [ ] Annoncer renvoi des OTP pendants SHA256/rotation JWT_SECRET, vérifier réponse générique et délivrance réelle/UX ; NODE_ENV=test interdit sur pilote réel, devCode réservé aux tests. JWT_REFRESH_TTL cohérent JWT/cookie/Redis.
+- [ ] Installer format/site Nginx ensemble, tester `nginx -t` et journal DMP/WS avec sentinel synthétique : ni query ni Referer ni corps. Error_log de requête désactivé ; statuts dans digisante-access.log et diagnostic API structuré ; vérifier collecteurs/CDN/ancien historique sans purge arbitraire.
+- [ ] Qualifier CSP sur vrai Daily/FCM et mobile, documenter stratégie nonce/hashes ou décision explicite sur unsafe-inline Next ; aucune acceptation de risque automatique.
+- [ ] Après certificat/redirection/renouvellement vérifiés, inclure hsts-after-tls.conf dans HTTPS et toutes les locations définissant add_header. Vérifier header et 24 h ; aucun includeSubDomains/preload sans qualification.
+- [ ] Console Twilio : Geo Permissions SMS ET Voice pour pays attendus seulement, Bénin OTP et diaspora selon besoin validé ; preuve et tests autorisés, y compris coût/quota et SOS.
+- [ ] FedaPay : vraie URL HTTPS sur checkout.fedapay.com/sandbox-checkout.fedapay.com, S1–S7 sandbox/reconcile, aucun stub en production ; HMAC/CAS/commission/wallet/L6/L7 inchangés.
+- [ ] Mandater pentest externe sur candidate exacte/préproduction synthétique, retester findings ; mesurer timings d’énumération et risques CSP avant décision humaine GO/NO-GO L11.

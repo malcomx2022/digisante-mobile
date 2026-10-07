@@ -117,3 +117,9 @@ applicatifs multilingues via l'API Messaging, flux SOS (SMS contact d'urgence da
 langue + géoloc + audit, repli hors-ligne), et tests. Documente le choix pour l'OTP vocal
 en fɔ̀ngbè. Commit : "feat: Twilio OTP, SMS multilingues, SOS".
 ```
+
+## Reprise L8 — réponses OTP et Geo Permissions
+
+Inscription/demande publiques génériques : 201/200 ne prouvent ni existence de compte ni livraison SMS. Numéro inconnu : quota/état de vérification sans SMS payant ; compte existant : profil intact. devCode réservé à NODE_ENV=test ; aucun code/contenu stub en logs dev/prod. Empreinte HMAC, renvoi obligatoire après bascule depuis SHA256 ou rotation JWT_SECRET. Les cinq échecs incluent code absent/expiré. Voir CONTRAT_Securite_L8 pour l’impact support/KYC et le résiduel timings réels.
+
+Geo Permissions SMS ET Voice : preuve console L10, conserver seulement pays attendus (Bénin pour OTP local, diaspora selon besoin validé). Ne pas marquer le réglage effectué sans accès réel ni bloquer arbitrairement tous les numéros diaspora dans le code. Test autorisé coût/quota/livraison/SOS et UX avant GO L11. Le lot local ne contacte pas Twilio.

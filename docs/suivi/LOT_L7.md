@@ -23,3 +23,7 @@ Migration additive 34, trois modèles finance (53 modèles, 31 enums). 182 REST 
 Recette finance réelle F1–F8 non signée, références de preuve attestées manuellement ; appels fournisseur L10, facture fiscale hors pilote approuvé, langues natives L9, conservation et exploitation L11. Audit X6 reste L8. Historique non prouvé signalé et exclu, pas de reprise financière arbitraire. Aucune validation médicale/fiscale ou mise en production déduite de tests synthétiques.
 
 Environnement : Node 24.19.0, pnpm local 11.19.0 (repo/CI 9.12.0), PostgreSQL16 et Redis7 avec label `codex.task=digisante-l7`, deux bases test/E2E séparées. Aucun service de développement existant purgé. Tests synthétiques uniquement ; logs intermédiaires dans work hors dépôt.
+
+## Livraison constatée à la reprise L8
+
+PR #187 fusionnée le 7 octobre à 18:07:19 Africa/Lagos sur main `ebd0547240e1fcd80b6c5a528bf9c5d6c74d05f5`. Commit final `df3792c5148df6865b76cc3e979e809e6cc87563`, CI 37656071002 réussie sur ce SHA ; CI après fusion 37656606253 réussie sur main exact, build-and-test/e2e réussis et deploy ignoré. Statut désormais LIVRÉ SUR MAIN, aucune mise en production attestée. Le résiduel de tri audit est X12 (X6 = Redis) et traité côté code L8.
