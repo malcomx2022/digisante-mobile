@@ -12,6 +12,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
 import type { FastifyBaseLogger } from 'fastify';
+import { isFedapayCheckoutUrl } from '@digisante/shared';
 
 import { badGateway, isAppError } from '@/lib/errors.js';
 
@@ -205,6 +206,9 @@ export async function createTransaction(opts: {
   timeoutMs?: number;
 }): Promise<FedapayTransaction> {
   if (!opts.secretKey) {
+    // Résoudre au moment de l'appel : les helpers de signature restent purs.
+    const { env } = await import('@/lib/env.js');
+    if (env.NODE_ENV === 'production') throw badGateway('Service de paiement non configuré');
     const fedapayId = `fdp_${randomBytes(12).toString('hex')}`;
     opts.log.warn({ amount: opts.amount, method: opts.method }, '[STUB FedaPay] transaction simulée');
     return { fedapayId, paymentUrl: `https://stub.fedapay.com/checkout/${fedapayId}` };
@@ -231,6 +235,7 @@ export async function createTransaction(opts: {
 
     const txRes = await fetch(`${base}/transactions`, {
       method: 'POST',
+      redirect: 'error',
       ...(opts.timeoutMs ? { signal: AbortSignal.timeout(opts.timeoutMs) } : {}),
       headers: fedapayHeaders(opts.secretKey),
       body: JSON.stringify({
@@ -243,27 +248,26 @@ export async function createTransaction(opts: {
       }),
     });
     if (!txRes.ok) {
-      const detail = await txRes.text().catch(() => '');
-      opts.log.error({ status: txRes.status, detail }, '[FedaPay] création transaction en échec');
+      opts.log.error({ status: txRes.status }, '[FedaPay] création transaction en échec');
       throw badGateway('Échec de la création de la transaction de paiement');
     }
     const txJson = (await txRes.json()) as { 'v1/transaction'?: { id?: number | string }; id?: number | string };
     const id = txJson['v1/transaction']?.id ?? txJson.id;
-    if (!id) throw badGateway('Réponse FedaPay inattendue (transaction sans id)');
+    if (!id || !/^[a-z0-9_-]{1,128}$/i.test(String(id))) throw badGateway('Réponse FedaPay inattendue (transaction sans id valide)');
 
     // 2) Génération du token → URL de paiement hébergée.
-    const tokRes = await fetch(`${base}/transactions/${id}/token`, {
+    const tokRes = await fetch(`${base}/transactions/${encodeURIComponent(String(id))}/token`, {
       method: 'POST',
+      redirect: 'error',
       ...(opts.timeoutMs ? { signal: AbortSignal.timeout(opts.timeoutMs) } : {}),
       headers: fedapayHeaders(opts.secretKey),
     });
     if (!tokRes.ok) {
-      const detail = await tokRes.text().catch(() => '');
-      opts.log.error({ status: tokRes.status, detail }, '[FedaPay] génération token en échec');
+      opts.log.error({ status: tokRes.status }, '[FedaPay] génération token en échec');
       throw badGateway('Échec de génération du lien de paiement');
     }
     const tokJson = (await tokRes.json()) as { url?: string };
-    if (!tokJson.url) throw badGateway('Réponse FedaPay inattendue (token sans url)');
+    if (!isFedapayCheckoutUrl(tokJson.url)) throw badGateway('Réponse FedaPay inattendue (lien de paiement invalide)');
 
     opts.log.info(
       { fedapayId: id, amount: opts.amount, environment: fedapayEnvironment(opts.secretKey) },
@@ -272,7 +276,7 @@ export async function createTransaction(opts: {
     return { fedapayId: String(id), paymentUrl: tokJson.url };
   } catch (err) {
     if (isAppError(err)) throw err;
-    opts.log.error({ err }, '[FedaPay] erreur réseau création transaction');
+    opts.log.error({ operation: 'create' }, '[FedaPay] erreur réseau création transaction');
     throw badGateway('Service de paiement indisponible');
   }
 }
@@ -290,16 +294,17 @@ export async function getTransactionStatus(
   if (!secretKey) return null;
   try {
     const res = await fetch(`${fedapayApiBase(secretKey)}/transactions/${encodeURIComponent(fedapayId)}`, {
+      redirect: 'error',
       headers: { Authorization: `Bearer ${secretKey}` },
     });
     if (!res.ok) {
-      log.error({ status: res.status, fedapayId }, '[FedaPay] lecture transaction en échec');
+      log.error({ status: res.status }, '[FedaPay] lecture transaction en échec');
       return null;
     }
     const json = (await res.json()) as { 'v1/transaction'?: { status?: string }; status?: string };
     return json['v1/transaction']?.status ?? json.status ?? null;
-  } catch (err) {
-    log.error({ err, fedapayId }, '[FedaPay] erreur réseau lecture transaction');
+  } catch {
+    log.error({ operation: 'status' }, '[FedaPay] erreur réseau lecture transaction');
     return null;
   }
 }

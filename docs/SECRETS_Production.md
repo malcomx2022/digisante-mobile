@@ -16,7 +16,7 @@
 | `CORS_ORIGIN` | ✅ | `https://digisante.example.bj` (domaine réel) |
 | `HEALTH_ENCRYPTION_KEY` | ✅ | **chiffrement santé AES-256 (§4)** — `openssl rand -base64 48`. Sauvegarder hors VPS. |
 | `RECONCILE_TOKEN` | ✅ | jeton des crons internes (réconciliation / dispatch) — `openssl rand -hex 32` ; **doit correspondre** à `/etc/digisante/reconcile.token` |
-| `FEDAPAY_SECRET_KEY` / `FEDAPAY_PUBLIC_KEY` / `FEDAPAY_WEBHOOK_SECRET` | ✅ paiements | sans elles → stub ; le webhook ne valide pas sans `FEDAPAY_WEBHOOK_SECRET` |
+| `FEDAPAY_SECRET_KEY` / `FEDAPAY_PUBLIC_KEY` / `FEDAPAY_WEBHOOK_SECRET` | ✅ paiements | sans clé résolue → 502 en production ; le webhook ne valide pas sans `FEDAPAY_WEBHOOK_SECRET` |
 | `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` | ✅ SMS/OTP | fallback numéro long (§8) |
 | `RESEND_API_KEY` | ✅ emails | — |
 | `DAILY_API_KEY` / `DAILY_DOMAIN` | ✅ téléconsult | — |
@@ -44,8 +44,8 @@
      celui du bac à sable → à roter **en même temps**, sinon tous les webhooks tombent en 401.
   Puis déclarer l'URL du webhook de production dans le dashboard FedaPay
   (`https://<domaine>/api/v1/payments/webhook`, **HTTPS + TLS 1.2/1.3 obligatoires**) et vérifier
-  qu'un événement de test arrive en 200. Tant qu'aucune clé n'est résolue, l'API tourne en **stub**
-  (dégradation gracieuse voulue) ; la bascule stub → réel est **dynamique**, sans redémarrage.
+  qu'un événement de test arrive en 200. Tant qu'aucune clé n'est résolue, les transactions externes sont **refusées en production**
+  (stub synthétique seulement hors production) ; la bascule stub → réel est **dynamique**, sans redémarrage.
 - **FedaPay** (`FEDAPAY_*`) — **§5 encadré (Lot E)** : ses clés + secret webhook sont désormais
   gérables via l'admin **comme les autres**, MAIS la **logique de paiement reste gelée §5** (seule
   la SOURCE des secrets a changé). Toute **rotation** du `webhookSecret` FedaPay doit être suivie
@@ -99,3 +99,9 @@ pm2 startOrReload ecosystem.config.cjs --update-env   # api cluster ×2 + web
 
 `ecosystem.config.cjs` (racine) : `digisante-api` (cluster ×2, `--env-file=.env`) + `digisante-web`
 (`next start`). Logs sous `/var/log/digisante/`.
+
+## Mise à jour L8 — 7 octobre 2026
+
+`JWT_REFRESH_TTL` est maintenant effectif sur JWT/cookie/Redis, entier s/m/h/d entre 1 s et 90 j (défaut 30d). JWT_SECRET sert aussi au HMAC OTP avec séparation de domaine : rotation invalide les codes pendants, demander un nouveau code ; ne jamais reprendre le SHA256 non poivré. `devCode` est réservé à NODE_ENV=test, pas au développement/pilote réel. Stubs dev/prod masquent le contenu.
+
+Production : sans clé FedaPay résolue, création de paiement externe refusée (502), sans lien factice. Config DB illisible/désactivée ne doit pas être masquée par un fallback arbitraire. Checkout limité aux deux hôtes du contrat L8 ; tout nouveau domaine exige preuve/revue. Logs Nginx globalement noquery sans Referer ; error_log de requête désactivé, diagnostic via statuts et API structurée. HSTS préparé mais jamais activé avant qualification du certificat. Geo Permissions Twilio SMS/Voice et pentest restent des preuves externes L10/L11.

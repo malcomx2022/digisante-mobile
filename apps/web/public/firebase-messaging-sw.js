@@ -16,6 +16,16 @@ const config = {
   appId: params.get('appId'),
 };
 
+// WHATWG normalise les antislashs comme des slashs : contrôler l'origine APRÈS
+// parsing, et refuser les séparateurs encodés/contrôles avant toute navigation.
+function internalLink(raw) {
+  if (typeof raw !== 'string' || !/^\/(?!\/)/.test(raw) || /[\\\u0000-\u0020]|%(?:2f|5c)/i.test(raw)) return '/';
+  try {
+    const url = new URL(raw, self.location.origin);
+    return url.origin === self.location.origin ? url.pathname + url.search + url.hash : '/';
+  } catch { return '/'; }
+}
+
 if (config.apiKey && config.projectId && config.messagingSenderId) {
   firebase.initializeApp(config);
   const messaging = firebase.messaging();
@@ -23,7 +33,7 @@ if (config.apiKey && config.projectId && config.messagingSenderId) {
     const title = (payload.notification && payload.notification.title) || 'DigiSanté';
     const body = (payload.notification && payload.notification.body) || '';
     // `link` (données du message) = page à ouvrir au clic ; défaut : l'accueil.
-    const link = (payload.data && payload.data.link) || '/';
+    const link = internalLink(payload.data && payload.data.link);
     self.registration.showNotification(title, { body, icon: '/icon-192.png', badge: '/icon-192.png', data: { link } });
   });
 }
@@ -34,13 +44,12 @@ if (config.apiKey && config.projectId && config.messagingSenderId) {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const raw = (event.notification.data && event.notification.data.link) || '/';
-  const target = typeof raw === 'string' && raw.startsWith('/') && !raw.startsWith('//') ? raw : '/';
+  const target = internalLink(raw);
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
       for (const client of clients) {
         if (new URL(client.url).origin === self.location.origin && 'focus' in client) {
-          if ('navigate' in client) client.navigate(target);
-          return client.focus();
+          return Promise.resolve('navigate' in client ? client.navigate(target) : undefined).then(() => client.focus());
         }
       }
       return self.clients.openWindow(target);

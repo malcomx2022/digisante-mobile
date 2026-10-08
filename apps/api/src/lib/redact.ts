@@ -30,10 +30,10 @@ export function maskId(id: string | null | undefined): string {
 }
 
 /**
- * Contenu d'un message en mode STUB : lisible en dev/test (utile au développeur),
- * JAMAIS en production — où un stub signifie « fournisseur non configuré » et où le
+ * Contenu d'un message en mode STUB : diagnostic synthétique en test seulement,
+ * masqué en développement ET production — un stub signifie « non configuré » et le
  * contenu (code OTP, SMS SOS avec coordonnées) finirait en clair dans les journaux.
  */
 export function stubContent(value: string, nodeEnv: string | undefined = process.env.NODE_ENV): string {
-  return nodeEnv === 'production' ? `[masqué — ${value.length} car.]` : value;
+  return nodeEnv === 'test' ? value : `[masqué — ${value.length} car.]`;
 }

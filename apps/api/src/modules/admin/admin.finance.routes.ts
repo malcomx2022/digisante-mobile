@@ -96,7 +96,7 @@ export default async function adminFinanceRoutes(app: FastifyInstance) {
       ],
     };
     const [rows, total] = await Promise.all([
-      app.prisma.auditLog.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (q.page - 1) * q.pageSize, take: q.pageSize, select: { id: true, action: true, ip: true, meta: true, createdAt: true } }),
+      app.prisma.auditLog.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], skip: (q.page - 1) * q.pageSize, take: q.pageSize, select: { id: true, action: true, ip: true, meta: true, createdAt: true } }),
       app.prisma.auditLog.count({ where }),
     ]);
     const items = rows.map((r) => {

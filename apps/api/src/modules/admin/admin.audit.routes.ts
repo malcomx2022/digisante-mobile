@@ -22,7 +22,7 @@ export default async function adminAuditRoutes(app: FastifyInstance) {
     const q = zParse(auditQuery, request.query);
     const where = q.action ? { action: q.action } : {};
     const [items, total] = await Promise.all([
-      app.prisma.auditLog.findMany({ where, orderBy: { createdAt: 'desc' }, skip: (q.page - 1) * q.pageSize, take: q.pageSize }),
+      app.prisma.auditLog.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], skip: (q.page - 1) * q.pageSize, take: q.pageSize }),
       app.prisma.auditLog.count({ where }),
     ]);
     // Le registre est immuable : les lignes anciennes peuvent porter des valeurs

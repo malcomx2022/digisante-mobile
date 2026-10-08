@@ -160,7 +160,7 @@ export default async function adminIntegrationsRoutes(app: FastifyInstance) {
     const [rows, total] = await Promise.all([
       app.prisma.auditLog.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         skip: (q.page - 1) * q.pageSize,
         take: q.pageSize,
         select: { id: true, action: true, ip: true, meta: true, createdAt: true },

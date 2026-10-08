@@ -6,7 +6,7 @@
 import { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
-import { writeAudit } from '@/lib/audit.js';
+import { writeAuditWithin } from '@/lib/audit.js';
 import { badRequest, forbidden, notFound } from '@/lib/errors.js';
 import { authorizedLaboratory } from '@/lib/laboratory-access.js';
 import { assertCareRelationship } from '@/lib/care.js';
@@ -52,7 +52,7 @@ export async function submitResult(
   ip?: string | null,
 ) {
   const critical = detectCriticalValues(input.values);
-  const { result, order } = await app.prisma.$transaction(async (tx) => {
+  const { result } = await app.prisma.$transaction(async (tx) => {
     const lab = await authorizedLaboratory(tx, labUserId);
     const order = await tx.labOrder.findUnique({ where: { id: orderId },
       include: { prescribedBy: { select: { userId: true } }, patient: { select: { userId: true } } } });
@@ -86,20 +86,11 @@ export async function submitResult(
           status: 'PENDING' as const,
         })),
       });
+      await writeAuditWithin(tx, { action: 'LAB_CRITICAL', actorId: labUserId, targetId: order.patient.userId, ip,
+        meta: { orderId, criticalCount: critical.length } });
     }
     return { result, order };
   });
-
-  if (critical.length > 0) {
-    await writeAudit(app.prisma, {
-      action: 'LAB_CRITICAL',
-      actorId: labUserId,
-      targetId: order.patient.userId,
-      ip,
-      // Métadonnées SEULEMENT (§4) : ni analyte ni valeur — l'admin lit l'audit.
-      meta: { orderId, criticalCount: critical.length },
-    });
-  }
 
   return { result, critical };
 }
@@ -180,9 +171,10 @@ export async function claimOrder(app: FastifyInstance, labUserId: string, orderI
       data: { labId: lab.id, status: 'SAMPLE_COLLECTED' },
     });
     if (changed.count !== 1) throw badRequest('Demande indisponible ou déjà prise en charge');
-    return tx.labOrder.findUniqueOrThrow({ where: { id: orderId }, select: { id: true, status: true, patient: { select: { userId: true } } } });
+    const updated = await tx.labOrder.findUniqueOrThrow({ where: { id: orderId }, select: { id: true, status: true, patient: { select: { userId: true } } } });
+    await writeAuditWithin(tx, { action: 'LAB_ORDER_CLAIM', actorId: labUserId, targetId: updated.patient.userId, ip, meta: { orderId } });
+    return updated;
   });
-  await writeAudit(app.prisma, { action: 'LAB_ORDER_CLAIM', actorId: labUserId, targetId: updated.patient.userId, ip, meta: { orderId } });
   return { id: updated.id, status: updated.status };
 }
 

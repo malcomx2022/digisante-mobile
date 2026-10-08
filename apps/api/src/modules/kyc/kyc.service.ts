@@ -7,7 +7,7 @@ import type { KycDocumentType } from '@digisante/shared';
 import { Prisma } from '@prisma/client';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 
-import { writeAudit } from '@/lib/audit.js';
+import { writeAuditWithin } from '@/lib/audit.js';
 import { badRequest, forbidden, notFound } from '@/lib/errors.js';
 import { readEncryptedFile, storeEncryptedFile } from '@/lib/filestore.js';
 import { paginate } from '@/lib/http.js';
@@ -103,22 +103,24 @@ export async function submitForReview(app: FastifyInstance, userId: string, ip?:
     throw badRequest('Ajoutez au moins une pièce justificative avant de soumettre.');
   }
 
-  const updated = await app.prisma.kycSubmission.update({
-    where: { id: submission.id },
-    data: { status: 'UNDER_REVIEW', submittedAt: new Date() },
-    include: { documents: true },
-  });
+  return app.prisma.$transaction(async (tx) => {
+    const updated = await tx.kycSubmission.update({
+      where: { id: submission.id },
+      data: { status: 'UNDER_REVIEW', submittedAt: new Date() },
+      include: { documents: true },
+    });
 
-  // §4 : journaliser la soumission (cycle de vie complet du dossier soignant).
-  await writeAudit(app.prisma, {
-    action: 'KYC_SUBMIT',
-    actorId: userId,
-    targetId: userId,
-    ip,
-    meta: { submissionId: submission.id, documents: submission._count.documents },
-  });
+    // §4 : journaliser la soumission (cycle de vie complet du dossier soignant).
+    await writeAuditWithin(tx, {
+      action: 'KYC_SUBMIT',
+      actorId: userId,
+      targetId: userId,
+      ip,
+      meta: { submissionId: submission.id, documents: submission._count.documents },
+    });
 
-  return updated;
+    return updated;
+  });
 }
 
 /** Dossier KYC courant du professionnel (le plus récent). */
@@ -244,17 +246,17 @@ export async function reviewSubmission(
         await tx.doctor.update({ where: { id: submission.user.doctor.id }, data: { verifiedAt: new Date() } });
       }
     }
-  });
+    // §4 : TOUTE décision de revue est journalisée — approbation, rejet ET renvoi
+    // pour correction (NEEDS_REVISION) — traçabilité complète des actions admin.
+    const AUDIT_ACTION = { APPROVED: 'KYC_APPROVE', REJECTED: 'KYC_REJECT', NEEDS_REVISION: 'KYC_REVISION' } as const;
+    await writeAuditWithin(tx, {
+      action: AUDIT_ACTION[input.decision],
+      actorId: adminId,
+      targetId: submission.user.id,
+      ip,
+      meta: { submissionId, decision: input.decision, cnom },
+    });
 
-  // §4 : TOUTE décision de revue est journalisée — approbation, rejet ET renvoi
-  // pour correction (NEEDS_REVISION) — traçabilité complète des actions admin.
-  const AUDIT_ACTION = { APPROVED: 'KYC_APPROVE', REJECTED: 'KYC_REJECT', NEEDS_REVISION: 'KYC_REVISION' } as const;
-  await writeAudit(app.prisma, {
-    action: AUDIT_ACTION[input.decision],
-    actorId: adminId,
-    targetId: submission.user.id,
-    ip,
-    meta: { submissionId, decision: input.decision, cnom },
   });
 
   return { submissionId, status: input.decision, cnom };

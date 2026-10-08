@@ -65,3 +65,7 @@ la réconciliation), **pas** de perte.
 | **Disque proche du seuil** | seuil abaissé à 20 % (disque à 23 %) | `disk ALERTE` → 🔴 |
 | Webhooks rejetés | base de test (tests de signature invalide de l'heure écoulée) | `webhooks ALERTE 28 rejetés` — détection réelle, attendue sur une base de test |
 | Contenu des alertes | 6 messages reçus par `ALERT_CMD` | **0** jeton, **0** numéro de téléphone |
+
+## L8 — diagnostics sans fuite
+
+Nginx modèle : access_log global digisante-access.log/noquery et WS séparé, sans Referer/User-Agent ; error_log de requête désactivé car Nginx recopie URL+Referer sans redaction. Détecter statuts 4xx/5xx et disponibilité par accès/healthwatch, diagnostiquer via reqId et code/status/operation API structurés (les messages/piles arbitraires sont retirés). Reproduire sur pile synthétique pour traces Nginx détaillées, jamais réactiver combined/error_log sur trafic réel avec QR/JWT. Qualification cible/collecteurs et rotation de ces logs restent exploitation L10 ; les tests Docker ne prouvent pas l’installation VPS. Ancien historique : conservation/purge selon décision validée L11, sans suppression arbitraire d’une preuve. Redis reste fail-closed, aucune bascule mémoire sous incident ; mesurer impact en PM2/CGNAT en recette réelle.

@@ -11,12 +11,11 @@ export default fp(async (app: FastifyInstance) => {
   app.setErrorHandler((error, request, reply) => {
     const { statusCode, body } = mapError(error);
 
-    const message = error instanceof Error ? error.message : String(error);
     if (statusCode >= 500) {
       // Détail interne journalisé côté serveur uniquement.
       request.log.error({ err: error, reqId: request.id }, 'Erreur non gérée');
     } else {
-      request.log.warn({ code: body.code, reqId: request.id, msg: message }, 'Erreur client');
+      request.log.warn({ code: body.code, reqId: request.id }, 'Erreur client');
     }
 
     reply.code(statusCode).send(body);

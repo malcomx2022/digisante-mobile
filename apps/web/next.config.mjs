@@ -1,25 +1,25 @@
 import bundleAnalyzer from '@next/bundle-analyzer';
+import { PHASE_DEVELOPMENT_SERVER } from 'next/constants.js';
 
 /** @type {import('next').NextConfig} */
 
 // En-têtes de sécurité (défense clickjacking / MIME-sniffing / fuite de referrer)
 // + CSP de base. La CSP autorise explicitement les intégrations légitimes :
-// Daily.co (iframe téléconsultation), et un connect-src large (Firebase FCM,
-// WebSocket chat) — baseline à resserrer une fois les origines exactes figées.
-// 'unsafe-inline'/'unsafe-eval' sur script-src : requis par Next.js (hydratation
-// sans nonce ; eval du bundler en dev).
-const csp = [
+// Daily/FCM et WS même origine en production. unsafe-eval réservé au bundler dev.
+// unsafe-inline reste nécessaire à l'hydratation Next sans nonce (résiduel X8).
+const csp = (development) => [
   "default-src 'self'",
   "base-uri 'self'",
   "form-action 'self' https://*.fedapay.com",
   "frame-ancestors 'none'",
   "object-src 'none'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  `script-src 'self' 'unsafe-inline'${development ? " 'unsafe-eval'" : ''}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
   "frame-src 'self' https://*.daily.co",
-  "connect-src 'self' https: wss:",
+  `connect-src 'self' https://*.daily.co wss://*.daily.co https://*.daily-video.com wss://*.daily-video.com https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com${development ? ' http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*' : ''}`,
+  "worker-src 'self' blob:",
 ].join('; ');
 
 // CSP DU SERVICE WORKER FCM. Un service worker est régi par la CSP livrée AVEC SON
@@ -34,8 +34,8 @@ const cspFcmServiceWorker = [
   "img-src 'self' data:",
 ].join('; ');
 
-const securityHeaders = [
-  { key: 'Content-Security-Policy', value: csp },
+const securityHeaders = (development) => [
+  { key: 'Content-Security-Policy', value: csp(development) },
   { key: 'X-Frame-Options', value: 'DENY' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
@@ -49,7 +49,7 @@ const securityHeaders = [
 // sur les builds normaux (dev, CI, production).
 const withBundleAnalyzer = bundleAnalyzer({ enabled: process.env.ANALYZE === 'true' });
 
-const nextConfig = {
+const nextConfig = (phase) => ({
   reactStrictMode: true,
   transpilePackages: ['@digisante/shared'],
   // Sécurité (CLAUDE.md §4) : retirer les appels `console.*` du bundle de
@@ -58,13 +58,13 @@ const nextConfig = {
   // `console.error` est conservé (diagnostic d'erreur, sans fuite volontaire).
   // En développement, tous les logs restent disponibles.
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'production' ? { exclude: ['error'] } : false,
+    removeConsole: phase === PHASE_DEVELOPMENT_SERVER ? false : { exclude: ['error'] },
   },
   // PWA / offline-first : brancher next-pwa ou un service worker custom ici.
   // L'offline-first n'est pas optionnel (cf. CLAUDE.md §3).
   async headers() {
     return [
-      { source: '/:path*', headers: securityHeaders },
+      { source: '/:path*', headers: securityHeaders(phase === PHASE_DEVELOPMENT_SERVER) },
       { source: '/firebase-messaging-sw.js', headers: [{ key: 'Content-Security-Policy', value: cspFcmServiceWorker }] },
     ];
   },
@@ -81,5 +81,6 @@ const nextConfig = {
         },
       }
     : {}),
-};
-export default withBundleAnalyzer(nextConfig);
+});
+// next build/start doivent rester stricts même dans la pile E2E NODE_ENV=test.
+export default (phase) => withBundleAnalyzer(nextConfig(phase));

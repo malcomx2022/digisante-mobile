@@ -2,7 +2,9 @@
 // Helpers OTP purs (génération, hachage, comparaison) + constantes de politique.
 // Aucune dépendance I/O → testables directement.
 // ─────────────────────────────────────────────────────────────
-import { createHash, randomInt, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomInt, timingSafeEqual } from 'node:crypto';
+
+import { env } from '@/lib/env.js';
 
 export const OTP_LENGTH = 6;
 export const OTP_TTL_SECONDS = 5 * 60; // validité du code : 5 min
@@ -21,12 +23,13 @@ export function generateOtp(): string {
 }
 
 /** Hache un OTP lié au téléphone (on ne stocke jamais l'OTP en clair). */
-export function hashOtp(phone: string, code: string): string {
-  return createHash('sha256').update(`${phone}:${code}`).digest('hex');
+export function hashOtp(phone: string, code: string, pepper = env.JWT_SECRET): string {
+  // Séparation de domaine ; une fuite Redis seule ne permet plus de balayer 10⁶ OTP.
+  return createHmac('sha256', pepper).update(`digisante:otp:v1:${phone}:${code}`).digest('hex');
 }
 
 /** Comparaison à temps constant de deux hex (anti timing-attack). */
 export function safeEqualHex(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
+  if (a.length !== b.length || !/^[0-9a-f]{64}$/i.test(a) || !/^[0-9a-f]{64}$/i.test(b)) return false;
   return timingSafeEqual(Buffer.from(a, 'hex'), Buffer.from(b, 'hex'));
 }

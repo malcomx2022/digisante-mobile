@@ -50,13 +50,14 @@ export async function sendEmail(opts: {
     if (!res.ok) {
       // `name` (ex. validation_error, invalid_from_address) suffit au diagnostic ;
       // le `message` de Resend peut citer l'adresse destinataire → non journalisé.
-      log.error({ status: res.status, resendError: data.name, to: maskEmail(opts.to) }, '[Resend] envoi email en échec');
+      const code = ['validation_error', 'invalid_from_address', 'rate_limit_exceeded', 'missing_api_key', 'invalid_api_key'].includes(data.name ?? '') ? data.name : 'upstream_error';
+      log.error({ status: res.status, resendError: code, to: maskEmail(opts.to) }, '[Resend] envoi email en échec');
       return { delivered: false, stub: false };
     }
     log.info({ to: maskEmail(opts.to), id: maskId(data.id) }, 'email envoyé via Resend');
     return { delivered: true, stub: false, id: data.id };
-  } catch (err) {
-    log.error({ err: err instanceof Error ? err.message : String(err) }, '[Resend] erreur réseau');
+  } catch {
+    log.error({ operation: 'send' }, '[Resend] erreur réseau');
     return { delivered: false, stub: false };
   }
 }

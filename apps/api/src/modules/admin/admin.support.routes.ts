@@ -36,7 +36,7 @@ export default async function adminSupportRoutes(app: FastifyInstance) {
             { AND: [{ action: { in: ['AUTH_FAIL', 'AUTH_LOCKOUT'] } }, { meta: { path: ['phone'], equals: user.phone } }] },
           ],
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         take: 20,
         select: { id: true, action: true, ip: true, createdAt: true },
       }),

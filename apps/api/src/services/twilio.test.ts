@@ -23,9 +23,11 @@ describe('redact', () => {
     expect(maskId('SM1234567890abcd')).toBe('••••abcd');
   });
 
-  it('contenu de stub lisible hors production, masqué en production', () => {
+  it('contenu de stub synthétique en test seulement, masqué en dev/prod ou mode absent', () => {
     expect(stubContent('123456', 'test')).toBe('123456');
     expect(stubContent('123456', 'production')).toBe('[masqué — 6 car.]');
+    expect(stubContent('123456', 'development')).toBe('[masqué — 6 car.]');
+    expect(stubContent('123456', 'unknown')).toBe('[masqué — 6 car.]');
   });
 });
 

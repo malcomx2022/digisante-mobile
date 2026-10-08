@@ -1,7 +1,7 @@
 # Plan d'implémentation et de finalisation — DigiSanté Mobile
 
 > Date : **6 octobre 2026**. Base inspectée : `main` @ `8f2f6ca24ad0543d6a08218932c783809eada9b1`, avec les quatre corrections locales de revue.
-> Statut : **L0 LIVRÉ SUR MAIN**, PR #178/#179 fusionnées, CI candidate verte ; L1 LIVRÉ SUR MAIN par PR #181 (`53775be`) ; L2 LIVRÉ SUR MAIN par PR #182 (`eb1ba6e`) ; L3 LIVRÉ SUR MAIN par PR #183 (`ce1cae8`) ; L4 LIVRÉ SUR MAIN par PR #184 (`0d3cb74`) ; L5 LIVRÉ SUR MAIN par PR #185 (`2e5cc77`) ; L6 LIVRÉ SUR MAIN par PR #186 (`91a0fc9`) ; L7 CANDIDATE (preuves/revue/PR : LOT_L7) ; L8–L11 OUVERTS. Mise à jour : 7 octobre 2026. Voir `docs/suivi/LOT_L0.md` et `docs/REVUE_L0_2026-10.md`. Aucun déploiement attesté par ce plan.
+> Statut : **L0 LIVRÉ SUR MAIN**, PR #178/#179 fusionnées, CI candidate verte ; L1 LIVRÉ SUR MAIN par PR #181 (`53775be`) ; L2 LIVRÉ SUR MAIN par PR #182 (`eb1ba6e`) ; L3 LIVRÉ SUR MAIN par PR #183 (`ce1cae8`) ; L4 LIVRÉ SUR MAIN par PR #184 (`0d3cb74`) ; L5 LIVRÉ SUR MAIN par PR #185 (`2e5cc77`) ; L6 LIVRÉ SUR MAIN par PR #186 (`91a0fc9`) ; L7 LIVRÉ SUR MAIN par PR #187 (`ebd0547`) ; L8 CANDIDATE TECHNIQUE (LOT_L8), gates externes non clos ; L9–L11 OUVERTS. Mise à jour : 7 octobre 2026. Voir `docs/suivi/LOT_L0.md` et `docs/REVUE_L0_2026-10.md`. Aucun déploiement attesté par ce plan.
 > Référence de reprise : `CLAUDE.md` puis `docs/PLAYBOOK_Codage_DigiSante.md`.
 > Version documentaire : `docs/Plan_Implementations_Restantes_2026-10.docx`, générée depuis ce fichier par `scripts/docs/generate-implementation-plan.js`.
 
@@ -52,8 +52,8 @@ Ces décisions bloquent uniquement leurs sous-lots dépendants. Préparer modèl
 | L4 | Stockage hors ligne protégé et disponibilité exacte | L1, L3 | Livré sur main par PR #184 ; preuves dans LOT_L4 |
 | L5 | Salles Daily privées et jetons participants | L0 | Livré sur main par PR #185 ; recette réelle en L10 |
 | L6 | Abonnements payants de bout en bout | L0, décisions commerciales approuvées | Livré sur main par PR #186 ; preuves LOT_L6 |
-| L7 | Revenus, exports et opérations financières | L6 pour accès PRO aux statistiques ; L0 pour consultations | Candidate feat/l7-revenues-finance-operations ; preuves LOT_L7 |
-| L8 | Fermer ou arbitrer les autres résiduels de sécurité | L0 ; revue finale après L1–L7 | À traiter |
+| L7 | Revenus, exports et opérations financières | L6 pour accès PRO aux statistiques ; L0 pour consultations | Livré sur main par PR #187 ; preuves LOT_L7 |
+| L8 | Fermer ou arbitrer les autres résiduels de sécurité | L0 ; revue finale après L1–L7 | Candidate technique feat/l8-security-residuals ; gates externes ouverts, preuves LOT_L8 |
 | L9 | Traductions natives et validation clinique | Démarrage dès L0 ; clôture après gel des textes | Preuves externes à obtenir |
 | L10 | Préproduction et fournisseurs réels | L0 pour préparer ; L1–L8 pour candidate complète | À exécuter |
 | L11 | Recette finale, restauration, rollback et GO/NO-GO | L9, L10 | À exécuter |
@@ -144,7 +144,7 @@ Afficher date de dernière synchronisation, périmètre disponible et données p
 
 ### L7 — Revenus, exports et opérations financières
 
-**Reprise du 7 octobre.** Candidate depuis main `91a0fc9` après #186, CI main 37631822824 verte. Journal causal CAPTURE/REFUND consultation append-only, snapshots commission/net, statistiques et CSV propres au médecin actif/vérifié/PRO courant ; activité/notes et créance globale distinctes du montant effectivement reversé. PAYOUT/REFUND externes manuels, verrou/allocation/compensation/idempotence, prise en charge et preuve tracées, anomalies legacy sans backfill. CSV et reçu non fiscal **approuvés par le porteur**. Aucun fournisseur réel/déploiement déduit des tests ; L8–L11 ouverts. Contrat/recette/revue/suivi : `CONTRAT_Finances_L7.md`, `RECETTE_Finances_L7.md`, `REVUE_L7_2026-10.md`, `suivi/LOT_L7.md`. Preuves locales : 571 API +117 web, 23 E2E, release:check 11 étapes ; commit applicatif `3c0c9dfb`. CI finale à consulter sur la PR, aucune fusion/déploiement automatique.
+**Reprise du 7 octobre.** Livré par #187 sur main `ebd0547`, fusion à 18:07:19 Africa/Lagos, CI finale 37656071002 et CI main 37656606253 réussies. Développé depuis main `91a0fc9` après #186, CI main 37631822824 verte. Journal causal CAPTURE/REFUND consultation append-only, snapshots commission/net, statistiques et CSV propres au médecin actif/vérifié/PRO courant ; activité/notes et créance globale distinctes du montant effectivement reversé. PAYOUT/REFUND externes manuels, verrou/allocation/compensation/idempotence, prise en charge et preuve tracées, anomalies legacy sans backfill. CSV et reçu non fiscal **approuvés par le porteur**. Aucun fournisseur réel/déploiement déduit des tests ; L8–L11 ouverts. Contrat/recette/revue/suivi : `CONTRAT_Finances_L7.md`, `RECETTE_Finances_L7.md`, `REVUE_L7_2026-10.md`, `suivi/LOT_L7.md`. Preuves locales : 571 API +117 web, 23 E2E, release:check 11 étapes ; commit applicatif `3c0c9dfb`. CI finale à consulter sur la PR, aucune fusion/déploiement automatique.
 
 **Fichiers de départ.** Page `/pro/stats`, paiements/consultations, finance admin, calcul de commission existant.
 
@@ -158,11 +158,15 @@ Pour le pilote, journaliser la demande/exécution/preuve du reversement et du re
 
 ### L8 — Résiduels de sécurité et configuration
 
+**Reprise du 7 octobre.** Branche `feat/l8-security-residuals` depuis main `ebd0547`, L7 fusionné et CI main verte. OTP générique/poivré, refresh TTL unique, audit causal/transactions DMP-KYC-labo, logs sans query/Referer/corps brut, Nginx erreurs de requête désactivées, checkout exact partagé et reconcile constant, FCM normalisé/CSP resserrée ; aucun changement de schéma/dépendance. Matrice X1–X15 et périmètre pentest : `AUDIT_Securite_L8_2026-10.md`. Contrat/revue/preuves : `CONTRAT_Securite_L8.md`, `REVUE_L8_2026-10.md`, `suivi/LOT_L8.md`. Twilio console/HTTPS-HSTS/fournisseurs réels/pentest restent L10/L11 ; unsafe-inline Next et timings réels à arbitrer avant GO, aucun risque accepté fictivement.
+
 **Travail.** Reprendre X4–X15 et les résiduels §5 de `AUDIT_Securite_Release_2026-09.md`, en tenant compte des fermetures L1/L2/L5. Corriger tri d'audit déterministe, normalisation des liens SW, configuration JWT inutilisée et absence de filtrage des journaux DMP ; revoir OTP/énumération avec les impacts UX documentés. Vérifier CSP compatible, HSTS après certificat et Twilio Geo Permissions. En sous-lot paiement revu : liste blanche des URL fournisseur, suppression des corps d'erreur bruts et comparaison du jeton de réconciliation en temps constant. Conserver le choix fail-closed Redis sauf décision motivée d'exploitation.
 
 **Acceptation.** Une ligne par résiduel : corrigé avec preuve, réglage opérateur vérifié ou risque accepté explicitement avec propriétaire et échéance. Aucune fuite de jeton, donnée médicale ou secret dans logs/audit/bundle. Préparer le périmètre du test d'intrusion externe.
 
 **Documentation.** Addendum daté, pas réécriture du rapport historique ; `CLAUDE.md` §8, secrets, Nginx et checklist de release.
+
+**Implémentation L8 (7 octobre).** Base main `ebd0547` après fusion #187 vérifiée. OTP HMAC et consommation unique Redis, réponses publiques génériques, TTL refresh cohérent ; audits causaux et effets/audits L1/L2 transactionnels ; journaux sans paramètres/Referer/corps fournisseur, garde FCM et CSP de production resserrées. Sous-lot paiement revu §3.5 : hôtes checkout exacts, redirections refusées, jeton constant, aucun changement de commission/signature/statuts/effets financiers. **605 tests API +121 web**, 28 tests outillage et 11 étapes release verts en 99 s ; 34 migrations sans dérive, aucune migration/dépendance ajoutée. 24 E2E/9 fichiers rejoués avec succès, aucun skip. Chaîne synthétique vérifiée : 2 043 entrées, aucun lien/hash erroné. Contrat, matrice X1–X15, auto-revue et fiche : `CONTRAT_Securite_L8.md`, `AUDIT_Securite_L8_2026-10.md`, `REVUE_L8_2026-10.md`, `suivi/LOT_L8.md`. Candidate technique uniquement : mesures OTP réelles, Twilio Geo Permissions, HTTPS/HSTS, compatibilité fournisseurs et pentest/arbitrage unsafe-inline restent à prouver avant GO L11 ; aucune acceptation de risque inventée.
 
 ## III. Validations externes et livraison
 
