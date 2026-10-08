@@ -121,7 +121,7 @@ export function applyToSource(source, locale, entries) {
 /** Métadonnées déclarées : vérification de forme, pas authentification du signataire. */
 export function validateReview({ reviewer, date, second, secondDate, today = reviewToday() }) {
   const validDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value ?? '') && !Number.isNaN(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value && value <= today;
-  const identity = (name) => String(name ?? '').normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('fr');
+  const identity = (name) => typeof name === 'string' ? name.normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('fr') : '';
   if (!identity(reviewer) || /[\r\n|]/.test(reviewer) || !validDate(date)) throw new Error('Relecteur et date réelle non future requis');
   if (second || secondDate) {
     if (!identity(second) || /[\r\n|]/.test(second) || !validDate(secondDate) || secondDate < date || identity(second) === identity(reviewer)) throw new Error('Second relecteur distinct et date de relecture valide requis');

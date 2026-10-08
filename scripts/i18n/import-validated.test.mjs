@@ -76,7 +76,7 @@ test('relecteurs distincts normalisés, dates réelles et non futures, pas de li
   const base = { reviewer: 'Relecteur TEST', date: '2026-10-01', today: '2026-10-08' };
   assert.equal(validateReview(base), false);
   assert.equal(validateReview({ ...base, second: 'Autre TEST', secondDate: '2026-10-02' }), true);
-  for (const extra of [{date:'2026-02-30'}, {date:'2026-10-09'}, {reviewer:' '}, {reviewer:'TEST|Fake'}, {second:' RELECTEUR  test ',secondDate:'2026-10-02'}, {second:'Autre TEST', secondDate:'2026-09-30'}, {second:'Autre TEST',secondDate:'2026-10-09'}]) {
+  for (const extra of [{date:'2026-02-30'}, {date:'2026-10-09'}, {reviewer:' '}, {reviewer:123}, {reviewer:{}}, {reviewer:'TEST|Fake'}, {second:456,secondDate:'2026-10-02'}, {second:{},secondDate:'2026-10-02'}, {second:' RELECTEUR  test ',secondDate:'2026-10-02'}, {second:'Autre TEST', secondDate:'2026-09-30'}, {second:'Autre TEST',secondDate:'2026-10-09'}]) {
     assert.throws(() => validateReview({ ...base, ...extra }));
   }
 });
