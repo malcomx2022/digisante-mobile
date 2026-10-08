@@ -18,7 +18,7 @@
 //     --locale=fon,yor      langues cibles (déf. fon,yor)
 //     --limit=N             limite le nombre de clés (test)
 //     --model=ID            modèle HF (déf. facebook/nllb-200-distilled-600M)
-//     --include-critical    force la MT des clés critiques (DÉCONSEILLÉ)
+//     --include-critical    INTERDIT (aucune MT des clés critiques)
 //     --dry                 n'appelle PAS le modèle : liste seulement
 //
 // 0 dépendance npm. Licence NLLB-200 = CC-BY-NC.
@@ -27,6 +27,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { extractLocale, isCritical } from './check-coverage.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, '..', '..');
@@ -34,8 +35,6 @@ const MESSAGES = resolve(ROOT, 'apps/web/src/i18n/messages.ts');
 const OUT_DIR = resolve(ROOT, 'docs/i18n');
 const PY_HELPER = resolve(HERE, 'nllb_translate.py');
 
-const CRITICAL_PREFIXES = ['sos.', 'labo.', 'payments.'];
-const isCritical = (k) => CRITICAL_PREFIXES.some((p) => k.startsWith(p));
 
 // locale interne → code FLORES-200 attendu par NLLB.
 const FLORES = { fr: 'fra_Latn', en: 'eng_Latn', fon: 'fon_Latn', yor: 'yor_Latn' };
@@ -47,15 +46,6 @@ const arg = (name, def) => {
   return hit ? hit.split('=').slice(1).join('=') : def;
 };
 const flag = (name) => argv.includes(`--${name}`);
-
-/** Extrait un objet de locale du source TS (littéral plat évalué en isolation). */
-function extractLocale(source, name) {
-  const re = new RegExp(`const ${name}: Messages = (\\{[\\s\\S]*?\\n\\});`);
-  const m = source.match(re);
-  if (!m) throw new Error(`Bloc de locale introuvable : ${name}`);
-  // eslint-disable-next-line no-new-func
-  return new Function(`return ${m[1]}`)();
-}
 
 // Protège les variables {name}, {days}… (souvent altérées par la MT).
 function protect(text) {
@@ -105,6 +95,7 @@ function main() {
   const locales = arg('locale', 'fon,yor').split(',').map((s) => s.trim()).filter(Boolean);
   const limit = Number(arg('limit', '0')) || 0;
   const includeCritical = flag('include-critical');
+  if (includeCritical) throw new Error('--include-critical interdit : double validation humaine obligatoire');
 
   const source = readFileSync(MESSAGES, 'utf8');
   const fr = extractLocale(source, 'fr');
@@ -122,8 +113,8 @@ function main() {
     if (limit) missing = missing.slice(0, limit);
 
     // Sépare clés critiques (jamais machine-traduites) et clés à traduire.
-    const toMT = missing.filter((k) => !isCritical(k) || includeCritical);
-    const humans = missing.filter((k) => isCritical(k) && !includeCritical);
+    const toMT = missing.filter((k) => !isCritical(k));
+    const humans = missing.filter((k) => isCritical(k));
     console.log(`\n${locale} : ${missing.length} manquantes — ${toMT.length} machine, ${humans.length} critiques→humain${dry ? ' (DRY)' : ` → NLLB ${MODEL} (local)`}`);
 
     // Prépare et traduit le lot (masquage des variables avant MT).
@@ -147,7 +138,7 @@ function main() {
     // Écrit le CSV dans l'ordre source.
     const rows = [['key', 'critical', 'fr', 'en', 'draft', 'flags'].map(csv).join(',')];
     for (const key of missing) {
-      const critical = isCritical(key) && !includeCritical;
+      const critical = isCritical(key);
       if (critical) {
         rows.push([key, 'CRITIQUE', fr[key], en[key] ?? '', '', 'HUMAIN_OBLIGATOIRE'].map(csv).join(','));
       } else {

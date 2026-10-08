@@ -29,6 +29,15 @@ export const CRITICAL_PREFIXES = ['sos.', 'labo.', 'payments.'];
 
 export const isCritical = (key) => CRITICAL_PREFIXES.some((p) => key.startsWith(p));
 
+/** Une clé vide/non textuelle n'est pas une traduction ; variables et balises conservées. */
+export function localeIssues(fr, translated) {
+  const variables = (text) => [...text.matchAll(/\{[\w.]+\}|<\/?[a-z][^>]*>/gi)].map((m) => m[0]).sort().join('|');
+  const missing = Object.keys(fr).filter((key) => !Object.hasOwn(translated, key) || typeof translated[key] !== 'string' || !translated[key].trim());
+  const invalid = Object.keys(fr).filter((key) => !missing.includes(key) && (translated[key].includes('\uFFFD') || variables(fr[key]) !== variables(translated[key])));
+  const unknown = Object.keys(translated).filter((key) => !Object.hasOwn(fr, key));
+  return { missing, invalid, unknown };
+}
+
 /** Extrait l'objet d'une locale depuis le source TS (littéral plat évalué). */
 export function extractLocale(source, name) {
   const re = new RegExp(`const ${name}: Messages = (\\{[\\s\\S]*?\\n\\});`);
@@ -52,11 +61,13 @@ function main() {
     .split('=')[1].split(',').filter(Boolean);
   // --critical-only-strict : échec si une clé CRITIQUE (sos./labo./payments.) manque.
   const criticalStrict = args.includes('--critical-only-strict');
+  if (requireComplete.some((locale) => !LOCALES.includes(locale))) throw new Error('Langue inconnue dans --require-complete');
   const failures = [];
 
   const source = readFileSync(MESSAGES, 'utf8');
   const data = Object.fromEntries(LOCALES.map((l) => [l, extractLocale(source, l)]));
 
+  if (Object.values(data.fr).some((text) => typeof text !== 'string' || !text.trim())) throw new Error('Référence FR vide ou non textuelle');
   const frKeys = Object.keys(data.fr);
   const criticalCount = frKeys.filter(isCritical).length;
 
@@ -70,7 +81,7 @@ function main() {
   for (const locale of LOCALES) {
     if (locale === 'fr') continue;
     const have = data[locale];
-    const missing = frKeys.filter((k) => !(k in have));
+    const { missing, invalid, unknown } = localeIssues(data.fr, have);
     const missingCritical = missing.filter(isCritical);
     totalMissing += missing.length;
     const coverage = (((frKeys.length - missing.length) / frKeys.length) * 100).toFixed(0);
@@ -78,6 +89,9 @@ function main() {
       `${locale.padEnd(7)}  ${String(frKeys.length - missing.length).padStart(9)}  ${String(missing.length).padStart(10)}  ${String(missingCritical.length).padStart(14)}  ${coverage.padStart(7)}%`,
     );
     exports[locale] = missing;
+    if (invalid.length || unknown.length) console.log(`  ${locale} : ${invalid.length} textes invalides, ${unknown.length} clés hors référence`);
+    if ((strict || requireComplete.includes(locale)) && (invalid.length || unknown.length)) failures.push(`${locale} : textes invalides/clés hors référence — ${[...invalid, ...unknown].join(', ')}`);
+    if (criticalStrict && invalid.some(isCritical)) failures.push(`${locale} : texte critique invalide`);
     if (requireComplete.includes(locale) && missing.length > 0) {
       failures.push(`${locale} : ${missing.length} clé(s) manquante(s) — langue exigée complète`);
     }
