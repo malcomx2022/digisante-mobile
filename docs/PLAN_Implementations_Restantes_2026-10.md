@@ -1,7 +1,7 @@
 # Plan d'implémentation et de finalisation — DigiSanté Mobile
 
 > Date : **6 octobre 2026**. Base inspectée : `main` @ `8f2f6ca24ad0543d6a08218932c783809eada9b1`, avec les quatre corrections locales de revue.
-> Statut : **L0 LIVRÉ SUR MAIN**, PR #178/#179 fusionnées, CI candidate verte ; L1 LIVRÉ SUR MAIN par PR #181 (`53775be`) ; L2 LIVRÉ SUR MAIN par PR #182 (`eb1ba6e`) ; L3 LIVRÉ SUR MAIN par PR #183 (`ce1cae8`) ; L4 LIVRÉ SUR MAIN par PR #184 (`0d3cb74`) ; L5 LIVRÉ SUR MAIN par PR #185 (`2e5cc77`) ; L6 LIVRÉ SUR MAIN par PR #186 (`91a0fc9`) ; L7 LIVRÉ SUR MAIN par PR #187 (`ebd0547`) ; L8 LIVRÉ CÔTÉ CODE SUR MAIN par PR #188 (`4fc62c1`), gates externes non clos ; L9 PRÉPARATION TECHNIQUE CANDIDATE, imports/contreseings ouverts ; L10–L11 OUVERTS. Mise à jour : 8 octobre 2026. Voir `docs/suivi/LOT_L0.md` et `docs/REVUE_L0_2026-10.md`. Aucun déploiement attesté par ce plan.
+> Statut : **L0 LIVRÉ SUR MAIN**, PR #178/#179 fusionnées, CI candidate verte ; L1 LIVRÉ SUR MAIN par PR #181 (`53775be`) ; L2 LIVRÉ SUR MAIN par PR #182 (`eb1ba6e`) ; L3 LIVRÉ SUR MAIN par PR #183 (`ce1cae8`) ; L4 LIVRÉ SUR MAIN par PR #184 (`0d3cb74`) ; L5 LIVRÉ SUR MAIN par PR #185 (`2e5cc77`) ; L6 LIVRÉ SUR MAIN par PR #186 (`91a0fc9`) ; L7 LIVRÉ SUR MAIN par PR #187 (`ebd0547`) ; L8 LIVRÉ CÔTÉ CODE SUR MAIN par PR #188 (`4fc62c1`), gates externes non clos ; L9 PRÉPARATION TECHNIQUE LIVRÉE SUR MAIN par #189 (`a3f80a1`), imports/contreseings ouverts ; L10 OUTILLAGE CANDIDAT, accès ultérieurs/recettes ouvertes ; L11 OUVERT. Mise à jour : 8 octobre 2026. Voir `docs/suivi/LOT_L0.md` et `docs/REVUE_L0_2026-10.md`. Aucun déploiement attesté par ce plan.
 > Référence de reprise : `CLAUDE.md` puis `docs/PLAYBOOK_Codage_DigiSante.md`.
 > Version documentaire : `docs/Plan_Implementations_Restantes_2026-10.docx`, générée depuis ce fichier par `scripts/docs/generate-implementation-plan.js`.
 
@@ -54,8 +54,8 @@ Ces décisions bloquent uniquement leurs sous-lots dépendants. Préparer modèl
 | L6 | Abonnements payants de bout en bout | L0, décisions commerciales approuvées | Livré sur main par PR #186 ; preuves LOT_L6 |
 | L7 | Revenus, exports et opérations financières | L6 pour accès PRO aux statistiques ; L0 pour consultations | Livré sur main par PR #187 ; preuves LOT_L7 |
 | L8 | Fermer ou arbitrer les autres résiduels de sécurité | L0 ; revue finale après L1–L7 | Livré côté code sur main par #188 ; gates externes ouverts, preuves LOT_L8 |
-| L9 | Traductions natives et validation clinique | Démarrage dès L0 ; clôture après gel des textes | Candidate technique feat/l9-native-clinical-validation ; retours annoncés/références différées, imports et contreseings ouverts |
-| L10 | Préproduction et fournisseurs réels | L0 pour préparer ; L1–L8 pour candidate complète | À exécuter |
+| L9 | Traductions natives et validation clinique | Démarrage dès L0 ; clôture après gel des textes | Préparation technique livrée #189/a3f80a1 ; références différées, imports et contreseings ouverts |
+| L10 | Préproduction et fournisseurs réels | L0 pour préparer ; L1–L8 pour candidate complète | Outillage candidat feat/l10-preproduction-readiness ; accès ultérieurs/recettes ouvertes |
 | L11 | Recette finale, restauration, rollback et GO/NO-GO | L9, L10 | À exécuter |
 
 L1/L2/L3/L5 et la préparation fournisseurs/validation humaine peuvent avancer indépendamment. Intégrer les PR en respectant leurs dépendances ; ne pas découper un lot en changements incompatibles sur `main`.
@@ -184,13 +184,15 @@ Faire valider triage, PEV, CPN, phrasier, posologie/ordonnances et format profes
 
 ### L10 — Préproduction et activation des cinq fournisseurs
 
-**Travail.** Environnement isolé représentatif de production : PostgreSQL natif, Redis, Nginx/HTTPS, PM2, secrets et crons. Préparer tôt domaine, comptes et clés ; ne pas utiliser la base production dans les outils de développement. La CI possède déjà un job deploy gated par `vars.DEPLOY_ENABLED == 'true'` : vérifier sa configuration, ne pas traiter ce job comme commenté.
+**Travail.** Environnement isolé représentatif de production : PostgreSQL natif, Redis, Nginx/HTTPS, PM2, secrets et crons. Préparer tôt domaine, comptes et clés ; ne pas utiliser la base production dans les outils de développement. La CI possède déjà un job deploy gated par `vars.DEPLOY_ENABLED == 'true'` et `vars.DEPLOY_MAINTENANCE_READY == 'true'` : vérifier sa configuration, ne pas traiter ce job comme commenté.
 
 Exécuter les fiches existantes : FedaPay sandbox S1–S7, réconciliation et remboursement ; Twilio OTP/SOS sur MTN/Moov ; Daily privé ; FCM sur application fermée ; Resend avec domaine authentifié. Configuration Firebase publique/VAPID requise au build web. Les boutons readiness n'attestent pas ces parcours. Préparer bascule FedaPay live après sandbox, à partir du plan existant.
 
 **Acceptation.** CI verte sur SHA candidat, santé/ready réels, tests fournisseurs datés avec références non sensibles, crons observés et première sauvegarde DB + fichiers. Aucune clé live dans les tests ordinaires. Distinguer préproduction réalisée, production contrôlée et ouverture aux patients.
 
 **Documentation.** Suivis B3/B4, fiches fournisseurs, checklist de déploiement, inventaire de secrets sans valeurs, version candidate et preuves.
+
+**Exécution L10 (8 octobre).** Base main a3f80a1 après fusion #189 à 10:32:49 Africa/Lagos, CI main 37757404974 réussie. Porteur : préparer l’outillage, accès à fournir ultérieurement. Workflow préproduction manuel sur SHA main qualifié et fingerprint/maintenance, arrêt homogène avant migrations, setup smoke sans purge Redis ni mode test, FedaPay sandbox refus live avant réseau. Sauvegarde complète avec snapshot commun dump/manifest DB, deux archives et publication manifeste en dernier ; sondes sans tâches mutantes par défaut. 94 cas préparés, registre vide, gate L10 non vert attendu. 65 régressions d’outillage, lint/typecheck et preuve PG16/restauration locale synthétique verts ; aucune cible native/recette réelle attestée. Contrat/revue/suivi/inventaire L10 et dossier de preuves à reprendre. L9 humain et GO L11 restent ouverts.
 
 ### L11 — Recette finale et décision d'ouverture
 

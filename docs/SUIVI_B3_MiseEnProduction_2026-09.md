@@ -114,3 +114,8 @@ dig +short A <domaine>          # doit renvoyer l'IP du VPS
 Application servie en HTTPS sur le domaine réel, `health`/`ready` verts, PM2 stable (api ×2 +
 web), crons actifs et vérifiés, sauvegarde double produite, déploiement continu armé et
 éprouvé par un push sur `main`.
+
+
+## Actualisation L10 — 8 octobre 2026 (historique ci-dessus conservé)
+
+L9 technique fusionné #189, main a3f80a1/CI 37757404974 réussie ; humain encore ouvert. Le porteur décide de préparer l’outillage L10, accès à fournir ultérieurement. Aucun VPS/compte fournisseur réel sollicité ou résultat B3/B4 coché dans cette session. Reprendre CONTRAT_Preproduction_L10, suivi/LOT_L10, revue L10, inventaire de secrets et dossier de 94 cas ; workflow préproduction manuel isolé, CI/SHA exact et maintenance/arrêt homogène, crontab DB_NAME préprod et première sauvegarde complète à éprouver sur cible. Smoke indépendant sans purge Redis, NODE_ENV=production et un seul fournisseur ; commandes historiques complétées par les métadonnées du contrat. Gates production DEPLOY_ENABLED **et** DEPLOY_MAINTENANCE_READY ; aucune activation par la seule PR. Preuves locales synthétiques distinctes des réceptions/appareils/crons/backup cible ; restauration réelle et GO restent L11.
