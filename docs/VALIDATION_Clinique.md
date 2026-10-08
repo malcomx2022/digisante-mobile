@@ -221,3 +221,13 @@ actuel** ; ne pas la régénérer (la signature porte sur la version du **2026-0
 4. `pnpm release:check`, puis régénérer le dossier (`NODE_PATH=<dossier contenant docx>
    node scripts/docs/generate-validation-dossier.js`) et le **valider structurellement**
    (workflow DOCX, CLAUDE.md §7) ; re-signature sur la version corrigée.
+
+## Reprise L9 — 8 octobre 2026 : état actuel avant ouverture
+
+La décision du porteur d’août reste historique ; elle **ne lève pas le gate clinique L9/L11 du plan actuel**. Le porteur indique que des retours validés existent et transmettra leurs références ultérieurement. Aucun document/version/signataire/habilitation/correction n’a été vérifié ici. Ne pas considérer l’existence annoncée comme un contreseing du code courant.
+
+Nouveau dossier **non signé**, sans remplacement de la version historique en circulation : `docs/validation/L9/Dossier_Clinique_L9.docx`. Il utilise le dictionnaire actuel et les modules sources compilés fraîchement, inclut les huit contacts CPN/objectifs, le phrasier exact (27 phrases), les règles de posologie/allergies verbatim et les fichiers des parcours correspondants. Voir `CONTRAT_Validation_L9.md`, le README L9, le snapshot/manifest et le registre `evidence.json` encore vide. Validation OOXML/concordance textuelle seulement ; pas de rendu Word ni signature contrôlés.
+
+Points à arbitrer dans le retour prescripteur : premier entier extrait des doses (fractions/quantités en mg), horaires déduits depuis le nombre de prises, durée sans unité supposée en jours et pictogrammes/audio dérivés. Le dossier **n’accepte pas** ces hypothèses ; aucune règle ni contenu médical modifié en l’absence de correction explicite. Relire aussi unités/bornes des auto-mesures et corpus d’articles réellement publiés en DB : le seed synthétique n’en est pas une preuve.
+
+À réception : vérifier pièce privée, qualité/habilitation, version, portées et réserves ; présenter le diff clinique explicite pour confirmation selon le circuit ci-dessus, tester limites/urgences/rendu et faire contresigner la version corrigée. Aucune signature produite par l’assistant. `pnpm validation:gate` reste **non vert attendu** tant que corpus/langues/pièces ne sont pas intégrés ; son succès futur vérifiera une cohérence de métadonnées, jamais l’authenticité ou un GO automatique.

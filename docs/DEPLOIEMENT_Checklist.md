@@ -140,3 +140,15 @@ Lire contrat/recette/revue/LOT_L7. Cases opérationnelles non cochées tant que 
 - [ ] Console Twilio : Geo Permissions SMS ET Voice pour pays attendus seulement, Bénin OTP et diaspora selon besoin validé ; preuve et tests autorisés, y compris coût/quota et SOS.
 - [ ] FedaPay : vraie URL HTTPS sur checkout.fedapay.com/sandbox-checkout.fedapay.com, S1–S7 sandbox/reconcile, aucun stub en production ; HMAC/CAS/commission/wallet/L6/L7 inchangés.
 - [ ] Mandater pentest externe sur candidate exacte/préproduction synthétique, retester findings ; mesurer timings d’énumération et risques CSP avant décision humaine GO/NO-GO L11.
+
+
+## L9 — validations humaines avant ouverture (8 octobre 2026)
+
+Préparation technique et CI ne prouvent pas une validation native/clinique. Références des retours annoncées, différées ; aucune pièce vérifiée/importée ici. Lire le contrat L9 et `validation/L9/README.md`.
+
+- [ ] Retours natifs/version exacte vérifiés ; deux relecteurs distincts sur critiques et phrasier, FR/EN/variables conservés, langues annoncées complètes.
+- [ ] Contreseing habilité des portées triage/PEV/CPN/phrasier/prescriptions-posologie/constantes/éducation ; pièces privées, références et empreintes concordantes.
+- [ ] Hypothèses de rendu posologie corrigées/arbitrées explicitement, limites/pictogrammes/audio relus sur appareil, aucun risque accepté fictivement.
+- [ ] Corpus des articles DB réellement publiés inventorié/relu ; seed synthétique exclu comme preuve production.
+- [ ] `validation:check`, DOCX et `validation:gate` concordants avec les pièces ; contrôle technique du registre seul ne prouve pas la signature.
+- [ ] Version corrigée contresignée après toute correction clinique et réserves résolues avant GO humain L11.

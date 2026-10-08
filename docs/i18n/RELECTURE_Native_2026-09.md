@@ -93,3 +93,9 @@ Mesure du jour : **75** clés manquantes par langue (dont **6 critiques** `sos.*
 `integrations.unreadable` (console admin, non critique), ajoutée le 22/09. Importeur prêt et
 testé (`scripts/i18n/import-validated.test.mjs`, 5 cas) ; essai à blanc sur l'export réel :
 75 lignes refusées « case vide », 0 écriture.
+
+## Addendum L9 — 8 octobre 2026
+
+Les chiffres et procédures du lancement restent historiques. Référence actuelle : `docs/CONTRAT_Validation_L9.md` ; nouvel instantané versionné `docs/validation/L9/` (1 098 clés UI et 27 phrases), empreintes et colonnes de retour vierges distinctes des textes existants. 232 clés manquantes par langue, 6 SOS critiques chacun. La présence des 866 clés natives ne constitue pas une preuve de relecture.
+
+Retours annoncés, références différées par le porteur ; rien importé ni signé fictivement. Ajouter `--evidence-ref '<référence privée vérifiée>'` à l’importeur actuel et contrôler FR/EN et relecteurs/dates ; garder signatures/données personnelles hors dépôt public. Phrasier : PR dédiée, double relecture et contreseing clinique. Le seuil historique « zéro critique » ne ferme pas le lot actuel : parité des langues annoncées + contenu embarqué et preuves sont exigés avant GO.

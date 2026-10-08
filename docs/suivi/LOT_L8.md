@@ -27,3 +27,8 @@ La matrice attribue responsables et échéances : timings OTP réels et ergonomi
 Avant bascule : arrêter tous les anciens writers, vérifier la chaîne héritée sur copie/restauration ; incohérence = NO-GO, aucun backfill ou réécriture append-only. La date audit est logique, pas une horodatation fournisseur. Rotation JWT/HMAC invalide les OTP en attente. Redis reste fail-closed. Le diagnostic Nginx détaillé est réservé à une pile distincte avec données synthétiques.
 
 Environnement : Node 24.19.0, pnpm local 11.19.0 (repo/CI 9.12.0), PostgreSQL16/Redis7 dédiés à L8 avec deux bases test/E2E ; aucun service de développement existant purgé. Fournisseurs simulés dans les tests, aucune donnée patient réelle ni credential fournisseur utilisée. Auto-revue d’implémentation, aucune revue indépendante/pentest prétendu ; journaux intermédiaires hors dépôt.
+
+
+## Livraison constatée à la reprise L9
+
+PR #188 fusionnée le 8 octobre à 06:50:09 Africa/Lagos sur main `4fc62c1a3a6487a8b42fa7c77a8770b01016fa78`. SHA final L8 `5a0e2612df0a02016d1940e77b94c3b584720f1a`, CI 37665034166 tentative 2 réussie après blocage APT du premier runner avant tout E2E ; 605 API +121 web et 24 E2E réussis, deploy ignoré. CI après fusion 37734382622 réussie sur main exact. Code L8 livré, validations externes sécurité toujours ouvertes ; aucun déploiement attesté.
