@@ -56,6 +56,7 @@ test('deux onglets vérifient le ticket sans coffre : un seul POST réel, reçu 
   const prisma = new PrismaClient(); let userId: string | undefined;
   const keys: string[] = []; const statuses: number[] = []; let mutationKey: string | undefined; let posts = 0;
   let release!: () => void; const gate = new Promise<void>((resolve) => { release = resolve; });
+  let committed!: () => void; const commit = new Promise<void>((resolve) => { committed = resolve; });
   try {
     await context.setExtraHTTPHeaders({ 'x-forwarded-for': '192.0.2.211' });
     const phone = await registerAndLogin(page, { firstName: 'Onglets', lastName: 'L3' });
@@ -64,24 +65,31 @@ test('deux onglets vérifient le ticket sans coffre : un seul POST réel, reçu 
     await context.route('**/api/v1/vaccinations/subjects', async (route) => {
       posts++; mutationKey = route.request().headers()['idempotency-key'];
       const response = await route.fetch(); expect(response.status()).toBe(201); await route.abort('failed');
+      committed();
     });
-    await fillSubject(page, 'Enfant onglets L3');
-    await expect.poll(() => pending(page)).toBe(1);
+    // La file est persistée AVANT le POST. Intercepter dès maintenant évite
+    // qu'une reprise initiale la consomme hors du scénario à deux onglets.
     await context.route('**/api/v1/sync/receipts/*', async (route) => {
       keys.push(route.request().url().split('/').at(-1)!);
+      await commit; // le reçu n'existe qu'après le vrai commit PostgreSQL
       const response = await route.fetch(); statuses.push(response.status());
       expect(await response.json()).toEqual({ confirmed: true, status: 201 });
       await gate;
       await route.fulfill({ response });
     });
+    await fillSubject(page, 'Enfant onglets L3');
+    await expect.poll(() => pending(page)).toBe(1);
     const second = await context.newPage(); await second.goto('/patient/vaccinations');
     await expect(second.getByLabel('Date de naissance')).toBeVisible();
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
     await expect.poll(() => keys.length).toBe(2);
+    // Deux requêtes démarrées ne prouvent pas que les deux réponses sont reçues.
+    // Une seule réponse libérée suffirait à vider la file partagée.
+    await expect.poll(() => statuses).toEqual([200, 200]);
     release();
     await expect.poll(() => pending(page)).toBe(0);
     expect(statuses).toEqual([200, 200]); expect(keys).toEqual([mutationKey, mutationKey]); expect(posts).toBe(1);
     expect(await prisma.vaccinationSubject.count({ where: { patient: { userId } } })).toBe(1);
     expect(await prisma.mutationReceipt.count({ where: { userId, key: keys[0] } })).toBe(1);
-  } finally { release(); if (userId) await prisma.user.delete({ where: { id: userId } }); await prisma.$disconnect(); }
+  } finally { committed(); release(); if (userId) await prisma.user.delete({ where: { id: userId } }); await prisma.$disconnect(); }
 });

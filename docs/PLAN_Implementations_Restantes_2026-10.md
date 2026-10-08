@@ -1,7 +1,7 @@
 # Plan d'implémentation et de finalisation — DigiSanté Mobile
 
 > Date : **6 octobre 2026**. Base inspectée : `main` @ `8f2f6ca24ad0543d6a08218932c783809eada9b1`, avec les quatre corrections locales de revue.
-> Statut : **L0 LIVRÉ SUR MAIN**, PR #178/#179 fusionnées, CI candidate verte ; L1 LIVRÉ SUR MAIN par PR #181 (`53775be`) ; L2 LIVRÉ SUR MAIN par PR #182 (`eb1ba6e`) ; L3 LIVRÉ SUR MAIN par PR #183 (`ce1cae8`) ; L4 LIVRÉ SUR MAIN par PR #184 (`0d3cb74`) ; L5 LIVRÉ SUR MAIN par PR #185 (`2e5cc77`) ; L6 LIVRÉ SUR MAIN par PR #186 (`91a0fc9`) ; L7 LIVRÉ SUR MAIN par PR #187 (`ebd0547`) ; L8 CANDIDATE TECHNIQUE (LOT_L8), gates externes non clos ; L9–L11 OUVERTS. Mise à jour : 7 octobre 2026. Voir `docs/suivi/LOT_L0.md` et `docs/REVUE_L0_2026-10.md`. Aucun déploiement attesté par ce plan.
+> Statut : **L0 LIVRÉ SUR MAIN**, PR #178/#179 fusionnées, CI candidate verte ; L1 LIVRÉ SUR MAIN par PR #181 (`53775be`) ; L2 LIVRÉ SUR MAIN par PR #182 (`eb1ba6e`) ; L3 LIVRÉ SUR MAIN par PR #183 (`ce1cae8`) ; L4 LIVRÉ SUR MAIN par PR #184 (`0d3cb74`) ; L5 LIVRÉ SUR MAIN par PR #185 (`2e5cc77`) ; L6 LIVRÉ SUR MAIN par PR #186 (`91a0fc9`) ; L7 LIVRÉ SUR MAIN par PR #187 (`ebd0547`) ; L8 LIVRÉ CÔTÉ CODE SUR MAIN par PR #188 (`4fc62c1`), gates externes non clos ; L9 PRÉPARATION TECHNIQUE CANDIDATE, imports/contreseings ouverts ; L10–L11 OUVERTS. Mise à jour : 8 octobre 2026. Voir `docs/suivi/LOT_L0.md` et `docs/REVUE_L0_2026-10.md`. Aucun déploiement attesté par ce plan.
 > Référence de reprise : `CLAUDE.md` puis `docs/PLAYBOOK_Codage_DigiSante.md`.
 > Version documentaire : `docs/Plan_Implementations_Restantes_2026-10.docx`, générée depuis ce fichier par `scripts/docs/generate-implementation-plan.js`.
 
@@ -53,8 +53,8 @@ Ces décisions bloquent uniquement leurs sous-lots dépendants. Préparer modèl
 | L5 | Salles Daily privées et jetons participants | L0 | Livré sur main par PR #185 ; recette réelle en L10 |
 | L6 | Abonnements payants de bout en bout | L0, décisions commerciales approuvées | Livré sur main par PR #186 ; preuves LOT_L6 |
 | L7 | Revenus, exports et opérations financières | L6 pour accès PRO aux statistiques ; L0 pour consultations | Livré sur main par PR #187 ; preuves LOT_L7 |
-| L8 | Fermer ou arbitrer les autres résiduels de sécurité | L0 ; revue finale après L1–L7 | Candidate technique feat/l8-security-residuals ; gates externes ouverts, preuves LOT_L8 |
-| L9 | Traductions natives et validation clinique | Démarrage dès L0 ; clôture après gel des textes | Preuves externes à obtenir |
+| L8 | Fermer ou arbitrer les autres résiduels de sécurité | L0 ; revue finale après L1–L7 | Livré côté code sur main par #188 ; gates externes ouverts, preuves LOT_L8 |
+| L9 | Traductions natives et validation clinique | Démarrage dès L0 ; clôture après gel des textes | Candidate technique feat/l9-native-clinical-validation ; retours annoncés/références différées, imports et contreseings ouverts |
 | L10 | Préproduction et fournisseurs réels | L0 pour préparer ; L1–L8 pour candidate complète | À exécuter |
 | L11 | Recette finale, restauration, rollback et GO/NO-GO | L9, L10 | À exécuter |
 
@@ -179,6 +179,8 @@ Faire valider triage, PEV, CPN, phrasier, posologie/ordonnances et format profes
 **Acceptation.** Parité FR/EN et langues annoncées ; critiques doublement validées ; contrôle strict vert après import. Dossier clinique réellement signé pour le contenu livré. Toute réserve entraîne retrait/révision du contenu concerné avant ouverture.
 
 **Documentation.** Dossier clinique, registre de traductions, suivis B1/B2, recette SOS et actualisation des références dans `CLAUDE.md`.
+
+**Exécution L9 (8 octobre).** Base main `4fc62c1`, fusion #188 à 06:50:09 Africa/Lagos et CI main 37734382622 réussie. Préparation/contrôles d’import natif et de version, CSV strict, source FR/EN et variables, double relecture/date/référence, traçabilité/rollback, MT critique interdite. Corpus complet : 1 098 clés UI +27 phrases ; FON/YOR 232 manquantes/6 SOS chacun, inchangées. Nouveau dossier clinique non signé depuis sources fraîches, CPN/objectifs et posologie inclus ; ancien dossier en circulation intact. **44 tests d’outillage**, lint/typecheck, instantanés et DOCX structurels verts. Références des retours validés annoncées mais différées par le porteur : aucune pièce/native/signature importée ou attestée, registre vide et gate non vert attendu. Rendu posologie (fractions/mg, horaires et durée déduits) à corriger/arbitrer explicitement avant ouverture. Lire contrat/revue/fiche L9 ; CI technique ne ferme pas les validations humaines ni GO L11.
 
 ### L10 — Préproduction et activation des cinq fournisseurs
 

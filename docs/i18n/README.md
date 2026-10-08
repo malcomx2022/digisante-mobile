@@ -64,3 +64,11 @@ Les namespaces **`sos.*`, `labo.*`, `payments.*`** touchent l'urgence, les résu
 - Ne pas inventer ni publier de MT pour une clé critique : laisser vide tant qu'elle n'est pas double-validée.
 
 Les fichiers `docs/i18n/todo.*.csv` et `draft.*.csv` sont des **instantanés régénérables** (non versionnés).
+
+## Reprise L9 — 8 octobre 2026
+
+Référence actuelle : `docs/CONTRAT_Validation_L9.md` et `docs/validation/L9/README.md`. Retours annoncés par le porteur, références à communiquer ultérieurement : aucune traduction importée, aucune relecture/signature vérifiée. 1 098 clés FR/EN, 232 manquantes FON/YOR dont 6 critiques chacun ; 27 phrases FR/EN sans langue native.
+
+Les étapes manuelles historiques ci-dessus sont remplacées pour les clés UI par l’importeur contrôlé : référence privée obligatoire `--evidence-ref`, FR **et EN** actuels, double relecture distincte/date réelle non future pour les critiques, `--dry-run` d’abord. `--require-all` ferme tout import avec rejet, `--overwrite` seulement pour remplacement explicitement relu. Source/trace préparées avec rollback sur erreur ; pas de garantie de commit multi-fichier lors d’un crash, inspecter le diff/verrou avant reprise. L’import trace les clés et les empreintes CSV/source avant/après.
+
+`--include-critical` de l’outil de brouillon est désormais **refusé**, même avec `--dry` ; les préfixes critiques partagent une définition unique. Le phrasier suit une PR dédiée après retours natifs et contreseing clinique ; son CSV ne s’importe pas dans le dictionnaire UI. L’objectif actuel L9 couvre toutes les langues annoncées et le contenu embarqué, pas seulement les six SOS. Les nouveaux instantanés unsigned sont versionnés ; les todo/draft historiques restent régénérables et ignorés.

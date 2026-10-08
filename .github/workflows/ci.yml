@@ -45,6 +45,12 @@ jobs:
       - run: pnpm --filter @digisante/api prisma migrate deploy
       - run: pnpm lint
       - run: pnpm typecheck
+      - name: Contrôles techniques L9 (pas de signature humaine simulée)
+        run: |
+          pnpm test:scripts
+          node scripts/i18n/check-coverage.mjs --require-complete=en
+          pnpm validation:check
+          python scripts/docs/validate-l9-dossier.py
       - run: pnpm test
       - run: pnpm build
 
