@@ -79,7 +79,7 @@ test('vérification : sondes par défaut sans tâches ; opt-in synthétique lanc
     const f=fixture();try {
       f.command('pm2',`echo '[{"name":"digisante-api","pm2_env":{"status":"online"}},{"name":"digisante-api","pm2_env":{"status":"online"}},{"name":"digisante-web","pm2_env":{"status":"online"}}]'`);
       f.command('pnpm',`echo 'Database schema is up to date!'`);
-      f.command('openssl',`if [[ "$1" == x509 ]]; then cat >/dev/null; echo "notAfter=$(date -d '+30 days')"; else echo CERT; fi`);
+      f.command('openssl',`if [[ "$1" == x509 ]]; then cat >/dev/null; echo "notAfter=$(date -d '+30 days')"; else echo CERT; [[ "\u0024{TLS_FAIL:-0}" == 0 ]]; fi`);
       f.command('curl',`case "$*" in
 *health*) echo '{"status":"ok","service":"digisante-api"}';;
 *ready*) echo '{"status":"ready","db":"up","redis":"up"}';;
@@ -92,6 +92,7 @@ esac`);
       const ws=join(f.dir,'ws.log');writeFileSync(ws,'');
       const r=f.run('verify_deploy.sh',{DOMAIN:'preprod.example.bj',VERIFY_JOB_ENVIRONMENT:'preproduction',WS_LOG:ws},jobs?['--run-jobs']:[]);
       assert.equal(r.status,0,r.stdout+r.stderr);assert.equal((f.trace().match(/job-called/g)||[]).length,jobs?6:0);
+      if(!jobs){const bad=f.run('verify_deploy.sh',{DOMAIN:'preprod.example.bj',WS_LOG:ws,TLS_FAIL:'1'});assert.notEqual(bad.status,0);assert.match(bad.stdout,/FAIL.*TLS/);}
     }finally{f.clean();}
   }
 });

@@ -106,7 +106,7 @@ fi
 
 # 9. Certificat TLS
 if [[ -n "$DOMAIN" ]]; then
-  end="$(echo | timeout 15 openssl s_client -verify_return_error -verify_hostname "$DOMAIN" -connect "${DOMAIN}:443" -servername "$DOMAIN" 2>/dev/null | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2 || true)"
+  end="$(echo | timeout 15 openssl s_client -verify_return_error -verify_hostname "$DOMAIN" -connect "${DOMAIN}:443" -servername "$DOMAIN" 2>/dev/null | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2 )" || end=""
   if [[ -n "$end" ]]; then
     d=$(( ( $(date -d "$end" +%s) - $(date +%s) ) / 86400 ))
     (( d >= 14 )) && check tls "OK|expire dans ${d} j" || check tls "ALERTE|certificat expire dans ${d} j"

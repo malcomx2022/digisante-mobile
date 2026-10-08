@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceSnapshotSha256": "f9a3e5e1ab25bbe0ac341fc910244a5e7e138ac9dc7e0b5a626d3319fba81c56",
+  "sourceSnapshotSha256": "d3ac2b0c27b2eaf9b3c9f9799f1f5c8afd8c642b8481ff73da83a4b386e8fce1",
   "sources": {
     ".github/workflows/ci.yml": "645c6a804fc35d9aff03cadcf3197a3181496a54f23c868b40eade97d308a635",
     ".github/workflows/preproduction.yml": "1e2994588735f71d731b28ebc1cffacebf71114db787540dd2f7af935e6c6e97",
@@ -31,11 +31,11 @@
     "infra/deploy/nginx/rate-limit.conf": "65e73c3bac5e7dbc361475ef2d420593d190752a0da1c11f71d6c511598b0ddc",
     "infra/deploy/scripts/deploy.sh": "c4caa0fde40eea6c899bb7b3e6dfe8a54ee8f47ec076b4d4f332ed88b9193c3b",
     "infra/deploy/scripts/fedapay_reconcile.sh": "bd8812bacaef7d48e9348ad737015f70535dad4ee07b09581c9804420cd82649",
-    "infra/deploy/scripts/healthwatch.sh": "55104736ccb12293fc349785db67fd66b68a9511a986db3f4f31507d247ade7f",
+    "infra/deploy/scripts/healthwatch.sh": "c1b50e0e4ec537e6e9afd06b15de5b0004ccb6c06d93f67e3f459847c3b03917",
     "infra/deploy/scripts/internal_job.sh": "60314b55c80cffc903fa820ac90281b4266e101e2aa7d72aad93463b9d3c2034",
     "infra/deploy/scripts/pg_dump_encrypted.sh": "d7d67c9053971cf73ca1ba6c1af9a3eb5dc395fcb3ab48dee045f211d49feee7",
     "infra/deploy/scripts/provision.sh": "92c68ef86ff394685fd8895cf13e68d85934c5aef29da5a4caa4176babcdaa98",
-    "infra/deploy/scripts/verify_deploy.sh": "06eb7f36181b270d0ccfe022808b1e36dbc12ebc486587ab4a197b144052af3a",
+    "infra/deploy/scripts/verify_deploy.sh": "3a9164d59e45b8c12c5dac2337f1a2c257b64326756aef6960e18728b0f6afc9",
     "infra/deploy/scripts/verify_restore.sh": "300a3e59ed437f921a7dd969cb582515de8895968c8a5c1170ef7a74c01f908c",
     "package.json": "794f5e7c2e92072ef19dd261fb1338348f9908421f954e6abb8553201a94bf0d",
     "scripts/preproduction/check-backup.mjs": "9c21d78da9cc97f4abcb03673b15ceeac9d738115a873b71fbfacd97ba8e72ee",

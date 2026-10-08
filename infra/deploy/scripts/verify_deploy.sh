@@ -44,7 +44,7 @@ else
 fi
 
 # 3. Certificat TLS : présent et valide encore ≥ 14 jours
-END="$(echo | timeout 15 openssl s_client -verify_return_error -verify_hostname "$DOMAIN" -connect "${DOMAIN}:443" -servername "$DOMAIN" 2>/dev/null | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2 || true)"
+END="$(echo | timeout 15 openssl s_client -verify_return_error -verify_hostname "$DOMAIN" -connect "${DOMAIN}:443" -servername "$DOMAIN" 2>/dev/null | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2 )" || END=""
 if [[ -n "$END" ]]; then
   DAYS=$(( ( $(date -d "$END" +%s) - $(date +%s) ) / 86400 ))
   (( DAYS >= 14 )) && pass "TLS : certificat valide encore ${DAYS} j" || fail "TLS : expiration dans ${DAYS} j"
