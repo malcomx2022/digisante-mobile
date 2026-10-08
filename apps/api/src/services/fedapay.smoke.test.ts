@@ -11,6 +11,7 @@
 // ─────────────────────────────────────────────────────────────
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { assertFedapaySandbox, requestFedapaySandbox } from '../../../../scripts/preproduction/smoke-guard.mjs';
 
 const ENABLED = process.env.SMOKE_FEDAPAY === '1';
 
@@ -27,6 +28,9 @@ describe.skipIf(!ENABLED)('PRÉFLIGHT FedaPay sandbox (opt-in, lecture seule)', 
     const r = await getIntegration(app, 'FEDAPAY');
     secrets = r.secrets;
     meta = r.meta;
+    // Une assertion dans un it n'empêche pas les it suivants de faire un appel live.
+    // Refus fatal dans le hook ET contrôle répété juste avant tout appel réseau.
+    assertFedapaySandbox(r);
     // eslint-disable-next-line no-console -- sortie destinée à l’opérateur de recette
     console.info(`[preflight:fedapay] source=${r.source} · activé=${r.enabled} · clés présentes=${Object.entries(secrets).filter(([, v]) => Boolean(v)).map(([k]) => k).sort().join(',') || 'aucune'}`);
   });
@@ -50,10 +54,7 @@ describe.skipIf(!ENABLED)('PRÉFLIGHT FedaPay sandbox (opt-in, lecture seule)', 
   });
 
   it('la clé secrète est acceptée par l’API sandbox (lecture seule)', async () => {
-    const { fedapayApiBase } = await import('./fedapay.js');
-    const res = await fetch(`${fedapayApiBase(secrets.secretKey!)}/transactions?per_page=1`, {
-      headers: { Authorization: `Bearer ${secrets.secretKey}` },
-    });
+    const res = await requestFedapaySandbox(secrets);
     // eslint-disable-next-line no-console -- sortie destinée à l’opérateur de recette
     console.info(`[preflight:fedapay] API sandbox HTTP ${res.status}`);
     expect(res.status, 'clé refusée par FedaPay (401/403) ou API indisponible').toBe(200);

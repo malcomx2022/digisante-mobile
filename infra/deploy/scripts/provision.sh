@@ -19,6 +19,7 @@ DB_NAME="${DB_NAME:-digisante}"
 DB_USER="${DB_USER:-digisante}"
 DB_PASSWORD="${DB_PASSWORD:?Définir DB_PASSWORD (mot de passe Postgres applicatif)}"
 NODE_MAJOR="${NODE_MAJOR:-24}"
+[[ "$DB_NAME" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]] || { echo "Nom de base invalide" >&2; exit 1; }
 LOG_DIR="/var/log/digisante"
 BACKUP_DIR="/var/backups/digisante"
 
@@ -42,7 +43,7 @@ apt-get install -y curl ca-certificates gnupg lsb-release git build-essential uf
 # ── 2. Node.js 24 (NodeSource) + pnpm via corepack ──
 # ⚠️ Doit rester ALIGNÉ sur `node-version` de .github/workflows/ci.yml : sinon la
 # CI valide une version de Node que la production n'exécute pas.
-if ! command -v node >/dev/null 2>&1 || [[ "$(node -v | cut -d. -f1 | tr -d v)" -lt "$NODE_MAJOR" ]]; then
+if ! command -v node >/dev/null 2>&1 || [[ "$(node -v | cut -d. -f1 | tr -d v)" != "$NODE_MAJOR" ]]; then
   log "Installation de Node.js ${NODE_MAJOR}…"
   curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash -
   apt-get install -y nodejs
@@ -143,11 +144,11 @@ cat <<'NEXT'
 Provisioning terminé. Étapes suivantes :
   1. Cloner le dépôt dans /var/www/digisante-mobile (utilisateur digisante).
   2. Créer apps/api/.env et apps/web/.env.production (jamais commités).
-  3. Premier déploiement :  bash infra/deploy/scripts/deploy.sh
+  3. Maintenance puis déploiement : DEPLOY_REF=<SHA complet qualifié> DEPLOY_ENVIRONMENT=<preproduction|production> DEPLOY_MAINTENANCE_READY=1 bash infra/deploy/scripts/deploy.sh
   4. Nginx :  cp infra/deploy/nginx/digisante.conf → sites-available, puis certbot.
   5. Jeton des tâches internes (= RECONCILE_TOKEN du .env de l'API) :
        sudo sh -c 'umask 077; printf %s "<RECONCILE_TOKEN>" > /etc/digisante/reconcile.token'
   6. Alertes : sudo sh -c 'umask 077; echo "ALERT_CMD=\"mail -s [DigiSanté] ops@<domaine>\"" > /etc/digisante/alert.conf'
-  7. Cron :  sudo crontab infra/deploy/crontab.example (aucun secret dans ce fichier).
+  7. Cron : relire/sauvegarder la crontab ; template crontab.preproduction.example en L10, crontab.example en production (aucun secret).
 ──────────────────────────────────────────────────────────────
 NEXT

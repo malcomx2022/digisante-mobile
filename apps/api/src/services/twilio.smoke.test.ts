@@ -22,6 +22,7 @@ describe.skipIf(!ENABLED)('SMOKE Twilio (réel, opt-in)', () => {
   let app: FastifyInstance;
 
   beforeAll(async () => {
+    if (!phoneSchema.safeParse(TO).success) throw new Error('Numéro de recette béninois valide requis avant tout appel Twilio.');
     const { buildServer } = await import('@/server.js');
     app = await buildServer();
     await app.ready();

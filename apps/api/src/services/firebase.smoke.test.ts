@@ -16,11 +16,13 @@ import { maskId } from '@/lib/redact.js';
 
 const ENABLED = process.env.SMOKE_FCM === '1';
 const TOKEN = process.env.SMOKE_FCM_TOKEN ?? '';
+const EXPECT_REJECTED = process.env.SMOKE_FCM_EXPECT_REJECTED === '1';
 
 describe.skipIf(!ENABLED)('SMOKE Firebase FCM (réel, opt-in)', () => {
   let app: FastifyInstance;
 
   beforeAll(async () => {
+    if (TOKEN.length <= 20) throw new Error('Token FCM d’un appareil de recette autorisé requis.');
     const { buildServer } = await import('@/server.js');
     app = await buildServer();
     await app.ready();
@@ -33,14 +35,19 @@ describe.skipIf(!ENABLED)('SMOKE Firebase FCM (réel, opt-in)', () => {
     expect(TOKEN.length, 'SMOKE_FCM_TOKEN manquant').toBeGreaterThan(20);
   });
 
-  it('FCM HTTP v1 accepte la notification de recette', async () => {
+  it('FCM HTTP v1 confirme l’acceptation ou le rejet explicite attendu', async () => {
     const { sendPush } = await import('./firebase.js');
     const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
     const res = await sendPush({ app, token: TOKEN, title: 'DigiSanté — recette', body: `Notification de test ${stamp} UTC`, data: { link: '/' } });
     // eslint-disable-next-line no-console -- sortie destinée à l’opérateur de recette
     console.info(`[smoke:fcm] accepté=${res.delivered} · message ${maskId(res.messageId)} · token invalide=${Boolean(res.invalidToken)}`);
     expect(res.stub).toBe(false);
-    expect(res.invalidToken ?? false, 'token rejeté par FCM (UNREGISTERED/INVALID_ARGUMENT)').toBe(false);
-    expect(res.delivered).toBe(true);
+    if (EXPECT_REJECTED) {
+      expect(res.invalidToken, 'rejet fournisseur explicite attendu, pas une panne réseau').toBe(true);
+      expect(res.delivered).toBe(false);
+    } else {
+      expect(res.invalidToken ?? false, 'token rejeté par FCM (UNREGISTERED/INVALID_ARGUMENT)').toBe(false);
+      expect(res.delivered).toBe(true);
+    }
   });
 });

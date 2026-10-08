@@ -3,7 +3,7 @@
 > Cible : VPS Ubuntu 22.04 LTS. PostgreSQL 16 **natif**, Redis natif, Nginx + SSL Certbot,
 > PM2 (API cluster ×2 + web). **Aucun Docker en prod** (CLAUDE.md §3). Scripts : `infra/deploy/`.
 
-> État de finalisation au 7 octobre 2026 : L0–L7 livrés sur main (#187/ebd0547 pour L7) ; L8 candidate technique (LOT_L8/PR). Aucun déploiement ou GO pilote attesté ; livraison L8, L9–L11 et gates externes de sécurité/recette réelle restent à traiter.
+> État au 8 octobre 2026 : L0–L8 code livrés ; L9 technique livré #189/a3f80a1, humain ouvert ; L10 outillage candidat et accès ultérieurs décidés par le porteur. Aucun déploiement ou GO pilote attesté ; recettes réelles et L11 restent ouverts.
 
 ## 0. Pré-requis
 - [ ] Nom de domaine pointant (A) vers l'IP du VPS (`digisante.example.bj` + `www`).
@@ -30,8 +30,8 @@
 - [ ] L3 : sauvegarde, arrêt des anciens workers et migration `20261006164320_mutation_receipts` avant démarrage homogène ; renouveler les clients/SW, valider rejeu et cron `/sync/receipts/prune` à 03:10. Aucun backfill/rejeu des anciennes files ambiguës, aucun rollback vers un serveur ignorant les clés ; contrat et reprise dans LOT_L3.
 - [ ] L4 : déployer API/client/SW v3 homogènes, fermer les anciens onglets ; tester upgrade IndexedDB v3→v4, erreur quota/blocked et tickets GET. Migrer chaque compte ou effacer volontairement après vérification des effets ; aucun appareil partagé/pilote avec héritage en clair. Vérifier cache public sans API/RSC/jetons, API Cache-Control et fetch no-store, vider les anciens caches HTTP navigateur avant partage ; reload sans réseau puis phrase, lock/TTL/purge. Contrat/limites dans LOT_L4 et CONTRAT_Hors_Ligne_L4 ; rollback client v3 incompatible, privilégier correction en avant.
 - [ ] Revue administrative explicite de chaque structure : responsable + autorisation, identité figée et toutes les pièces vérifiées. Tester non-vérifié/refusé/suspendu, concurrence d'attribution et lecture patient/médecin. Pas de retour au guard sans badge ni réattribution automatique.
-- [ ] `sudo -u digisante bash infra/deploy/scripts/deploy.sh`
-      → install gelé → `prisma generate` → **`migrate deploy`** → `pnpm build` → `pm2 startOrReload`.
+- [ ] Maintenance vérifiée puis `sudo -u digisante DEPLOY_REF=<SHA_COMPLET_QUALIFIE> DEPLOY_ENVIRONMENT=production DEPLOY_MAINTENANCE_READY=1 bash infra/deploy/scripts/deploy.sh`
+      → arrêt anciens workers → SHA exact → install gelé → prisma generate → **build avant migrate deploy** → démarrage homogène/readiness ; échec tracé, maintenance conservée.
 - [ ] `pm2 status` : `digisante-api` (×2, online) + `digisante-web` (online).
 
 ## 4. Nginx + SSL + rate-limit
@@ -51,7 +51,7 @@
 
 ## 6. Déploiement continu (GitHub Actions)
 - [ ] Secrets repo : `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` (+ `VPS_SSH_PORT`).
-- [ ] **Variable** `DEPLOY_ENABLED=true` (active le job `deploy`).
+- [ ] **Variables** `DEPLOY_ENABLED=true` ET `DEPLOY_MAINTENANCE_READY=true`, seulement dans une fenêtre autorisée/maintenance Nginx vérifiée ; désactiver hors fenêtre.
 - [ ] Clé publique dans `~digisante/.ssh/authorized_keys`.
 - [ ] Push sur `main` → CI (`build-and-test` **et** `e2e`) → `deploy` SSH (`deploy.sh`) si l'opt-in est actif. La PR L0 ne déploie pas.
 
@@ -82,7 +82,7 @@
 ---
 
 **Contrôles techniques actuels ; ouverture pilote non attestée.** Le code (backend **28 modules** / **182 endpoints REST + 1 WS**
-+ frontend **7 espaces**, **67 pages**) est testé (**726 tests verts** — 605 API + 121 web, + 15 e2e
++ frontend **7 espaces**, **67 pages**) est testé (**726 tests verts** — 605 API + 121 web, + 24 e2e
 Playwright — preuves du 7 octobre 2026 dans LOT_L4), l'infra scriptée. Restent la livraison L7 et la finalisation L8–L11, la validation humaine et l'exécution sur
 le VPS réel (étapes ci-dessus).
 
@@ -152,3 +152,16 @@ Préparation technique et CI ne prouvent pas une validation native/clinique. Ré
 - [ ] Corpus des articles DB réellement publiés inventorié/relu ; seed synthétique exclu comme preuve production.
 - [ ] `validation:check`, DOCX et `validation:gate` concordants avec les pièces ; contrôle technique du registre seul ne prouve pas la signature.
 - [ ] Version corrigée contresignée après toute correction clinique et réserves résolues avant GO humain L11.
+
+
+## L10 — outillage préparé, recette cible non attestée
+
+Décision du porteur : accès fournis ultérieurement. Lire contrat/revue/fiche L10 ; neuf contrôles infrastructure et recettes fournisseur dans le dossier de 94 cas. Aucune case cochée par les tests locaux.
+
+- [ ] VPS Infomaniak **distinct**, domaine/SSH/fingerprint autorisés ; PG16/Redis natifs et *_preprod dédiés, comptes synthétiques, secrets privés et Firebase au build.
+- [ ] SHA main exact/CI deux jobs réussis via preprod:qualify ; maintenance vérifiée, crons suspendus/repris, sauvegarde préalable cible alimentée, anciens workers arrêtés avant migrations.
+- [ ] Workflow manuel préprod configuré volontairement ; aucun smoke automatique. Gardes L10 obligatoires, NODE_ENV=production et un fournisseur ; jamais tests ordinaires sur cible.
+- [ ] S1–S7, T1–T12, D1–D18, F1–F9 Android/iPhone, R1–R6 et parcours L6/L7 observés/référencés. T11 uniquement destination de test autorisée ou N/A avec décision du porteur ; FCM logout via dispatch.
+- [ ] Crons réellement observés (pas seulement lignes installées/invocation manuelle) ; tâches mutantes de verify_deploy seulement opt-in préprod autorisé.
+- [ ] Première sauvegarde cible DB+fichiers+manifeste et SHA256/copie/clé hors VPS. Snapshot DB commun dump/comptages ; pas atomicité DB↔fichiers. Restauration indépendante L11 séparée.
+- [ ] Références privées vérifiées et même candidate/source, preprod:check et gate cohérents ; gates natifs/cliniques L9, arbitrages sécurité et GO L11 toujours distincts.

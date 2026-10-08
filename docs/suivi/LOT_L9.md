@@ -31,3 +31,8 @@ Recevoir les références exactes/versions des retours et pièces privées, vér
 **Rendu posologie ouvert, avant ouverture réelle** : le parseur prend le premier entier (`0,5 comprimé` → 0, `500 mg` → 500 sans forme comptable), déduit des horaires et suppose des jours pour durée sans unité. Les sorties actuelles sont exposées dans le dossier, jamais approuvées. Corriger/arbitrer la portée prescriptions/posologie avec retour explicite, tester les limites puis obtenir le contreseing sur le code corrigé. Aucun nouveau protocole médical choisi par l’outillage L9.
 
 CI verte = préparation technique vérifiée, pas L9 clôturé ni GO L11. Validation linguistique/clinique, recette cible et décision du porteur restent ouvertes. Aucun fournisseur, VPS, compte patient ou données réelles sollicités ; aucun message aux relecteurs, fusion ou déploiement. Services de développement existants inchangés. Auto-revue d’implémentation, pas revue indépendante ni validation professionnelle.
+
+
+## Livraison constatée à la reprise L10 — 8 octobre 2026
+
+PR #189 fusionnée à 09:32:49 UTC /10:32:49 Africa/Lagos, main a3f80a159683a217eeac6b961249b31df97e8aee. CI main 37757404974 réussie sur ce SHA exact, build-and-test/e2e réussis et deploy ignoré. Head final PR 6a37128adb48fdb6c97194b6098b95ca506ad0c4, CI 37756402981 réussie : 44 cas d’outillage +605 API +121 web +24 E2E. Livraison **technique** ; aucune pièce native/clinique reçue ou importée, références toujours différées, L9 humain/posologie et GO restent ouverts. L10 prépare seulement l’outillage en attendant les accès du porteur.

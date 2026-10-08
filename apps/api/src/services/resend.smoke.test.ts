@@ -20,6 +20,7 @@ describe.skipIf(!ENABLED)('SMOKE Resend (réel, opt-in)', () => {
   let app: FastifyInstance;
 
   beforeAll(async () => {
+    if (!/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(TO)) throw new Error('Adresse email de recette autorisée requise avant tout appel Resend.');
     const { buildServer } = await import('@/server.js');
     app = await buildServer();
     await app.ready();

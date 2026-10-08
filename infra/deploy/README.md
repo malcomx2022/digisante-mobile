@@ -4,10 +4,11 @@ Procédure de mise en production de **DigiSanté Mobile** sur un VPS Infomaniak
 **Ubuntu 22.04 LTS**. Architecture conforme à `CLAUDE.md` §3 et §7 :
 
 ```
-GitHub Actions (push main) ──SSH──▶ deploy.sh
+GitHub Actions (push main, gates) ──SSH──▶ deploy.sh
+                                      ├─ maintenance + arrêt anciens workers + SHA exact
                                       ├─ pnpm install --frozen-lockfile
-                                      ├─ prisma migrate deploy   (jamais db push)
                                       ├─ pnpm build
+                                      ├─ prisma migrate deploy   (jamais db push)
                                       └─ pm2 startOrReload ecosystem.config.cjs
 
 Nginx (reverse proxy + SSL Certbot)
@@ -71,8 +72,11 @@ sudo chmod 0400 /etc/digisante/reconcile.token
 
 ## 3. Premier déploiement
 
+Qualifier le SHA et vérifier la maintenance Nginx. Sauvegarde complète avant migration sur cible alimentée ; premier bootstrap vierge déclaré. Procédure préproduction L10 : `../../docs/CONTRAT_Preproduction_L10.md`.
+
 ```bash
-sudo -u digisante bash infra/deploy/scripts/deploy.sh
+sudo -u digisante DEPLOY_REF=<SHA_COMPLET_QUALIFIE> DEPLOY_ENVIRONMENT=production \
+  DEPLOY_MAINTENANCE_READY=1 bash infra/deploy/scripts/deploy.sh
 ```
 
 ## 4. Nginx + SSL
@@ -100,7 +104,7 @@ sudo crontab -l         # vérifier
 ## 6. Déploiement continu (GitHub Actions)
 
 Le job `deploy` de `.github/workflows/ci.yml` se déclenche sur **push `main`**
-(après succès de `build-and-test`) et exécute `deploy.sh` en SSH.
+(après succès de `build-and-test` **et** `e2e`) et exécute `deploy.sh` en SSH.
 
 Secrets à définir dans **Settings → Secrets and variables → Actions** :
 
@@ -114,6 +118,8 @@ Secrets à définir dans **Settings → Secrets and variables → Actions** :
 La clé publique correspondante doit être dans `~digisante/.ssh/authorized_keys`,
 et l'utilisateur `digisante` doit pouvoir lancer `pm2`/`prisma` sans mot de passe.
 
+Deux variables obligatoires : `DEPLOY_ENABLED=true` et `DEPLOY_MAINTENANCE_READY=true`. Cette dernière déclare une maintenance déjà posée/vérifiée, sans la créer automatiquement. Désactiver les deux hors fenêtre autorisée, remettre maintenance à false après la fenêtre. SSH bootstrap exécute le script du **github.sha exact**, jamais la tête mobile. Préproduction : workflow manuel séparé et accès/fingerprint `PREPROD_VPS_*` sur VPS **distinct**, variables et procédure dans le contrat L10. Aucun déploiement réel attesté par ces fichiers.
+
 ---
 
 ## Exploitation
@@ -121,7 +127,7 @@ et l'utilisateur `digisante` doit pouvoir lancer `pm2`/`prisma` sans mot de pass
 ```bash
 pm2 status                       # état des process
 pm2 logs digisante-api           # logs API
-pm2 reload ecosystem.config.cjs  # reload zero-downtime
+sudo DOMAIN=<DOMAINE> bash infra/deploy/scripts/verify_deploy.sh # sondes sans tâches métier
 
 # Restaurer une sauvegarde chiffrée :
 openssl enc -d -aes-256-cbc -pbkdf2 -pass file:/etc/digisante/backup.key \
@@ -132,9 +138,16 @@ openssl enc -d -aes-256-cbc -pbkdf2 -pass file:/etc/digisante/backup.key \
 | Fichier | Rôle |
 |---|---|
 | `scripts/provision.sh` | provisioning initial du VPS (idempotent) |
-| `scripts/deploy.sh` | déploiement (pull → install → migrate → build → reload) |
-| `scripts/pg_dump_encrypted.sh` | sauvegarde Postgres chiffrée AES-256 (cron 02:00) |
+| `scripts/deploy.sh` | déploiement SHA exact (arrêt → install → build → migrate → démarrage homogène) |
+| `scripts/pg_dump_encrypted.sh` | DB + filestore chiffrés, snapshot DB commun/manifeste publié en dernier (02:00) |
 | `scripts/fedapay_reconcile.sh` | déclencheur réconciliation FedaPay (cron 02:30) |
 | `nginx/digisante.conf` | reverse proxy + SSL |
 | `crontab.example` | entrées cron |
 | `../../ecosystem.config.cjs` | configuration PM2 (api cluster ×2 + web) |
+
+
+## Préproduction L10 — reprise (8 octobre 2026)
+
+Base main a3f80a1 après #189 ; préparer uniquement l’outillage, accès fournis ultérieurement par le porteur. Lire contrat/suivi/revue L10, inventaire de secrets et dossier `docs/preproduction/L10`. PostgreSQL 16 et Redis restent **natifs sur cible**. Utiliser `DB_NAME=digisante_preprod` au provisioning et la crontab **crontab.preproduction.example** (DB_NAME pour backup ET diagnostics), après sauvegarde de la crontab en place. Ne pas installer la crontab prod par erreur. API.env privé NODE_ENV=production ; Firebase public/VAPID au build. Les smoke tests ordinaires ne sont jamais autorisés sur cette cible ; la configuration smoke indépendante ne purge plus Redis.
+
+Les archives DB ET fichiers sont nécessaires à la restauration. `node scripts/preproduction/check-backup.mjs <manifest>` contrôle les deux SHA256 ; healthwatch lit seulement les métadonnées. Dump et compteurs partagent le snapshot DB ; DB et filestore ne sont pas une transaction commune. Verrou anti-concurrence, permissions privées, aucune purge sur préparation en échec, marqueur complet = manifeste. Clé/copie hors VPS et restauration réelle séparée en L11 ; exemple DB seul ci-dessus incomplet pour la restauration du DMP. `verify_deploy.sh` sans option ne lance aucun générateur/dispatch ; `--run-jobs` exige préproduction et peut envoyer aux destinataires synthétiques autorisés. Observations cron réelles et preuves fournisseurs restent à recueillir.

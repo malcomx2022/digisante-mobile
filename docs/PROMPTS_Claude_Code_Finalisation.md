@@ -324,3 +324,26 @@ L7 livré sur main par #187 (`ebd0547`), CI main 37656606253 réussie ; L8 sur `
 L8 fusionné par #188 sur `4fc62c1`, CI main 37734382622 réussie ; gates externes sécurité toujours ouverts. L9 sur `feat/l9-native-clinical-validation` : lire contrat, revue, fiche et `validation/L9/README.md`. Le porteur annonce des retours validés mais fournira leurs références ultérieurement : préparer les contrôles et dossiers, jamais importer/inventer des textes ou signatures sans ces pièces.
 
 À réception : vérifier identité/qualité/version/portée/réserves et conserver la pièce privée ; essai UI `import-validated --evidence-ref … --dry-run` puis diff, tests et PR. Phrasier et corrections cliniques suivent PR dédiée/diff explicitement confirmé et contreseing du dossier corrigé. Posologie existante incluse au dossier (fractions/mg/horaire/durée à qualifier), pas une acceptation. `validation:check` + validateur DOCX = preuve technique ; `validation:gate` = cohérence de preuves déclarées, aucun GO automatique. Les objectifs courants couvrent toutes les langues annoncées/phrases/contenus, pas seulement les six SOS. Ne pas remplacer dossier historique, PV ou signatures en circulation. CI technique verte avec gate humain ouvert demeure une candidate de préparation.
+
+
+## Prompt actuel L10 — préparation livrée puis exécution quand accès fournis
+
+Les prompts opérationnels historiques de septembre ne qualifient pas la candidate d’octobre. L9 technique est sur main (#189/a3f80a1), humain ouvert. Le porteur a choisi l’outillage L10 puis accès ultérieurs ; aucun déploiement ni réception réelle attesté.
+
+```text
+Lis CLAUDE.md, CONTRAT_Preproduction_L10, REVUE_L10, suivi/LOT_L10 et SECRETS_Preproduction_L10.
+Vérifie la fusion/main et la CI exacte avant toute branche dépendante. Reprends le dossier
+preproduction/L10 (94 cas vierges), preprod:check et le registre sans écraser les preuves.
+Quand les accès arrivent, vérifie hôte dédié/domaine/empreinte SSH/comptes/destinataires autorisés.
+Infomaniak, PostgreSQL16 natif *_preprod, Redis dédié, Node24/pnpm verrouillé, Nginx HTTPS/PM2.
+Qualifie le SHA de main avec preprod:qualify ; maintenance posée/crons suspendus et anciens
+workers arrêtés avant build/migrations. Ne déclenche aucun deploy ou message sans cible autorisée.
+Exécute les smoke via le setup indépendant NODE_ENV=production, métadonnées L10 et un seul
+fournisseur. FedaPay sandbox exclusivement ; recettes réelles S/T/D/F/R et L6/L7 distinctes.
+Ne teste pas un numéro public réel d’urgence. FCM logout via dispatch, rotation sans promesse
+inconditionnelle de rejet. Consigne heures/appareils/réseaux/opérateurs et références privées.
+Observe réellement les crons et produis la première sauvegarde cible DB+fichiers+manifeste,
+contrôle SHA256/copie/clé hors VPS. Une CI verte ou un gate déclaratif ne prouve pas une pièce,
+un fournisseur ou un GO. L9 humain/posologie et L11 restauration/rollback/pentest restent ouverts.
+Revois chaque diff, mets à jour Claude Code/plan Markdown et DOCX validé, PR sans merge automatique.
+```

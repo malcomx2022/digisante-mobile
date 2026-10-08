@@ -1,5 +1,7 @@
 # Recette Firebase FCM — serveur, navigateur et service worker (B4)
 
+> **L10, 8 octobre 2026 :** suivre d’abord `CONTRAT_Preproduction_L10.md` §3 pour les gardes obligatoires (NODE_ENV=production, préproduction isolée, SHA exact, DB *_preprod, index Redis et un seul fournisseur). Les commandes courtes ci-dessous ne suffisent plus seules. Setup smoke indépendant sans FLUSHDB/seed/migration ; aucune réception réelle attestée dans cette livraison. Résultats à référencer dans `preproduction/L10/evidence.json`.
+
 > **Prérequis humains** : projet Firebase, **compte de service** (`projectId`, `clientEmail`,
 > `privateKey`) saisi dans `/admin/integrations` (carte **FIREBASE**), **application web** +
 > **clé VAPID**, un **Android** (Chrome) et un **iPhone iOS ≥ 16.4** (push web uniquement pour
@@ -53,8 +55,8 @@ Sortie publiable : `[smoke:fcm] accepté=true · message ••••1234 · tok
 | F3 | App **au premier plan** + smoke test | notification système affichée | ☐ | ☐ |
 | F4 | App **en arrière-plan / fermée** + smoke test | notification reçue (SW) | ☐ | ☐ |
 | F5 | **Clic** sur la notification | l'app s'ouvre / revient au premier plan | ☐ | ☐ |
-| F6 | **Rotation** : effacer les données du site, se reconnecter | nouveau token enregistré ; l'ancien, réutilisé par le smoke, est **rejeté** (`token invalide=true`) — le dispatch réel le purgerait (`UNREGISTERED`) | ☐ | ☐ |
-| F7 | **Déconnexion** puis smoke vers l'ancien token du compte | le compte n'a plus de token (rien n'est envoyé) | ☐ | ☐ |
+| F6 | **Rotation** : effacer les données du site, se reconnecter | nouveau token enregistré ; l’ancien peut rester valide chez FCM. Contrôle négatif séparé avec token **effectivement invalidé**, SMOKE_FCM_EXPECT_REJECTED=1 : rejet explicite ; dispatch purge un token UNREGISTERED | ☐ | ☐ |
+| F7 | **Déconnexion** puis notification via dispatch applicatif vers ce compte | le compte n'a plus de token en base, dispatch ne l’envoie pas ; un smoke direct vers un token brut contournerait ce contrôle | ☐ | ☐ |
 | F8 | Reprise de session sans reconnexion (rouvrir l'app) | aucune invite de permission ; token rafraîchi en silence | ☐ | ☐ |
 | F9 | Changement d'une `NEXT_PUBLIC_FIREBASE_*` | pris en compte **seulement après rebuild** | ☐ | — |
 

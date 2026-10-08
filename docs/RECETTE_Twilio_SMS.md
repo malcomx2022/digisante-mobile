@@ -1,5 +1,7 @@
 # Recette Twilio — OTP, SMS SOS et délivrabilité MTN / Moov (B4)
 
+> **L10, 8 octobre 2026 :** suivre d’abord `CONTRAT_Preproduction_L10.md` §3 pour les gardes obligatoires (NODE_ENV=production, préproduction isolée, SHA exact, DB *_preprod, index Redis et un seul fournisseur). Les commandes courtes ci-dessous ne suffisent plus seules. Setup smoke indépendant sans FLUSHDB/seed/migration ; aucune réception réelle attestée dans cette livraison. Résultats à référencer dans `preproduction/L10/evidence.json`.
+
 > **Prérequis humains** : compte Twilio **hors trial** (le trial n'envoie qu'aux numéros
 > vérifiés), `fromNumber` = **numéro long** (le sender ID alphanumérique n'est pas garanti au
 > Bénin — CLAUDE.md §8), deux téléphones de recette : un **MTN** et un **Moov**, format
@@ -49,7 +51,7 @@ Remplir une ligne par essai. **SID** = 4 derniers caractères seulement (console
 | T2 | OTP SMS | Moov | idem, numéro Moov | idem | •••• | | | ☐ |
 | T3 | Connexion | MTN | saisir le code reçu | espace du rôle ouvert | — | | | ☐ |
 | T4 | Quota d'envoi | MTN | 6 demandes de code en < 15 min | 6ᵉ refusée (429 « Trop de demandes ») ; **5 SMS max** reçus | — | | | ☐ |
-| T5 | Verrouillage | Moov | 5 codes faux | 5ᵉ → « verrouillé 30 minutes » ; audit `AUTH_LOCKOUT` visible `/admin/audit` | — | | | ☐ |
+| T5 | Verrouillage | Moov | 5 codes faux | 5ᵉ → refus public générique L8, verrou interne 30 minutes ; audit `AUTH_LOCKOUT` visible `/admin/audit` | — | | | ☐ |
 | T6 | Déverrouillage support | Moov | `/admin/support` → déverrouiller (scope `otp:write`) | nouvelle demande de code acceptée ; audit `OTP_RESET` | — | | | ☐ |
 | T7 | OTP vocal | MTN | canal VOICE | appel lisant le code chiffre par chiffre | •••• | | | ☐ |
 | T8 | SOS — FR | MTN | patient FR, contact d'urgence = numéro Moov → SOS | SMS « URGENCE DigiSanté… » + lien carte, reçu par le **contact** | •••• | | | ☐ |

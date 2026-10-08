@@ -1,5 +1,7 @@
 # Recette Daily privée — lot L5 et fournisseur L10
 
+> **L10, 8 octobre 2026 :** suivre d’abord `CONTRAT_Preproduction_L10.md` §3 pour les gardes obligatoires (NODE_ENV=production, préproduction isolée, SHA exact, DB *_preprod, index Redis et un seul fournisseur). Les commandes courtes ci-dessous ne suffisent plus seules. Setup smoke indépendant sans FLUSHDB/seed/migration ; aucune réception réelle attestée dans cette livraison. Résultats à référencer dans `preproduction/L10/evidence.json`.
+
 > 7 octobre 2026 (Africa/Lagos). Implémentation candidate décrite dans `GUIDE_DailyCo_Teleconsultation.md` et `CONTRAT_Teleconsultation_L5.md`. Tests locaux simulés et E2E sans identifiants ne valident pas ces cases. Aucun appel réel entre appareils n'est attesté ici. Reporter les résultats, incidents, appareils et preuve d'opérateur avant le GO L11.
 
 ## Smoke serveur réel, opt-in

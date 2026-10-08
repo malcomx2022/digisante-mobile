@@ -24,6 +24,14 @@ RETENTION_DAYS="${RETENTION_DAYS:-14}"
 # fichiers disparus. Doit correspondre à KYC_STORAGE_DIR du .env de l'API.
 FILESTORE_DIR="${KYC_STORAGE_DIR:-/var/www/digisante-mobile/apps/api/storage/kyc}"
 
+umask 077
+[[ "$DB_NAME" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]] || { echo "[pg_dump] ÉCHEC : nom de base invalide" >&2; exit 1; }
+[[ "$RETENTION_DAYS" =~ ^[0-9]+$ ]] || { echo "[pg_dump] ÉCHEC : rétention invalide" >&2; exit 1; }
+[[ -d "$FILESTORE_DIR" ]] || { echo "[pg_dump] ÉCHEC : magasin de fichiers absent ; aucune sauvegarde complète possible" >&2; exit 1; }
+[[ -f "$KEY_FILE" && ! -L "$KEY_FILE" && -s "$KEY_FILE" && "$(stat -c %u "$KEY_FILE")" == "$EUID" && "$(stat -c %a "$KEY_FILE")" =~ ^(400|600)$ ]] || { echo "[pg_dump] ÉCHEC : clé privée absente ou permissions/propriétaire invalides" >&2; exit 1; }
+install -d -m 0700 "$BACKUP_DIR"
+exec 9>"$BACKUP_DIR/.backup.lock"
+flock -n 9 || { echo "[pg_dump] ÉCHEC : sauvegarde déjà en cours" >&2; exit 1; }
 STAMP="$(date +%Y%m%d_%H%M%S)"
 OUT="${BACKUP_DIR}/digisante_${STAMP}.sql.gz.enc"
 OUT_FILES="${BACKUP_DIR}/digisante_files_${STAMP}.tar.gz.enc"
@@ -33,22 +41,42 @@ OUT_MANIFEST="${BACKUP_DIR}/digisante_manifest_${STAMP}.txt"
 
 log() { printf '[pg_dump] %s %s\n' "$(date -Is)" "$*"; }
 
-if [[ ! -r "$KEY_FILE" ]]; then
-  echo "[pg_dump] Clé de chiffrement introuvable : $KEY_FILE" >&2
-  exit 1
-fi
-install -d -m 0700 "$BACKUP_DIR"
+# Préparer dans le même filesystem. Le manifeste final est le marqueur de fin.
+for target in "$OUT" "$OUT_FILES" "$OUT_MANIFEST"; do
+  [[ ! -e "$target" ]] || { log "ÉCHEC : horodatage déjà publié ; aucun écrasement."; exit 1; }
+done
+WORK="$(mktemp -d "$BACKUP_DIR/.backup.XXXXXXXX")"
+PUBLISHING=0; COMMITTED=0; SNAP_PID=""
+cleanup() {
+  local code=$?
+  if [[ -n "$SNAP_PID" ]]; then kill "$SNAP_PID" 2>/dev/null || true; wait "$SNAP_PID" 2>/dev/null || true; fi
+  if (( code != 0 )); then
+    log "ÉCHEC : sauvegarde incomplète, aucun succès annoncé." >&2
+    if (( PUBLISHING == 1 && COMMITTED == 0 )); then rm -f -- "$OUT" "$OUT_FILES" "$OUT_MANIFEST"; fi
+  fi
+  rm -rf -- "$WORK"
+}
+trap cleanup EXIT
+# Une seule vue DB pour dump ET comptages/tête audit, même sous écritures concurrentes.
+# Les fichiers restent une copie séparée : leur restauration doit être éprouvée en L11.
+coproc SNAPSHOT_PSQL { sudo -u postgres psql -X -qAt -d "$DB_NAME" -v ON_ERROR_STOP=1; }
+SNAP_PID="$SNAPSHOT_PSQL_PID"
+exec {SNAP_IN}>&"${SNAPSHOT_PSQL[1]}"
+exec {SNAP_OUT}<&"${SNAPSHOT_PSQL[0]}"
+printf 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY; SELECT pg_export_snapshot();\n' >&"$SNAP_IN"
+IFS= read -r SNAPSHOT_ID <&"$SNAP_OUT"
+[[ "$SNAPSHOT_ID" =~ ^[0-9a-fA-F-]+$ ]] || { log "ÉCHEC : snapshot PostgreSQL invalide."; exit 1; }
 
 log "Démarrage du dump chiffré de la base '${DB_NAME}'…"
 # pg_dump → gzip → openssl AES-256 (PBKDF2). pipefail garantit l'échec si un maillon casse.
-sudo -u postgres pg_dump --no-owner --no-privileges "$DB_NAME" \
+sudo -u postgres pg_dump --no-owner --no-privileges --snapshot "$SNAPSHOT_ID" "$DB_NAME" \
   | gzip -9 \
   | openssl enc -aes-256-cbc -pbkdf2 -salt -pass "file:${KEY_FILE}" \
-  > "$OUT"
+  > "$WORK/db"
 
-chmod 0400 "$OUT"
-SIZE="$(du -h "$OUT" | cut -f1)"
-log "Sauvegarde base écrite : ${OUT} (${SIZE})"
+chmod 0400 "$WORK/db"
+SIZE="$(du -h "$WORK/db" | cut -f1)"
+log "Archive base préparée : ${OUT} (${SIZE})"
 
 # ── Magasin de fichiers (KYC + pièces jointes DMP) ──────────────────────────
 # Chiffré une seconde fois à la même clé : les fichiers sont DÉJÀ chiffrés au repos
@@ -59,33 +87,39 @@ if [[ -d "$FILESTORE_DIR" ]]; then
   tar -C "$(dirname "$FILESTORE_DIR")" -cf - "$(basename "$FILESTORE_DIR")" \
     | gzip -9 \
     | openssl enc -aes-256-cbc -pbkdf2 -salt -pass "file:${KEY_FILE}" \
-    > "$OUT_FILES"
-  chmod 0400 "$OUT_FILES"
-  log "Sauvegarde fichiers écrite : ${OUT_FILES} ($(du -h "$OUT_FILES" | cut -f1))"
-else
-  # Ne PAS échouer silencieusement : sans fichiers, les pièces jointes du DMP
-  # seraient perdues à la première restauration sans que personne ne l'ait vu.
-  log "ATTENTION : magasin de fichiers introuvable (${FILESTORE_DIR}) — RIEN n'a été sauvegardé côté fichiers."
-  log "  → vérifier KYC_STORAGE_DIR dans apps/api/.env ; les pièces jointes du DMP sont des données de santé."
+    > "$WORK/files"
+  chmod 0400 "$WORK/files"
+  log "Archive fichiers préparée : ${OUT_FILES} ($(du -h "$WORK/files" | cut -f1))"
 fi
 
 # ── Manifeste : comptages EXACTS par table + tête de la chaîne d'audit + SHA-256 ──
 # des archives (détecte une archive tronquée/altérée AVANT tout déchiffrement).
 {
   echo "stamp=${STAMP}"
-  echo "db_archive=$(basename "$OUT") sha256=$(sha256sum "$OUT" | cut -d' ' -f1)"
-  if [[ -f "$OUT_FILES" ]]; then
-    echo "files_archive=$(basename "$OUT_FILES") sha256=$(sha256sum "$OUT_FILES" | cut -d' ' -f1)"
+  echo "db_archive=$(basename "$OUT") sha256=$(sha256sum "$WORK/db" | cut -d' ' -f1)"
+  if [[ -f "$WORK/files" ]]; then
+    echo "files_archive=$(basename "$OUT_FILES") sha256=$(sha256sum "$WORK/files" | cut -d' ' -f1)"
     echo "files_count=$(find "$FILESTORE_DIR" -type f | wc -l)"
   fi
-  sudo -u postgres psql -d "$DB_NAME" -At -v ON_ERROR_STOP=1 <<'SQL'
+  cat >&"$SNAP_IN" <<'SQL'
 SELECT format('SELECT %L || ''='' || count(*) FROM %I.%I;', 'rows.' || tablename, schemaname, tablename)
   FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename\gexec
 SELECT 'audit_head=' || coalesce((SELECT hash FROM audit_logs ORDER BY "createdAt" DESC, id DESC LIMIT 1), 'none');
+COMMIT;
+\q
 SQL
-} > "$OUT_MANIFEST"
-chmod 0400 "$OUT_MANIFEST"
-log "Manifeste écrit : ${OUT_MANIFEST}"
+  cat <&"$SNAP_OUT"
+  wait "$SNAP_PID"
+  SNAP_PID=""
+} > "$WORK/manifest"
+chmod 0400 "$WORK/manifest"
+# Publication finale : pas de manifeste complet si une étape précédente a échoué.
+PUBLISHING=1
+mv "$WORK/db" "$OUT"
+mv "$WORK/files" "$OUT_FILES"
+mv "$WORK/manifest" "$OUT_MANIFEST"
+COMMITTED=1
+log "Manifeste et deux archives publiés : ${OUT_MANIFEST}"
 
 # ── Rétention : purge des sauvegardes plus anciennes que RETENTION_DAYS ──
 DELETED="$(find "$BACKUP_DIR" \( -name 'digisante_*.sql.gz.enc' -o -name 'digisante_files_*.tar.gz.enc' -o -name 'digisante_manifest_*.txt' \) -type f -mtime "+${RETENTION_DAYS}" -print -delete | wc -l)"
