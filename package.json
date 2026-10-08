@@ -35,7 +35,12 @@
     "db:studio": "pnpm --filter @digisante/api prisma studio",
     "validation:prepare": "node scripts/validation/prepare-l9.mjs",
     "validation:check": "node scripts/validation/prepare-l9.mjs --check",
-    "validation:gate": "node scripts/validation/check-l9-gate.mjs"
+    "validation:gate": "node scripts/validation/check-l9-gate.mjs",
+    "preprod:prepare": "node scripts/preproduction/prepare-l10.mjs",
+    "preprod:check": "node scripts/preproduction/prepare-l10.mjs --check",
+    "preprod:gate": "node scripts/preproduction/check-l10-gate.mjs",
+    "preprod:qualify": "node scripts/preproduction/verify-candidate.mjs",
+    "backup:check": "node scripts/preproduction/check-backup.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",

@@ -1,0 +1,614 @@
+{
+  "schemaVersion": 1,
+  "sourceSnapshotSha256": "f9a3e5e1ab25bbe0ac341fc910244a5e7e138ac9dc7e0b5a626d3319fba81c56",
+  "sources": {
+    ".github/workflows/ci.yml": "645c6a804fc35d9aff03cadcf3197a3181496a54f23c868b40eade97d308a635",
+    ".github/workflows/preproduction.yml": "1e2994588735f71d731b28ebc1cffacebf71114db787540dd2f7af935e6c6e97",
+    "apps/api/src/services/daily.smoke.test.ts": "2aed54c987c124d9fc36e1e2694d7b767fe48d140ab9c2375d65ad0d546f2b93",
+    "apps/api/src/services/fedapay.smoke.test.ts": "28049ec8af72b636dc0c4f3036a5748e8be592156b0717af94ad51ce50ff7874",
+    "apps/api/src/services/firebase.smoke.test.ts": "24ba1ce404ffb159a8c4fd33dfe4fb43a2d29aee729857fcd3d17b716fa62db4",
+    "apps/api/src/services/resend.smoke.test.ts": "c5987e5ed72e64a468e05d9cf1b72bed7d82c177e05cf86d0077474a296accd1",
+    "apps/api/src/services/twilio.smoke.test.ts": "3a9b5e95ea72d145d6f798436ebfce672cbb48f9899a63a9639a5cf85bbd29b9",
+    "apps/api/vitest.smoke.config.ts": "bde25a6e35a520dd45ed945f544c9f77c79f867cfbe669e359d59b49fa6196c8",
+    "apps/api/vitest.smoke.setup.ts": "c9d496b7f7261735ef27db198892d339d4b0a7a7580b76784c1eb764142a7d5f",
+    "docs/CONTRAT_Preproduction_L10.md": "f999b223f7d329cac14750dcf87f1367e8da112c3126e30be9b3a3ece9555b8f",
+    "docs/RECETTE_Abonnements_L6.md": "c22fb2d31b8068cbfbe3b31b1930e0e15b47d1da17c058ed0ad1fee85fea9b73",
+    "docs/RECETTE_Daily_Teleconsultation.md": "66f941eda830706633c659a141d1cc5c91ac6154c5b90d68485ef1f8961a1799",
+    "docs/RECETTE_FedaPay_Sandbox.md": "bdc7bc5cbe06e2428042a6fdbb1111012636959c7a39a935b0b3b8aa41448bfe",
+    "docs/RECETTE_Finances_L7.md": "64fa7fad7c036134fe9428b23db02f9923d64e87c9b83cbf2beedd9bc77414a3",
+    "docs/RECETTE_Firebase_Push.md": "f0954e4167284cb6ed9ea802a5abde583b145bbefeee4e42f4d96535ed23c20f",
+    "docs/RECETTE_Resend_Email.md": "60bd43c96b5b69e0ebcabd0f5826e7f00d23d36fe36991f07cf6088a2f5f1a44",
+    "docs/RECETTE_Twilio_SMS.md": "f804e27a508cc5eb5118148f40b5976fa2a01b7a7530d33d206241580eedd535",
+    "docs/SECRETS_Preproduction_L10.md": "d55a6b482dc6f94b99a972eb882e9f33602414287748064ef850be50c0c47a33",
+    "docs/preproduction/L10/README.md": "2eeccbcd070065cdd2c9dc52beaf464fe7d555466cdede038882a9ccc4bf6545",
+    "ecosystem.config.cjs": "36207237b7d01001dcdb0c4f4cc23e50c203836d900156d3b80889167d73fefa",
+    "infra/deploy/README.md": "c1ae8cca18cbd8ace11f2aa2d04b8fa0fea98718427d462fe337fb3473c8cdd1",
+    "infra/deploy/crontab.example": "d34c3f2b50dc881a62265135c97c61119ba0ab3c2d72ea701fd350114b845aa9",
+    "infra/deploy/crontab.preproduction.example": "5176476cd82fccaeb3e610b5f69e585799c3d314f675c303cf9b761e83f6b200",
+    "infra/deploy/logrotate/digisante": "51dc5fc6d3f751a97badc1f4b6bcf1a19474d2399b30783ecb83feb33ec0e64c",
+    "infra/deploy/nginx/digisante.conf": "e4c967446ecb907d2ad5e1a7f8343e0e9fce6aac31efdffbb51fdd7303790c0d",
+    "infra/deploy/nginx/hsts-after-tls.conf": "82f77096f79481fc19c0e049a295f30c959ccca3a25a39a40e620c1765a9e04b",
+    "infra/deploy/nginx/rate-limit.conf": "65e73c3bac5e7dbc361475ef2d420593d190752a0da1c11f71d6c511598b0ddc",
+    "infra/deploy/scripts/deploy.sh": "c4caa0fde40eea6c899bb7b3e6dfe8a54ee8f47ec076b4d4f332ed88b9193c3b",
+    "infra/deploy/scripts/fedapay_reconcile.sh": "bd8812bacaef7d48e9348ad737015f70535dad4ee07b09581c9804420cd82649",
+    "infra/deploy/scripts/healthwatch.sh": "55104736ccb12293fc349785db67fd66b68a9511a986db3f4f31507d247ade7f",
+    "infra/deploy/scripts/internal_job.sh": "60314b55c80cffc903fa820ac90281b4266e101e2aa7d72aad93463b9d3c2034",
+    "infra/deploy/scripts/pg_dump_encrypted.sh": "d7d67c9053971cf73ca1ba6c1af9a3eb5dc395fcb3ab48dee045f211d49feee7",
+    "infra/deploy/scripts/provision.sh": "92c68ef86ff394685fd8895cf13e68d85934c5aef29da5a4caa4176babcdaa98",
+    "infra/deploy/scripts/verify_deploy.sh": "06eb7f36181b270d0ccfe022808b1e36dbc12ebc486587ab4a197b144052af3a",
+    "infra/deploy/scripts/verify_restore.sh": "300a3e59ed437f921a7dd969cb582515de8895968c8a5c1170ef7a74c01f908c",
+    "package.json": "794f5e7c2e92072ef19dd261fb1338348f9908421f954e6abb8553201a94bf0d",
+    "scripts/preproduction/check-backup.mjs": "9c21d78da9cc97f4abcb03673b15ceeac9d738115a873b71fbfacd97ba8e72ee",
+    "scripts/preproduction/check-l10-gate.mjs": "2462aed14459f21d20011067064df07199dda54b0e77cc8b0c500cbd33927b44",
+    "scripts/preproduction/prepare-l10.mjs": "ea8af4022d7a33597095929f040b70f075410d9e8b9426c49f801345743057c9",
+    "scripts/preproduction/smoke-guard.d.mts": "bfd4ce62b74819ffebb32b1066493f0f2c5492d5cd2c9fdc334471e9fcf36438",
+    "scripts/preproduction/smoke-guard.mjs": "546976410d0869523a360a886288660356da48ee961382716e98cef0fbd937df",
+    "scripts/preproduction/verify-candidate.mjs": "c9259087eb12f7be10c5e4041550f43614f0fb21829ed39c61c9882c7ab69939"
+  },
+  "cases": [
+    {
+      "id": "I1",
+      "recipe": "CONTRAT_Preproduction_L10.md",
+      "scenario": "CI main réussie et deux jobs exacts sur la candidate, qualification GitHub",
+      "conditional": false
+    },
+    {
+      "id": "I2",
+      "recipe": "CONTRAT_Preproduction_L10.md",
+      "scenario": "VPS Infomaniak distinct, PG16 natif *_preprod et Redis local dédiés ; comptes synthétiques",
+      "conditional": false
+    },
+    {
+      "id": "I3",
+      "recipe": "CONTRAT_Preproduction_L10.md",
+      "scenario": "Node24/pnpm verrouillé, maintenance, anciens workers arrêtés, SHA exact et migrations à jour",
+      "conditional": false
+    },
+    {
+      "id": "I4",
+      "recipe": "CONTRAT_Preproduction_L10.md",
+      "scenario": "Nginx HTTPS/TLS renouvellement et HSTS vérifiés, ready DB/Redis, upgrade WS sans query dans logs",
+      "conditional": false
+    },
+    {
+      "id": "I5",
+      "recipe": "CONTRAT_Preproduction_L10.md",
+      "scenario": "Secrets privés/permissions, filestore KYC+DMP, clés conservées hors VPS, héritage audit vérifié sans réécriture",
+      "conditional": false
+    },
+    {
+      "id": "I6",
+      "recipe": "CONTRAT_Preproduction_L10.md",
+      "scenario": "Crons installés ET observations horodatées des quatre générateurs, dispatch et purge reçus ; absence de doublons",
+      "conditional": false
+    },
+    {
+      "id": "I7",
+      "recipe": "CONTRAT_Preproduction_L10.md",
+      "scenario": "Réconciliation cron réelle/idempotente et diagnostics healthwatch ; alertes vers destinataire autorisé",
+      "conditional": false
+    },
+    {
+      "id": "I8",
+      "recipe": "CONTRAT_Preproduction_L10.md",
+      "scenario": "Première sauvegarde cible DB + fichiers + manifeste, contrôle SHA256, copie et clé hors VPS référencées",
+      "conditional": false
+    },
+    {
+      "id": "I9",
+      "recipe": "CONTRAT_Preproduction_L10.md",
+      "scenario": "Configuration fournisseur chiffrée/priorité DB ; Firebase public + VAPID au build, pas de devCode/stub",
+      "conditional": false
+    },
+    {
+      "id": "FEDAPAY-S1",
+      "recipe": "RECETTE_FedaPay_Sandbox.md",
+      "scenario": "Recharge wallet (diaspora) | `/diaspora/wallet` → recharger 10 € carte test → **redirection** vers la page FedaPay → payer | PENDING → **COMPLETED par webhook** ; solde +6 560 XOF **une fois** ; audit `PAYMENT_CONFIRMED source=webhook` | •••• |  |  | ☐",
+      "conditional": false
+    },
+    {
+      "id": "FEDAPAY-S2",
+      "recipe": "RECETTE_FedaPay_Sandbox.md",
+      "scenario": "Consultation Mobile Money | patient → RDV confirmé → payer MTN MoMo (numéro de test sandbox) | montant = tarif médecin (serveur) ; COMPLETED par webhook | •••• |  |  | ☐",
+      "conditional": false
+    },
+    {
+      "id": "FEDAPAY-S3",
+      "recipe": "RECETTE_FedaPay_Sandbox.md",
+      "scenario": "Paiement WALLET | patient avec solde → payer un RDV par portefeuille | COMPLETED **immédiat**, sans transaction FedaPay ; solde débité une fois | — |  |  | ☐",
+      "conditional": false
+    },
+    {
+      "id": "FEDAPAY-S4",
+      "recipe": "RECETTE_FedaPay_Sandbox.md",
+      "scenario": "Webhook rejeté | temporairement, secret webhook FedaPay ≠ base (ou rejeu manuel altéré) | **401**, audit `AUTH_FAIL source=fedapay_webhook`, statut inchangé | •••• |  |  | ☐",
+      "conditional": false
+    },
+    {
+      "id": "FEDAPAY-S5",
+      "recipe": "RECETTE_FedaPay_Sandbox.md",
+      "scenario": "Réconciliation manuelle | paiement laissé PENDING ou PROCESSING > 1 h puis `curl -X POST -H \"x-service-token: $RECONCILE_TOKEN\" https://<recette>/api/v1/payments/reconcile` | statut résolu ; relancer : **aucun** changement (idempotent) | •••• |  |  | ☐",
+      "conditional": false
+    },
+    {
+      "id": "FEDAPAY-S6",
+      "recipe": "RECETTE_FedaPay_Sandbox.md",
+      "scenario": "Remboursement admin | `/admin/finance` → rembourser S1 (scope `finance:write`) | COMPLETED → REFUNDED ; reversal −6 560 **une fois** ; audit `PAYMENT_REFUND` ; 2ᵉ clic = idempotent | •••• |  |  | ☐",
+      "conditional": false
+    },
+    {
+      "id": "FEDAPAY-S7",
+      "recipe": "RECETTE_FedaPay_Sandbox.md",
+      "scenario": "Rejeu du webhook | dashboard FedaPay → renvoyer l'événement de S1 (plusieurs fois, rapprochés) | réponse `idempotent: true` ; **aucun crédit supplémentaire** — **à observer réellement sur la candidate courante** | •••• |  |  | ☐",
+      "conditional": false
+    },
+    {
+      "id": "TWILIO-T1",
+      "recipe": "RECETTE_Twilio_SMS.md",
+      "scenario": "OTP SMS | MTN | `/login` → numéro MTN → « Recevoir le code » | SMS `DigiSanté: NNNNNN` en < 60 s, depuis le numéro long | •••• |  |  | ☐",
+      "conditional": false
+    },
+    {
+      "id": "TWILIO-T2",
+      "recipe": "RECETTE_Twilio_SMS.md",
+      "scenario": "OTP SMS | Moov | idem, numéro Moov | idem | •••• |  |  | ☐",
+      "conditional": false
+    },
+    {
+      "id": "TWILIO-T3",
+      "recipe": "RECETTE_Twilio_SMS.md",
+      "scenario": "Connexion | MTN | saisir le code reçu | espace du rôle ouvert | — |  |  | ☐",
+      "conditional": false
+    },
+    {
+      "id": "TWILIO-T4",
+      "recipe": "RECETTE_Twilio_SMS.md",
+      "scenario": "Quota d'envoi | MTN | 6 demandes de code en < 15 min | 6ᵉ refusée (429 « Trop de demandes ») ; **5 SMS max** reçus | — |  |  | ☐",
+      "conditional": false
+    },
+    {
+      "id": "TWILIO-T5",
+      "recipe": "RECETTE_Twilio_SMS.md",
+      "scenario": "Verrouillage | Moov | 5 codes faux | 5ᵉ → refus public générique L8, verrou interne 30 minutes ; audit `AUTH_LOCKOUT` visible `/admin/audit` | — |  |  | ☐",
+      "conditional": false
+    },
+    {
+      "id": "TWILIO-T6",
+      "recipe": "RECETTE_Twilio_SMS.md",
+      "scenario": "Déverrouillage support | Moov | `/admin/support` → déverrouiller (scope `otp:write`) | nouvelle demande de code acceptée ; audit `OTP_RESET` | — |  |  | ☐",
+      "conditional": false
+    },
+    {
+      "id": "TWILIO-T7",
+      "recipe": "RECETTE_Twilio_SMS.md",
+      "scenario": "OTP vocal | MTN | canal VOICE | appel lisant le code chiffre par chiffre | •••• |  |  | ☐",
+      "conditional": false
+    },
+    {
+      "id": "TWILIO-T8",
+      "recipe": "RECETTE_Twilio_SMS.md",
+      "scenario": "SOS — FR | MTN | patient FR, contact d'urgence = numéro Moov → SOS | SMS « URGENCE DigiSanté… » + lien carte, reçu par le **contact** | •••• |  |  | ☐",
+      "conditional": false
+    },
+    {
+      "id": "TWILIO-T9",
+      "recipe": "RECETTE_Twilio_SMS.md",
+      "scenario": "SOS — FON | Moov | patient FON → SOS | SMS « DigiSanté ADANDÓ… » | •••• |  |  | ☐",
+      "conditional": false
+    },
+    {
+      "id": "TWILIO-T10",
+      "recipe": "RECETTE_Twilio_SMS.md",
+      "scenario": "SOS — EN | MTN | patient EN → SOS | SMS « DigiSanté EMERGENCY… » | •••• |  |  | ☐",
+      "conditional": false
+    },
+    {
+      "id": "TWILIO-T11",
+      "recipe": "RECETTE_Twilio_SMS.md",
+      "scenario": "Numéro public SOS | — | `SOS_PUBLIC_NUMBER` posé → SOS | SMS reçu par la destination **validée par le porteur** | •••• |  |  | ☐",
+      "conditional": true
+    },
+    {
+      "id": "TWILIO-T12",
+      "recipe": "RECETTE_Twilio_SMS.md",
+      "scenario": "Repli numéro long | MTN + Moov | vérifier l'expéditeur affiché sur les 2 réseaux | numéro long affiché (pas d'ID alphanumérique rejeté) | — |  |  | ☐",
+      "conditional": false
+    },
+    {
+      "id": "DAILY-D1",
+      "recipe": "RECETTE_Daily_Teleconsultation.md",
+      "scenario": "Médecin actif/vérifié ouvre un RDV confirmé depuis agenda | consultation et notification patient dans sa langue ; aucune salle/notification dupliquée | ☐",
+      "conditional": false
+    },
+    {
+      "id": "DAILY-D2",
+      "recipe": "RECETTE_Daily_Teleconsultation.md",
+      "scenario": "Patient rejoint depuis ses rendez-vous | chacun voit et entend l'autre ; SDK utilise son token nominatif | ☐",
+      "conditional": false
+    },
+    {
+      "id": "DAILY-D3",
+      "recipe": "RECETTE_Daily_Teleconsultation.md",
+      "scenario": "Refuser caméra, accepter micro | état fournisseur clair ; AUDIO possible, caméra réellement éteinte | ☐",
+      "conditional": false
+    },
+    {
+      "id": "DAILY-D4",
+      "recipe": "RECETTE_Daily_Teleconsultation.md",
+      "scenario": "Refuser micro | message fournisseur clair ; bouton Ouvrir le chat accessible | ☐",
+      "conditional": false
+    },
+    {
+      "id": "DAILY-D5",
+      "recipe": "RECETTE_Daily_Teleconsultation.md",
+      "scenario": "Bouton AUDIO puis réseau très faible | caméra et émission vidéo coupées, voix continue ; autre client converge au palier serveur | ☐",
+      "conditional": false
+    },
+    {
+      "id": "DAILY-D6",
+      "recipe": "RECETTE_Daily_Teleconsultation.md",
+      "scenario": "Nouvelle dégradation vers CHAT | caméra/micro libérés, messagerie DigiSanté accessible ; pas de contenu envoyé au chat Daily | ☐",
+      "conditional": false
+    },
+    {
+      "id": "DAILY-D7",
+      "recipe": "RECETTE_Daily_Teleconsultation.md",
+      "scenario": "Recharger/revenir | AUDIO/CHAT serveur conservé ; aucun redémarrage vidéo silencieux | ☐",
+      "conditional": false
+    },
+    {
+      "id": "DAILY-D8",
+      "recipe": "RECETTE_Daily_Teleconsultation.md",
+      "scenario": "Attendre l'expiration du bearer (≤ 15 min) | éjection ; message et Réessayer ; rejoin seulement si droits actuels et salle < 4 h | ☐",
+      "conditional": false
+    },
+    {
+      "id": "DAILY-D9",
+      "recipe": "RECETTE_Daily_Teleconsultation.md",
+      "scenario": "Médecin clôture | DB COMPLETED ; éjection/ban nominatif Daily + DELETE ; autres clients quittent | ☐",
+      "conditional": false
+    },
+    {
+      "id": "DAILY-D10",
+      "recipe": "RECETTE_Daily_Teleconsultation.md",
+      "scenario": "Ouvrir URL seule et ancien bearer après clôture | aucun accès ; contrôler séparément suppression ET éjection session déjà ouverte | ☐",
+      "conditional": false
+    },
+    {
+      "id": "DAILY-D11",
+      "recipe": "RECETTE_Daily_Teleconsultation.md",
+      "scenario": "Tiers ouvre l'URL sans token | refus, aucune frappe/admission anonyme ; tiers/admin API refusés | ☐",
+      "conditional": false
+    },
+    {
+      "id": "DAILY-D12",
+      "recipe": "RECETTE_Daily_Teleconsultation.md",
+      "scenario": "Token expiré réutilisé directement hors application | refus fournisseur réel, pas seulement contrôle de l'API | ☐",
+      "conditional": false
+    },
+    {
+      "id": "DAILY-D13",
+      "recipe": "RECETTE_Daily_Teleconsultation.md",
+      "scenario": "Suspendre patient ou médecin / retirer habilitation médecin | nouveaux join refusés ; client connecté ferme au prochain polling ; bearer externe borné 15 min | ☐",
+      "conditional": false
+    },
+    {
+      "id": "DAILY-D14",
+      "recipe": "RECETTE_Daily_Teleconsultation.md",
+      "scenario": "Annuler RDV puis tenter join et clôturer le média | join refusé ; clôture conserve CANCELLED sans changer le remboursement | ☐",
+      "conditional": false
+    },
+    {
+      "id": "DAILY-D15",
+      "recipe": "RECETTE_Daily_Teleconsultation.md",
+      "scenario": "Inspecter historique, DOM iframe, URLs, logs/API/cache/SW | token absent des URLs/attributs/stockages ; pas de réponse cacheable ; clé API jamais exposée | ☐",
+      "conditional": false
+    },
+    {
+      "id": "DAILY-D16",
+      "recipe": "RECETTE_Daily_Teleconsultation.md",
+      "scenario": "Quitter/raccrocher/fermer page puis Réessayer rapidement | périphériques libérés ; pas d'ancienne session qui redémarre après réponse tardive | ☐",
+      "conditional": false
+    },
+    {
+      "id": "DAILY-D17",
+      "recipe": "RECETTE_Daily_Teleconsultation.md",
+      "scenario": "Daily 401/5xx/timeout ou configuration absente | pas d'iframe/jeton fictif ; erreur normalisée ou vidéo indisponible explicite, chat accessible | ☐",
+      "conditional": false
+    },
+    {
+      "id": "DAILY-D18",
+      "recipe": "RECETTE_Daily_Teleconsultation.md",
+      "scenario": "Deux connexions de même identité puis troisième identité | unicité d'identité et limite deux vérifiées ; documenter le comportement fournisseur réel | ☐",
+      "conditional": false
+    },
+    {
+      "id": "FIREBASE-F1-ANDROID",
+      "recipe": "RECETTE_Firebase_Push.md",
+      "scenario": "Connexion OTP, permission **refusée** | aucune erreur ; l'app fonctionne ; pas de token enregistré | ☐ | ☐",
+      "conditional": false
+    },
+    {
+      "id": "FIREBASE-F1-IPHONE",
+      "recipe": "RECETTE_Firebase_Push.md",
+      "scenario": "Connexion OTP, permission **refusée** | aucune erreur ; l'app fonctionne ; pas de token enregistré | ☐ | ☐",
+      "conditional": false
+    },
+    {
+      "id": "FIREBASE-F2-ANDROID",
+      "recipe": "RECETTE_Firebase_Push.md",
+      "scenario": "Réautoriser (réglages) puis reconnexion | invite de permission ; token enregistré | ☐ | ☐",
+      "conditional": false
+    },
+    {
+      "id": "FIREBASE-F2-IPHONE",
+      "recipe": "RECETTE_Firebase_Push.md",
+      "scenario": "Réautoriser (réglages) puis reconnexion | invite de permission ; token enregistré | ☐ | ☐",
+      "conditional": false
+    },
+    {
+      "id": "FIREBASE-F3-ANDROID",
+      "recipe": "RECETTE_Firebase_Push.md",
+      "scenario": "App **au premier plan** + smoke test | notification système affichée | ☐ | ☐",
+      "conditional": false
+    },
+    {
+      "id": "FIREBASE-F3-IPHONE",
+      "recipe": "RECETTE_Firebase_Push.md",
+      "scenario": "App **au premier plan** + smoke test | notification système affichée | ☐ | ☐",
+      "conditional": false
+    },
+    {
+      "id": "FIREBASE-F4-ANDROID",
+      "recipe": "RECETTE_Firebase_Push.md",
+      "scenario": "App **en arrière-plan / fermée** + smoke test | notification reçue (SW) | ☐ | ☐",
+      "conditional": false
+    },
+    {
+      "id": "FIREBASE-F4-IPHONE",
+      "recipe": "RECETTE_Firebase_Push.md",
+      "scenario": "App **en arrière-plan / fermée** + smoke test | notification reçue (SW) | ☐ | ☐",
+      "conditional": false
+    },
+    {
+      "id": "FIREBASE-F5-ANDROID",
+      "recipe": "RECETTE_Firebase_Push.md",
+      "scenario": "**Clic** sur la notification | l'app s'ouvre / revient au premier plan | ☐ | ☐",
+      "conditional": false
+    },
+    {
+      "id": "FIREBASE-F5-IPHONE",
+      "recipe": "RECETTE_Firebase_Push.md",
+      "scenario": "**Clic** sur la notification | l'app s'ouvre / revient au premier plan | ☐ | ☐",
+      "conditional": false
+    },
+    {
+      "id": "FIREBASE-F6-ANDROID",
+      "recipe": "RECETTE_Firebase_Push.md",
+      "scenario": "**Rotation** : effacer les données du site, se reconnecter | nouveau token enregistré ; l’ancien peut rester valide chez FCM. Contrôle négatif séparé avec token **effectivement invalidé**, SMOKE_FCM_EXPECT_REJECTED=1 : rejet explicite ; dispatch purge un token UNREGISTERED | ☐ | ☐",
+      "conditional": false
+    },
+    {
+      "id": "FIREBASE-F6-IPHONE",
+      "recipe": "RECETTE_Firebase_Push.md",
+      "scenario": "**Rotation** : effacer les données du site, se reconnecter | nouveau token enregistré ; l’ancien peut rester valide chez FCM. Contrôle négatif séparé avec token **effectivement invalidé**, SMOKE_FCM_EXPECT_REJECTED=1 : rejet explicite ; dispatch purge un token UNREGISTERED | ☐ | ☐",
+      "conditional": false
+    },
+    {
+      "id": "FIREBASE-F7-ANDROID",
+      "recipe": "RECETTE_Firebase_Push.md",
+      "scenario": "**Déconnexion** puis notification via dispatch applicatif vers ce compte | le compte n'a plus de token en base, dispatch ne l’envoie pas ; un smoke direct vers un token brut contournerait ce contrôle | ☐ | ☐",
+      "conditional": false
+    },
+    {
+      "id": "FIREBASE-F7-IPHONE",
+      "recipe": "RECETTE_Firebase_Push.md",
+      "scenario": "**Déconnexion** puis notification via dispatch applicatif vers ce compte | le compte n'a plus de token en base, dispatch ne l’envoie pas ; un smoke direct vers un token brut contournerait ce contrôle | ☐ | ☐",
+      "conditional": false
+    },
+    {
+      "id": "FIREBASE-F8-ANDROID",
+      "recipe": "RECETTE_Firebase_Push.md",
+      "scenario": "Reprise de session sans reconnexion (rouvrir l'app) | aucune invite de permission ; token rafraîchi en silence | ☐ | ☐",
+      "conditional": false
+    },
+    {
+      "id": "FIREBASE-F8-IPHONE",
+      "recipe": "RECETTE_Firebase_Push.md",
+      "scenario": "Reprise de session sans reconnexion (rouvrir l'app) | aucune invite de permission ; token rafraîchi en silence | ☐ | ☐",
+      "conditional": false
+    },
+    {
+      "id": "FIREBASE-F9",
+      "recipe": "RECETTE_Firebase_Push.md",
+      "scenario": "Changement d'une `NEXT_PUBLIC_FIREBASE_*` | pris en compte **seulement après rebuild** | ☐ | —",
+      "conditional": false
+    },
+    {
+      "id": "RESEND-R1",
+      "recipe": "RECETTE_Resend_Email.md",
+      "scenario": "Smoke test | `accepté=true` | ☐",
+      "conditional": false
+    },
+    {
+      "id": "RESEND-R2",
+      "recipe": "RECETTE_Resend_Email.md",
+      "scenario": "Réception | message en **boîte de réception** (Gmail + Outlook), pas en spam | ☐",
+      "conditional": false
+    },
+    {
+      "id": "RESEND-R3",
+      "recipe": "RECETTE_Resend_Email.md",
+      "scenario": "Authentification | en-tête d'origine : `spf=pass`, `dkim=pass`, `dmarc=pass` | ☐",
+      "conditional": false
+    },
+    {
+      "id": "RESEND-R4",
+      "recipe": "RECETTE_Resend_Email.md",
+      "scenario": "Expéditeur | adresse du **domaine vérifié** (pas le défaut `digisante.bj` si ce n'est pas le vôtre) | ☐",
+      "conditional": false
+    },
+    {
+      "id": "RESEND-R5",
+      "recipe": "RECETTE_Resend_Email.md",
+      "scenario": "Erreur fournisseur | `fromEmail` d'un domaine NON vérifié → échec propre (`accepté=false`), journal `resendError=validation_error`, sans adresse en clair | ☐",
+      "conditional": false
+    },
+    {
+      "id": "RESEND-R6",
+      "recipe": "RECETTE_Resend_Email.md",
+      "scenario": "Campagne email | `/admin/campaigns`, canal EMAIL, audience de recette → reçu dans la langue du destinataire | ☐",
+      "conditional": false
+    },
+    {
+      "id": "SUBSCRIPTION-A1",
+      "recipe": "RECETTE_Abonnements_L6.md",
+      "scenario": "Médecin FREE actif/vérifié : profil/agenda/messages accessibles ; nouveau démarrage téléconsultation refusé API et offre PRO proposée | À recueillir",
+      "conditional": false
+    },
+    {
+      "id": "SUBSCRIPTION-A2",
+      "recipe": "RECETTE_Abonnements_L6.md",
+      "scenario": "Vérifier FREE + PRO 5 000 XOF/mois calendaire, absence STARTER/CLINIC et prélèvement automatique | À recueillir",
+      "conditional": false
+    },
+    {
+      "id": "SUBSCRIPTION-A3",
+      "recipe": "RECETTE_Abonnements_L6.md",
+      "scenario": "Compte non vérifié/suspendu ou tiers : aucune vente, aucun checkout d'autrui | À recueillir",
+      "conditional": false
+    },
+    {
+      "id": "SUBSCRIPTION-A4",
+      "recipe": "RECETTE_Abonnements_L6.md",
+      "scenario": "POST PRO sans paiement, prix client, paiement SUBSCRIPTION générique : refus sans droits | À recueillir",
+      "conditional": false
+    },
+    {
+      "id": "SUBSCRIPTION-A5",
+      "recipe": "RECETTE_Abonnements_L6.md",
+      "scenario": "FedaPay sandbox configuré : payer effectivement 5 000 XOF, webhook HMAC réel → une période et un audit, retour PRO ne confirme rien seul | À recueillir, L10",
+      "conditional": false
+    },
+    {
+      "id": "SUBSCRIPTION-A6",
+      "recipe": "RECETTE_Abonnements_L6.md",
+      "scenario": "Refus/annulation opérateur, secret invalide, absence configuration : aucun droit ni lien fictif | À recueillir, L10",
+      "conditional": false
+    },
+    {
+      "id": "SUBSCRIPTION-A7",
+      "recipe": "RECETTE_Abonnements_L6.md",
+      "scenario": "Coupure après POST : relire/reprendre commande, même clé sans nouveau débit ; recharge historique wallet reste correcte | À recueillir",
+      "conditional": false
+    },
+    {
+      "id": "SUBSCRIPTION-A8",
+      "recipe": "RECETTE_Abonnements_L6.md",
+      "scenario": "Wallet suffisant/insuffisant : un débit exactement 5 000 XOF avec période/audit, ou rollback total | À recueillir",
+      "conditional": false
+    },
+    {
+      "id": "SUBSCRIPTION-A9",
+      "recipe": "RECETTE_Abonnements_L6.md",
+      "scenario": "Retry ×5 et webhook ∥ reconcile : aucune prolongation supplémentaire ; signature mauvaise refusée | À recueillir, L10",
+      "conditional": false
+    },
+    {
+      "id": "SUBSCRIPTION-A10",
+      "recipe": "RECETTE_Abonnements_L6.md",
+      "scenario": "Renouvellement manuel : nouveau paiement et mois à la fin payée ; fin de mois 31 janvier → 28 février, heure Bénin conservée | À recueillir",
+      "conditional": false
+    },
+    {
+      "id": "SUBSCRIPTION-A11",
+      "recipe": "RECETTE_Abonnements_L6.md",
+      "scenario": "Expiration sans cron : nouveau démarrage refusé, join/end du soin ouvert conservés selon L5 | À recueillir",
+      "conditional": false
+    },
+    {
+      "id": "SUBSCRIPTION-A12",
+      "recipe": "RECETTE_Abonnements_L6.md",
+      "scenario": "Retour FREE : période payée conservée jusqu'à l'échéance, aucun débit automatique ultérieur | À recueillir",
+      "conditional": false
+    },
+    {
+      "id": "SUBSCRIPTION-A13",
+      "recipe": "RECETTE_Abonnements_L6.md",
+      "scenario": "Abandon pendant attente puis confirmation tardive : argent tracé sans droits ; historique/référence et support remboursement | À recueillir, L10",
+      "conditional": false
+    },
+    {
+      "id": "SUBSCRIPTION-A14",
+      "recipe": "RECETTE_Abonnements_L6.md",
+      "scenario": "Remboursement interne concurrent : droit révoqué et restitution wallet unique ; opérateur restitué manuellement et rapproché séparément | À recueillir, L7/L10",
+      "conditional": false
+    },
+    {
+      "id": "SUBSCRIPTION-A15",
+      "recipe": "RECETTE_Abonnements_L6.md",
+      "scenario": "Ancien PRO ACTIVE sans preuve : aucun droit ; inventaire et information médecin, aucune preuve de paiement fabriquée | À recueillir",
+      "conditional": false
+    },
+    {
+      "id": "SUBSCRIPTION-A16",
+      "recipe": "RECETTE_Abonnements_L6.md",
+      "scenario": "Hors réseau et stockage navigateur : pas de mutation financière en file, ni checkout/token caché ; reprise en ligne relit l'API | À recueillir",
+      "conditional": false
+    },
+    {
+      "id": "SUBSCRIPTION-A17",
+      "recipe": "RECETTE_Abonnements_L6.md",
+      "scenario": "Android/iOS, petits écrans, clavier/dialogues, FR/EN et repli natif ; droits revenus à vérifier avec L7 | À recueillir, L9/L10",
+      "conditional": false
+    },
+    {
+      "id": "FINANCE-F1",
+      "recipe": "RECETTE_Finances_L7.md",
+      "scenario": "Finance valide définition des indicateurs, commission 3 % existante, traitement de compensation et références opérateur ; vérifier gross/refund/commission/net et créance de deux médecins sur un relevé fournisseur réel. | À recueillir",
+      "conditional": false
+    },
+    {
+      "id": "FINANCE-F2",
+      "recipe": "RECETTE_Finances_L7.md",
+      "scenario": "Rapprocher les paiements legacy L0, sans fabri­quer date/commission ni relancer un retour déjà effectué ; consigner les preuves et responsables. | À recueillir",
+      "conditional": false
+    },
+    {
+      "id": "FINANCE-F3",
+      "recipe": "RECETTE_Finances_L7.md",
+      "scenario": "Créer demande, prendre en charge une fois, exécuter un reversement réel autorisé hors application, vérifier bénéficiaire/montant/devise et clôturer avec preuve unique. Vérifier deux admins et réponse réseau ambiguë. | À recueillir",
+      "conditional": false
+    },
+    {
+      "id": "FINANCE-F4",
+      "recipe": "RECETTE_Finances_L7.md",
+      "scenario": "Remboursement réel : REFUNDED interne puis retour opérateur, référence fournisseur/operation et preuve distinctes ; ledger ne compte pas ce retour externe comme un autre remboursement du revenu. | À recueillir",
+      "conditional": false
+    },
+    {
+      "id": "FINANCE-F5",
+      "recipe": "RECETTE_Finances_L7.md",
+      "scenario": "Exécution externe incertaine : conserver EXECUTING et rapprocher ; aucun second transfert. Remplacement d'un opérateur suspendu via finance habilitée avec clôture tracée. | À recueillir",
+      "conditional": false
+    },
+    {
+      "id": "FINANCE-F6",
+      "recipe": "RECETTE_Finances_L7.md",
+      "scenario": "Vérifier UI téléphone/desktop, lecture FR/EN, navigation clavier/dialogues, CSV ouvrable et appareil partagé (fichier téléchargé à supprimer volontairement). FON/YOR nouveaux libellés en repli FR, validation native L9. | À recueillir",
+      "conditional": false
+    },
+    {
+      "id": "FINANCE-F7",
+      "recipe": "RECETTE_Finances_L7.md",
+      "scenario": "Reçu non fiscal approuvé conservé comme tel ; tout futur besoin de facture fiscale exige règles légales/numérotation validées, périmètre distinct. | À recueillir",
+      "conditional": false
+    },
+    {
+      "id": "FINANCE-F8",
+      "recipe": "RECETTE_Finances_L7.md",
+      "scenario": "Exploitation : maintenance/migration/arrêt anciens workers, sauvegarde/restore journal et preuves, politique de conservation et droits d'effacement validés avant GO L11. | À recueillir",
+      "conditional": false
+    }
+  ]
+}

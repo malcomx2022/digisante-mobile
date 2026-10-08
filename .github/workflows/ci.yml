@@ -45,11 +45,14 @@ jobs:
       - run: pnpm --filter @digisante/api prisma migrate deploy
       - run: pnpm lint
       - run: pnpm typecheck
-      - name: Contrôles techniques L9 (pas de signature humaine simulée)
+      - name: Contrôles techniques L9/L10 (aucune validation humaine simulée)
         run: |
           pnpm test:scripts
           node scripts/i18n/check-coverage.mjs --require-complete=en
           pnpm validation:check
+          pnpm preprod:check
+          python scripts/docs/validate-implementation-plan.py
+          for script in infra/deploy/scripts/*.sh; do bash -n "$script"; done
           python scripts/docs/validate-l9-dossier.py
       - run: pnpm test
       - run: pnpm build
@@ -125,6 +128,7 @@ jobs:
       github.ref == 'refs/heads/main'
       && github.event_name == 'push'
       && vars.DEPLOY_ENABLED == 'true'
+      && vars.DEPLOY_MAINTENANCE_READY == 'true'
     runs-on: ubuntu-latest
     concurrency:
       group: deploy-production
@@ -144,4 +148,8 @@ jobs:
           script: |
             set -e
             cd /var/www/digisante-mobile
-            bash infra/deploy/scripts/deploy.sh
+            git fetch origin main
+            deploy_script=$(mktemp)
+            trap 'rm -f "$deploy_script"' EXIT
+            git show '${{ github.sha }}:infra/deploy/scripts/deploy.sh' > "$deploy_script"
+            DEPLOY_REF='${{ github.sha }}' DEPLOY_ENVIRONMENT=production DEPLOY_MAINTENANCE_READY=1 bash "$deploy_script"

@@ -1,0 +1,64 @@
+name: Préproduction L10 (manuelle)
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: SHA complet sur main avec CI réussie
+        required: true
+        type: string
+      maintenance_confirmed:
+        description: Maintenance posée sur le VPS isolé et comptes synthétiques uniquement
+        required: true
+        default: false
+        type: boolean
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: deploy-preproduction
+  cancel-in-progress: false
+jobs:
+  preproduction:
+    if: vars.PREPROD_DEPLOY_ENABLED == 'true' && inputs.maintenance_confirmed
+    runs-on: ubuntu-latest
+    steps:
+      # Checkout initial de main uniquement pour la garde ; aucun code du SHA non qualifié.
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Vérifier SHA et deux jobs CI exacts
+        run: node scripts/preproduction/verify-candidate.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_SHA: ${{ inputs.sha }}
+      - name: Vérifier la présence des accès dédiés (aucune valeur affichée)
+        run: |
+          node -e 'for(const k of ["HOST","USER","KEY","FINGERPRINT"]){if(!process.env[k]){console.error("Accès dédié incomplet : "+k);process.exit(1)}}'
+        env:
+          HOST: ${{ secrets.PREPROD_VPS_HOST }}
+          USER: ${{ secrets.PREPROD_VPS_USER }}
+          KEY: ${{ secrets.PREPROD_VPS_SSH_KEY }}
+          FINGERPRINT: ${{ secrets.PREPROD_VPS_FINGERPRINT }}
+      - name: Déployer la candidate exacte en maintenance (aucun smoke fournisseur)
+        uses: appleboy/ssh-action@v1
+        env:
+          CANDIDATE_SHA: ${{ inputs.sha }}
+        with:
+          host: ${{ secrets.PREPROD_VPS_HOST }}
+          username: ${{ secrets.PREPROD_VPS_USER }}
+          key: ${{ secrets.PREPROD_VPS_SSH_KEY }}
+          fingerprint: ${{ secrets.PREPROD_VPS_FINGERPRINT }}
+          port: ${{ secrets.PREPROD_VPS_SSH_PORT || 22 }}
+          envs: CANDIDATE_SHA
+          script: |
+            set -e
+            [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+            cd /var/www/digisante-mobile
+            git fetch origin main
+            deploy_script=$(mktemp)
+            trap 'rm -f "$deploy_script"' EXIT
+            git show "$CANDIDATE_SHA:infra/deploy/scripts/deploy.sh" > "$deploy_script"
+            DEPLOY_REF="$CANDIDATE_SHA" DEPLOY_ENVIRONMENT=preproduction DEPLOY_MAINTENANCE_READY=1 bash "$deploy_script"

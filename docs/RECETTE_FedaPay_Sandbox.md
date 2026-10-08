@@ -1,5 +1,7 @@
 # Recette FedaPay SANDBOX — webhook et parcours financiers (B4, zone gelée §5)
 
+> **L10, 8 octobre 2026 :** suivre d’abord `CONTRAT_Preproduction_L10.md` §3 pour les gardes obligatoires (NODE_ENV=production, préproduction isolée, SHA exact, DB *_preprod, index Redis et un seul fournisseur). Les commandes courtes ci-dessous ne suffisent plus seules. Setup smoke indépendant sans FLUSHDB/seed/migration ; aucune réception réelle attestée dans cette livraison. Résultats à référencer dans `preproduction/L10/evidence.json`.
+
 > **Date** : 22 septembre 2026 · **Prérequis humains** : compte FedaPay **sandbox validé**,
 > `secretKey` (`sk_sandbox_…`), `publicKey`, `webhookSecret` saisis ensemble dans
 > `/admin/integrations` (carte **FEDAPAY**), URL **HTTPS** de recette joignable par FedaPay
@@ -7,7 +9,7 @@
 > **Règle** : un paiement n'est « réussi » que s'il passe **PENDING → COMPLETED par webhook,
 > sans double crédit**. Aucune case B4 n'est cochée sans preuve observée.
 
-## 1. 🔴 Constat bloquant — double crédit sur livraisons concurrentes (patch EN ATTENTE)
+## 1. Constat historique — double crédit concurrent corrigé le 22 septembre
 
 **Reproduit le 22/09/2026, 5 exécutions sur 5** (pile réelle PostgreSQL 16 + Redis) : 5 livraisons
 **simultanées** du même webhook signé de recharge ⇒ **4 à 5 crédits** du portefeuille (une recharge
@@ -81,7 +83,7 @@ Pour chaque étape : **ID FedaPay masqué** (4 derniers caractères), **statut a
 | S4 | Webhook rejeté | temporairement, secret webhook FedaPay ≠ base (ou rejeu manuel altéré) | **401**, audit `AUTH_FAIL source=fedapay_webhook`, statut inchangé | •••• | | | ☐ |
 | S5 | Réconciliation manuelle | paiement laissé PENDING ou PROCESSING > 1 h puis `curl -X POST -H "x-service-token: $RECONCILE_TOKEN" https://<recette>/api/v1/payments/reconcile` | statut résolu ; relancer : **aucun** changement (idempotent) | •••• | | | ☐ |
 | S6 | Remboursement admin | `/admin/finance` → rembourser S1 (scope `finance:write`) | COMPLETED → REFUNDED ; reversal −6 560 **une fois** ; audit `PAYMENT_REFUND` ; 2ᵉ clic = idempotent | •••• | | | ☐ |
-| S7 | Rejeu du webhook | dashboard FedaPay → renvoyer l'événement de S1 (plusieurs fois, rapprochés) | réponse `idempotent: true` ; **aucun crédit supplémentaire** — ⚠️ **à rejouer après application du patch §1** | •••• | | | ☐ |
+| S7 | Rejeu du webhook | dashboard FedaPay → renvoyer l'événement de S1 (plusieurs fois, rapprochés) | réponse `idempotent: true` ; **aucun crédit supplémentaire** — **à observer réellement sur la candidate courante** | •••• | | | ☐ |
 
 Critère de sortie B4 FedaPay sandbox : **S1, S2, S3, S5, S6, S7 OK** + patch §1 appliqué et revu.
 Ensuite seulement : prompt 11 (bascule live, quatre yeux).

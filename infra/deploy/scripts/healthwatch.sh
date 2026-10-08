@@ -25,7 +25,9 @@ DISK_PATHS="${DISK_PATHS:-/ /var/backups/digisante}"
 DISK_THRESHOLD="${DISK_THRESHOLD:-85}"
 JOB_LOGS="${JOB_LOGS:-/var/log/digisante/med_reminders.log /var/log/digisante/appt_reminders.log /var/log/digisante/vaccination_reminders.log /var/log/digisante/maternity_reminders.log /var/log/digisante/notify_dispatch.log /var/log/digisante/reconcile.log /var/log/digisante/pg_dump.log}"
 API_LOG="${API_LOG:-/var/log/digisante/api-error.log /var/log/digisante/api-out.log}"
-PSQL="${PSQL:-sudo -u postgres psql -d digisante -At}"
+DB_NAME="${DB_NAME:-digisante}"
+[[ "$DB_NAME" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]] || { echo "Nom de base invalide" >&2; exit 1; }
+PSQL="${PSQL:-sudo -u postgres psql -d $DB_NAME -At}"
 BACKLOG_MAX="${BACKLOG_MAX:-100}"
 WEBHOOK_401_MAX="${WEBHOOK_401_MAX:-5}"
 PROVIDER_ERR_MAX="${PROVIDER_ERR_MAX:-3}"
@@ -39,13 +41,14 @@ declare -A NOW=()
 check() { NOW["$1"]="$2"; printf '%-10s %-8s %s\n' "$1" "${2%%|*}" "${2#*|}"; }
 
 # 1. Readiness (DB + Redis)
-code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "${API_URL}/api/v1/ready" || true)"
-[[ "$code" == "200" ]] && check ready "OK|DB + Redis joignables" || check ready "ALERTE|/ready HTTP ${code:-000} (DB ou Redis indisponible, ou API arrêtée)"
+if curl -fsS --connect-timeout 3 --max-time 10 "${API_URL}/api/v1/ready" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{try{const r=JSON.parse(d);process.exit(r.status==="ready"&&r.db==="up"&&r.redis==="up"?0:1)}catch{process.exit(1)}})'; then
+  check ready "OK|DB + Redis joignables"
+else check ready "ALERTE|/ready indisponible ou JSON non conforme"; fi
 
 # 2. PM2 : api ×2 + web
 if [[ "$PM2_CHECK" == "1" ]]; then
   read -r api web < <(sudo -u "$APP_USER" pm2 jlist 2>/dev/null | node -e '
-    let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{let l=[];try{l=JSON.parse(d)}catch{}
+    let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{let l=[];try{l=JSON.parse(d);if(!Array.isArray(l))l=[]}catch{}
     const n=(x)=>l.filter(p=>p.name===x&&p.pm2_env&&p.pm2_env.status==="online").length;
     console.log(n("digisante-api"),n("digisante-web"))})' || echo "0 0")
   [[ "$api" == "2" && "$web" == "1" ]] && check pm2 "OK|api ${api}/2, web ${web}/1" || check pm2 "ALERTE|api ${api}/2, web ${web}/1 en ligne"
@@ -60,16 +63,16 @@ for p in $DISK_PATHS; do
 done
 (( worst < DISK_THRESHOLD )) && check disk "OK|max ${worst}% (seuil ${DISK_THRESHOLD}%)" || check disk "ALERTE|${where} à ${worst}% (seuil ${DISK_THRESHOLD}%)"
 
-# 4. Fraîcheur de la sauvegarde (base ET fichiers du même horodatage)
-last="$(ls -1t "$BACKUP_DIR"/digisante_2*.sql.gz.enc 2>/dev/null | head -1 || true)"
+# 4. Fraîcheur du trio PUBLIÉ : manifeste = marqueur de fin, pas une archive partielle.
+BACKUP_CHECK="$(cd "$(dirname "$0")/../../.." && pwd)/scripts/preproduction/check-backup.mjs"
+last="$(ls -1t "$BACKUP_DIR"/digisante_manifest_2*.txt 2>/dev/null | head -1 || true)"
 if [[ -z "$last" ]]; then
-  check backup "ALERTE|aucune sauvegarde dans ${BACKUP_DIR}"
+  check backup "ALERTE|aucune sauvegarde complète publiée dans ${BACKUP_DIR}"
 else
-  age_h=$(( ( $(date +%s) - $(stat -c %Y "$last") ) / 3600 ))
-  stamp="$(basename "$last" | sed 's/digisante_\(.*\)\.sql\.gz\.enc/\1/')"
-  if (( age_h > BACKUP_MAX_AGE_H )); then check backup "ALERTE|dernière sauvegarde il y a ${age_h} h"
-  elif [[ ! -f "$BACKUP_DIR/digisante_files_${stamp}.tar.gz.enc" ]]; then check backup "ALERTE|archive fichiers absente pour ${stamp}"
-  else check backup "OK|${stamp} (${age_h} h)"; fi
+  age_s=$(( $(date +%s) - $(stat -c %Y "$last") )); age_h=$((age_s / 3600))
+  if (( age_s < 0 || age_s > BACKUP_MAX_AGE_H * 3600 )); then check backup "ALERTE|sauvegarde périmée ou horodatage futur (${age_h} h)"
+  elif ! node "$BACKUP_CHECK" "$last" --metadata-only >/dev/null 2>&1; then check backup "ALERTE|trio base/fichiers/manifeste absent, vide ou incohérent"
+  else check backup "OK|trio publié (${age_h} h) ; intégrité/restauration à contrôler séparément"; fi
 fi
 
 # 5. Tâches cron en échec (lignes ÉCHEC récentes : journaux modifiés depuis 15 min)
@@ -103,7 +106,7 @@ fi
 
 # 9. Certificat TLS
 if [[ -n "$DOMAIN" ]]; then
-  end="$(echo | openssl s_client -connect "${DOMAIN}:443" -servername "$DOMAIN" 2>/dev/null | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2 || true)"
+  end="$(echo | timeout 15 openssl s_client -verify_return_error -verify_hostname "$DOMAIN" -connect "${DOMAIN}:443" -servername "$DOMAIN" 2>/dev/null | openssl x509 -noout -enddate 2>/dev/null | cut -d= -f2 || true)"
   if [[ -n "$end" ]]; then
     d=$(( ( $(date -d "$end" +%s) - $(date +%s) ) / 86400 ))
     (( d >= 14 )) && check tls "OK|expire dans ${d} j" || check tls "ALERTE|certificat expire dans ${d} j"

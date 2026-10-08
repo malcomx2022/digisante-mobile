@@ -1,5 +1,7 @@
 # Recette Resend — domaine d'envoi, SPF/DKIM/DMARC et email transactionnel (B4)
 
+> **L10, 8 octobre 2026 :** suivre d’abord `CONTRAT_Preproduction_L10.md` §3 pour les gardes obligatoires (NODE_ENV=production, préproduction isolée, SHA exact, DB *_preprod, index Redis et un seul fournisseur). Les commandes courtes ci-dessous ne suffisent plus seules. Setup smoke indépendant sans FLUSHDB/seed/migration ; aucune réception réelle attestée dans cette livraison. Résultats à référencer dans `preproduction/L10/evidence.json`.
+
 > **Prérequis humains** : compte Resend, **accès DNS** au domaine d'envoi (celui de B3), une
 > boîte de recette (`EMAIL_RECIPIENT_TEST`). Ne cocher readiness **et** vérification métier
 > qu'après **validation DNS chez Resend** et **réception constatée**.
