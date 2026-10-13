@@ -2,9 +2,11 @@
 
 > 8 octobre 2026, Africa/Lagos. Préparation sur `feat/l10-preproduction-readiness`, depuis main `a3f80a159683a217eeac6b961249b31df97e8aee` après fusion #189. Aucun accès VPS/domaine ou compte fournisseur fourni dans cette session ; aucune recette réelle attestée. L9 technique livré, références natives/cliniques différées par le porteur. L10 technique ne ferme ni L9 humain ni GO L11.
 
+> Dérogation 13/10/2026 (porteur) : cible = VPS IONOS partagé `srv1.immipro.app` (31.70.148.167), Ubuntu 26.04, PG 18.6 natif partagé, Valkey 6379 (auth, /5 préprod). Préprod `preprod.digisantemobile.app` (web 3100 / api 3101). Le cas I2 « VPS distinct » est non conforme en l'état ; dérogation à arbitrer en L11. Voir addendum dans `docs/suivi/LOT_L10.md`.
+
 ## 1. Cible et limites
 
-VPS **Infomaniak distinct** de production, Ubuntu 22.04 LTS, PostgreSQL **16 natif**, Redis natif local, Nginx/Certbot HTTPS et PM2 API ×2/web. Aucun Docker sur cible. Base `digisante_preprod`, Redis dédié au VPS avec index explicite `/0` ; aucun accès à la base/Redis de production. Comptes, documents et appareils synthétiques, destinataires de recette explicitement autorisés. Le conteneur PostgreSQL local utilisé dans les tests n'atteste pas cette cible native.
+VPS **IONOS partagé** `srv1.immipro.app` (31.70.148.167, 2-4-120, Ubuntu 26.04 LTS, Espagne) — dérogation porteur 13/10/2026 (remplace le VPS Infomaniak distinct). PostgreSQL **18.6 natif partagé** (port 5432), Valkey local 6379 avec auth, Nginx/Certbot HTTPS et PM2 API ×2/web. DigiSanté n'utilise **pas** Docker (Docker présent sur l'hôte pour ImmiPro). Base `digisante_preprod`, rôle dédié `digisante_preprod`, Valkey index explicite `/5` ; aucun accès aux bases / index Valkey des autres projets hébergés (ImmiPro, BeninLink), jamais FLUSHDB/FLUSHALL. Comptes, documents et appareils synthétiques, destinataires de recette explicitement autorisés. Le conteneur PostgreSQL local utilisé dans les tests n'atteste pas cette cible native.
 
 Relever domaine, référence privée d'accès/hôte, propriétaire, SHA complet, CI main sur ce SHA et empreinte SSH. Secrets uniquement sur le VPS/GitHub Secrets selon `SECRETS_Preproduction_L10.md`. Ne pas activer les variables GitHub ni déployer sans cible et accès autorisés. Aucune donnée patient importée pour faire fonctionner les tests. L9 : aucune traduction, signature ou décision posologie inventée ; pas d'usage clinique tant que ces gates restent ouverts.
 
@@ -33,12 +35,12 @@ Configurer l'intégration via SUPER_ADMIN, `integrations:write`, jeu complet de 
 Les smoke tests ont un setup distinct, **sans FLUSHDB, seed ou migration**. Exécution sur le checkout exact de la cible isolée, NODE_ENV=production, un seul fournisseur par commande. Le nom PostgreSQL local doit finir `_preprod`, et l'index Redis local doit correspondre à la déclaration. Ces gardes attestent la cohérence de la configuration déclarée, pas la propriété physique du VPS. Ne jamais lancer `pnpm test`/tests ordinaires sur la cible (ils utilisent un setup destructif destiné aux tests).
 
 ```bash
-cd /var/www/digisante-mobile/apps/api
+cd /var/www/digisante-preprod/apps/api
 # Les connexions/secrets sont lus depuis le fichier privé 0600 via Node24.
 # Définir les métadonnées publiques ci-dessous pour CHAQUE commande ; un seul opt-in.
 NODE_ENV=production SMOKE_ENVIRONMENT=preproduction \
 SMOKE_EXPECTED_SHA=<SHA_COMPLET_QUALIFIE> SMOKE_DATABASE_NAME=digisante_preprod \
-SMOKE_REDIS_DB=0 SMOKE_FEDAPAY=1 \
+SMOKE_REDIS_DB=5 SMOKE_FEDAPAY=1 \
 node --env-file=.env node_modules/vitest/vitest.mjs run --config vitest.smoke.config.ts
 ```
 
@@ -56,7 +58,7 @@ Première sauvegarde cible : clé root 0400/0600 conservée hors VPS, filestore 
 
 ```bash
 sudo DB_NAME=digisante_preprod bash infra/deploy/scripts/pg_dump_encrypted.sh
-sudo node scripts/preproduction/check-backup.mjs /var/backups/digisante/digisante_manifest_<STAMP>.txt
+sudo node scripts/preproduction/check-backup.mjs /var/backups/digisante-preprod/digisante_manifest_<STAMP>.txt
 ```
 
 Le contrôle complet lit les deux archives et vérifie les SHA256, sans déchiffrer/restaurer. Healthwatch utilise une vérification **métadonnées seulement** pour éviter de relire des Go toutes les cinq minutes ; n'atteste pas l'intégrité. Une archive DB seule ne vaut plus sauvegarde complète. Snapshot DB et copie du filestore ne forment **pas une transaction commune** : garder les fixtures au repos lors du premier backup, puis éprouver la restauration réelle cohérente DB+fichiers sur hôte distinct en L11. Les SHA256 détectent l’altération par rapport au manifeste ; un manifeste public non signé ne prouve pas l’authenticité face à un attaquant qui modifie les trois fichiers. Copie hors VPS et récupération de clé à référencer ; 14 jours de backups ne vaut pas politique de conservation des données cliniques/financières.
@@ -64,6 +66,8 @@ Le contrôle complet lit les deux archives et vérifie les SHA256, sans déchiff
 ## 5. Preuves et clôture
 
 `preprod:prepare` photographie scripts/workflows/recettes ; `preprod:check` contrôle la fraîcheur sans réécriture. Registre `preproduction/L10/evidence.json` initial vide. `preprod:gate --expected-sha <SHA>` refuse absence, doublons, FAIL, autre SHA/empreinte, date invalide/future et métadonnées incomplètes. N/A seulement T11 avec décision de portée référencée ; aucune autre dérogation automatiquement admise. Ce sont des contrôles **déclaratifs**, sans authentification du signataire/lecture des pièces privées ni accès cible ; même vert, ils n'autorisent pas GO L11.
+
+Dérogation 13/10/2026 : le cas I2 « VPS distinct » est non conforme (hôte partagé) ; la dérogation du porteur est consignée et doit être arbitrée en L11 — un gate vert ne la couvre pas.
 
 Clôture opérateur : même candidate réellement qualifiée/déployée, neuf contrôles infrastructure et toutes les recettes référencées, appareils/réseaux/destinations autorisés, crons observés, trio sauvegarde contrôlé et conservé hors VPS. L9 humain, pentest/arbitrages L8, restauration/rollback/recette sept rôles et GO restent des preuves séparées. Une modification de code/config/recette invalide l'empreinte : nouvelle préparation, qualification et recontrôles de la portée affectée, sans recopier PASS périmés.
 

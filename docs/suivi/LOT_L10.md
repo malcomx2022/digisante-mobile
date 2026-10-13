@@ -27,3 +27,32 @@ Arrêt vérifié des anciens workers avant SHA/install/build/migrate, readiness 
 Recevoir domaine/référence SSH/empreinte vérifiée/comptes et destinataires autorisés sans secrets dans chat. Préparer le VPS distinct, qualifier le **SHA main après fusion** (différent du head PR), constater maintenance/arrêt anciens workers et config native, dérouler les 94 cas et référencer les pièces privées. Firebase Android/iPhone installé, Daily deux appareils, Twilio MTN/Moov, Resend DNS/réception, FedaPay sandbox webhooks et finance/L6. SOS public : aucune recette vers urgence réelle ; T11 conditionnel autorisé ou décision N/A humaine.
 
 Observer crons/effets, première sauvegarde **cible** DB+fichiers+manifest/SHA256 et copie/clé hors VPS. Snapshot DB et fichiers séparés, restauration indépendante/rollback/conservation/pentest/GO restent L11 ; L9 humain/posologie encore ouvert. Ne pas cocher un PV historique ni déclarer fournisseurs/production sur la seule CI verte. Aucun tiers contacté, aucune variable GitHub activée ou déploiement réalisé dans cette préparation.
+
+
+## Addendum 13/10/2026 — dérogation cible : VPS IONOS partagé + digisantemobile.app (porteur)
+
+L'historique ci-dessus est inchangé. Dérogation validée par le porteur le 13/10/2026 :
+
+- **Cible** : VPS IONOS partagé `srv1.immipro.app` (31.70.148.167, Myvps1, 2-4-120, Ubuntu 26.04.1 LTS, Espagne),
+  déjà hôte d'ImmiPro prod et de BeninLink prod/recette. Remplace le VPS Infomaniak distinct du contrat initial.
+- **Domaines** : préprod `preprod.digisantemobile.app`, prod `digisantemobile.app` + `www.digisantemobile.app`.
+- **Ports sans conflit** (audit lecture seule 13/10 : 3000 ImmiPro, 3001 Grafana pris) : préprod web **3100** / api **3101**,
+  prod web **3200** / api **3201**. PG 5432 partagé, bases + rôles séparés (`digisante_preprod` / `digisante`).
+  Valkey 6379 partagé, auth, index dédiés **/5 préprod**, **/6 prod**, jamais FLUSHDB/FLUSHALL.
+- **Chemins séparés par environnement** : `/var/www/digisante-preprod` / `/var/www/digisante`,
+  `/var/log/digisante-preprod` / `/var/log/digisante`, `/etc/digisante-preprod` / `/etc/digisante`,
+  `/var/backups/digisante-preprod` / `/var/backups/digisante`.
+- **Utilisateurs** : `digisante-preprod` / `digisante` (membres `sshusers`, pas `docker`, pas sudo).
+  PM2 absent au 13/10 (à installer) ; noms PM2 `digisante-preprod-api/web` et `digisante-api/web`.
+  Node 24.21.0 OK ; pnpm **9.12.0** épinglé (corepack 12.11.2 présent ne doit pas servir).
+- **Déviations** : PG **18.6** au lieu de PG16, **Valkey** au lieu de Redis, Ubuntu **26.04** au lieu de 22.04,
+  hôte **partagé** au lieu de distinct. Conséquence : le cas I2 « VPS distinct » est **non conforme en l'état** ;
+  la dérogation est consignée et doit être arbitrée en L11 — un gate L10 vert ne la couvre pas.
+- **Prérequis avant tout déploiement sur l'hôte partagé** : B3 (scripts root hors `APP_DIR` possédé par l'app)
+  + B4 (sauvegarde lit `KYC_STORAGE_DIR` via `parseEnv` du `.env`, chemin absolu exigé).
+  `provision.sh` (écrit pour Ubuntu 22.04 / PG16 / Redis) doit être **adapté**, jamais appliqué à l'aveugle.
+- **Docs mises à jour** : `CLAUDE.md`, `README.md`, `CONTRAT_Preproduction_L10.md`, `SECRETS_Preproduction_L10.md`,
+  `ecosystem.config.cjs`, `infra/deploy/README.md` (cette PR, docs + ecosystem uniquement).
+- **Non changé par cet addendum** : aucune logique métier, aucune migration, aucun secret, aucun déploiement,
+  aucune recette réelle. Après fusion de la PR docs, requalifier la candidate (nouveau SHA) et re-générer
+  `preprod:prepare` / `metrics:check` (fraîcheur des empreintes) avant de dérouler L10 sur la cible IONOS.
