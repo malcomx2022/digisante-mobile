@@ -17,6 +17,10 @@ describe('L6 — confirmation et checkout hébergé', () => {
   });
   it('checkout attendu : redirection FedaPay exigée', () => {
     expect(subscriptionOutcome({ revoked: false, paymentUrl: 'https://checkout.fedapay.com/test', payment: { status: 'PENDING' } })).toEqual({ kind: 'redirect', url: 'https://checkout.fedapay.com/test' });
+    // B1 : page hébergée réelle (`token.url` des SDK officiels).
+    for (const url of ['https://process.fedapay.com/test', 'https://sandbox-process.fedapay.com/test']) {
+      expect(subscriptionOutcome({ revoked: false, paymentUrl: url, payment: { status: 'PENDING' } })).toEqual({ kind: 'redirect', url });
+    }
   });
   it('domaines ressemblants, HTTP, identifiants, ports et URL invalides refusés', () => {
     for (const url of ['https://fedapay.com.evil.example', 'https://fakefedapay.com', 'http://checkout.fedapay.com', 'https://user:pass@checkout.fedapay.com', 'https://checkout.fedapay.com:8080', 'javascript:alert(1)', 'malformed']) {

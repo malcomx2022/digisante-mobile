@@ -4,6 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import { setIntegration } from '@/lib/integrations.js';
 import { buildWebhookSignatureHeader } from '@/services/fedapay.js';
+import { fedapayWebhookBody } from '@/test/fedapay-fixture.js';
 import * as audit from '@/lib/audit.js';
 import * as wallet from '@/modules/wallet/wallet.service.js';
 import * as effects from './subscriptions.effects.js';
@@ -21,7 +22,7 @@ describe.skipIf(!HAS_INFRA)('L6 — abonnements médecin payants', () => {
   const buy = (extra: Record<string, unknown> = {}, id = userId) => app.inject({ method: 'POST', url: '/api/v1/subscriptions', headers: auth(id), payload: { plan: 'PRO', method: 'MTN_MOMO', requestId: randomUUID(), ...extra } });
   const stop = () => app.inject({ method: 'POST', url: '/api/v1/subscriptions', headers: auth(), payload: { plan: 'FREE' } });
   const webhook = (fedapayId: string, status = 'approved', secret = WHSEC) => {
-    const payload = JSON.stringify({ entity: { id: fedapayId, status } });
+    const payload = fedapayWebhookBody(fedapayId, status);
     return app.inject({ method: 'POST', url: '/api/v1/payments/webhook', payload, headers: { 'content-type': 'application/json', 'x-fedapay-signature': buildWebhookSignatureHeader(payload, secret) } });
   };
   const orderFor = async (id: string) => app.prisma.subscriptionOrder.findUniqueOrThrow({ where: { id }, include: { payment: true } });
@@ -42,7 +43,7 @@ describe.skipIf(!HAS_INFRA)('L6 — abonnements médecin payants', () => {
     await app.prisma.wallet.update({ where: { userId }, data: { balance: 100000 } });
     await setIntegration(app, 'FEDAPAY', { secrets: { secretKey: 'sk_sandbox_l6_synthetic', publicKey: 'pk_sandbox_l6_synthetic', webhookSecret: WHSEC } });
     supplier = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
-      if (String(url).endsWith('/token')) return new Response(JSON.stringify({ url: `https://checkout.fedapay.com/l6-test-${seq}` }));
+      if (String(url).endsWith('/token')) return new Response(JSON.stringify({ url: `https://sandbox-process.fedapay.com/l6-test-${seq}` }));
       if (String(url).endsWith('/transactions')) return new Response(JSON.stringify({ 'v1/transaction': { id: `l6-test-${++seq}` } }));
       return new Response(JSON.stringify({ 'v1/transaction': { status: 'approved' } }));
     });

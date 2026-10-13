@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { buildWebhookSignatureHeader } from '@/services/fedapay.js';
+import { fedapayWebhookBody } from '@/test/fedapay-fixture.js';
 import type * as PaymentsService from './payments.service.js';
 import * as wallet from '@/modules/wallet/wallet.service.js';
 
@@ -76,7 +77,7 @@ describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
     app.inject({ method: 'POST', url: '/api/v1/payments', headers: auth(token), payload: { type: 'CONSULTATION', method: 'MTN_MOMO', appointmentId, ...extra } });
 
   const webhook = (fedapayId: string, status = 'approved') => {
-    const body = JSON.stringify({ fedapayId, status });
+    const body = fedapayWebhookBody(fedapayId, status);
     return app.inject({
       method: 'POST',
       url: '/api/v1/payments/webhook',
@@ -99,7 +100,7 @@ describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
       method: 'POST',
       url: '/api/v1/payments/webhook',
       headers: { 'content-type': 'application/json', 'x-fedapay-signature': 'invalide' },
-      payload: JSON.stringify({ fedapayId, status: 'approved' }),
+      payload: fedapayWebhookBody(fedapayId, 'approved'),
     });
     expect(bad.statusCode).toBe(401);
 
@@ -319,6 +320,81 @@ describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
     expect(current.json().subscriptionPlan).toBe('FREE');
   });
 
+  // ── B2 (revue indépendante 13/10/2026) — extraction de la transaction ──────
+  // L'ancienne extraction `event.fedapayId ?? event.id ?? event.entity?.id`
+  // prenait l'id d'ÉVÉNEMENT racine pour celui de la transaction (ou faisait
+  // lever Prisma sur un entier → 500, retries vains). Aucun test n'envoyait d'id
+  // racine : même angle mort que l'ancien défaut de signature.
+  const deliver = (body: string) => app.inject({
+    method: 'POST', url: '/api/v1/payments/webhook', payload: body,
+    headers: { 'content-type': 'application/json', 'x-fedapay-signature': sign(body) },
+  });
+  const pendingTopup = (fedapayId: string) => app.prisma.payment.create({
+    data: { userId: patientUserId, type: 'WALLET_TOPUP', method: 'MTN_MOMO', amount: 1000, currency: 'XOF', status: 'PENDING', fedapayId },
+    select: { id: true },
+  });
+  const statusOf = async (id: string) => (await app.prisma.payment.findUniqueOrThrow({ where: { id }, select: { status: true } })).status;
+
+  it('B2 — livraison officielle : seule entity.id (entier) désigne la transaction, jamais l’id d’événement racine', async () => {
+    const target = await pendingTopup('7310518200');
+    // id d'événement racine NUMÉRIQUE distinct : l'ancien code faisait lever Prisma (500).
+    const first = await deliver(fedapayWebhookBody(7310518200, 'approved', { eventId: 999999 }));
+    expect(first.statusCode).toBe(200);
+    expect(first.json()).toEqual({ processed: true, status: 'COMPLETED' });
+    expect(await statusOf(target.id)).toBe('COMPLETED');
+    expect(await app.prisma.walletTransaction.count({ where: { reference: target.id, type: 'TOPUP' } })).toBe(1);
+
+    // id d'événement racine CHAÎNE qui coïncide avec un AUTRE paiement : l'ancien
+    // code confirmait ce leurre et laissait la vraie transaction PENDING.
+    const decoy = await pendingTopup('evt_b2_decoy');
+    const second = await pendingTopup('7310518201');
+    const res = await deliver(fedapayWebhookBody(7310518201, 'approved', { eventId: 'evt_b2_decoy' }));
+    expect(res.json()).toEqual({ processed: true, status: 'COMPLETED' });
+    expect(await statusOf(second.id)).toBe('COMPLETED');
+    expect(await statusOf(decoy.id)).toBe('PENDING');
+    expect(await app.prisma.walletTransaction.count({ where: { reference: decoy.id } })).toBe(0);
+
+    // Rejeu de la même livraison : idempotent, aucun second crédit.
+    expect((await deliver(fedapayWebhookBody(7310518200, 'approved', { eventId: 999999 }))).json()).toMatchObject({ idempotent: true });
+    expect(await app.prisma.walletTransaction.count({ where: { reference: target.id, type: 'TOPUP' } })).toBe(1);
+  });
+
+  it('B2 — événement non transactionnel (customer.*) : 200 ignoré, aucun effet même si les ids coïncident', async () => {
+    const payment = await pendingTopup('2568');
+    for (const name of ['customer.created', 'customer.updated', 'customer.deleted']) {
+      const res = await deliver(JSON.stringify({ id: 4242, name, object: 'event', entity: { klass: 'v1/customer', id: 2568, status: 'approved' } }));
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual({ ignored: true, reason: 'événement non transactionnel' });
+    }
+    expect(await statusOf(payment.id)).toBe('PENDING');
+    expect(await app.prisma.walletTransaction.count({ where: { reference: payment.id } })).toBe(0);
+  });
+
+  it('B2 — identifiant invalide ou forme non officielle : 400 sans effet ; entity sérialisée et name absent tolérés', async () => {
+    const payment = await pendingTopup('7310518300');
+    const invalid: unknown[] = ['../7310518300', '7310518300 ', 1.5, -7310518300, 0, 2 ** 60, true, null, { id: 1 }];
+    for (const id of invalid) {
+      const res = await deliver(JSON.stringify({ id: 1, name: 'transaction.approved', entity: { id, status: 'approved' } }));
+      expect(res.statusCode, JSON.stringify(id)).toBe(400);
+    }
+    // Ancienne forme maison (`fedapayId`/`status` racine) : n'est plus lue.
+    expect((await deliver(JSON.stringify({ fedapayId: '7310518300', status: 'approved' }))).statusCode).toBe(400);
+    expect((await deliver(JSON.stringify({ id: '7310518300', status: 'approved' }))).statusCode).toBe(400);
+    // Statut absent ou non textuel, entity absente/tableau, corps non objet.
+    for (const body of [{ name: 'transaction.approved', entity: { id: 7310518300 } }, { name: 'transaction.approved', entity: { id: 7310518300, status: 1 } }, { name: 'transaction.approved' }, { name: 'transaction.approved', entity: [7310518300] }, [1], 'x']) {
+      expect((await deliver(JSON.stringify(body))).statusCode, JSON.stringify(body)).toBe(400);
+    }
+    expect((await deliver(JSON.stringify({ name: 'transaction.approved', entity: '{not json' }))).statusCode).toBe(400);
+    expect(await statusOf(payment.id)).toBe('PENDING');
+
+    // Forme API Events (entity sérialisée) et livraison sans `name` : traitées.
+    const stringified = await deliver(JSON.stringify({ id: 'evt_s', type: 'transaction.updated', entity: JSON.stringify({ id: 7310518300, status: 'pending' }) }));
+    expect(stringified.json()).toEqual({ processed: true, status: 'PROCESSING' });
+    const unnamed = await deliver(JSON.stringify({ entity: { id: 7310518300, status: 'approved' } }));
+    expect(unnamed.json()).toEqual({ processed: true, status: 'COMPLETED' });
+    expect(await app.prisma.walletTransaction.count({ where: { reference: payment.id, type: 'TOPUP' } })).toBe(1);
+  });
+
   // ⚠️ §5/Lot E — re-test webhooks : quand FedaPay est configuré via l'ADMIN (base),
   // le webhook vérifie le HMAC avec le secret EN BASE (la base prime sur le `.env`).
   // Placé en dernier + nettoyage en `finally` → restaure le fallback `.env` (WHSEC).
@@ -331,7 +407,7 @@ describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
         data: { userId: patientUserId, type: 'CONSULTATION', method: 'MTN_MOMO', amount: 5000, currency: 'XOF', status: 'PENDING', fedapayId: 'fdp_lotE_db' },
         select: { id: true },
       });
-      const body = JSON.stringify({ fedapayId: 'fdp_lotE_db', status: 'approved' });
+      const body = fedapayWebhookBody('fdp_lotE_db', 'approved');
 
       // Signé avec l'ANCIEN secret `.env` (WHSEC) → rejeté : la base prime.
       const wrong = await app.inject({

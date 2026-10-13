@@ -6,6 +6,7 @@ import * as payments from './payments.service.js';
 import * as audit from '@/lib/audit.js';
 import * as finance from './finance.service.js';
 import { buildWebhookSignatureHeader } from '@/services/fedapay.js';
+import { fedapayWebhookBody } from '@/test/fedapay-fixture.js';
 import type { Role } from '@digisante/shared';
 
 describe('L7 — contrats purs', () => {
@@ -168,7 +169,7 @@ describe.skipIf(!HAS_INFRA)('L7 — revenus et opérations intégrées', () => {
   });
   it('confirmation webhook répétée, remboursement externe auto journalisé sans appel FedaPay', async () => {
     const appt = await appointment(); const p = await app.prisma.payment.create({ data: { userId: patientUser, appointmentId: appt.id, type: 'CONSULTATION', method: 'MTN_MOMO', amount: 3000, status: 'PENDING', fedapayId: 'l7-' + randomUUID() } });
-    const body = JSON.stringify({ entity: { id: p.fedapayId, status: 'approved' } });
+    const body = fedapayWebhookBody(p.fedapayId!, 'approved');
     for (let i = 0; i < 2; i++) await payments.handleWebhook(app, body, buildWebhookSignatureHeader(body, 'l7test'), 'l7test');
     expect(await app.prisma.financeEntry.count({ where: { paymentId: p.id, kind: 'CAPTURE' } })).toBe(1);
     const fetch = vi.spyOn(globalThis, 'fetch'); await payments.refund(app, p.id, { actorId: adminId }); expect(fetch).not.toHaveBeenCalled();
@@ -227,7 +228,7 @@ describe.skipIf(!HAS_INFRA)('L7 — revenus et opérations intégrées', () => {
   });
   it('échec audit du webhook annule statut et capture ; un retry sain confirme une seule fois', async () => {
     const appt = await appointment(); const p = await app.prisma.payment.create({ data: { userId: patientUser, appointmentId: appt.id, type: 'CONSULTATION', method: 'MTN_MOMO', amount: 3000, status: 'PENDING', fedapayId: 'rollback-' + randomUUID() } });
-    const body = JSON.stringify({ entity: { id: p.fedapayId, status: 'approved' } }); const signature = buildWebhookSignatureHeader(body, 'l7test');
+    const body = fedapayWebhookBody(p.fedapayId!, 'approved'); const signature = buildWebhookSignatureHeader(body, 'l7test');
     vi.spyOn(audit, 'writeAuditWithin').mockRejectedValueOnce(new Error('L7 simulated audit failure')); await expect(payments.handleWebhook(app, body, signature, 'l7test')).rejects.toThrow();
     expect((await app.prisma.payment.findUniqueOrThrow({ where: { id: p.id } })).status).toBe('PENDING'); expect(await app.prisma.financeEntry.count({ where: { paymentId: p.id } })).toBe(0);
     await payments.handleWebhook(app, body, signature, 'l7test'); expect(await app.prisma.financeEntry.count({ where: { paymentId: p.id } })).toBe(1);

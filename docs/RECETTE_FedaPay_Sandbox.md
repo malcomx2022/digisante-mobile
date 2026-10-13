@@ -97,3 +97,15 @@ Re-tests §5 simulés et wallet/E2E synthétiques ne cochent aucune case sandbox
 ## Addendum L7 — journal comptable et suivi manuel
 
 Lire `CONTRAT_Finances_L7.md`, `RECETTE_Finances_L7.md`, LOT_L7 et sa revue §3.5. Les confirmations/restitutions/audits et écritures consultation sont transactionnels ; revenu médecin exclut topups/transferts et abonnements plateforme. REFUNDED interne ne prouve jamais le retour opérateur : demande REFUND créée avec référence fournisseur, prise en charge EXECUTING, preuve externe vérifiée et clôture déclarée distinctes. PAYOUT réserve/alloue le net avant exécution humaine ; pas d’appel externe automatique et pas de reprise d’une exécution incertaine. CSV/receipt non fiscaux approuvés. Historiques non prouvés en anomalies, aucune date/commission créée à partir de updatedAt. Les recettes fournisseur réelles et pièces restent L10/F1–F8 ; DLQ inexistante, X6 et autres résiduels L8 non clos.
+
+## Addendum B1/B2 — 13 octobre 2026 (revue indépendante)
+
+Trois relevés bloquants (S8–S10) complètent S1 et S7 ; sans eux, B1/B2 restent ouverts. Preuves non sensibles uniquement : hôte, forme des champs, types — jamais de jeton, de numéro ou de corps complet publiés.
+
+| # | Relevé | Méthode | Attendu / décision | Constaté | OK |
+|---|---|---|---|---|---|
+| S8 | Hôte exact de `token.url` en bac à sable (B1) | pendant S1 (ou `POST /v1/transactions/{id}/token` avec la clé `sk_sandbox_…`), noter le seul **hôte** du lien et la forme du chemin | `sandbox-process.fedapay.com` (ou `sandbox-checkout.fedapay.com`) → redirection effective. Autre hôte → l’API répond 502 : **ne pas élargir** ; consigner l’hôte, revue §5 puis ajout de l’hôte exact seulement | | ☐ |
+| S9 | Forme réelle d’une livraison webhook (B2) | journal de livraison du tableau de bord FedaPay pour `transaction.approved`, puis `transaction.declined`/`canceled` (le corps n’est jamais journalisé côté API) | transaction dans `entity` (objet), `entity.id` = id FedaPay stocké, `entity.status` textuel ; noter la présence/le type d’un `id` racine et de `name`. Réponse 200 `processed` puis `idempotent` au rejeu ; un `customer.*` → 200 `ignored` | | ☐ |
+| S10 | Transaction refusée puis approuvée (B2) | refuser un paiement test puis réessayer sur le même lien si FedaPay le permet | consigner si le même `entity.id` passe `declined` → `approved` : FAILED/CANCELLED étant terminaux ici, une approbation tardive est ignorée — arbitrage porteur requis avant GO | | ☐ |
+
+Le live (`process.fedapay.com`) n’est attesté que par des fixtures simulées des SDK : confirmer l’hôte au premier paiement réel encadré (prompt 11) ou par écrit auprès du support FedaPay.
