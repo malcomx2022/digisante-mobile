@@ -27,13 +27,13 @@ function copyTree(dest) {
     mkdirSync(dirname(join(dest,path)),{recursive:true,mode:0o755});copyFileSync(resolve(root,path),join(dest,path));chmodSync(join(dest,path),mode);
   }
 }
-function writeRootManifest(lib,installedSha) {
-  const lines=[`sha=${installedSha}`,'branch=main','source=file:///synthetic','installed_at=2026-10-13T00:00:00+01:00',...ROOT_LIST.map(({mode,path})=>`file=${path} mode=0${mode.toString(8)} sha256=${sha256(join(lib,path))}`)];
+function writeRootManifest(lib,installedSha,environment='preproduction') {
+  const lines=[`sha=${installedSha}`,`environment=${environment}`,'branch=main','source=file:///synthetic','installed_at=2026-10-13T00:00:00+01:00',...ROOT_LIST.map(({mode,path})=>`file=${path} mode=0${mode.toString(8)} sha256=${sha256(join(lib,path))}`)];
   writeFileSync(join(lib,'root-scripts.manifest'),lines.join('\n')+'\n');chmodSync(join(lib,'root-scripts.manifest'),0o644);
 }
 function fixture() {
   const dir=mkdtempSync(join(tmpdir(),'digisante-l10-'));chmodSync(dir,0o755);const bin=join(dir,'bin');mkdirSync(bin);const lib=join(dir,'lib');copyTree(lib);
-  const env={...process.env,PATH:bin+':'+process.env.PATH,APP_DIR:join(dir,'app'),APP_USER:APP.user,LOG_DIR:join(dir,'log'),TRACE:join(dir,'trace'),DB_NAME:'fixture_preprod',BACKUP_DIR:join(dir,'backups'),BACKUP_KEY_FILE:join(dir,'backup.key'),KYC_STORAGE_DIR:join(dir,'files'),ROOT_LIB:lib,ROOT_SCRIPTS_MANIFEST:join(lib,'root-scripts.manifest'),API_ENV_FILE:join(dir,'app/apps/api/.env')};
+  const env={...process.env,PATH:bin+':'+process.env.PATH,DIGISANTE_ENV:'preproduction',APP_DIR:join(dir,'app'),APP_USER:APP.user,LOG_DIR:join(dir,'log'),TRACE:join(dir,'trace'),DB_NAME:'fixture_preprod',BACKUP_DIR:join(dir,'backups'),BACKUP_KEY_FILE:join(dir,'backup.key'),KYC_STORAGE_DIR:join(dir,'files'),ROOT_LIB:lib,ROOT_SCRIPTS_MANIFEST:join(lib,'root-scripts.manifest'),API_ENV_FILE:join(dir,'app/apps/api/.env')};
   for(const path of [env.APP_DIR,env.LOG_DIR,env.BACKUP_DIR,join(env.APP_DIR,'apps/api')]) mkdirSync(path,{recursive:true});
   appStore(env.KYC_STORAGE_DIR);
   writeFileSync(join(env.APP_DIR,'apps/api/.env'),'NODE_ENV=production\n');chmodSync(join(env.APP_DIR,'apps/api/.env'),0o600);
@@ -50,10 +50,13 @@ esac`);
   command('pnpm',`echo "pnpm $*" >> "$TRACE"; if [[ "\u0024{BUILD_FAIL:-0}" == 1 && "$1" == build ]]; then exit 9; fi`);
   command('pm2',`echo "pm2 $*" >> "$TRACE"
 case "$1" in
-jlist) if [[ "\u0024{PM2_BROKEN:-0}" == 1 ]]; then echo invalid; elif [[ "\u0024{OLD_WRITERS:-0}" == 1 && ! -f "$APP_DIR/stopped" ]]; then echo '[{"name":"digisante-api","pm2_env":{"status":"online"}},{"name":"digisante-web","pm2_env":{"status":"online"}}]'; else echo '[]'; fi;;
+jlist) other='{"name":"digisante-api","pm2_env":{"status":"online"}},{"name":"digisante-web","pm2_env":{"status":"online"}}'; other="\u0024{OTHER_ENV:-$other}"
+  old='{"name":"'"\u0024{OLD_API:-digisante-preprod-api}"'","pm2_env":{"status":"online"}},{"name":"'"\u0024{OLD_WEB:-digisante-preprod-web}"'","pm2_env":{"status":"online"}}'
+  if [[ "\u0024{PM2_BROKEN:-0}" == 1 ]]; then echo invalid; elif [[ "\u0024{OLD_WRITERS:-0}" == 1 && ! -f "$APP_DIR/stopped" ]]; then echo "[$old,$other]"; else echo "[$other]"; fi;;
 stop) [[ "\u0024{STOP_FAIL:-0}" == 0 ]] || exit 2; touch "$APP_DIR/stopped";;
+startOrReload) echo "pm2-env DIGISANTE_ENV=\u0024{DIGISANTE_ENV:-absent}" >> "$TRACE";;
 esac`);
-  command('curl',`echo 'curl' >> "$TRACE"; if [[ "\u0024{BAD_READY:-0}" == 1 ]]; then echo '<html>wrong backend</html>'; else echo '{"status":"ready","db":"up","redis":"up"}'; fi`);
+  command('curl',`echo "curl $*" >> "$TRACE"; if [[ "\u0024{BAD_READY:-0}" == 1 ]]; then echo '<html>wrong backend</html>'; else echo '{"status":"ready","db":"up","redis":"up"}'; fi`);
   command('sleep',':');
   // psql synthétique : relevé du snapshot avec fichiers référencés (FILES_EXPECTED / REFS).
   // tar : tracé avec l'identité demandée ; en root, privilèges RÉELLEMENT abandonnés.
@@ -201,7 +204,8 @@ test('vérification cible : --run-jobs refuse une production déclarée avant to
 
 function verifyFixture(crontabBody) {
   const f=fixture();
-  f.command('pm2',`echo '[{"name":"digisante-api","pm2_env":{"status":"online"}},{"name":"digisante-api","pm2_env":{"status":"online"}},{"name":"digisante-web","pm2_env":{"status":"online"}}]'`);
+  // Préproduction en ligne ; la production de l'hôte partagé aussi (jamais comptée ici).
+  f.command('pm2',`echo '[{"name":"digisante-preprod-api","pm2_env":{"status":"online"}},{"name":"digisante-preprod-api","pm2_env":{"status":"online"}},{"name":"digisante-preprod-web","pm2_env":{"status":"online"}},{"name":"digisante-api","pm2_env":{"status":"online"}}]'`);
   f.command('pnpm',`echo 'Database schema is up to date!'`);
   f.command('openssl',`if [[ "$1" == x509 ]]; then cat >/dev/null; echo "notAfter=$(date -d '+30 days')"; else echo CERT; [[ "\u0024{TLS_FAIL:-0}" == 0 ]]; fi`);
   f.command('curl',`case "$*" in
@@ -210,8 +214,12 @@ function verifyFixture(crontabBody) {
 *chat/ws*) echo '101';;
 *) echo 'Strict-Transport-Security: max-age=31536000';;
 esac`);
-  const cron=join(f.dir,'crontab.txt');writeFileSync(cron,crontabBody??readFileSync(resolve(root,'infra/deploy/crontab.preproduction.example'),'utf8').replaceAll('/usr/local/lib/digisante',f.lib));
-  f.command('crontab',`cat '${cron}'`);
+  // Fichier /etc/cron.d de l'environnement (CRON_FILE) ; la crontab root (partagée avec les
+  // autres applications de l'hôte) est vide par défaut et n'est lue que pour B3.
+  const cron=join(f.dir,'cron.d-digisante-preprod');writeFileSync(cron,crontabBody??readFileSync(resolve(root,'infra/deploy/crontab.preproduction.example'),'utf8').replaceAll('/usr/local/lib/digisante-preprod',f.lib));
+  f.env.CRON_FILE=cron;
+  const rootCron=join(f.dir,'crontab.txt');writeFileSync(rootCron,'');
+  f.command('crontab',`cat '${rootCron}'`);
   f.command('timedatectl',`echo Africa/Porto-Novo`);
   // Tâche synthétique : la copie INSTALLÉE (ROOT_LIB) est appelée, jamais APP_DIR.
   writeFileSync(join(f.lib,'infra/deploy/scripts/internal_job.sh'),'echo job-called >> "$TRACE"\n');
@@ -227,18 +235,20 @@ test('vérification : sondes par défaut sans tâches ; opt-in synthétique lanc
       assert.equal(r.status,0,r.stdout+r.stderr);assert.equal((f.trace().match(/job-called/g)||[]).length,jobs?6:0);assert.doesNotMatch(f.trace(),/app-dir-job-called/);
       assert.match(r.stdout,/PASS.*scripts root : .*conformes au manifeste/);assert.match(r.stdout,/PASS.*cron : aucun chemin sous/);
       // .env de l'API désigné comme DONNÉE (B4) : pas un exécutable sous APP_DIR.
-      writeFileSync(join(f.dir,'crontab.txt'),`API_ENV_FILE=${f.env.APP_DIR}/apps/api/.env\n`+readFileSync(join(f.dir,'crontab.txt'),'utf8'));
+      writeFileSync(f.env.CRON_FILE,`API_ENV_FILE=${f.env.APP_DIR}/apps/api/.env\n`+readFileSync(f.env.CRON_FILE,'utf8'));
       const withEnv=f.run('verify_deploy.sh',{DOMAIN:'preprod.example.bj',WS_LOG:ws});assert.equal(withEnv.status,0,withEnv.stdout);
       if(!jobs){const bad=f.run('verify_deploy.sh',{DOMAIN:'preprod.example.bj',WS_LOG:ws,TLS_FAIL:'1'});assert.notEqual(bad.status,0);assert.match(bad.stdout,/FAIL.*TLS/);}
     }finally{f.clean();}
   }
 });
-test('vérification B3 : crontab lançant APP_DIR ou journalisant chez l’utilisateur applicatif ⇒ FAIL',()=>{
-  const legacy=(app)=>`J=${app}/infra/deploy/scripts/internal_job.sh\n*/5 * * * * $J /api/v1/reminders/generate >> /var/log/digisante/med_reminders.log 2>&1\n*/15 * * * * $J /api/v1/appointments/reminders/generate\n30 6 * * * $J /api/v1/vaccinations/reminders/generate\n40 6 * * * $J /api/v1/maternity/reminders/generate\n*/2 * * * * $J /api/v1/notifications/dispatch\n10 3 * * * $J /api/v1/sync/receipts/prune\n0 2 * * * ${app}/infra/deploy/scripts/pg_dump_encrypted.sh\n30 2 * * * ${app}/infra/deploy/scripts/fedapay_reconcile.sh\n*/5 * * * * ${app}/infra/deploy/scripts/healthwatch.sh\n15 3,15 * * * certbot renew\n`;
+test('vérification B3 : crontab root lançant APP_DIR ou journalisant chez l’utilisateur applicatif ⇒ FAIL',()=>{
+  const legacy=(app)=>`J=${app}/infra/deploy/scripts/internal_job.sh\n*/5 * * * * $J /api/v1/reminders/generate >> /var/log/digisante-preprod/med_reminders.log 2>&1\n*/15 * * * * $J /api/v1/appointments/reminders/generate\n30 6 * * * $J /api/v1/vaccinations/reminders/generate\n40 6 * * * $J /api/v1/maternity/reminders/generate\n*/2 * * * * $J /api/v1/notifications/dispatch\n10 3 * * * $J /api/v1/sync/receipts/prune\n0 2 * * * ${app}/infra/deploy/scripts/pg_dump_encrypted.sh\n30 2 * * * ${app}/infra/deploy/scripts/fedapay_reconcile.sh\n*/5 * * * * ${app}/infra/deploy/scripts/healthwatch.sh\n15 3,15 * * * certbot renew\n`;
   const {f,ws}=verifyFixture('');try{
+    // Ancienne installation dans la crontab ROOT (hors fichier cron.d) : détectée quand même.
     writeFileSync(join(f.dir,'crontab.txt'),legacy(f.env.APP_DIR));
     const r=f.run('verify_deploy.sh',{DOMAIN:'preprod.example.bj',WS_LOG:ws});assert.notEqual(r.status,0);
-    assert.match(r.stdout,/FAIL.*cron : chemin sous .* exécuté par root/);assert.match(r.stdout,/FAIL.*cron : journal root écrit dans \/var\/log\/digisante/);assert.match(r.stdout,/FAIL.*cron : .*healthwatch\.sh absent/);
+    assert.match(r.stdout,/FAIL.*cron : chemin sous .* exécuté par root/);assert.match(r.stdout,/FAIL.*cron : journal root écrit dans \/var\/log\/digisante-preprod/);assert.match(r.stdout,/FAIL.*cron : .*healthwatch\.sh absent/);
+    assert.match(r.stdout,/FAIL.*cron : DIGISANTE_ENV=preproduction absent/);
   }finally{f.clean();}
 });
 test('vérification B3 : SHA root ≠ déployé = WARN non bloquant ; manifeste absent ou fichier altéré = FAIL',()=>{
@@ -306,4 +316,73 @@ test('manifeste B4 : files_expected/files_missing contrôlés ; ancien format ac
   assert.deepEqual(parseManifest(base+'files_count=5\nfiles_expected=3\nfiles_missing=0\n',name).files,{count:5,expected:3,missing:0,legacy:false});
   assert.equal(parseManifest(base+'files_count=3\nfiles_expected=3\nfiles_missing=0\n',name).files.legacy,false);
   for(const bad of ['files_count=0\nfiles_expected=1\n','files_count=2\nfiles_expected=3\nfiles_missing=0\n','files_count=4\nfiles_expected=3\nfiles_missing=1\n','files_count=4\nfiles_expected=x\n','files_count=4\nfiles_missing=-1\n']) assert.throws(()=>parseManifest(base+bad,name),bad);
+});
+
+// ── Hôte IONOS partagé : profil DIGISANTE_ENV (noms PM2, ports, copie root par environnement) ──
+test('déploiement préproduction : arrête SEULEMENT digisante-preprod-*, readiness 127.0.0.1:3101, DIGISANTE_ENV transmis à PM2',()=>{
+  const f=fixture();try{
+    const r=f.run('deploy.sh',{...deployEnv,OLD_WRITERS:'1'});assert.equal(r.status,0,r.stderr+r.stdout);const t=f.trace();
+    assert.match(t,/^pm2 stop digisante-preprod-api digisante-preprod-web$/m);
+    assert.doesNotMatch(t,/^pm2 stop .*\bdigisante-(api|web)\b/m,'processus de production jamais arrêtés');
+    assert.match(t,/^pm2-env DIGISANTE_ENV=preproduction$/m);
+    assert.match(t,/^curl .*http:\/\/127\.0\.0\.1:3101\/api\/v1\/ready$/m);assert.doesNotMatch(t,/127\.0\.0\.1:300[01]/);
+  }finally{f.clean();}
+});
+test('déploiement production : arrête digisante-api/web (jamais la préproduction), readiness 127.0.0.1:3201',()=>{
+  const f=fixture();try{
+    const r=f.run('deploy.sh',{...deployEnv,DEPLOY_ENVIRONMENT:'production',DIGISANTE_ENV:'',OLD_WRITERS:'1',OLD_API:'digisante-api',OLD_WEB:'digisante-web',OTHER_ENV:'{"name":"digisante-preprod-api","pm2_env":{"status":"online"}}'});
+    assert.equal(r.status,0,r.stderr+r.stdout);const t=f.trace();
+    assert.match(t,/^pm2 stop digisante-api digisante-web$/m);assert.doesNotMatch(t,/^pm2 stop .*preprod/m);
+    assert.match(t,/^pm2-env DIGISANTE_ENV=production$/m);assert.match(t,/^curl .*http:\/\/127\.0\.0\.1:3201\/api\/v1\/ready$/m);
+  }finally{f.clean();}
+});
+test('déploiement : DIGISANTE_ENV hérité ≠ DEPLOY_ENVIRONMENT refusé avant tout effet',()=>{
+  const f=fixture();try{const r=f.run('deploy.sh',{...deployEnv,DEPLOY_ENVIRONMENT:'production'});assert.notEqual(r.status,0);assert.match(r.stderr,/DIGISANTE_ENV \(preproduction\) ≠ DEPLOY_ENVIRONMENT \(production\)/);assert.equal(f.trace(),'');}finally{f.clean();}
+});
+test('tâches root : sans DIGISANTE_ENV aucun appel ; jeton envoyé au seul port local de l’environnement, surcharges 3001 ignorées',()=>{
+  for(const script of ['internal_job.sh','fedapay_reconcile.sh']){const f=fixture();try{
+    const token=join(f.dir,'token');writeFileSync(token,'SYNTHETIC TOKEN');chmodSync(token,0o600);
+    const args=script==='internal_job.sh'?['/api/v1/notifications/dispatch']:[];
+    f.command('curl',`echo "curl $*" >> "$TRACE"; while [[ $# -gt 0 ]]; do if [[ "$1" == -o ]]; then echo '{}' > "$2"; fi; shift; done; printf 200`);
+    for(const bad of ['','bogus','toString']){const r=f.run(script,{RECONCILE_TOKEN_FILE:token,DIGISANTE_ENV:bad},args);assert.notEqual(r.status,0,`${script} ${bad}`);assert.match(r.stderr,/DIGISANTE_ENV requis/);assert.equal(f.trace(),'',`${script} ${bad}`);}
+    // Anciens réglages (3001 = Grafana sur l'hôte partagé) : jamais suivis.
+    let r=f.run(script,{RECONCILE_TOKEN_FILE:token,API_BASE:'http://127.0.0.1:3001',API_PORT:'3001'},args);assert.equal(r.status,0,r.stderr+r.stdout);
+    assert.match(f.trace(),/^curl .*http:\/\/127\.0\.0\.1:3101\/api\/v1\//m);
+    r=f.run(script,{RECONCILE_TOKEN_FILE:token,DIGISANTE_ENV:'production'},args);assert.equal(r.status,0,r.stderr+r.stdout);
+    assert.match(f.trace(),/^curl .*http:\/\/127\.0\.0\.1:3201\/api\/v1\//m);assert.doesNotMatch(f.trace(),/:300[01]\b|SYNTHETIC TOKEN/);
+  }finally{f.clean();}}
+});
+test('scripts root : copie d’un autre environnement (ROOT_LIB du profil ≠ copie lancée) refusée avant tout effet',()=>{
+  for(const script of ['internal_job.sh','fedapay_reconcile.sh','healthwatch.sh','pg_dump_encrypted.sh','verify_deploy.sh']){
+    for(const rootLib of ['other','']){const f=fixture();try{
+      // '' ⇒ défaut du profil (/usr/local/lib/digisante-preprod), différent de la copie de test.
+      const lib=rootLib?join(f.dir,rootLib):'';if(lib)mkdirSync(lib);
+      const r=f.run(script,{DOMAIN:'preprod.example.bj',RECONCILE_TOKEN_FILE:f.env.BACKUP_KEY_FILE,...healthEnv(f),ROOT_LIB:lib},script==='internal_job.sh'?['/api/v1/notifications/dispatch']:[]);
+      assert.notEqual(r.status,0,script);assert.match(r.stderr,/copie root d'un autre environnement que preproduction/,script);assert.equal(f.trace(),'',script);
+    }finally{f.clean();}}
+  }
+});
+test('vérification : PM2 de CET environnement seulement ; manifeste d’un autre environnement ⇒ FAIL ; --run-jobs exige DIGISANTE_ENV=preproduction',()=>{
+  const {f,ws}=verifyFixture();try{
+    let r=f.run('verify_deploy.sh',{DOMAIN:'preprod.example.bj',WS_LOG:ws});assert.equal(r.status,0,r.stdout+r.stderr);
+    assert.match(r.stdout,/PASS.*PM2 digisante-preprod-api : 2 instances online/);assert.match(r.stdout,/PASS.*cron : DIGISANTE_ENV=preproduction déclaré/);
+    writeRootManifest(f.lib,sha,'production');r=f.run('verify_deploy.sh',{DOMAIN:'preprod.example.bj',WS_LOG:ws});assert.notEqual(r.status,0);
+    assert.match(r.stdout,/FAIL.*installé pour l'environnement « production », attendu preproduction/);
+    r=f.run('verify_deploy.sh',{DOMAIN:'digisantemobile.app',WS_LOG:ws,DIGISANTE_ENV:'production',VERIFY_JOB_ENVIRONMENT:'preproduction'},['--run-jobs']);
+    assert.notEqual(r.status,0);assert.doesNotMatch(f.trace(),/job-called/);
+    // Fichier cron.d modifiable par un autre compte : cron l'ignorerait ⇒ FAIL.
+    writeRootManifest(f.lib,sha);chmodSync(f.env.CRON_FILE,0o666);r=f.run('verify_deploy.sh',{DOMAIN:'preprod.example.bj',WS_LOG:ws});
+    assert.notEqual(r.status,0);assert.match(r.stdout,/FAIL.*cron : .* absent ou modifiable par un autre compte/);
+  }finally{f.clean();}
+});
+test('healthwatch : PM2, readiness, état et alerte propres à l’environnement',()=>{
+  const f=fixture();try{
+    f.command('fixture-psql','echo 0');f.command('logger',':');
+    // Seuls les processus de PRODUCTION sont en ligne : la préproduction est en panne.
+    f.command('pm2',`echo '[{"name":"digisante-api","pm2_env":{"status":"online"}},{"name":"digisante-api","pm2_env":{"status":"online"}},{"name":"digisante-web","pm2_env":{"status":"online"}}]'`);
+    const r=f.run('healthwatch.sh',{...healthEnv(f),PM2_CHECK:'1'});
+    assert.match(r.stdout,/pm2 +ALERTE +digisante-preprod-api 0\/2, digisante-preprod-web 0\/1/);
+    assert.match(r.stdout,/DigiSanté preproduction — /);
+    assert.match(f.trace(),/^curl .*http:\/\/127\.0\.0\.1:3101\/api\/v1\/ready$/m);
+  }finally{f.clean();}
 });

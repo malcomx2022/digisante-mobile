@@ -10,8 +10,10 @@
 #
 # L'endpoint n'est joignable qu'en local (127.0.0.1) et protégé par un
 # token de service lu dans un fichier root-only HORS dépôt :
-#   /etc/digisante/reconcile.token
-# Lancé par cron en root depuis la copie INSTALLÉE root:root (/usr/local/lib/digisante,
+#   ${ETC_DIR}/reconcile.token (/etc/digisante[-preprod]/reconcile.token)
+# DIGISANTE_ENV (obligatoire) fixe l'API visée : 127.0.0.1:3101 (préproduction) ou
+# 127.0.0.1:3201 (production), jamais un port d'un autre service de l'hôte partagé.
+# Lancé par cron en root depuis la copie INSTALLÉE root:root (/usr/local/lib/digisante[-preprod],
 # install_root_scripts.sh — B3), jamais depuis APP_DIR. La réponse de l'API n'est
 # recopiée au journal root que bornée et sans caractères de contrôle.
 # ─────────────────────────────────────────────────────────────
@@ -34,11 +36,35 @@ trusted_path() {
   done
 }
 # <<< trusted_path
+# >>> digisante_profile (environnement — copie IDENTIQUE dans chaque script d'exploitation ; test de non-dérive)
+# DIGISANTE_ENV est OBLIGATOIRE, sans défaut : préproduction et production cohabitent sur
+# l'hôte IONOS partagé, où 3000 (ImmiPro) et 3001 (Grafana) sont déjà pris. Il FIXE les
+# noms PM2, les ports (mêmes valeurs que ecosystem.config.cjs, test de cohérence) et l'URL
+# locale de l'API : un jeton de service ne part que vers l'API de CET environnement. Il
+# donne aussi les chemins PAR DÉFAUT (utilisateur, checkout, journaux, copie root,
+# configuration, état, sauvegardes, base, crontab, journal WebSocket) ; une valeur déjà
+# posée par l'opérateur prime pour ces chemins.
+digisante_profile() {
+  local sfx
+  case "${DIGISANTE_ENV:-}" in
+    preproduction) sfx=-preprod; API_PORT=3101; WEB_PORT=3100; : "${DB_NAME:=digisante_preprod}" ;;
+    production) sfx=; API_PORT=3201; WEB_PORT=3200; : "${DB_NAME:=digisante}" ;;
+    *) echo "DIGISANTE_ENV requis : preproduction ou production (aucun défaut implicite)" >&2; return 1 ;;
+  esac
+  PM2_API="digisante${sfx}-api"; PM2_WEB="digisante${sfx}-web"; API_BASE="http://127.0.0.1:${API_PORT}"
+  : "${APP_USER:=digisante${sfx}}" "${APP_DIR:=/var/www/digisante${sfx}}" "${APP_LOG_DIR:=/var/log/digisante${sfx}}"
+  : "${ETC_DIR:=/etc/digisante${sfx}}" "${ROOT_LIB:=/usr/local/lib/digisante${sfx}}" "${STATE_DIR:=/var/lib/digisante${sfx}}"
+  : "${CRON_LOG_DIR:=/var/log/digisante${sfx}-cron}" "${BACKUP_DIR:=/var/backups/digisante${sfx}}"
+  : "${CRON_FILE:=/etc/cron.d/digisante${sfx}}" "${WS_LOG:=/var/log/nginx/digisante${sfx}-ws.log}"
+}
+# <<< digisante_profile
 trusted_path "${BASH_SOURCE[0]}" || { echo "[reconcile] ÉCHEC : script lancé depuis un emplacement modifiable par un autre compte ; utiliser la copie installée par install_root_scripts.sh" >&2; exit 1; }
+SELF_ROOT="$(cd "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/../../.." && pwd -P)"
+digisante_profile || exit 1
+[[ "$(readlink -f -- "$ROOT_LIB")" == "$SELF_ROOT" ]] || { echo "[reconcile] ÉCHEC : copie root d'un autre environnement que ${DIGISANTE_ENV} (${ROOT_LIB} attendu)" >&2; exit 1; }
 
-API_BASE="${API_BASE:-http://127.0.0.1:3001}"
 RECONCILE_PATH="${RECONCILE_PATH:-/api/v1/payments/reconcile}"
-TOKEN_FILE="${RECONCILE_TOKEN_FILE:-/etc/digisante/reconcile.token}"
+TOKEN_FILE="${RECONCILE_TOKEN_FILE:-${ETC_DIR}/reconcile.token}"
 
 log() { printf '[reconcile] %s %s\n' "$(date -Is)" "$*"; }
 

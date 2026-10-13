@@ -2,9 +2,14 @@
 # ─────────────────────────────────────────────────────────────
 # Vérification POST-DÉPLOIEMENT — DigiSanté Mobile (B3 phase 6). LECTURE SEULE sur la
 # configuration ; sondes HTTP/WS et journaux. Les tâches mutantes exigent
-# --run-jobs + VERIFY_JOB_ENVIRONMENT=preproduction. Aucun secret affiché.
+# --run-jobs + DIGISANTE_ENV=preproduction + VERIFY_JOB_ENVIRONMENT=preproduction.
+# Aucun secret affiché. DIGISANTE_ENV (obligatoire) désigne l'environnement contrôlé sur
+# l'hôte partagé : noms PM2, crontab /etc/cron.d/digisante[-preprod], copie root, journaux.
 #
-#   sudo DOMAIN=digisante.bj bash /usr/local/lib/digisante/infra/deploy/scripts/verify_deploy.sh
+#   sudo DIGISANTE_ENV=preproduction DOMAIN=preprod.digisantemobile.app \
+#        bash /usr/local/lib/digisante-preprod/infra/deploy/scripts/verify_deploy.sh
+#   sudo DIGISANTE_ENV=production DOMAIN=digisantemobile.app \
+#        bash /usr/local/lib/digisante/infra/deploy/scripts/verify_deploy.sh
 # (copie root:root installée par install_root_scripts.sh — B3 : jamais celle de APP_DIR.)
 #
 # Sortie : une ligne PASS/FAIL/WARN/INFO par contrôle, code 1 si au moins un FAIL. Un
@@ -30,21 +35,41 @@ trusted_path() {
   done
 }
 # <<< trusted_path
+# >>> digisante_profile (environnement — copie IDENTIQUE dans chaque script d'exploitation ; test de non-dérive)
+# DIGISANTE_ENV est OBLIGATOIRE, sans défaut : préproduction et production cohabitent sur
+# l'hôte IONOS partagé, où 3000 (ImmiPro) et 3001 (Grafana) sont déjà pris. Il FIXE les
+# noms PM2, les ports (mêmes valeurs que ecosystem.config.cjs, test de cohérence) et l'URL
+# locale de l'API : un jeton de service ne part que vers l'API de CET environnement. Il
+# donne aussi les chemins PAR DÉFAUT (utilisateur, checkout, journaux, copie root,
+# configuration, état, sauvegardes, base, crontab, journal WebSocket) ; une valeur déjà
+# posée par l'opérateur prime pour ces chemins.
+digisante_profile() {
+  local sfx
+  case "${DIGISANTE_ENV:-}" in
+    preproduction) sfx=-preprod; API_PORT=3101; WEB_PORT=3100; : "${DB_NAME:=digisante_preprod}" ;;
+    production) sfx=; API_PORT=3201; WEB_PORT=3200; : "${DB_NAME:=digisante}" ;;
+    *) echo "DIGISANTE_ENV requis : preproduction ou production (aucun défaut implicite)" >&2; return 1 ;;
+  esac
+  PM2_API="digisante${sfx}-api"; PM2_WEB="digisante${sfx}-web"; API_BASE="http://127.0.0.1:${API_PORT}"
+  : "${APP_USER:=digisante${sfx}}" "${APP_DIR:=/var/www/digisante${sfx}}" "${APP_LOG_DIR:=/var/log/digisante${sfx}}"
+  : "${ETC_DIR:=/etc/digisante${sfx}}" "${ROOT_LIB:=/usr/local/lib/digisante${sfx}}" "${STATE_DIR:=/var/lib/digisante${sfx}}"
+  : "${CRON_LOG_DIR:=/var/log/digisante${sfx}-cron}" "${BACKUP_DIR:=/var/backups/digisante${sfx}}"
+  : "${CRON_FILE:=/etc/cron.d/digisante${sfx}}" "${WS_LOG:=/var/log/nginx/digisante${sfx}-ws.log}"
+}
+# <<< digisante_profile
 trusted_path "${BASH_SOURCE[0]}" || { echo "Script lancé depuis un emplacement modifiable par un autre compte : utiliser la copie installée par install_root_scripts.sh" >&2; exit 1; }
+SELF_ROOT="$(cd "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/../../.." && pwd -P)"
+digisante_profile || exit 1
+[[ "$(readlink -f -- "$ROOT_LIB")" == "$SELF_ROOT" ]] || { echo "[verify] ÉCHEC : copie root d'un autre environnement que ${DIGISANTE_ENV} (${ROOT_LIB} attendu)" >&2; exit 1; }
 
 DOMAIN="${DOMAIN:?Définir DOMAIN (ex. digisante.bj)}"
 [[ "$DOMAIN" =~ ^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$ ]] || { echo "Nom de domaine invalide" >&2; exit 1; }
 RUN_JOBS=0
 if [[ "${1:-}" == "--run-jobs" && $# == 1 ]]; then
-  [[ "${VERIFY_JOB_ENVIRONMENT:-}" == "preproduction" ]] || { echo "Les tâches exigent une préproduction synthétique explicitement déclarée." >&2; exit 1; }
+  [[ "${VERIFY_JOB_ENVIRONMENT:-}" == "preproduction" && "$DIGISANTE_ENV" == "preproduction" ]] || { echo "Les tâches exigent une préproduction synthétique explicitement déclarée." >&2; exit 1; }
   RUN_JOBS=1
 elif (( $# != 0 )); then echo "Option inconnue (seule --run-jobs est autorisée)" >&2; exit 1; fi
-APP_DIR="${APP_DIR:-/var/www/digisante-mobile}"
-APP_USER="${APP_USER:-digisante}"
-APP_LOG_DIR="${APP_LOG_DIR:-/var/log/digisante}"
-WS_LOG="${WS_LOG:-/var/log/nginx/digisante-ws.log}"
-# B3 : scripts exécutés par root = copie root:root, jamais APP_DIR.
-ROOT_LIB="${ROOT_LIB:-/usr/local/lib/digisante}"
+# B3 : scripts exécutés par root = copie root:root (ROOT_LIB du profil), jamais APP_DIR.
 ROOT_MANIFEST="${ROOT_LIB}/root-scripts.manifest"
 JOB="${ROOT_LIB}/infra/deploy/scripts/internal_job.sh"
 FAILS=0
@@ -55,14 +80,14 @@ fail() { printf '\033[0;31mFAIL\033[0m %s\n' "$*"; FAILS=$((FAILS + 1)); }
 warn() { printf '\033[0;33mWARN\033[0m %s\n' "$*"; WARNS=$((WARNS + 1)); }
 info() { printf 'INFO %s\n' "$*"; }
 
-# 1. PM2 : api ×2 + web, en ligne (parse du JSON de `pm2 jlist` de l'utilisateur applicatif)
+# 1. PM2 : api ×2 + web de CET environnement, en ligne (`pm2 jlist` de l'utilisateur applicatif)
 PM2_JSON="$(sudo -u "$APP_USER" pm2 jlist 2>/dev/null || echo '[]')"
-read -r API_ON WEB_ON < <(printf '%s' "$PM2_JSON" | node -e '
+read -r API_ON WEB_ON < <(printf '%s' "$PM2_JSON" | PM2_API="$PM2_API" PM2_WEB="$PM2_WEB" node -e '
   let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{let l=[];try{l=JSON.parse(d||"[]");if(!Array.isArray(l))l=[]}catch{};
   const n=(x)=>l.filter(p=>p.name===x&&p.pm2_env&&p.pm2_env.status==="online").length;
-  console.log(n("digisante-api"),n("digisante-web"))})')
-[[ "$API_ON" == "2" ]] && pass "PM2 digisante-api : 2 instances online" || fail "PM2 digisante-api : ${API_ON} instance(s) online (attendu 2)"
-[[ "$WEB_ON" == "1" ]] && pass "PM2 digisante-web : online" || fail "PM2 digisante-web : ${WEB_ON} instance(s) online (attendu 1)"
+  console.log(n(process.env.PM2_API),n(process.env.PM2_WEB))})')
+[[ "$API_ON" == "2" ]] && pass "PM2 ${PM2_API} : 2 instances online" || fail "PM2 ${PM2_API} : ${API_ON} instance(s) online (attendu 2)"
+[[ "$WEB_ON" == "1" ]] && pass "PM2 ${PM2_WEB} : online" || fail "PM2 ${PM2_WEB} : ${WEB_ON} instance(s) online (attendu 1)"
 
 # 2. Migrations : base à jour
 if sudo -u "$APP_USER" bash -c 'cd "$1" && pnpm --filter @digisante/api exec prisma migrate status' _ "$APP_DIR" 2>&1 | grep -q 'up to date'; then
@@ -118,7 +143,18 @@ else
 fi
 
 # 7. Toutes les tâches attendues, sans accepter une ligne commentée comme installée.
-CRON="$(crontab -l 2>/dev/null | sed '/^[[:space:]]*#/d' || true)"
+#    Hôte partagé : la crontab de l'environnement est le fichier ${CRON_FILE} (format
+#    cron.d, root:root, non modifiable par autrui — sinon cron l'ignore) ; la crontab
+#    root, commune aux autres applications de l'hôte, n'est contrôlée que pour B3.
+if [[ -f "$CRON_FILE" && ! -L "$CRON_FILE" ]] && trusted_path "$CRON_FILE"; then
+  pass "cron : ${CRON_FILE} présent, non modifiable par un autre compte"
+  CRON="$(sed '/^[[:space:]]*#/d' "$CRON_FILE")"
+else
+  fail "cron : ${CRON_FILE} absent ou modifiable par un autre compte"
+  CRON=""
+fi
+grep -Eq "^[[:space:]]*DIGISANTE_ENV=${DIGISANTE_ENV}[[:space:]]*$" <<<"$CRON" && pass "cron : DIGISANTE_ENV=${DIGISANTE_ENV} déclaré" || fail "cron : DIGISANTE_ENV=${DIGISANTE_ENV} absent de ${CRON_FILE}"
+ROOT_CRON="$(crontab -l 2>/dev/null | sed '/^[[:space:]]*#/d' || true)"
 for needle in /api/v1/reminders/generate /api/v1/appointments/reminders/generate /api/v1/vaccinations/reminders/generate /api/v1/maternity/reminders/generate /api/v1/notifications/dispatch /api/v1/sync/receipts/prune 'certbot renew' \
   "${ROOT_LIB}/infra/deploy/scripts/internal_job.sh" "${ROOT_LIB}/infra/deploy/scripts/pg_dump_encrypted.sh" "${ROOT_LIB}/infra/deploy/scripts/fedapay_reconcile.sh" "${ROOT_LIB}/infra/deploy/scripts/healthwatch.sh"; do
   grep -Fq "$needle" <<<"$CRON" && pass "cron : ${needle}" || fail "cron : ${needle} absent"
@@ -126,14 +162,16 @@ done
 # B3 : la crontab root ne lance rien depuis APP_DIR et n'écrit pas dans le répertoire de
 # journaux de l'utilisateur applicatif (un lien symbolique y détournerait l'écriture root).
 # (API_ENV_FILE/API_DIR désignent le .env LU COMME DONNÉE par la sauvegarde — B4 : exclus.)
-CRON_EXEC="$(sed -E 's/(^|[[:space:]])(API_ENV_FILE|API_DIR)=[^[:space:]]*//g' <<<"$CRON")"
+ALL_CRON="${CRON}"$'\n'"${ROOT_CRON}"
+CRON_EXEC="$(sed -E 's/(^|[[:space:]])(API_ENV_FILE|API_DIR)=[^[:space:]]*//g' <<<"$ALL_CRON")"
 grep -Fq "${APP_DIR%/}/" <<<"$CRON_EXEC" && fail "cron : chemin sous ${APP_DIR} (modifiable par ${APP_USER}) exécuté par root" || pass "cron : aucun chemin sous ${APP_DIR}"
-grep -Eq ">>?[[:space:]]*${APP_LOG_DIR%/}/" <<<"$CRON" && fail "cron : journal root écrit dans ${APP_LOG_DIR} (répertoire de ${APP_USER})" || pass "cron : journaux root hors de ${APP_LOG_DIR}"
+grep -Eq ">>?[[:space:]]*${APP_LOG_DIR%/}/" <<<"$ALL_CRON" && fail "cron : journal root écrit dans ${APP_LOG_DIR} (répertoire de ${APP_USER})" || pass "cron : journaux root hors de ${APP_LOG_DIR}"
 
 # 7 bis. Scripts root installés (B3) : intégrité de la copie root, SHA comparé au déployé.
 manifest_re='^file=([A-Za-z0-9._/-]+) mode=(0755|0644) sha256=([0-9a-f]{64})$'
 if [[ -f "$ROOT_MANIFEST" && ! -L "$ROOT_MANIFEST" ]] && trusted_path "$ROOT_MANIFEST"; then
   INSTALLED_SHA="$(sed -n 's/^sha=\([0-9a-f]\{40\}\)$/\1/p' "$ROOT_MANIFEST")"
+  INSTALLED_ENV="$(sed -n 's/^environment=\(preproduction\|production\)$/\1/p' "$ROOT_MANIFEST")"
   bad=0; total=0; drift=0
   while IFS= read -r line; do
     [[ "$line" =~ $manifest_re ]] || continue
@@ -144,6 +182,8 @@ if [[ -f "$ROOT_MANIFEST" && ! -L "$ROOT_MANIFEST" ]] && trusted_path "$ROOT_MAN
   done < "$ROOT_MANIFEST"
   if [[ -z "$INSTALLED_SHA" || "$total" == 0 || "$bad" != 0 ]]; then
     fail "scripts root : installation ${ROOT_LIB} incomplète ou altérée (${bad}/${total} fichier(s)) — relancer install_root_scripts.sh"
+  elif [[ "$INSTALLED_ENV" != "$DIGISANTE_ENV" ]]; then
+    fail "scripts root : ${ROOT_LIB} installé pour l'environnement « ${INSTALLED_ENV:-inconnu} », attendu ${DIGISANTE_ENV} — relancer DIGISANTE_ENV=${DIGISANTE_ENV} install_root_scripts.sh"
   else
     pass "scripts root : ${total} fichier(s) root:root conformes au manifeste (${INSTALLED_SHA})"
     # git exécuté SOUS L'IDENTITÉ applicative (jamais root dans un dépôt qu'elle contrôle) ;
@@ -153,7 +193,7 @@ if [[ -f "$ROOT_MANIFEST" && ! -L "$ROOT_MANIFEST" ]] && trusted_path "$ROOT_MAN
     if [[ "$DEPLOYED_SHA" == "$INSTALLED_SHA" ]]; then
       pass "scripts root : même SHA que le déploiement"
     else
-      warn "scripts root installés au SHA ${INSTALLED_SHA}, déployé ${DEPLOYED_SHA:-inconnu} ; ${drift} fichier(s) diffèrent du checkout — si > 0 : sudo ${ROOT_LIB}/infra/deploy/scripts/install_root_scripts.sh ${DEPLOYED_SHA:-<SHA>}"
+      warn "scripts root installés au SHA ${INSTALLED_SHA}, déployé ${DEPLOYED_SHA:-inconnu} ; ${drift} fichier(s) diffèrent du checkout — si > 0 : sudo DIGISANTE_ENV=${DIGISANTE_ENV} ${ROOT_LIB}/infra/deploy/scripts/install_root_scripts.sh ${DEPLOYED_SHA:-<SHA>}"
     fi
   fi
 else

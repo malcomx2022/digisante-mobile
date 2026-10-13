@@ -4,17 +4,20 @@
 # Chaque contrôle produit OK / ALERTE ; une notification n'est émise QUE sur un
 # CHANGEMENT d'état (nouvelle alerte, ou retour à la normale) : pas de spam.
 #
-# Destinataire : commande configurée dans /etc/digisante/alert.conf (root, 0600), ex.
+# DIGISANTE_ENV (obligatoire) : une instance par environnement de l'hôte partagé, chacune
+# avec ses noms PM2, son port d'API, ses journaux, son état et ses sauvegardes.
+#
+# Destinataire : commande configurée dans ${ETC_DIR}/alert.conf (root, 0600), ex.
 #   ALERT_CMD='mail -s "[DigiSanté] alerte production" ops@exemple.bj'
 # Le message arrive sur l'entrée standard. Sans ALERT_CMD : syslog seulement
 # (`journalctl -t digisante-healthwatch`). Runbook : docs/RUNBOOK_Alertes.md.
 # Aucun secret, aucune donnée de santé dans les messages (comptages et états seuls).
 #
-# B3 : lancé depuis la copie INSTALLÉE root:root (/usr/local/lib/digisante, cf.
+# B3 : lancé depuis la copie INSTALLÉE root:root (/usr/local/lib/digisante[-preprod], cf.
 # install_root_scripts.sh), jamais depuis APP_DIR. Le module de contrôle des sauvegardes
 # est pris dans la MÊME installation (même commit) et n'est exécuté que s'il n'est
 # modifiable par aucun autre compte ; les journaux des tâches root sont lus dans
-# /var/log/digisante-cron (root), pas dans le répertoire de l'utilisateur applicatif.
+# ${CRON_LOG_DIR} (root), pas dans le répertoire de l'utilisateur applicatif.
 # ─────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -35,10 +38,34 @@ trusted_path() {
   done
 }
 # <<< trusted_path
+# >>> digisante_profile (environnement — copie IDENTIQUE dans chaque script d'exploitation ; test de non-dérive)
+# DIGISANTE_ENV est OBLIGATOIRE, sans défaut : préproduction et production cohabitent sur
+# l'hôte IONOS partagé, où 3000 (ImmiPro) et 3001 (Grafana) sont déjà pris. Il FIXE les
+# noms PM2, les ports (mêmes valeurs que ecosystem.config.cjs, test de cohérence) et l'URL
+# locale de l'API : un jeton de service ne part que vers l'API de CET environnement. Il
+# donne aussi les chemins PAR DÉFAUT (utilisateur, checkout, journaux, copie root,
+# configuration, état, sauvegardes, base, crontab, journal WebSocket) ; une valeur déjà
+# posée par l'opérateur prime pour ces chemins.
+digisante_profile() {
+  local sfx
+  case "${DIGISANTE_ENV:-}" in
+    preproduction) sfx=-preprod; API_PORT=3101; WEB_PORT=3100; : "${DB_NAME:=digisante_preprod}" ;;
+    production) sfx=; API_PORT=3201; WEB_PORT=3200; : "${DB_NAME:=digisante}" ;;
+    *) echo "DIGISANTE_ENV requis : preproduction ou production (aucun défaut implicite)" >&2; return 1 ;;
+  esac
+  PM2_API="digisante${sfx}-api"; PM2_WEB="digisante${sfx}-web"; API_BASE="http://127.0.0.1:${API_PORT}"
+  : "${APP_USER:=digisante${sfx}}" "${APP_DIR:=/var/www/digisante${sfx}}" "${APP_LOG_DIR:=/var/log/digisante${sfx}}"
+  : "${ETC_DIR:=/etc/digisante${sfx}}" "${ROOT_LIB:=/usr/local/lib/digisante${sfx}}" "${STATE_DIR:=/var/lib/digisante${sfx}}"
+  : "${CRON_LOG_DIR:=/var/log/digisante${sfx}-cron}" "${BACKUP_DIR:=/var/backups/digisante${sfx}}"
+  : "${CRON_FILE:=/etc/cron.d/digisante${sfx}}" "${WS_LOG:=/var/log/nginx/digisante${sfx}-ws.log}"
+}
+# <<< digisante_profile
 trusted_path "${BASH_SOURCE[0]}" || { echo "[healthwatch] ÉCHEC : script lancé depuis un emplacement modifiable par un autre compte ; utiliser la copie installée par install_root_scripts.sh" >&2; exit 1; }
 SELF_ROOT="$(cd "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/../../.." && pwd -P)"
+digisante_profile || exit 1
+[[ "$(readlink -f -- "$ROOT_LIB")" == "$SELF_ROOT" ]] || { echo "[healthwatch] ÉCHEC : copie root d'un autre environnement que ${DIGISANTE_ENV} (${ROOT_LIB} attendu)" >&2; exit 1; }
 
-CONF="${HEALTHWATCH_CONF:-/etc/digisante/alert.conf}"
+CONF="${HEALTHWATCH_CONF:-${ETC_DIR}/alert.conf}"
 if [[ -r "$CONF" ]]; then
   # Fichier SOURCÉ par root : refusé s'il est modifiable par un autre compte.
   trusted_path "$CONF" || { echo "[healthwatch] ÉCHEC : ${CONF} modifiable par un autre compte ; non chargé" >&2; exit 1; }
@@ -46,26 +73,20 @@ if [[ -r "$CONF" ]]; then
   source "$CONF"
 fi
 
-API_URL="${API_URL:-http://127.0.0.1:3001}"
-APP_USER="${APP_USER:-digisante}"
 PM2_CHECK="${PM2_CHECK:-1}"
-BACKUP_DIR="${BACKUP_DIR:-/var/backups/digisante}"
 BACKUP_MAX_AGE_H="${BACKUP_MAX_AGE_H:-26}"
-DISK_PATHS="${DISK_PATHS:-/ /var/backups/digisante}"
+DISK_PATHS="${DISK_PATHS:-/ ${BACKUP_DIR}}"
 DISK_THRESHOLD="${DISK_THRESHOLD:-85}"
 # Journaux des tâches ROOT : répertoire root:root (un journal dans le répertoire de
 # l'utilisateur applicatif pourrait être remplacé par un lien vers un fichier système).
-CRON_LOG_DIR="${CRON_LOG_DIR:-/var/log/digisante-cron}"
 JOB_LOGS="${JOB_LOGS:-${CRON_LOG_DIR}/med_reminders.log ${CRON_LOG_DIR}/appt_reminders.log ${CRON_LOG_DIR}/vaccination_reminders.log ${CRON_LOG_DIR}/maternity_reminders.log ${CRON_LOG_DIR}/notify_dispatch.log ${CRON_LOG_DIR}/reconcile.log ${CRON_LOG_DIR}/pg_dump.log ${CRON_LOG_DIR}/sync_receipts.log}"
-API_LOG="${API_LOG:-/var/log/digisante/api-error.log /var/log/digisante/api-out.log}"
-DB_NAME="${DB_NAME:-digisante}"
+API_LOG="${API_LOG:-${APP_LOG_DIR}/api-error.log ${APP_LOG_DIR}/api-out.log}"
 [[ "$DB_NAME" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]] || { echo "Nom de base invalide" >&2; exit 1; }
 PSQL="${PSQL:-sudo -u postgres psql -d $DB_NAME -At}"
 BACKLOG_MAX="${BACKLOG_MAX:-100}"
 WEBHOOK_401_MAX="${WEBHOOK_401_MAX:-5}"
 PROVIDER_ERR_MAX="${PROVIDER_ERR_MAX:-3}"
 DOMAIN="${DOMAIN:-}"
-STATE_DIR="${STATE_DIR:-/var/lib/digisante}"
 STATE="${STATE_DIR}/healthwatch.state"
 ALERT_CMD="${ALERT_CMD:-}"
 
@@ -74,17 +95,17 @@ declare -A NOW=()
 check() { NOW["$1"]="$2"; printf '%-10s %-8s %s\n' "$1" "${2%%|*}" "${2#*|}"; }
 
 # 1. Readiness (DB + Redis)
-if curl -fsS --connect-timeout 3 --max-time 10 "${API_URL}/api/v1/ready" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{try{const r=JSON.parse(d);process.exit(r.status==="ready"&&r.db==="up"&&r.redis==="up"?0:1)}catch{process.exit(1)}})'; then
+if curl -fsS --connect-timeout 3 --max-time 10 "${API_BASE}/api/v1/ready" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{try{const r=JSON.parse(d);process.exit(r.status==="ready"&&r.db==="up"&&r.redis==="up"?0:1)}catch{process.exit(1)}})'; then
   check ready "OK|DB + Redis joignables"
 else check ready "ALERTE|/ready indisponible ou JSON non conforme"; fi
 
-# 2. PM2 : api ×2 + web
+# 2. PM2 : api ×2 + web DE CET ENVIRONNEMENT (noms fixés par DIGISANTE_ENV)
 if [[ "$PM2_CHECK" == "1" ]]; then
-  read -r api web < <(sudo -u "$APP_USER" pm2 jlist 2>/dev/null | node -e '
+  read -r api web < <(sudo -u "$APP_USER" pm2 jlist 2>/dev/null | PM2_API="$PM2_API" PM2_WEB="$PM2_WEB" node -e '
     let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{let l=[];try{l=JSON.parse(d);if(!Array.isArray(l))l=[]}catch{}
     const n=(x)=>l.filter(p=>p.name===x&&p.pm2_env&&p.pm2_env.status==="online").length;
-    console.log(n("digisante-api"),n("digisante-web"))})' || echo "0 0")
-  [[ "$api" == "2" && "$web" == "1" ]] && check pm2 "OK|api ${api}/2, web ${web}/1" || check pm2 "ALERTE|api ${api}/2, web ${web}/1 en ligne"
+    console.log(n(process.env.PM2_API),n(process.env.PM2_WEB))})' || echo "0 0")
+  [[ "$api" == "2" && "$web" == "1" ]] && check pm2 "OK|${PM2_API} ${api}/2, ${PM2_WEB} ${web}/1" || check pm2 "ALERTE|${PM2_API} ${api}/2, ${PM2_WEB} ${web}/1 en ligne"
 fi
 
 # 3. Espace disque (racine + sauvegardes)
@@ -162,8 +183,8 @@ done
 : > "$STATE"; for k in "${!NOW[@]}"; do echo "${k}=${NOW[$k]%%|*}" >> "$STATE"; done
 
 if [[ -n "$msg" ]]; then
-  body="DigiSanté — $(hostname) — $(date -Is)"$'\n'"${msg}"$'\n'"Runbook : docs/RUNBOOK_Alertes.md"
-  logger -t digisante-healthwatch -- "$(printf '%s' "$msg" | tr '\n' ' ')" 2>/dev/null || true
+  body="DigiSanté ${DIGISANTE_ENV} — $(hostname) — $(date -Is)"$'\n'"${msg}"$'\n'"Runbook : docs/RUNBOOK_Alertes.md"
+  logger -t digisante-healthwatch -- "[${DIGISANTE_ENV}] $(printf '%s' "$msg" | tr '\n' ' ')" 2>/dev/null || true
   if [[ -n "$ALERT_CMD" ]]; then printf '%s\n' "$body" | bash -c "$ALERT_CMD" || echo "échec de ALERT_CMD" >&2; fi
   printf '\n%s\n' "$body"
 fi

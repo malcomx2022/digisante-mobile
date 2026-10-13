@@ -1,0 +1,40 @@
+# ─────────────────────────────────────────────────────────────
+# Rotation des journaux DigiSanté PRÉPRODUCTION (PM2 api/web + crons + healthwatch).
+# IDENTIQUE à logrotate/digisante (production) hors chemins/utilisateur (test de
+# non-dérive) ; installé à côté de celui de la production sur l'hôte IONOS partagé.
+#   sudo install -m 0644 /usr/local/lib/digisante-preprod/infra/deploy/logrotate/digisante-preprod /etc/logrotate.d/digisante-preprod
+#   sudo logrotate -d /etc/logrotate.d/digisante-preprod     # simulation
+# (copie root:root installée par install_root_scripts.sh — jamais celle de APP_DIR : une
+# configuration logrotate est exécutée par root, cf. bloquant B3.)
+# `copytruncate` : PM2 garde le descripteur ouvert (pas de rechargement nécessaire).
+# 14 jours = même rétention que les sauvegardes. Les journaux ne contiennent ni JWT
+# (sérialiseur req + log_format Nginx noquery), ni message d'erreur Prisma (§4).
+# ─────────────────────────────────────────────────────────────
+
+# Journaux de l'utilisateur applicatif (PM2, historique de déploiement) : le répertoire
+# lui appartient, la rotation s'exécute donc SOUS SON IDENTITÉ (jamais root dans un
+# répertoire qu'il contrôle : liens symboliques).
+/var/log/digisante-preprod/*.log {
+    daily
+    rotate 14
+    maxsize 100M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    su digisante-preprod digisante-preprod
+    create 0640 digisante-preprod digisante-preprod
+}
+
+# Journaux des tâches cron ROOT : répertoire root:root 0750 (B3).
+/var/log/digisante-preprod-cron/*.log {
+    daily
+    rotate 14
+    maxsize 100M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+}

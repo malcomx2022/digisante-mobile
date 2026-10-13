@@ -158,7 +158,8 @@ jobs:
           port: ${{ secrets.VPS_SSH_PORT || 22 }}
           script: |
             set -e
-            cd /var/www/digisante-mobile
+            # Checkout de production sur l'hôte IONOS partagé (= APP_DIR du profil production).
+            cd /var/www/digisante
             git fetch origin main
             deploy_script=$(mktemp)
             trap 'rm -f "$deploy_script"' EXIT

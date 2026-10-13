@@ -56,7 +56,8 @@ jobs:
           script: |
             set -e
             [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
-            cd /var/www/digisante-mobile
+            # Checkout de préproduction sur l'hôte IONOS partagé (= APP_DIR du profil preproduction).
+            cd /var/www/digisante-preprod
             git fetch origin main
             deploy_script=$(mktemp)
             trap 'rm -f "$deploy_script"' EXIT

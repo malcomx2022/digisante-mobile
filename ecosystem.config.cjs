@@ -12,9 +12,17 @@
 //     noms PM2 `digisante-api/web`, checkout /var/www/digisante,
 //     logs /var/log/digisante.
 //
+// DIGISANTE_ENV est OBLIGATOIRE (aucun défaut : un oubli démarrerait l'autre
+// environnement). infra/deploy/scripts/deploy.sh le dérive de DEPLOY_ENVIRONMENT ; les
+// noms et ports ci-dessous sont repris À L'IDENTIQUE par le profil `digisante_profile`
+// des scripts d'exploitation (test de cohérence scripts/infra/environments.test.mjs).
 // Lancement / reload (depuis le checkout de l'environnement) :
-//   DIGISANTE_ENV=preproduction pm2 start ecosystem.config.cjs --env production
-//   DIGISANTE_ENV=preproduction pm2 reload ecosystem.config.cjs --update-env
+//   DIGISANTE_ENV=preproduction pm2 startOrReload ecosystem.config.cjs --update-env
+//
+// L'API lit API_PORT/API_HOST (apps/api/src/lib/env.ts), PAS `PORT` : ils sont posés ici,
+// et l'environnement PM2 prime sur `--env-file` (Node ne remplace jamais une variable déjà
+// définie) — l'API_PORT=3001 d'un .env copié de .env.example ne s'applique donc pas.
+// Écoute sur 127.0.0.1 uniquement : seul Nginx (même hôte) est un client légitime.
 //
 // Les SECRETS ne sont JAMAIS ici (cf. CLAUDE.md §3/§4) : ils sont lus
 // depuis les fichiers .env présents sur le VPS, chargés par Node via
@@ -24,8 +32,8 @@
 //   - API prod : /var/www/digisante/apps/api/.env
 //   - Web prod : /var/www/digisante/apps/web/.env.production
 // ─────────────────────────────────────────────────────────────
-const ENV = process.env.DIGISANTE_ENV || 'preproduction';
-const CONF = {
+const ENV = process.env.DIGISANTE_ENV ?? '';
+const CONFS = {
   preproduction: {
     apiName: 'digisante-preprod-api',
     webName: 'digisante-preprod-web',
@@ -40,10 +48,11 @@ const CONF = {
     webPort: '3200',
     logDir: '/var/log/digisante',
   },
-}[ENV];
-if (!CONF) {
-  throw new Error(`DIGISANTE_ENV invalide : ${ENV} (attendu preproduction|production)`);
+};
+if (!Object.hasOwn(CONFS, ENV)) {
+  throw new Error(`DIGISANTE_ENV requis : preproduction ou production (reçu : ${ENV || 'absent'})`);
 }
+const CONF = CONFS[ENV];
 module.exports = {
   apps: [
     {
@@ -58,7 +67,8 @@ module.exports = {
       max_memory_restart: '512M',
       env: {
         NODE_ENV: 'production',
-        PORT: CONF.apiPort,
+        API_PORT: CONF.apiPort,
+        API_HOST: '127.0.0.1',
       },
       error_file: `${CONF.logDir}/api-error.log`,
       out_file: `${CONF.logDir}/api-out.log`,
@@ -71,7 +81,7 @@ module.exports = {
       cwd: './apps/web',
       // Binaire next résolu dans apps/web/node_modules (pnpm, non hoisté).
       script: 'node_modules/next/dist/bin/next',
-      args: `start -p ${CONF.webPort}`,
+      args: `start -p ${CONF.webPort} -H 127.0.0.1`,
       instances: 1,
       exec_mode: 'fork',
       max_memory_restart: '512M',

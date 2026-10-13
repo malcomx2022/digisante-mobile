@@ -3,9 +3,10 @@
 #
 # Root ne doit JAMAIS exécuter/lire comme code un fichier de APP_DIR (propriété de
 # l'utilisateur applicatif `digisante` : une exécution de code dans l'API pourrait le
-# réécrire). Ces fichiers sont copiés par `install_root_scripts.sh <SHA>` depuis le
-# miroir root /var/lib/digisante/ops.git (commit exact, ancêtre de main) vers
-# /usr/local/lib/digisante (root:root), en conservant ce chemin relatif.
+# réécrire). Ces fichiers sont copiés par `DIGISANTE_ENV=<env> install_root_scripts.sh <SHA>`
+# depuis le miroir root de l'environnement (/var/lib/digisante[-preprod]/ops.git, commit
+# exact, ancêtre de main) vers /usr/local/lib/digisante[-preprod] (root:root), en
+# conservant ce chemin relatif.
 #
 # Format : <mode> <chemin relatif au dépôt>   (0755 = exécutable, 0644 = donnée/module)
 # Toute nouvelle tâche cron root, tout module importé par l'un de ces fichiers et toute
@@ -23,7 +24,9 @@
 0644 infra/deploy/crontab.example
 0644 infra/deploy/crontab.preproduction.example
 0644 infra/deploy/logrotate/digisante
+0644 infra/deploy/logrotate/digisante-preprod
 0644 infra/deploy/nginx/digisante.conf
+0644 infra/deploy/nginx/digisante-preprod.conf
 0644 infra/deploy/nginx/rate-limit.conf
 0644 infra/deploy/nginx/hsts-after-tls.conf
 0644 scripts/preproduction/check-backup.mjs

@@ -11,7 +11,14 @@ import { builtinModules } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
-const ROOT_LIB = '/usr/local/lib/digisante';
+// Hôte IONOS partagé : une copie root, un fichier /etc/cron.d et un répertoire de journaux
+// root PAR ENVIRONNEMENT (profil `digisante_profile`, DIGISANTE_ENV).
+const CRONTABS = {
+  'crontab.example': { env: 'production', lib: '/usr/local/lib/digisante', logs: '/var/log/digisante-cron' },
+  'crontab.preproduction.example': { env: 'preproduction', lib: '/usr/local/lib/digisante-preprod', logs: '/var/log/digisante-preprod-cron' },
+};
+/** Texte d'un script sans son bloc de profil (valeurs PAR DÉFAUT, testées à part). */
+export const withoutProfile = (text) => text.replace(/# >>> digisante_profile[\s\S]*?# <<< digisante_profile\n/, '');
 const read = (path) => readFileSync(resolve(root, path), 'utf8');
 const isRoot = process.getuid?.() === 0;
 
@@ -29,7 +36,7 @@ export function parseRootList(text) {
 const LIST = parseRootList(read('infra/deploy/root-scripts.list'));
 const rootScripts = [...LIST].filter(([path, mode]) => mode === '0755' && path.endsWith('.sh')).map(([path]) => path);
 
-/** Lignes de commande d'une crontab, variables de la crontab développées. */
+/** Lignes de commande d'un fichier /etc/cron.d (6ᵉ champ = utilisateur, toujours root), variables développées. */
 export function cronJobs(text) {
   const vars = {}; const jobs = [];
   for (const raw of text.split('\n')) {
@@ -37,18 +44,21 @@ export function cronJobs(text) {
     if (!line || line.startsWith('#')) continue;
     const assign = /^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(line);
     if (assign && !/^[*@0-9]/.test(line)) { vars[assign[1]] = assign[2]; continue; }
-    const job = /^(@\w+|(?:\S+\s+){4}\S+)\s+(.+)$/.exec(line);
+    const job = /^(@\w+|(?:\S+\s+){4}\S+)\s+(\S+)\s+(.+)$/.exec(line);
     assert.ok(job, `ligne cron illisible : ${line}`);
-    jobs.push(job[2].replace(/\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?/g, (m, v) => vars[v] ?? m));
+    assert.equal(job[2], 'root', `utilisateur cron.d inattendu : ${line}`);
+    jobs.push(job[3].replace(/\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?/g, (m, v) => vars[v] ?? m));
   }
   return { vars, jobs };
 }
 
 test('B3 : crontabs root — aucun chemin sous /var/www, scripts = copies root installées et listées, journaux root', () => {
   const crontabs = readdirSync(resolve(root, 'infra/deploy')).filter((n) => /^crontab.*\.example$/.test(n));
-  assert.deepEqual(crontabs.sort(), ['crontab.example', 'crontab.preproduction.example']);
+  assert.deepEqual(crontabs.sort(), Object.keys(CRONTABS).sort());
   for (const name of crontabs) {
+    const { env, lib: ROOT_LIB, logs } = CRONTABS[name];
     const { vars, jobs } = cronJobs(read(`infra/deploy/${name}`));
+    assert.equal(vars.DIGISANTE_ENV, env, `${name} : DIGISANTE_ENV`);
     for (const value of Object.values(vars)) assert.doesNotMatch(value, /\/var\/www|digisante-mobile/, `${name} : variable sous APP_DIR`);
     const executed = new Set();
     for (const cmd of jobs) {
@@ -66,7 +76,7 @@ test('B3 : crontabs root — aucun chemin sous /var/www, scripts = copies root i
       // Journaux root : répertoire root:root, jamais celui de l'utilisateur applicatif.
       for (const [, target] of cmd.matchAll(/>>?\s*(\S+)/g)) {
         if (target.startsWith('&')) continue;
-        assert.match(target, /^\/var\/log\/digisante-cron\/[a-z_]+\.log$/, `${name} : journal root ${target}`);
+        assert.ok(target.startsWith(`${logs}/`) && /^[a-z_]+\.log$/.test(target.slice(logs.length + 1)), `${name} : journal root ${target}`);
       }
     }
     for (const script of ['internal_job.sh', 'pg_dump_encrypted.sh', 'fedapay_reconcile.sh', 'healthwatch.sh']) assert.ok(executed.has(`infra/deploy/scripts/${script}`), `${name} : ${script} non planifié`);
@@ -121,7 +131,7 @@ test('B3 : chaque script root vérifie sa propre origine avec un trusted_path id
     assert.equal(block(text), reference, `${path} : bloc trusted_path absent ou divergent`);
     assert.match(text, /^trusted_path "\$\{BASH_SOURCE\[0\]\}" \|\|/m, `${path} : garde d'origine absente`);
   }
-  const health = read('infra/deploy/scripts/healthwatch.sh');
+  const health = withoutProfile(read('infra/deploy/scripts/healthwatch.sh'));
   assert.doesNotMatch(health, /\/var\/www/);
   assert.doesNotMatch(health, /\/var\/log\/digisante\/(?!api-)/, 'journaux root lus dans le répertoire applicatif');
   assert.match(health, /trusted_path "\$BACKUP_CHECK"/);
@@ -148,8 +158,10 @@ test('B3 : installateur — garanties statiques (racine, SHA exact, ancêtre de 
   assert.match(text, /merge-base --is-ancestor "\$SHA"/);
   assert.match(text, /--git-dir="\$OPS_MIRROR"/);
   assert.match(text, /https:\/\/github\.com\/malcomx2022\/digisante-mobile\.git/);
-  const code = text.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
+  const code = withoutProfile(text).split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
   assert.doesNotMatch(code, /\/var\/www|digisante-mobile\/\.git/, 'aucune source dans APP_DIR');
+  assert.match(text, /^digisante_profile \|\| exit 1$/m, 'profil d’environnement obligatoire');
+  assert.match(text, /echo "environment=\$\{DIGISANTE_ENV\}"/, 'environnement inscrit au manifeste');
   assert.doesNotMatch(code, /^\s*(?:source|\.)\s+\S/m, 'configuration lue comme données, jamais sourcée');
 });
 
@@ -178,7 +190,7 @@ function installerFixture() {
   mkdirSync(join(tmp, 'etc'), { mode: 0o700 });
   const conf = join(tmp, 'etc/ops.env');
   writeFileSync(conf, `# synthétique\nOPS_REPO_URL="file://${src}"\nOPS_BRANCH=main\n`); chmodSync(conf, 0o600);
-  const env = { ...process.env, ROOT_LIB: join(tmp, 'lib'), OPS_MIRROR: join(tmp, 'state/ops.git'), OPS_CONF: conf, OPS_LOG_DIR: join(tmp, 'log') };
+  const env = { ...process.env, DIGISANTE_ENV: 'preproduction', ROOT_LIB: join(tmp, 'lib'), OPS_MIRROR: join(tmp, 'state/ops.git'), OPS_CONF: conf, OPS_LOG_DIR: join(tmp, 'log') };
   const installer = resolve(root, 'infra/deploy/scripts/install_root_scripts.sh');
   const run = (args, extra = {}, path = installer) => spawnSync('bash', [path, ...args], { encoding: 'utf8', env: { ...env, ...extra } });
   return { tmp, src, sha1, conf, env, run, clean: () => rmSync(tmp, { recursive: true, force: true }) };
@@ -195,6 +207,7 @@ test('B3 : installateur — copie root:root du COMMIT (jamais de l’arbre de tr
     assert.match(r.stdout, new RegExp(`OK : ${LIST.size} fichier\\(s\\) du commit ${f.sha1}`));
     const lib = f.env.ROOT_LIB;
     assert.match(readFileSync(join(lib, 'root-scripts.manifest'), 'utf8'), new RegExp(`^sha=${f.sha1}$`, 'm'));
+    assert.match(readFileSync(join(lib, 'root-scripts.manifest'), 'utf8'), /^environment=preproduction$/m);
     const files = manifestFiles(lib);
     assert.deepEqual(Object.keys(files).sort(), [...LIST.keys()].sort());
     for (const [path, mode] of LIST) {
@@ -209,7 +222,7 @@ test('B3 : installateur — copie root:root du COMMIT (jamais de l’arbre de tr
     assert.equal((statSync(f.env.OPS_MIRROR).mode & 0o777).toString(8), '700');
     assert.match(readFileSync(join(f.env.OPS_LOG_DIR, 'install_root_scripts.log'), 'utf8'), /OK : /);
     // Les scripts installés acceptent de tourner depuis la copie root (garde d'origine).
-    const job = spawnSync('bash', [join(lib, 'infra/deploy/scripts/internal_job.sh'), '/api/v1/x'], { encoding: 'utf8', env: { ...process.env, RECONCILE_TOKEN_FILE: join(f.tmp, 'absent') } });
+    const job = spawnSync('bash', [join(lib, 'infra/deploy/scripts/internal_job.sh'), '/api/v1/x'], { encoding: 'utf8', env: { ...process.env, DIGISANTE_ENV: 'preproduction', ROOT_LIB: lib, RECONCILE_TOKEN_FILE: join(f.tmp, 'absent') } });
     assert.match(job.stdout, /ÉCHEC : jeton de service absent/);
 
     // v2 : un fichier retiré de la liste est supprimé ; contenu mis à jour par commit.

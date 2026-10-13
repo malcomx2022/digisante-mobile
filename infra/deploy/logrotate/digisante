@@ -1,5 +1,7 @@
 # ─────────────────────────────────────────────────────────────
-# Rotation des journaux DigiSanté (PM2 api/web + crons + healthwatch).
+# Rotation des journaux DigiSanté PRODUCTION (PM2 api/web + crons + healthwatch).
+# Préproduction : logrotate/digisante-preprod (IDENTIQUE hors chemins/utilisateur — test
+# de non-dérive), installé à côté sur l'hôte IONOS partagé.
 #   sudo install -m 0644 /usr/local/lib/digisante/infra/deploy/logrotate/digisante /etc/logrotate.d/digisante
 #   sudo logrotate -d /etc/logrotate.d/digisante     # simulation
 # (copie root:root installée par install_root_scripts.sh — jamais celle de APP_DIR : une
