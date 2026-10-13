@@ -116,12 +116,11 @@ test('S8 : forme du lien sans contenu (chemin, requête, fragment)', () => {
   assert.equal(s8Verdict('https://sandbox-checkout.fedapay.com/x', { isAllowedSandbox, hosts }).code, 'HOTE_AUTORISE');
 });
 
-test('S8 : chaque code a une décision opérateur reprise mot pour mot dans la recette', () => {
+test('S8 : chaque code a SA décision, mot pour mot, sur sa ligne du tableau de la recette (et rien d’autre)', () => {
   const recipe = readFileSync(`${root}docs/RECETTE_FedaPay_Sandbox.md`, 'utf8');
-  for (const [code, decision] of Object.entries(S8_DECISIONS)) {
-    assert.ok(recipe.includes(`\`${code}\``), `code ${code} absent de la recette`);
-    assert.ok(recipe.includes(decision), `décision ${code} divergente de la recette`);
-  }
+  const rows = Object.fromEntries([...recipe.matchAll(/^\| `([A-Z_]+)` \| (.+) \|$/gm)].map((m) => [m[1], m[2]]));
+  assert.deepEqual(Object.keys(rows).sort(), Object.keys(S8_DECISIONS).sort());
+  for (const [code, decision] of Object.entries(S8_DECISIONS)) assert.equal(rows[code], decision, code);
 });
 
 test('S8 : opt-in distinct du préflight, exclusif (un seul fournisseur par commande), même garde L10', () => {
@@ -192,4 +191,23 @@ test('S8 : clé avec caractère invalide (octet nul, espace interne, non ASCII) 
   for (const secretKey of ['sk_sandbox_AB\u0000CD', 'sk_sandbox_AB CD', 'sk_sandbox_ABé', 'sk_sandbox_AB\nCD']) await assert.rejects(probe(fake, { secrets: { ...secrets, secretKey } }), JSON.stringify(secretKey));
   assert.equal(fake.calls.length, 0);
   assert.equal((await probe(fakeFedapay(), { secrets: { ...secrets, secretKey: `${SECRET}\n` } })).verdict, 'PASS');
+});
+
+test('S8 : forme brute expliquant un refus (normalisation de new URL) ; point final = forme refusée, jamais hôte à ajouter', async () => {
+  const cases = [
+    [`https://sandbox-process.fedapay.com:0443/${TOKEN}`, 'FORME_REFUSEE', /port explicite « 0443 »/],
+    [`https://Sandbox-Process.fedapay.com/${TOKEN}`, 'PASS_OR_REFUSED', /majuscules dans l’hôte/],
+    [`https://sandbox-process.fedapay.com./${TOKEN}`, 'FORME_REFUSEE', /point final/],
+    [`https://sandbox-process.fedapay.com\\${TOKEN}`, 'FORME_REFUSEE', /antislash/],
+    [`https://user:pw@sandbox-process.fedapay.com/${TOKEN}`, 'FORME_REFUSEE', /identifiants dans l’autorité/],
+    [`http://sandbox-process.fedapay.com/${TOKEN}`, 'FORME_REFUSEE', /schéma « http »/],
+    [`https://process.fedapay.com./${TOKEN}`, 'HOTE_LIVE', /point final/],
+  ];
+  for (const [url, code, flag] of cases) {
+    const result = await probe(fakeFedapay({ token: { status: 200, body: { url } } }));
+    if (code !== 'PASS_OR_REFUSED') assert.equal(result.code, code, url);
+    const out = printed(result);
+    assert.match(out, flag, url); assert.doesNotMatch(out, new RegExp(TOKEN), url); assert.doesNotMatch(out, /user|pw@/, url);
+  }
+  assert.match(printed(await probe(fakeFedapay())), /forme brute : aucune anomalie/);
 });

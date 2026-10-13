@@ -142,7 +142,8 @@ l’API live, afficher le lien complet, le jeton, la clé ou l’identifiant ent
 - Candidate qualifiée déployée sur la préproduction isolée (`CONTRAT_Preproduction_L10.md` §3), SHA complet connu.
 - Intégration **FEDAPAY** saisie et activée dans `/admin/integrations` : `secretKey` `sk_sandbox_…`,
   `publicKey` `pk_sandbox_…`, `webhookSecret`.
-- Préflight `SMOKE_FEDAPAY=1` (§4) vert **juste avant**, sur le même SHA.
+- Préflight `SMOKE_FEDAPAY=1` vert **juste avant**, sur le même SHA, lancé avec la commande complète de
+  `CONTRAT_Preproduction_L10.md` §3 (la commande courte du §4 ne suffit plus seule).
 - Opérateur nommé, accès au tableau de bord **sandbox** FedaPay pour retrouver la transaction de recette.
 
 ### Commande (sur la cible, une seule exécution suffit)
@@ -181,13 +182,17 @@ Le test échoue (code de sortie ≠ 0) pour tout verdict autre que `PASS`. Déci
 | `TOKEN_HTTP` | FAIL : génération du lien refusée par l’API bac à sable. Consigner le code HTTP et l’identifiant masqué. |
 | `TOKEN_RESEAU` | FAIL : demande de lien sans réponse exploitable (délai ou réseau). La transaction existe : la retrouver par sa référence, consigner l’identifiant masqué, relancer une seule fois. |
 
-Un FAIL `HOTE_NON_LISTE` ou `FORME_REFUSEE` **bloque S1, S2, S6 et S7** (ils passent par le lien) : aucun
-élargissement par joker ou suffixe. Correctif éventuel = PR dédiée (§5) ajoutant l’hôte **exact** constaté à
+Un FAIL `HOTE_NON_LISTE`, `FORME_REFUSEE` ou `HOTE_LIVE` bloque **tout parcours qui crée un paiement opérateur**
+(l’API répond 502) : S1, S2, S5 (pas de paiement PENDING à réconcilier), S6 et S7 (dépendent de S1), S9 et S10
+(livraisons d’une transaction réglée), ainsi que les paiements opérateur des recettes abonnements L6 et finances
+L7. S3 (portefeuille) et S4 (webhook rejeté) restent exécutables. Aucun élargissement par joker ou suffixe. Correctif éventuel = PR dédiée (§5) ajoutant l’hôte **exact** constaté à
 `FEDAPAY_CHECKOUT_HOSTS.sandbox`, tests du contrôle et re-tests webhooks, nouvelle qualification, puis S8 rejoué.
 
 ### Après la sonde
 1. **S1** : lancer la recharge ; la page FedaPay doit s’ouvrir sur **le même hôte** que celui relevé par la sonde
-   (barre d’adresse : ne noter que l’hôte). C’est la preuve de « redirection effective ».
+   (barre d’adresse : ne noter que l’hôte). C’est la preuve de « redirection effective ». La sonde n’envoie ni
+   `customer` ni `callback_url` (corps minimal de l’API) : S1, qui passe par le code de production, confirme que
+   l’hôte ne dépend pas de ces champs. Un hôte différent en S1 = FAIL S8, à consigner comme ci-dessus.
 2. **Transaction de recette** : la retrouver dans le tableau de bord sandbox (https://sandbox.fedapay.com,
    « Collectes ») par sa `merchant_reference` ; **ne pas la payer** (aucun `Payment` local ne lui correspond). La
    supprimer tant qu’elle est en attente (« Supprimer ») ou la laisser expirer : une collecte en attente expire
@@ -203,7 +208,11 @@ Un FAIL `HOTE_NON_LISTE` ou `FORME_REFUSEE` **bloque S1, S2, S6 et S7** (ils pas
 - **Note privée** (hors dépôt) : date et heure UTC, SHA de la candidate, opérateur, référence `ds-recette-s8-…`,
   transaction masquée, lignes `[s8:fedapay]` complètes, réponse du webhook `transaction.created`, hôte vu en S1,
   suppression ou expiration de la transaction de recette.
-- **Registre** `docs/preproduction/L10/evidence.json` : enregistrement `caseId: "FEDAPAY-S8"`, `result` `PASS` ou
-  `FAIL`, SHA et empreinte de l’instantané courants, `evidenceRef` = référence opaque de la note privée.
+- **Registre** `docs/preproduction/L10/evidence.json` (schéma : `preproduction/L10/README.md`) : un seul
+  enregistrement `caseId: "FEDAPAY-S8"`, `result: "PASS"`, `candidateSha` (SHA complet qualifié),
+  `sourceSnapshotSha256` (empreinte courante de `snapshot.json`), `executedAt` (ISO UTC canonique, ex.
+  `2026-10-14T09:00:00.000Z`), `operator` (identité réelle vérifiée), `evidenceRef` (référence opaque de la note
+  privée). `preprod:gate` refuse tout autre résultat : un FAIL se consigne dans la note privée, le cas reste
+  ouvert jusqu’à un PASS sur une candidate corrigée et requalifiée.
 - **Jamais** : lien complet, jeton, capture de la barre d’adresse entière, clé, identifiant complet de transaction.
 

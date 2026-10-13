@@ -10,6 +10,7 @@ export interface S8Result {
   verdict: 'PASS' | 'FAIL';
   code: S8Code;
   shape?: S8UrlShape;
+  flags?: string[];
   transaction?: string;
   failure?: string;
   createStatus?: number; createWrapper?: 'v1/transaction' | 'racine' | 'illisible'; createFields?: string[]; createPaymentUrlHost?: string | null;
@@ -26,6 +27,7 @@ export const S8_AMOUNT_XOF: number;
 export const S8_DECISIONS: Readonly<Record<S8Code, string>>;
 export function describeCheckoutUrl(value: unknown): S8UrlShape;
 export function displayHost(host: string): string;
+export function rawFlags(value: unknown): string[];
 export function tokenFacts(url: unknown, token: unknown, id: string, nowSeconds?: number): S8TokenFacts;
 export function s8Verdict(url: unknown, opts: { isAllowedSandbox: (url: unknown) => boolean; hosts: S8Hosts }): S8Result;
 export function runS8Probe(opts: {

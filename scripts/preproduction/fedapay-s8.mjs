@@ -77,16 +77,46 @@ export function describeCheckoutUrl(value) {
 }
 
 /**
+ * Anomalies de la forme BRUTE du lien, que la normalisation de `new URL` efface (port
+ * `0443`, majuscules, antislash, point final…) : elles expliquent un refus du contrôle de
+ * production sans rien recopier du chemin ni des identifiants.
+ */
+export function rawFlags(value) {
+  if (typeof value !== 'string' || !value) return [];
+  const flags = [];
+  const m = /^([^:/?#\\]*):\/\/([^/?#\\]*)/.exec(value);
+  const scheme = m?.[1] ?? '';
+  const authority = m?.[2] ?? '';
+  if (!m) flags.push('schéma ou autorité absents');
+  else if (scheme !== 'https') flags.push(`schéma « ${/^[a-z][a-z0-9+.-]{0,15}$/i.test(scheme) ? scheme : shapeOf(scheme)} »`);
+  if (authority.includes('@')) flags.push('identifiants dans l’autorité');
+  const hostport = authority.slice(authority.lastIndexOf('@') + 1);
+  const port = /:([^:\]]*)$/.exec(hostport);
+  if (port) flags.push(`port explicite « ${/^\d{1,8}$/.test(port[1]) ? port[1] : shapeOf(port[1])} »`);
+  const host = port ? hostport.slice(0, port.index) : hostport;
+  if (/[A-Z]/.test(host)) flags.push('majuscules dans l’hôte');
+  if (host.endsWith('.')) flags.push('point final');
+  if (host.includes('%')) flags.push('pourcent-encodage dans l’hôte');
+  if (/[^\x00-\x7f]/.test(host)) flags.push('hôte non ASCII');
+  if (value.includes('\\')) flags.push('antislash');
+  if (/\s/.test(value) || [...value].some((char) => char.charCodeAt(0) < 32)) flags.push('blanc ou caractère de contrôle');
+  return flags;
+}
+
+/**
  * Verdict S8. `isAllowedSandbox` = contrôle de production lié à l'environnement
  * bac à sable ; `hosts` = listes de production (pour qualifier un refus).
  */
 export function s8Verdict(url, { isAllowedSandbox, hosts }) {
   const shape = describeCheckoutUrl(url);
   if (!shape.valid) return { verdict: 'FAIL', code: 'URL_INVALIDE', shape };
-  if (isAllowedSandbox(url)) return { verdict: 'PASS', code: 'HOTE_AUTORISE', shape };
-  if (hosts.live.includes(shape.host)) return { verdict: 'FAIL', code: 'HOTE_LIVE', shape };
-  if (hosts.sandbox.includes(shape.host)) return { verdict: 'FAIL', code: 'FORME_REFUSEE', shape };
-  return { verdict: 'FAIL', code: 'HOTE_NON_LISTE', shape };
+  const flags = rawFlags(url);
+  if (isAllowedSandbox(url)) return { verdict: 'PASS', code: 'HOTE_AUTORISE', shape, flags };
+  // Point final retiré pour qualifier le refus : `hôte.listé.` est une forme refusée, pas un hôte à ajouter.
+  const bare = shape.host.replace(/\.$/, '');
+  if (hosts.live.includes(bare)) return { verdict: 'FAIL', code: 'HOTE_LIVE', shape, flags };
+  if (hosts.sandbox.includes(bare)) return { verdict: 'FAIL', code: 'FORME_REFUSEE', shape, flags };
+  return { verdict: 'FAIL', code: 'HOTE_NON_LISTE', shape, flags };
 }
 
 /** Clés de premier niveau d'un objet JSON (forme, jamais les valeurs). */
@@ -187,6 +217,7 @@ export function formatS8(result, reference) {
     `[s8:fedapay] verdict=${result.verdict} · code=${result.code} · référence=${reference} · transaction=${result.transaction ?? '—'}${result.failure ? ` · panne=${result.failure}` : ''}`,
     `[s8:fedapay] création HTTP ${create} · lien HTTP ${result.tokenStatus ?? '—'} (champs : ${(result.tokenFields ?? []).join(',') || 'aucun'})`,
     `[s8:fedapay] ${link}`,
+    ...(result.flags ? [`[s8:fedapay] forme brute : ${result.flags.join(' · ') || 'aucune anomalie'}`] : []),
     ...(facts ? [`[s8:fedapay] ${facts}`] : []),
     `[s8:fedapay] décision : ${S8_DECISIONS[result.code]}`,
   ];

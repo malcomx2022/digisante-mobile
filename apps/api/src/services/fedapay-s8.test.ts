@@ -38,7 +38,7 @@ describe('Recette S8 — verdict aligné sur le contrôle de production (B1)', (
     const expected: Array<[string, string]> = [
       [`https://process.fedapay.com/${TOKEN}`, 'HOTE_LIVE'],
       [`https://fpay.li/${TOKEN}`, 'HOTE_NON_LISTE'],
-      [`https://sandbox-process.fedapay.com./${TOKEN}`, 'HOTE_NON_LISTE'],
+      [`https://sandbox-process.fedapay.com./${TOKEN}`, 'FORME_REFUSEE'],
       [`https://sandbox-process.fedapay.com:0443/${TOKEN}`, 'FORME_REFUSEE'],
       [`https://sandbox-process.fedapay.com/a\\b`, 'FORME_REFUSEE'],
     ];
