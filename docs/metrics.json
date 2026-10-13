@@ -11,8 +11,8 @@
   "webTestFiles": 16,
   "e2eSpecFiles": 9,
   "smokeTestFiles": 5,
-  "apiTests": 612,
-  "webTests": 124,
+  "apiTests": 633,
+  "webTests": 126,
   "e2eTests": 24,
-  "unitTests": 736
+  "unitTests": 759
 }
