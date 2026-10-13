@@ -169,7 +169,7 @@ Préparation technique et CI ne prouvent pas une validation native/clinique. Ré
 
 ## L10 — outillage préparé, recette cible non attestée
 
-Décision du porteur : accès fournis ultérieurement. Lire contrat/revue/fiche L10 ; neuf contrôles infrastructure et recettes fournisseur dans le dossier de 94 cas. Aucune case cochée par les tests locaux.
+Décision du porteur : accès fournis ultérieurement. Lire contrat/revue/fiche L10 ; neuf contrôles infrastructure et recettes fournisseur dans le dossier de 100 cas. Aucune case cochée par les tests locaux.
 
 - [ ] VPS Infomaniak **distinct**, domaine/SSH/fingerprint autorisés ; PG16/Redis natifs et *_preprod dédiés, comptes synthétiques, secrets privés et Firebase au build.
 - [ ] SHA main exact/CI deux jobs réussis via preprod:qualify ; maintenance vérifiée, crons suspendus/repris, sauvegarde préalable cible alimentée, anciens workers arrêtés avant migrations.

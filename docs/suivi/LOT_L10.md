@@ -53,6 +53,7 @@ L'historique ci-dessus est inchangé. Dérogation validée par le porteur le 13/
   `provision.sh` (écrit pour Ubuntu 22.04 / PG16 / Redis) doit être **adapté**, jamais appliqué à l'aveugle.
 - **Docs mises à jour** : `CLAUDE.md`, `README.md`, `CONTRAT_Preproduction_L10.md`, `SECRETS_Preproduction_L10.md`,
   `ecosystem.config.cjs`, `infra/deploy/README.md` (cette PR, docs + ecosystem uniquement).
+  Rectificatif (13/10/2026) : `CLAUDE.md` ne faisait pas partie de #192 fusionnée ; la dérogation y a été portée par #194.
 - **Outillage par environnement (complément 13/10/2026, revue de la PR)** : `DIGISANTE_ENV` (preproduction |
   production) est **obligatoire, sans défaut**, pour `ecosystem.config.cjs` et chaque script d'exploitation
   (profil `digisante_profile`, copie identique, test de non-dérive). Il fixe noms PM2, ports et URL locale de
@@ -75,3 +76,23 @@ L'historique ci-dessus est inchangé. Dérogation validée par le porteur le 13/
 - **Non changé par cet addendum** : aucune logique métier, aucune migration, aucun secret, aucun déploiement,
   aucune recette réelle. Après fusion de la PR docs, requalifier la candidate (nouveau SHA) et re-générer
   `preprod:prepare` / `metrics:check` (fraîcheur des empreintes) avant de dérouler L10 sur la cible IONOS.
+
+## Requalification après les correctifs du 13/10/2026
+
+Contrôles locaux sur le SHA `main` exact (worktree détaché, PostgreSQL et Redis locaux, `NODE_ENV=test`), sans cible
+distante ; E2E par la CI `main`. Aucune preuve enregistrée : `evidence.json` reste vide (`records: 0`, `candidate: null`).
+
+| Candidate | Origine | Qualification CI (`CANDIDATE_SHA=<sha> pnpm preprod:qualify`) | Contrôles locaux | Gates |
+|---|---|---|---|---|
+| `c2b5cb6b466a442925217e1915cb7b460d0855f7` | `main` après #194 | run 38420588731 : `build-and-test` + `e2e` réussis | `lint`, `typecheck`, `test` (633 API + 126 web), `build` verts ; `test:scripts` 93/94 dans un répertoire de travail sous un parent 0700 (le test « installateur refusé hors root » lance le script sous `nobody`, qui ne traverse pas ce parent : environnement, pas code), 94/94 au même SHA depuis un worktree traversable ; `preprod:prepare` sans écart, `preprod:check` 100 cas (source `b85b4937…`), `metrics:check`, `validation:check`, validations DOCX, `bash -n` verts | `preprod:gate` code 1 : 101 points ouverts ; `validation:gate` code 1 : 15 points ouverts |
+| `c9b719182fbf080201d5f167507c02e626cc7bdf` | `main` après #195, #196, #197 | run 38429757097 : `build-and-test` + `e2e` réussis | `lint`, `typecheck`, `test` (634 API + 126 web), `build` verts ; `test:scripts` 113/113 ; `preprod:prepare` sans écart, `preprod:check` 100 cas (source `9f8b5b41…`), `metrics:check`, `validation:check`, i18n EN, validations DOCX, `bash -n` verts | `preprod:gate --expected-sha c9b7191…` code 1 : 101 points ouverts ; `validation:gate` code 1 : 15 points ouverts |
+
+- `c2b5cb6` est **invalidée** par #195 (instantané L10 modifié : `ecosystem`, scripts, crontabs, workflows).
+- `c9b7191` est la candidate qualifiée à ce jour. #198 (B3, requêtes des tâches sous compte sans droits) modifie à
+  nouveau les sources de l'instantané : sa fusion l'invalidera et imposera `preprod:prepare` + requalification du
+  nouveau SHA `main`. Les commits de documentation hors instantané (dont celui-ci) ne changent pas l'empreinte.
+- État B1–B5 et tests rouges sur l'ancien code : `docs/REVUE_Independante_L0-L10_2026-10.md` §8.
+- **Non prouvé** : aucun déploiement, aucune écriture sur le VPS, aucune variable GitHub activée, aucun appel
+  fournisseur réel (S8–S10 FedaPay, D19–D21 Daily ouverts), aucune installation sur l'hôte IONOS. Gates
+  déclaratifs rouges attendus ; L9 humain et L11 (recette 7 rôles, restauration par un tiers, rollback, pentest,
+  PV GO/NO-GO) restent ouverts.
