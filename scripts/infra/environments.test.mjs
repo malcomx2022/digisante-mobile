@@ -116,6 +116,12 @@ test('ecosystem.config.cjs : DIGISANTE_ENV obligatoire, noms/ports/journaux = pr
     assert.equal(api.env.API_HOST, '127.0.0.1', `${env} : API joignable hors Nginx`);
     assert.equal(api.instances, 2);
     assert.equal(web.args, `start -p ${p.WEB_PORT} -H 127.0.0.1`);
+    // Chemins ABSOLUS du checkout : PM2 (cluster) ne transmet pas le cwd aux node_args, et
+    // `pm2 resurrect` démarre depuis `/` — un `.env` relatif n'était jamais trouvé.
+    assert.equal(api.cwd, join(ROOT, 'apps/api'));
+    assert.equal(web.cwd, join(ROOT, 'apps/web'));
+    assert.equal(api.node_args, `--env-file=${join(ROOT, 'apps/api/.env')}`);
+    assert.doesNotMatch(api.node_args, /\s/, 'PM2 découpe node_args sur les espaces');
     for (const app of config.apps) {
       assert.ok(app.error_file.startsWith(`${p.APP_LOG_DIR}/`) && app.out_file.startsWith(`${p.APP_LOG_DIR}/`), `${env} : journaux ${app.name}`);
     }
@@ -150,6 +156,12 @@ test('Nginx : vhost préproduction = production hors marqueurs ; upstreams/ports
     const sfx = env === 'production' ? '' : 'preprod_';
     assert.deepEqual(upstreams, { [`digisante_${sfx}web`]: p.WEB_PORT, [`digisante_${sfx}api`]: p.API_PORT }, `${env} : upstreams`);
     assert.ok(text.includes(`access_log ${p.WS_LOG} digisante_noquery;`), `${env} : journal WS = WS_LOG du profil (verify_deploy)`);
+    // Domaine et journal général propres à l'environnement (la normalisation ci-dessus
+    // les masque : un vhost préprod déclarant le domaine de production passerait sinon).
+    const names = env === 'production' ? 'digisantemobile.app www.digisantemobile.app' : 'preprod.digisantemobile.app';
+    assert.deepEqual([...text.matchAll(/^\s*server_name ([^;]+);/gm)].map((m) => m[1]), [names], `${env} : server_name`);
+    const logSfx = env === 'production' ? '' : '-preprod';
+    assert.ok(text.includes(`access_log /var/log/nginx/digisante${logSfx}-access.log digisante_noquery;`), `${env} : journal d'accès`);
     for (const proxied of text.matchAll(/proxy_pass http:\/\/(\w+);/g)) assert.ok(proxied[1] in upstreams, `${env} : ${proxied[1]}`);
     assert.match(text, /^\s+server_tokens off;$/m, `${env} : server_tokens au niveau serveur`);
     assert.match(text, /^\s+limit_req_status 429;$/m, `${env} : limit_req_status au niveau serveur`);

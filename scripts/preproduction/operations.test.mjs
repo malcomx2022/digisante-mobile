@@ -251,6 +251,13 @@ test('vérification B3 : crontab root lançant APP_DIR ou journalisant chez l’
     assert.match(r.stdout,/FAIL.*cron : DIGISANTE_ENV=preproduction absent/);
   }finally{f.clean();}
 });
+test('vérification B3 : fichier cron.d de l’environnement lançant APP_DIR ou journalisant chez l’utilisateur applicatif ⇒ FAIL',()=>{
+  const {f,ws}=verifyFixture();try{
+    writeFileSync(f.env.CRON_FILE,readFileSync(f.env.CRON_FILE,'utf8')+`*/5 * * * * root ${f.env.APP_DIR}/infra/deploy/scripts/healthwatch.sh >> /var/log/digisante-preprod/hw.log 2>&1\n`);
+    const r=f.run('verify_deploy.sh',{DOMAIN:'preprod.example.bj',WS_LOG:ws});assert.notEqual(r.status,0);
+    assert.match(r.stdout,/FAIL.*cron : chemin sous .* exécuté par root/);assert.match(r.stdout,/FAIL.*cron : journal root écrit dans \/var\/log\/digisante-preprod/);
+  }finally{f.clean();}
+});
 test('vérification B3 : SHA root ≠ déployé = WARN non bloquant ; manifeste absent ou fichier altéré = FAIL',()=>{
   const {f,ws}=verifyFixture();try{
     const opts={DOMAIN:'preprod.example.bj',WS_LOG:ws};

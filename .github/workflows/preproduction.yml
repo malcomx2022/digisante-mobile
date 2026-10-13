@@ -14,8 +14,10 @@ on:
 permissions:
   contents: read
   actions: read
+# Groupe PARTAGÉ avec le job deploy de ci.yml (même VPS IONOS, 4 Go de RAM) : un seul
+# build/déploiement DigiSanté à la fois sur l'hôte.
 concurrency:
-  group: deploy-preproduction
+  group: deploy-ionos-srv1
   cancel-in-progress: false
 jobs:
   preproduction:

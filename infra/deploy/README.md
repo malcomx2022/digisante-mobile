@@ -69,7 +69,8 @@ sudo DIGISANTE_ENV="$DIGISANTE_ENV" bash /root/install_root_scripts${SUFFIX}.sh 
 sudo git clone https://github.com/malcomx2022/digisante-mobile.git /var/www/digisante${SUFFIX}
 
 # 1.c Provisioning depuis la COPIE ROOT — ⚠️ à ADAPTER pour l'hôte partagé (voir ci-dessous), jamais à l'aveugle
-sudo BASE_DOMAIN=preprod.digisantemobile.app   # prod : digisantemobile.app \
+# (version ADAPTÉE de provision.sh ; BASE_DOMAIN n'est lu par aucun script, prod : digisantemobile.app)
+sudo BASE_DOMAIN=preprod.digisantemobile.app \
      DB_PASSWORD='<mot-de-passe-postgres-fort>' \
      bash "$ROOT_LIB/infra/deploy/scripts/provision.sh"
 ```
@@ -100,13 +101,14 @@ sudo chmod 600 apps/api/.env                  # secrets : lisible par l'utilisat
 # Magasin de fichiers (KYC + pièces jointes DMP = données de santé) : KYC_STORAGE_DIR de ce
 # .env, chemin ABSOLU conseillé. La sauvegarde root le lit ICI comme donnée (B4 :
 # util.parseEnv, jamais `source`) ; vide ⇒ apps/api/storage/kyc, comme l'API.
-# Valeur écrite par digisante ⇒ hostile pour root (B3) : le répertoire DOIT appartenir à
-# digisante (APP_USER, jamais root), être en 0700 (aucune écriture groupe/autres) et
+# Valeur écrite par l'utilisateur de l'environnement ⇒ hostile pour root (B3) : le
+# répertoire DOIT appartenir à digisante${SUFFIX} (APP_USER du profil, jamais root, jamais
+# l'utilisateur de l'AUTRE environnement), être en 0700 (aucune écriture groupe/autres) et
 # porter un nom simple (lettres, chiffres, « . _ @ + - », jamais de « - » initial) ;
-# sinon la sauvegarde échoue AVANT le dump. Il est archivé SOUS L'IDENTITÉ digisante
-# (`sudo -u digisante -- tar … -- <nom>`) : un fichier que l'API ne peut pas lire fait
-# échouer la sauvegarde au lieu d'être lu par root.
-#   sudo -u digisante install -d -m 0700 /chemin/du/magasin   # si déplacé
+# sinon la sauvegarde échoue AVANT le dump. Il est archivé SOUS L'IDENTITÉ de cet utilisateur
+# (`sudo -u digisante${SUFFIX} -- tar … -- <nom>`) : un fichier que l'API ne peut pas lire
+# fait échouer la sauvegarde au lieu d'être lu par root.
+#   sudo -u digisante${SUFFIX} install -d -m 0700 /chemin/du/magasin   # si déplacé
 
 # Web — URL publique de l'API (lue au build Next.js)
 echo 'NEXT_PUBLIC_API_URL=https://preprod.digisantemobile.app' \
@@ -199,15 +201,15 @@ Les tâches lancent uniquement les scripts de la copie root de l'environnement
 (`/usr/local/lib/digisante[-preprod]`) et journalisent dans `/var/log/digisante[-preprod]-cron`
 (root:root 0750) : un journal root dans le répertoire de l'utilisateur applicatif pourrait être remplacé par un lien vers un fichier système (ex.
 `/root/.ssh/authorized_keys`). **Migration d'un VPS existant** : installer les scripts
-root (§3 bis), créer `/var/log/digisante-cron`, réinstaller la crontab, puis déplacer les
+root (§3 bis), créer `/var/log/digisante${SUFFIX}-cron` (l'installateur le fait), installer le fichier `/etc/cron.d`, retirer les anciennes lignes DigiSanté de la crontab root, puis déplacer les
 anciens journaux root (`sudo mv /var/log/digisante/{med_reminders,appt_reminders,vaccination_reminders,maternity_reminders,notify_dispatch,reconcile,pg_dump,healthwatch,sync_receipts}.log* /var/log/digisante-cron/`)
 et installer `/etc/logrotate.d/digisante${SUFFIX}` depuis `$ROOT_LIB/infra/deploy/logrotate/digisante${SUFFIX}`
 (rotation du répertoire applicatif sous l'identité de l'utilisateur de l'environnement). Contrôler enfin le magasin de fichiers
-(`sudo stat -c '%U %a %n' <KYC_STORAGE_DIR>` ⇒ `digisante 700`, fichiers lisibles par
-`digisante`) : un magasin créé par root, ouvert en écriture ou contenant un fichier
+(`sudo stat -c '%U %a %n' <KYC_STORAGE_DIR>` ⇒ `digisante${SUFFIX} 700`, fichiers lisibles par
+`digisante${SUFFIX}`) : un magasin créé par root, ouvert en écriture ou contenant un fichier
 illisible par l'API fait désormais échouer la sauvegarde (B4) — corriger par
-`chown -R digisante:digisante` + `chmod 0700` après vérification, jamais en relâchant le
-contrôle.
+`chown -R digisante${SUFFIX}:digisante${SUFFIX}` + `chmod 0700` après vérification, jamais en
+relâchant le contrôle ni en donnant le magasin à l'utilisateur de l'autre environnement.
 
 ## 6. Déploiement continu (GitHub Actions)
 
@@ -226,6 +228,12 @@ Secrets à définir dans **Settings → Secrets and variables → Actions** :
 
 La clé publique correspondante doit être dans `~digisante/.ssh/authorized_keys` (prod ; préprod : `~digisante-preprod/.ssh/authorized_keys`, secrets `PREPROD_VPS_*`),
 et l'utilisateur de l'environnement doit pouvoir lancer `pm2`/`prisma` sans mot de passe.
+
+Le job `deploy` de `ci.yml` et le workflow `preproduction.yml` partagent le groupe de concurrence
+`deploy-ionos-srv1` : un seul build/déploiement DigiSanté à la fois sur l'hôte partagé (4 Go de RAM avec
+ImmiPro, BeninLink, PG, Valkey, Grafana ; deux `pnpm build` simultanés exposaient les voisins à l'OOM killer).
+Effet de bord GitHub : un seul run EN ATTENTE par groupe — un déploiement plus récent mis en file annule un
+run en attente plus ancien (ex. une préproduction lancée à la main), qu'il faut alors relancer.
 
 Deux variables obligatoires : `DEPLOY_ENABLED=true` et `DEPLOY_MAINTENANCE_READY=true`. Cette dernière déclare une maintenance déjà posée/vérifiée, sans la créer automatiquement. Désactiver les deux hors fenêtre autorisée, remettre maintenance à false après la fenêtre. SSH bootstrap exécute le script du **github.sha exact**, jamais la tête mobile. Préproduction : workflow manuel séparé et accès/fingerprint `PREPROD_VPS_*` (utilisateur `digisante-preprod`) sur le **même hôte IONOS** (dérogation 13/10/2026), variables et procédure dans le contrat L10. Aucun déploiement réel attesté par ces fichiers.
 
@@ -275,3 +283,17 @@ Les archives DB ET fichiers sont nécessaires à la restauration. `sudo node $RO
 > par `DIGISANTE_ENV` (obligatoire, sans défaut) ; cohérence vérifiée par `scripts/infra/environments.test.mjs`.
 > B3 + B4 (livrés sur main par #193) obligatoires avant tout déploiement sur l'hôte partagé, installés par environnement. Cas I2 « VPS distinct » non conforme,
 > dérogation à arbitrer en L11.
+>
+> **Résiduels de l'hôte partagé, à arbitrer avec I2 (L11)** — consignés par la revue du 13/10/2026, non corrigés par le code :
+> 1. *Port libre squatté* : tout compte local peut écouter sur 127.0.0.1:3100/3101/3200/3201 quand le processus de
+>    l'environnement est entièrement arrêté (déploiement, crash en boucle, démarrage de l'hôte). Il recevrait alors le
+>    trafic Nginx et, des tâches cron, le jeton de service. Détection actuelle : sonde `pm2` de healthwatch (0/2 en
+>    ligne). Parade possible : vérifier l'uid du socket à l'écoute avant d'envoyer le jeton, ou socket Unix 0750.
+> 2. *Valkey partagé* : les index /5 et /6 séparent les données, PAS l'accès ni le pub/sub. Le canal `chat:events` est
+>    commun aux deux environnements (sans effet fonctionnel : identifiants d'utilisateurs distincts, contenu re-lu en
+>    REST) et un même mot de passe ouvre les deux index. Parade : un utilisateur ACL Valkey par environnement et un
+>    préfixe de clés/canaux par environnement.
+> 3. *Fuseau horaire* : cron n'a pas de fuseau par fichier ; `verify_deploy.sh` exige `Africa/Porto-Novo` pour l'hôte
+>    entier, qui est aussi celui d'ImmiPro/BeninLink. Constater `timedatectl` ; changer ou recaler les horaires est une
+>    décision du porteur.
+> 4. *Zones de limitation Nginx communes* (choix assumé) : une même IP partage ses quotas entre préproduction et production.

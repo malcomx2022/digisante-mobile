@@ -1,26 +1,35 @@
-# Checklist finale de déploiement — DigiSanté Mobile (VPS Infomaniak)
+# Checklist finale de déploiement — DigiSanté Mobile (VPS IONOS partagé)
 
-> Cible : VPS Ubuntu 22.04 LTS. PostgreSQL 16 **natif**, Redis natif, Nginx + SSL Certbot,
-> PM2 (API cluster ×2 + web). **Aucun Docker en prod** (CLAUDE.md §3). Scripts : `infra/deploy/`.
+> Cible (dérogation porteur 13/10/2026) : VPS IONOS **partagé** `srv1.immipro.app` (Ubuntu 26.04,
+> PostgreSQL 18.6 natif, Valkey 6379, Nginx + SSL Certbot), avec ImmiPro et BeninLink. Préproduction et
+> production y cohabitent : PM2 (API cluster ×2 + web) par environnement. **Aucun Docker pour DigiSanté**
+> (CLAUDE.md §3). Procédure détaillée et à jour : `infra/deploy/README.md` (elle prime sur cette liste).
+>
+> 🔒 **`DIGISANTE_ENV` (`preproduction` | `production`) est OBLIGATOIRE** sur chaque commande d'exploitation
+> et pour `ecosystem.config.cjs` : il fixe noms PM2, ports (3100/3101 · 3200/3201), chemins, crontab
+> `/etc/cron.d/digisante[-preprod]` et copie root `/usr/local/lib/digisante[-preprod]`. Dans cette liste,
+> `<env>` = `preproduction` ou `production`, `${SUFFIX}` = `-preprod` ou vide. Root n'exécute JAMAIS un
+> fichier du checkout (B3) : toujours la copie root de l'environnement.
 
 > État au 8 octobre 2026 : L0–L8 code livrés ; L9 technique livré #189/a3f80a1, humain ouvert ; L10 outillage candidat et accès ultérieurs décidés par le porteur. Aucun déploiement ou GO pilote attesté ; recettes réelles et L11 restent ouverts.
 
 ## 0. Pré-requis
-- [ ] Nom de domaine pointant (A) vers l'IP du VPS (`digisante.example.bj` + `www`).
+- [ ] DNS vers l'IP du VPS : `preprod.digisantemobile.app` (préproduction), `digisantemobile.app` + `www` (production).
 - [ ] Accès SSH root/sudo.
-- [ ] Dépôt GitHub privé accessible depuis le VPS.
+- [ ] Dépôt GitHub accessible depuis le miroir root (`/var/lib/digisante${SUFFIX}/ops.git`).
 
-## 1. Provisioning (une fois, root)
-- [ ] `git clone … /var/www/digisante-mobile`
-- [ ] `sudo BASE_DOMAIN=… DB_PASSWORD='…' bash infra/deploy/scripts/provision.sh`
-      → Node 24, pnpm, PM2, **PostgreSQL 16 (PGDG)**, Redis, Nginx, Certbot, UFW, rôle/base, démarrage PM2 au boot.
-- [ ] Fuseau `Africa/Porto-Novo`, `/etc/digisante` (0700), magasin `apps/api/storage/kyc` (0700) et propriété du dépôt : **faits par `provision.sh`** (vérifier `timedatectl`).
+## 1. Provisioning (une fois par environnement, root) — `infra/deploy/README.md` §1
+- [ ] Miroir root + copie root des scripts (B3) : `sudo DIGISANTE_ENV=<env> bash /root/install_root_scripts${SUFFIX}.sh <SHA_COMPLET_QUALIFIE>` → `/usr/local/lib/digisante${SUFFIX}` + `root-scripts.manifest` (`environment=<env>`).
+- [ ] Checkout `/var/www/digisante${SUFFIX}` (données seulement, propriété de `digisante${SUFFIX}`).
+- [ ] `provision.sh` : ⚠️ **à ADAPTER** à l'hôte partagé (Ubuntu 26.04, PG 18.6 et Valkey déjà présents, autres projets en production), **jamais appliqué à l'aveugle** : ne créer que rôle/base `digisante_preprod` / `digisante`, utilisateur `digisante${SUFFIX}`, `/etc/digisante${SUFFIX}`, journaux, sauvegardes, magasin `apps/api/storage/kyc` (0700) et PM2 de l'utilisateur.
+- [ ] Fuseau : `timedatectl` de l'hôte partagé à constater ; tout changement est une décision porteur (dérogation I2, L11) — il affecte aussi ImmiPro/BeninLink.
 
 ## 2. Secrets (jamais commités — cf. `docs/SECRETS_Production.md`)
 - [ ] `apps/api/.env` rempli (DATABASE_URL, REDIS_URL, JWT_SECRET ≥32, **HEALTH_ENCRYPTION_KEY**, RECONCILE_TOKEN, FedaPay, Twilio, Resend, Daily, Firebase, `NODE_ENV=production`).
 - [ ] `apps/web/.env.production` : `NEXT_PUBLIC_API_URL=https://…` + `NEXT_PUBLIC_SOS_NUMBER`.
-- [ ] `/etc/digisante/backup.key` (AES-256) — **sauvegardé hors VPS**.
-- [ ] `/etc/digisante/reconcile.token` (root, 0400) = **source unique** du jeton des tâches internes ; même valeur dans `RECONCILE_TOKEN` du `.env`.
+- [ ] `/etc/digisante${SUFFIX}/backup.key` (AES-256) — **sauvegardé hors VPS**, distinct par environnement.
+- [ ] `/etc/digisante${SUFFIX}/reconcile.token` (root, 0400) = **source unique** du jeton des tâches internes ; même valeur dans `RECONCILE_TOKEN` du `.env` de l'environnement.
+- [ ] `API_PORT`/`API_HOST` du `.env` sans effet : `ecosystem.config.cjs` impose le port de l'environnement et `127.0.0.1`.
 - [ ] `apps/api/.env` en **0600** (`deploy.sh` refuse de déployer sans `.env` et corrige les permissions).
 
 ## 3. Premier déploiement
@@ -30,38 +39,42 @@
 - [ ] L3 : sauvegarde, arrêt des anciens workers et migration `20261006164320_mutation_receipts` avant démarrage homogène ; renouveler les clients/SW, valider rejeu et cron `/sync/receipts/prune` à 03:10. Aucun backfill/rejeu des anciennes files ambiguës, aucun rollback vers un serveur ignorant les clés ; contrat et reprise dans LOT_L3.
 - [ ] L4 : déployer API/client/SW v3 homogènes, fermer les anciens onglets ; tester upgrade IndexedDB v3→v4, erreur quota/blocked et tickets GET. Migrer chaque compte ou effacer volontairement après vérification des effets ; aucun appareil partagé/pilote avec héritage en clair. Vérifier cache public sans API/RSC/jetons, API Cache-Control et fetch no-store, vider les anciens caches HTTP navigateur avant partage ; reload sans réseau puis phrase, lock/TTL/purge. Contrat/limites dans LOT_L4 et CONTRAT_Hors_Ligne_L4 ; rollback client v3 incompatible, privilégier correction en avant.
 - [ ] Revue administrative explicite de chaque structure : responsable + autorisation, identité figée et toutes les pièces vérifiées. Tester non-vérifié/refusé/suspendu, concurrence d'attribution et lecture patient/médecin. Pas de retour au guard sans badge ni réattribution automatique.
-- [ ] Maintenance vérifiée puis `sudo -u digisante DEPLOY_REF=<SHA_COMPLET_QUALIFIE> DEPLOY_ENVIRONMENT=production DEPLOY_MAINTENANCE_READY=1 bash infra/deploy/scripts/deploy.sh`
-      → arrêt anciens workers → SHA exact → install gelé → prisma generate → **build avant migrate deploy** → démarrage homogène/readiness ; échec tracé, maintenance conservée.
-- [ ] `pm2 status` : `digisante-api` (×2, online) + `digisante-web` (online).
+- [ ] Maintenance vérifiée puis, depuis `/var/www/digisante${SUFFIX}` : `sudo -u digisante${SUFFIX} DEPLOY_REF=<SHA_COMPLET_QUALIFIE> DEPLOY_ENVIRONMENT=<env> DEPLOY_MAINTENANCE_READY=1 bash infra/deploy/scripts/deploy.sh`
+      → arrêt des anciens workers **de cet environnement** → SHA exact → install gelé → prisma generate → **build avant migrate deploy** → démarrage homogène/readiness 127.0.0.1:3101|3201 ; échec tracé, maintenance conservée.
+- [ ] `sudo -u digisante${SUFFIX} pm2 status` : `digisante${SUFFIX}-api` (×2, online) + `digisante${SUFFIX}-web` (online).
+- [ ] Après tout changement de `infra/deploy/root-scripts.list` : `sudo DIGISANTE_ENV=<env> /usr/local/lib/digisante${SUFFIX}/infra/deploy/scripts/install_root_scripts.sh <SHA_DEPLOYE>` (README §3 bis).
 
 ## 4. Nginx + SSL + rate-limit
-- [ ] `sudo cp infra/deploy/nginx/rate-limit.conf /etc/nginx/conf.d/digisante-rate-limit.conf`
-- [ ] `sudo cp infra/deploy/nginx/digisante.conf /etc/nginx/sites-available/digisante && ln -sf … sites-enabled/`
-- [ ] Remplacer `digisante.example.bj` par le domaine réel.
-- [ ] `sudo rm -f /etc/nginx/sites-enabled/default && sudo nginx -t && sudo systemctl reload nginx`
-- [ ] `sudo certbot --nginx -d digisante.example.bj -d www.digisante.example.bj` (redirection 80→443 auto).
+- [ ] Depuis la copie root (B3, jamais le checkout) : `R=/usr/local/lib/digisante${SUFFIX}/infra/deploy/nginx`
+- [ ] Une fois pour l'hôte : `sudo install -m 0644 "$R/rate-limit.conf" /etc/nginx/conf.d/digisante-rate-limit.conf` (noms préfixés `digisante_`, aucune directive globale).
+- [ ] Vhost dédié : `sudo install -m 0644 "$R/digisante${SUFFIX}.conf" /etc/nginx/sites-available/digisante${SUFFIX} && sudo ln -sf /etc/nginx/sites-available/digisante${SUFFIX} /etc/nginx/sites-enabled/` — domaine, ports et journaux déjà fixés, aucune édition à la main.
+- [ ] `sudo nginx -t && sudo systemctl reload nginx` — **ne pas** supprimer le site `default` ni toucher aux vhosts ImmiPro/BeninLink.
+- [ ] `sudo certbot --nginx -d preprod.digisantemobile.app` (production : `-d digisantemobile.app -d www.digisantemobile.app`).
 
 ## 5. Crons
-- [ ] **Aucun secret dans la crontab** : les tâches passent par `internal_job.sh`, qui lit `/etc/digisante/reconcile.token` et journalise `ÉCHEC` (code 1) si le jeton manque ou si l'API répond ≠ 2xx.
-- [ ] `sudo crontab infra/deploy/crontab.example` → rappels **traitements** (5 min), **RDV** (15 min), **vaccination PEV** (06:30), **CPN maternité** (06:40), **dispatch** des notifications (2 min), **pg_dump + fichiers chiffrés 02:00**, réconciliation FedaPay 02:30, renouvellement SSL.
-- [ ] `sudo crontab -l` pour vérifier.
-- [ ] Vérifier que les générateurs + le dispatch répondent 200 (sans exposer le jeton) :
-      `for p in reminders appointments/reminders vaccinations/reminders maternity/reminders; do sudo infra/deploy/scripts/internal_job.sh /api/v1/$p/generate; done; sudo infra/deploy/scripts/internal_job.sh /api/v1/notifications/dispatch` → lignes `OK (HTTP 200)`
+- [ ] **Aucun secret dans la crontab** : les tâches passent par `internal_job.sh`, qui lit `/etc/digisante${SUFFIX}/reconcile.token` et journalise `ÉCHEC` (code 1) si le jeton manque ou si l'API répond ≠ 2xx.
+- [ ] Fichier **`/etc/cron.d`** de l'environnement (JAMAIS `crontab <fichier>`, qui remplacerait la crontab root d'ImmiPro/BeninLink ; chargé ainsi, le 6ᵉ champ `root` ferait échouer chaque tâche) :
+      `sudo install -o root -g root -m 0644 /usr/local/lib/digisante${SUFFIX}/infra/deploy/crontab.preproduction.example /etc/cron.d/digisante-preprod` (production : `crontab.example` → `/etc/cron.d/digisante`)
+      → rappels **traitements** (5 min), **RDV** (15 min), **vaccination PEV** (06:30), **CPN maternité** (06:40), **dispatch** (2 min), **pg_dump + fichiers chiffrés** (production 02:00, préproduction 01:30), réconciliation FedaPay 02:30, renouvellement SSL.
+- [ ] `sudo grep -E '^DIGISANTE_ENV=' /etc/cron.d/digisante${SUFFIX}` et `sudo crontab -l` sans aucune ligne DigiSanté.
+- [ ] Vérifier que les générateurs + le dispatch répondent 200 (sans exposer le jeton ; préproduction synthétique uniquement — en production, observer les journaux cron) :
+      `J=/usr/local/lib/digisante-preprod/infra/deploy/scripts/internal_job.sh; for p in reminders appointments/reminders vaccinations/reminders maternity/reminders; do sudo DIGISANTE_ENV=preproduction $J /api/v1/$p/generate; done; sudo DIGISANTE_ENV=preproduction $J /api/v1/notifications/dispatch` → lignes `OK (HTTP 200)`
       ⚠️ Les générateurs **vaccination** et **CPN** n'étaient PAS planifiés avant août 2026 : sans eux, aucun rappel de vaccination ni de consultation prénatale n'est émis — en silence.
 
 ## 6. Déploiement continu (GitHub Actions)
 - [ ] Secrets repo : `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `VPS_FINGERPRINT` (empreinte d’hôte, obligatoire) (+ `VPS_SSH_PORT`).
 - [ ] **Variables** `DEPLOY_ENABLED=true` ET `DEPLOY_MAINTENANCE_READY=true`, seulement dans une fenêtre autorisée/maintenance Nginx vérifiée ; désactiver hors fenêtre.
-- [ ] Clé publique dans `~digisante/.ssh/authorized_keys`.
+- [ ] Clé publique dans `~digisante/.ssh/authorized_keys` (préproduction : `~digisante-preprod`, secrets `PREPROD_VPS_*`).
+- [ ] Les deux workflows de déploiement partagent le groupe de concurrence `deploy-ionos-srv1` : un seul build/déploiement DigiSanté à la fois sur l'hôte.
 - [ ] Push sur `main` → CI (`build-and-test` **et** `e2e`) → `deploy` SSH (`deploy.sh`) si l'opt-in est actif. La PR L0 ne déploie pas.
 
 ## 7. Vérifications post-déploiement
-- [ ] `curl https://digisante.example.bj/api/v1/health` → `{ "status": "ok" }`
-- [ ] `curl https://digisante.example.bj/api/v1/ready` → `db: up, redis: up`
+- [ ] `sudo DIGISANTE_ENV=<env> DOMAIN=<domaine> /usr/local/lib/digisante${SUFFIX}/infra/deploy/scripts/verify_deploy.sh` → PASS (PM2, migrations, TLS, health/ready, WS, cron.d, copie root).
+- [ ] `curl https://<domaine>/api/v1/health` → `{ "status": "ok" }` ; `/api/v1/ready` → `db: up, redis: up`
 - [ ] PWA installable, `/onboarding` accessible ; SOS testé **avec réseau**, preuve d'envoi au contact/numéro de secours. Hors réseau : repli vers les numéros d'urgence validés, aucune promesse de SMS transmis sans connexion.
 - [ ] Webhook FedaPay : URL `https://…/api/v1/payments/webhook` configurée côté FedaPay (HMAC).
-- [ ] Sauvegarde : lancer `pg_dump_encrypted.sh` une fois et vérifier que **DEUX** fichiers
-      apparaissent dans `/var/backups/digisante/` :
+- [ ] Sauvegarde : lancer `sudo DIGISANTE_ENV=<env> /usr/local/lib/digisante${SUFFIX}/infra/deploy/scripts/pg_dump_encrypted.sh` une fois et vérifier que **DEUX** fichiers
+      apparaissent dans `/var/backups/digisante${SUFFIX}/` :
       `digisante_<stamp>.sql.gz.enc` (base) **et** `digisante_files_<stamp>.tar.gz.enc` (magasin de fichiers).
 - [ ] ⚠️ Si le script journalise « magasin de fichiers introuvable », **corriger `KYC_STORAGE_DIR`**
       dans `apps/api/.env` avant toute mise en service. Ce répertoire contient les pièces KYC **et,

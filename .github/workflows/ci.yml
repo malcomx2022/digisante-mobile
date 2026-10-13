@@ -130,8 +130,11 @@ jobs:
       && vars.DEPLOY_ENABLED == 'true'
       && vars.DEPLOY_MAINTENANCE_READY == 'true'
     runs-on: ubuntu-latest
+    # Groupe PARTAGÉ avec preproduction.yml : préproduction et production vivent sur le même
+    # VPS IONOS (4 Go de RAM, avec ImmiPro, BeninLink, PG, Valkey, Grafana) ; deux
+    # `pnpm build` simultanés exposeraient les applications voisines à l'OOM killer.
     concurrency:
-      group: deploy-production
+      group: deploy-ionos-srv1
       cancel-in-progress: false
     steps:
       # Même garde que la préproduction L10 : sans empreinte, ssh-action ne vérifie

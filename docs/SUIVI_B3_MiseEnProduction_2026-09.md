@@ -56,12 +56,12 @@ les lots récents. **Aucune dérive trouvée** — tout est prêt à exécuter :
       dans `RECONCILE_TOKEN` du `.env` ; `apps/api/.env` en 0600.
 
 ### Phase 3 — Premier déploiement + Nginx/SSL
-- [ ] `sudo -u digisante bash infra/deploy/scripts/deploy.sh` → `pm2 status` : api ×2 + web online.
-- [ ] Confs Nginx copiées, domaine substitué, `nginx -t`, Certbot (`-d domaine -d www`).
+- [ ] `sudo -u digisante${SUFFIX} DEPLOY_REF=<SHA> DEPLOY_ENVIRONMENT=<env> DEPLOY_MAINTENANCE_READY=1 bash infra/deploy/scripts/deploy.sh` → `pm2 status` : `digisante${SUFFIX}-api` ×2 + `digisante${SUFFIX}-web` online (hôte IONOS partagé, 13/10/2026 : `DIGISANTE_ENV` obligatoire, cf. `infra/deploy/README.md`).
+- [ ] Vhost dédié de l'environnement installé depuis la copie root (`nginx/digisante${SUFFIX}.conf`, domaine et ports déjà fixés), `nginx -t`, Certbot.
 
 ### Phase 4 — Crons
-- [ ] `sudo crontab infra/deploy/crontab.example` (aucun secret dedans : `internal_job.sh` lit
-      `/etc/digisante/reconcile.token` et journalise `ÉCHEC` si absent ou ≠ 2xx).
+- [ ] Fichier `/etc/cron.d/digisante${SUFFIX}` installé depuis la copie root (`sudo install -o root -g root -m 0644 …`), **jamais** `crontab <fichier>` sur l'hôte partagé (aucun secret dedans : `internal_job.sh` lit
+      `/etc/digisante${SUFFIX}/reconcile.token` et journalise `ÉCHEC` si absent ou ≠ 2xx).
 - [ ] Les 5 tâches répondent 200 (vérifié par `verify_deploy.sh`, phase 6).
 
 ### Phase 5 — Armement du déploiement continu
