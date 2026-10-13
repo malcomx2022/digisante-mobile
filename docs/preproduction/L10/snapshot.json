@@ -1,20 +1,21 @@
 {
   "schemaVersion": 1,
-  "sourceSnapshotSha256": "d3aa93d6b1d1d06dd06c861e9290f810902d8ab76d57d26e2bd638bb18c4c1e5",
+  "sourceSnapshotSha256": "07a222b5ba1f3cba1c8f888445415f96243143c15b147513644599e0ce0ed1fe",
   "sources": {
     ".github/workflows/ci.yml": "9c0852a2b7d827e351b4d5bd6c192818d59fb8a3a3383c3fa7ca9bba34388e20",
     ".github/workflows/preproduction.yml": "f0b2025bd82c8e367288645b80669109ad81fe7e62d893abafcef4ad9b28af31",
     "apps/api/src/services/daily.smoke.test.ts": "bc31b9d526b21e6de80f3020eeb82ef3303ea3789bf350908096800edc041b35",
+    "apps/api/src/services/fedapay-s8.smoke.test.ts": "b52fe6b1380441c255da19b64ed5297b07b76e07e9215625f861969b6ffb510f",
     "apps/api/src/services/fedapay.smoke.test.ts": "28049ec8af72b636dc0c4f3036a5748e8be592156b0717af94ad51ce50ff7874",
     "apps/api/src/services/firebase.smoke.test.ts": "24ba1ce404ffb159a8c4fd33dfe4fb43a2d29aee729857fcd3d17b716fa62db4",
     "apps/api/src/services/resend.smoke.test.ts": "c5987e5ed72e64a468e05d9cf1b72bed7d82c177e05cf86d0077474a296accd1",
     "apps/api/src/services/twilio.smoke.test.ts": "3a9b5e95ea72d145d6f798436ebfce672cbb48f9899a63a9639a5cf85bbd29b9",
     "apps/api/vitest.smoke.config.ts": "bde25a6e35a520dd45ed945f544c9f77c79f867cfbe669e359d59b49fa6196c8",
     "apps/api/vitest.smoke.setup.ts": "c9d496b7f7261735ef27db198892d339d4b0a7a7580b76784c1eb764142a7d5f",
-    "docs/CONTRAT_Preproduction_L10.md": "9b3c4f0392a03b683d63164fd1fd8715a2e71b4ad6ab2513170404a111f018c6",
+    "docs/CONTRAT_Preproduction_L10.md": "7a42b5a0ea640dfa87cb61d4b3c90228fd62a86d7b3e93391492ee295eb29b87",
     "docs/RECETTE_Abonnements_L6.md": "c22fb2d31b8068cbfbe3b31b1930e0e15b47d1da17c058ed0ad1fee85fea9b73",
     "docs/RECETTE_Daily_Teleconsultation.md": "7d5a39df8ac395b8870cd5afeb23688faf5b4388904fe1cbf734c6cf0065b1a4",
-    "docs/RECETTE_FedaPay_Sandbox.md": "b65ce51ef062cc98824a7ec6a06bbaeb182a79408246e6cf33f4bbd5e30eb2a5",
+    "docs/RECETTE_FedaPay_Sandbox.md": "4fe2cda35b2a590dab788b35ac2731907959d3654dd2b0af4585364ad46e6953",
     "docs/RECETTE_Finances_L7.md": "64fa7fad7c036134fe9428b23db02f9923d64e87c9b83cbf2beedd9bc77414a3",
     "docs/RECETTE_Firebase_Push.md": "f0954e4167284cb6ed9ea802a5abde583b145bbefeee4e42f4d96535ed23c20f",
     "docs/RECETTE_Resend_Email.md": "60bd43c96b5b69e0ebcabd0f5826e7f00d23d36fe36991f07cf6088a2f5f1a44",
@@ -44,10 +45,12 @@
     "package.json": "794f5e7c2e92072ef19dd261fb1338348f9908421f954e6abb8553201a94bf0d",
     "scripts/preproduction/check-backup.mjs": "3e0c6a0f7ff4d410baa015fd02d0ba934ba6c0f34f1e04dcb96c7478d56c7901",
     "scripts/preproduction/check-l10-gate.mjs": "2462aed14459f21d20011067064df07199dda54b0e77cc8b0c500cbd33927b44",
+    "scripts/preproduction/fedapay-s8.d.mts": "6fc6bc97ff7a03d053ae02fe873e561d2e33fabf38842b5337447cab82e6a441",
+    "scripts/preproduction/fedapay-s8.mjs": "9dcf93990e68896fbc15a8f4629044721655abf6646cd4d9f432486300e53ad2",
     "scripts/preproduction/filestore-dir.mjs": "bef0204175f6833c4eccaf4f1ab527fa8693150790f4fd45adde471703c35de5",
-    "scripts/preproduction/prepare-l10.mjs": "b90e67b3517f4680121e832a91136d499a898d2819a777177b8e3b5ed3f6bce7",
+    "scripts/preproduction/prepare-l10.mjs": "daa2cddb5a8f49114324a1f45438282fcf3465ce8a54a5625027cc703137bc54",
     "scripts/preproduction/smoke-guard.d.mts": "bfd4ce62b74819ffebb32b1066493f0f2c5492d5cd2c9fdc334471e9fcf36438",
-    "scripts/preproduction/smoke-guard.mjs": "546976410d0869523a360a886288660356da48ee961382716e98cef0fbd937df",
+    "scripts/preproduction/smoke-guard.mjs": "0b6fbb836319f3e950ab9eb7d97ac29aac67da2e6f1e3c24d4da2cbeb955a7f0",
     "scripts/preproduction/verify-candidate.mjs": "c9259087eb12f7be10c5e4041550f43614f0fb21829ed39c61c9882c7ab69939"
   },
   "cases": [
@@ -150,7 +153,7 @@
     {
       "id": "FEDAPAY-S8",
       "recipe": "RECETTE_FedaPay_Sandbox.md",
-      "scenario": "Hôte exact de `token.url` en bac à sable (B1) | pendant S1 (ou `POST /v1/transactions/{id}/token` avec la clé `sk_sandbox_…`), noter le seul **hôte** du lien et la forme du chemin | `sandbox-process.fedapay.com` (ou `sandbox-checkout.fedapay.com`) → redirection effective. Autre hôte → l’API répond 502 : **ne pas élargir** ; consigner l’hôte, revue §5 puis ajout de l’hôte exact seulement |  | ☐",
+      "scenario": "Hôte exact de `token.url` en bac à sable (B1) | **avant S1** : sonde `SMOKE_FEDAPAY_S8=1` (§ « S8 — mode opératoire » ci-dessous) — une transaction bac à sable de 100 XOF jamais payée, seuls l’**hôte** et la forme du chemin sont affichés ; puis S1 pour la redirection effective | verdict `HOTE_AUTORISE` (`sandbox-process.fedapay.com` ou `sandbox-checkout.fedapay.com`) puis redirection effective en S1. Tout autre code = FAIL (S1 répondrait 502) : **ne pas élargir** ; consigner l’hôte, revue §5 puis ajout de l’hôte exact seulement |  | ☐",
       "conditional": false
     },
     {

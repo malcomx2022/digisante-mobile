@@ -104,8 +104,91 @@ Trois relevés bloquants (S8–S10) complètent S1 et S7 ; sans eux, B1/B2 reste
 
 | # | Relevé | Méthode | Attendu / décision | Constaté | OK |
 |---|---|---|---|---|---|
-| S8 | Hôte exact de `token.url` en bac à sable (B1) | pendant S1 (ou `POST /v1/transactions/{id}/token` avec la clé `sk_sandbox_…`), noter le seul **hôte** du lien et la forme du chemin | `sandbox-process.fedapay.com` (ou `sandbox-checkout.fedapay.com`) → redirection effective. Autre hôte → l’API répond 502 : **ne pas élargir** ; consigner l’hôte, revue §5 puis ajout de l’hôte exact seulement | | ☐ |
+| S8 | Hôte exact de `token.url` en bac à sable (B1) | **avant S1** : sonde `SMOKE_FEDAPAY_S8=1` (§ « S8 — mode opératoire » ci-dessous) — une transaction bac à sable de 100 XOF jamais payée, seuls l’**hôte** et la forme du chemin sont affichés ; puis S1 pour la redirection effective | verdict `HOTE_AUTORISE` (`sandbox-process.fedapay.com` ou `sandbox-checkout.fedapay.com`) puis redirection effective en S1. Tout autre code = FAIL (S1 répondrait 502) : **ne pas élargir** ; consigner l’hôte, revue §5 puis ajout de l’hôte exact seulement | | ☐ |
 | S9 | Forme réelle d’une livraison webhook (B2) | journal de livraison du tableau de bord FedaPay pour `transaction.approved`, puis `transaction.declined`/`canceled` (le corps n’est jamais journalisé côté API) | transaction dans `entity` (objet), `entity.id` = id FedaPay stocké, `entity.status` textuel ; noter la présence/le type d’un `id` racine et de `name`. Réponse 200 `processed` puis `idempotent` au rejeu ; un `customer.*` → 200 `ignored` | | ☐ |
 | S10 | Transaction refusée puis approuvée (B2) | refuser un paiement test puis réessayer sur le même lien si FedaPay le permet | consigner si le même `entity.id` passe `declined` → `approved` : FAILED/CANCELLED étant terminaux ici, une approbation tardive est ignorée — arbitrage porteur requis avant GO | | ☐ |
 
 Le live (`process.fedapay.com`) n’est attesté que par des fixtures simulées des SDK : confirmer l’hôte au premier paiement réel encadré (prompt 11) ou par écrit auprès du support FedaPay.
+
+## S8 — mode opératoire (hôte du lien de paiement, B1)
+
+**Pourquoi une sonde.** Pendant S1, l’API ne transmet le lien que si son hôte figure dans la liste blanche
+(`FEDAPAY_CHECKOUT_HOSTS`, contrôle `isFedapayCheckoutUrl` lié à l’environnement de la clé). Sinon elle répond
+**502 sans afficher l’hôte** : S1 seul ne peut pas dire *quel* hôte FedaPay a renvoyé. La sonde S8 révèle cet
+hôte **avant** S1, sans toucher à la logique de paiement (§5 : `createTransaction` et la liste blanche restent
+inchangés).
+
+**Ce que fait la sonde** (`scripts/preproduction/fedapay-s8.mjs`, lancée par `apps/api/src/services/fedapay-s8.smoke.test.ts`) :
+- refuse **avant tout réseau** une clé live, inconnue ou incomplète, une intégration désactivée, et toute exécution
+  hors des gardes L10 (`NODE_ENV=production`, préproduction déclarée, SHA exact, base `*_preprod`, index Redis, un
+  seul opt-in) ; recontrôle la clé avant chaque appel ;
+- crée **une** transaction bac à sable de **100 XOF** (`merchant_reference` = `ds-recette-s8-<horodatage>-<4 hex>`,
+  aucune donnée de client), demande son lien (`POST /transactions/{id}/token`), puis s’arrête : deux requêtes vers
+  `https://sandbox-api.fedapay.com/v1` uniquement, sans redirection, 15 s au plus chacune ;
+- juge le lien avec le **contrôle de production** et n’affiche que l’hôte, la forme du chemin (longueur et classes de
+  caractères), le nombre de paramètres de requête, les codes HTTP, les noms de champs et l’identifiant masqué
+  (4 derniers caractères).
+
+**Ce qu’elle ne fait jamais** : payer, ouvrir le lien, écrire un `Payment` ou une ligne d’audit locale, appeler
+l’API live, afficher le lien complet, le jeton, la clé ou l’identifiant entier.
+
+### Pré-requis
+- Candidate qualifiée déployée sur la préproduction isolée (`CONTRAT_Preproduction_L10.md` §3), SHA complet connu.
+- Intégration **FEDAPAY** saisie et activée dans `/admin/integrations` : `secretKey` `sk_sandbox_…`,
+  `publicKey` `pk_sandbox_…`, `webhookSecret`.
+- Préflight `SMOKE_FEDAPAY=1` (§4) vert **juste avant**, sur le même SHA.
+- Opérateur nommé, accès au tableau de bord **sandbox** FedaPay pour retrouver la transaction de recette.
+
+### Commande (sur la cible, une seule exécution suffit)
+```bash
+cd /var/www/digisante-preprod/apps/api
+# Même mode que le préflight : secrets lus depuis le .env privé, métadonnées publiques ci-dessous.
+NODE_ENV=production SMOKE_ENVIRONMENT=preproduction \
+SMOKE_EXPECTED_SHA=<SHA_COMPLET_QUALIFIE> SMOKE_DATABASE_NAME=digisante_preprod \
+SMOKE_REDIS_DB=5 SMOKE_FEDAPAY_S8=1 \
+node --env-file=.env node_modules/vitest/vitest.mjs run --config vitest.smoke.config.ts
+```
+`SMOKE_FEDAPAY_S8=1` est **exclusif** : retirer `SMOKE_FEDAPAY` et tout autre opt-in hérité (la garde refuse deux
+fournisseurs dans la même commande). Ne pas relancer en boucle : chaque exécution crée une transaction de plus.
+
+### Lecture du résultat
+Exemple de sortie conforme (valeurs synthétiques) :
+```text
+[s8:fedapay] verdict=PASS · code=HOTE_AUTORISE · référence=ds-recette-s8-20261013090000-ab12 · transaction=••••8301
+[s8:fedapay] création HTTP 200 (…) · lien HTTP 200 (champs : token,url)
+[s8:fedapay] lien https://sandbox-process.fedapay.com chemin /<64 car. a-z,A-Z,0-9> · identifiants=non · paramètres de requête=0 · fragment=non
+[s8:fedapay] décision : PASS : hôte autorisé pour la clé bac à sable. Poursuivre S1 (redirection effective dans le navigateur) ; consigner l’hôte observé.
+```
+Le test échoue (code de sortie ≠ 0) pour tout verdict autre que `PASS`. Décision par code :
+
+| Code | Décision |
+|---|---|
+| `HOTE_AUTORISE` | PASS : hôte autorisé pour la clé bac à sable. Poursuivre S1 (redirection effective dans le navigateur) ; consigner l’hôte observé. |
+| `HOTE_LIVE` | FAIL : une clé bac à sable renvoie un hôte LIVE. Arrêter la recette FedaPay, ne rien élargir, signaler au porteur et à FedaPay. |
+| `HOTE_NON_LISTE` | FAIL : hôte absent de la liste blanche (S1 répondrait 502). Ne pas élargir ; consigner l’hôte exact, revue §5 puis ajout de CET hôte seul, avec tests. |
+| `FORME_REFUSEE` | FAIL : hôte listé mais lien refusé par le contrôle de production (schéma, port, identifiants ou caractères). Consigner la forme, revue §5 avant toute modification. |
+| `URL_INVALIDE` | FAIL : réponse sans lien exploitable. Consigner les champs reçus et les codes HTTP ; ne pas poursuivre S1. |
+| `CREATION_HTTP` | FAIL : création de transaction refusée par l’API bac à sable. Vérifier la clé, le compte sandbox et le montant ; aucun lien obtenu. |
+| `ID_INVALIDE` | FAIL : transaction créée sans identifiant valide. Consigner les champs de la réponse ; aucun lien demandé. |
+| `TOKEN_HTTP` | FAIL : génération du lien refusée par l’API bac à sable. Consigner le code HTTP et l’identifiant masqué. |
+
+Un FAIL `HOTE_NON_LISTE` ou `FORME_REFUSEE` **bloque S1, S2, S6 et S7** (ils passent par le lien) : aucun
+élargissement par joker ou suffixe. Correctif éventuel = PR dédiée (§5) ajoutant l’hôte **exact** constaté à
+`FEDAPAY_CHECKOUT_HOSTS.sandbox`, tests du contrôle et re-tests webhooks, nouvelle qualification, puis S8 rejoué.
+
+### Après la sonde
+1. **S1** : lancer la recharge ; la page FedaPay doit s’ouvrir sur **le même hôte** que celui relevé par la sonde
+   (barre d’adresse : ne noter que l’hôte). C’est la preuve de « redirection effective ».
+2. **Transaction de recette** : la retrouver dans le tableau de bord sandbox par sa `merchant_reference` ; **ne pas
+   la payer** (aucun `Payment` local ne lui correspond). La laisser sans suite ou l’annuler depuis le tableau de
+   bord si FedaPay le permet.
+3. **Décision porteur** : l’hôte observé éclaire le maintien ou non de l’autre hôte bac à sable de la liste ; aucun
+   retrait automatique. L’hôte **live** reste à confirmer au premier paiement réel encadré (prompt 11).
+
+### Preuve à consigner
+- **Note privée** (hors dépôt) : date et heure UTC, SHA de la candidate, opérateur, référence `ds-recette-s8-…`,
+  transaction masquée, lignes `[s8:fedapay]` complètes, hôte vu en S1.
+- **Registre** `docs/preproduction/L10/evidence.json` : enregistrement `caseId: "FEDAPAY-S8"`, `result` `PASS` ou
+  `FAIL`, SHA et empreinte de l’instantané courants, `evidenceRef` = référence opaque de la note privée.
+- **Jamais** : lien complet, jeton, capture de la barre d’adresse entière, clé, identifiant complet de transaction.
+

@@ -1,6 +1,8 @@
 // Garde avant connexion : déclaration d'isolation + version, pas preuve d'accès cible.
 export const SMOKE_PROVIDERS = [
   { flag: 'SMOKE_FEDAPAY', file: 'fedapay' },
+  // Recette S8 (B1) : crée UNE transaction bac à sable non payée — opt-in distinct du préflight GET.
+  { flag: 'SMOKE_FEDAPAY_S8', file: 'fedapay-s8' },
   { flag: 'SMOKE_TWILIO', file: 'twilio' },
   { flag: 'SMOKE_DAILY', file: 'daily' },
   { flag: 'SMOKE_FCM', file: 'firebase' },
