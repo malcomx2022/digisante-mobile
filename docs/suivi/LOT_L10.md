@@ -86,11 +86,13 @@ distante ; E2E par la CI `main`. Aucune preuve enregistrée : `evidence.json` re
 |---|---|---|---|---|
 | `c2b5cb6b466a442925217e1915cb7b460d0855f7` | `main` après #194 | run 38420588731 : `build-and-test` + `e2e` réussis | `lint`, `typecheck`, `test` (633 API + 126 web), `build` verts ; `test:scripts` 93/94 dans un répertoire de travail sous un parent 0700 (le test « installateur refusé hors root » lance le script sous `nobody`, qui ne traverse pas ce parent : environnement, pas code), 94/94 au même SHA depuis un worktree traversable ; `preprod:prepare` sans écart, `preprod:check` 100 cas (source `b85b4937…`), `metrics:check`, `validation:check`, validations DOCX, `bash -n` verts | `preprod:gate` code 1 : 101 points ouverts ; `validation:gate` code 1 : 15 points ouverts |
 | `c9b719182fbf080201d5f167507c02e626cc7bdf` | `main` après #195, #196, #197 | run 38429757097 : `build-and-test` + `e2e` réussis | `lint`, `typecheck`, `test` (634 API + 126 web), `build` verts ; `test:scripts` 113/113 ; `preprod:prepare` sans écart, `preprod:check` 100 cas (source `9f8b5b41…`), `metrics:check`, `validation:check`, i18n EN, validations DOCX, `bash -n` verts | `preprod:gate --expected-sha c9b7191…` code 1 : 101 points ouverts ; `validation:gate` code 1 : 15 points ouverts |
+| `ffa4372bdbe6d5d8650b752b171a6e9122b82b8d` | `main` après #198 | run 38431250603 : `build-and-test` + `e2e` réussis | `lint`, `typecheck`, `test` (634 API + 126 web), `build` verts ; `test:scripts` 118/118 ; `preprod:prepare` sans écart, `preprod:check` 100 cas (source `d3aa93d6…`), `metrics:check`, `validation:check`, i18n EN, validations DOCX, `bash -n` verts | `preprod:gate --expected-sha ffa4372…` code 1 : 101 points ouverts ; `validation:gate` code 1 : 15 points ouverts |
 
 - `c2b5cb6` est **invalidée** par #195 (instantané L10 modifié : `ecosystem`, scripts, crontabs, workflows).
-- `c9b7191` est la candidate qualifiée à ce jour. #198 (B3, requêtes des tâches sous compte sans droits) modifie à
-  nouveau les sources de l'instantané : sa fusion l'invalidera et imposera `preprod:prepare` + requalification du
-  nouveau SHA `main`. Les commits de documentation hors instantané (dont celui-ci) ne changent pas l'empreinte.
+- `c9b7191` est **invalidée** par #198 (B3 : scripts, crontabs et instantané L10 modifiés).
+- **`ffa4372` est la candidate qualifiée à ce jour.** Les commits de documentation hors instantané (dont celui-ci)
+  ne changent pas l'empreinte ; toute modification de code, configuration ou recette impose `preprod:prepare` et
+  une nouvelle requalification du SHA `main` obtenu.
 - État B1–B5 et tests rouges sur l'ancien code : `docs/REVUE_Independante_L0-L10_2026-10.md` §8.
 - **Non prouvé** : aucun déploiement, aucune écriture sur le VPS, aucune variable GitHub activée, aucun appel
   fournisseur réel (S8–S10 FedaPay, D19–D21 Daily ouverts), aucune installation sur l'hôte IONOS. Gates
