@@ -14,8 +14,9 @@
 # DIGISANTE_ENV (obligatoire) fixe l'API visée : 127.0.0.1:3101 (préproduction) ou
 # 127.0.0.1:3201 (production), jamais un port d'un autre service de l'hôte partagé.
 # Lancé par cron en root depuis la copie INSTALLÉE root:root (/usr/local/lib/digisante[-preprod],
-# install_root_scripts.sh — B3), jamais depuis APP_DIR. La réponse de l'API n'est
-# recopiée au journal root que bornée et sans caractères de contrôle.
+# install_root_scripts.sh — B3), jamais depuis APP_DIR. La requête (curl) et la lecture de
+# la réponse tournent sous le compte sans droits ${JOBS_USER}, jamais en root (B3) ; root
+# n'en recopie au journal qu'un extrait borné sans caractères de contrôle.
 # ─────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -41,7 +42,8 @@ trusted_path() {
 # l'hôte IONOS partagé, où 3000 (ImmiPro) et 3001 (Grafana) sont déjà pris. Il FIXE les
 # noms PM2, les ports (mêmes valeurs que ecosystem.config.cjs, test de cohérence) et l'URL
 # locale de l'API : un jeton de service ne part que vers l'API de CET environnement. Il
-# donne aussi les chemins PAR DÉFAUT (utilisateur, checkout, journaux, copie root,
+# donne aussi les chemins PAR DÉFAUT (utilisateur, compte sans droits des tâches, checkout,
+# journaux, copie root,
 # configuration, état, sauvegardes, base, crontab, journal WebSocket) ; une valeur déjà
 # posée par l'opérateur prime pour ces chemins.
 digisante_profile() {
@@ -52,12 +54,41 @@ digisante_profile() {
     *) echo "DIGISANTE_ENV requis : preproduction ou production (aucun défaut implicite)" >&2; return 1 ;;
   esac
   PM2_API="digisante${sfx}-api"; PM2_WEB="digisante${sfx}-web"; API_BASE="http://127.0.0.1:${API_PORT}"
-  : "${APP_USER:=digisante${sfx}}" "${APP_DIR:=/var/www/digisante${sfx}}" "${APP_LOG_DIR:=/var/log/digisante${sfx}}"
+  : "${APP_USER:=digisante${sfx}}" "${JOBS_USER:=digisante${sfx}-jobs}"
+  : "${APP_DIR:=/var/www/digisante${sfx}}" "${APP_LOG_DIR:=/var/log/digisante${sfx}}"
   : "${ETC_DIR:=/etc/digisante${sfx}}" "${ROOT_LIB:=/usr/local/lib/digisante${sfx}}" "${STATE_DIR:=/var/lib/digisante${sfx}}"
   : "${CRON_LOG_DIR:=/var/log/digisante${sfx}-cron}" "${BACKUP_DIR:=/var/backups/digisante${sfx}}"
   : "${CRON_FILE:=/etc/cron.d/digisante${sfx}}" "${WS_LOG:=/var/log/nginx/digisante${sfx}-ws.log}"
 }
 # <<< digisante_profile
+# >>> jobs_user (B3 — copie IDENTIQUE dans internal_job.sh et fedapay_reconcile.sh ; test de non-dérive)
+# La requête vers l'API locale (curl et sa réponse) ne s'exécute JAMAIS en root. Lancé par
+# root (cron), le script ne garde que la lecture du jeton root-only et l'écriture du journal :
+# la requête part sous le compte système dédié ${JOBS_USER} (ni root, ni l'utilisateur
+# applicatif, ni leurs groupes), sans groupe supplémentaire et avec no_new_privs ; le jeton
+# lui est transmis sur l'entrée standard. Hors root, le script est déjà sans privilège.
+JOBS_UID=; JOBS_GID=
+jobs_identity() {
+  [[ "$EUID" == 0 ]] || return 0
+  if ! JOBS_UID="$(id -u -- "$JOBS_USER" 2>/dev/null)" || ! JOBS_GID="$(id -g -- "$JOBS_USER" 2>/dev/null)"; then
+    log "ÉCHEC : compte sans droits ${JOBS_USER} absent (à créer au provisionnement, infra/deploy/README.md §1)"; return 1
+  fi
+  local app_uid app_gid
+  app_uid="$(id -u -- "$APP_USER" 2>/dev/null || true)"; app_gid="$(id -g -- "$APP_USER" 2>/dev/null || true)"
+  if [[ "$JOBS_UID" == 0 || "$JOBS_GID" == 0 || "$JOBS_UID" == "$app_uid" || "$JOBS_GID" == "$app_gid" ]]; then
+    log "ÉCHEC : compte ${JOBS_USER} refusé pour les tâches (root, ou utilisateur/groupe applicatif ${APP_USER})"; return 1
+  fi
+}
+as_jobs_user() {
+  if [[ "$EUID" != 0 ]]; then "$@"; return; fi
+  setpriv --reuid="$JOBS_UID" --regid="$JOBS_GID" --clear-groups --no-new-privs -- "$@"
+}
+# Sortie de `curl -o - -w '\n%{http_code}'` (bornée, sans octet nul) : code HTTP et corps.
+split_response() {
+  if [[ "$1" == *$'\n'* ]]; then HTTP_CODE="${1##*$'\n'}"; BODY="${1%$'\n'*}"; else HTTP_CODE="$1"; BODY=; fi
+  [[ "$HTTP_CODE" =~ ^[0-9]{3}$ ]] || HTTP_CODE=000
+}
+# <<< jobs_user
 trusted_path "${BASH_SOURCE[0]}" || { echo "[reconcile] ÉCHEC : script lancé depuis un emplacement modifiable par un autre compte ; utiliser la copie installée par install_root_scripts.sh" >&2; exit 1; }
 SELF_ROOT="$(cd "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/../../.." && pwd -P)"
 digisante_profile || exit 1
@@ -68,30 +99,28 @@ TOKEN_FILE="${RECONCILE_TOKEN_FILE:-${ETC_DIR}/reconcile.token}"
 
 log() { printf '[reconcile] %s %s\n' "$(date -Is)" "$*"; }
 
-if [[ ! -r "$TOKEN_FILE" ]]; then
-  echo "[reconcile] Token de service introuvable : $TOKEN_FILE" >&2
+# Jeton absent ou vide : ligne ÉCHEC, relevée par la sonde `cron` de healthwatch (chaîne B2).
+if [[ ! -s "$TOKEN_FILE" ]]; then
+  log "ÉCHEC : jeton de service absent ou vide ($TOKEN_FILE)"
   exit 1
 fi
-# Réponse dans un fichier temporaire PRIVÉ (mktemp) : l'ancien chemin fixe
-# /tmp/reconcile_resp.json, écrit en root, était exposé à une attaque par lien
-# symbolique (un utilisateur local pouvait faire écraser un fichier système).
-RESP="$(mktemp)"
-trap 'rm -f "$RESP"' EXIT
+jobs_identity || exit 1
 
 log "Déclenchement de la réconciliation FedaPay → ${API_BASE}${RECONCILE_PATH}"
-# Jeton fourni via `--config -` (stdin) : jamais en argument, donc absent de `ps`.
-HTTP_CODE="$(printf 'header = "X-Service-Token: %s"\n' "$(tr -d '\r\n' < "$TOKEN_FILE")" \
-  | curl -sS --config - -o "$RESP" -w '%{http_code}' \
+# Jeton fourni via `--config -` (stdin) : jamais en argument, donc absent de `ps` ; `-q` : aucun
+# .curlrc. Corps puis code HTTP sur la sortie du curl sans droits ; aucun fichier temporaire root.
+OUT="$(printf 'header = "X-Service-Token: %s"\n' "$(tr -d '\r\n' < "$TOKEN_FILE")" \
+  | as_jobs_user curl -q -sS --config - -o - -w '\n%{http_code}' \
   -X POST "${API_BASE}${RECONCILE_PATH}" \
-  --max-time 300 || true)"
+  --max-time 300 | head -c 65536 | LC_ALL=C tr -d '\000' || true)"
+split_response "$OUT"
 
 # Réponse bornée, caractères de contrôle retirés (sauf saut de ligne/tabulation).
-show_response() { head -c 4000 "$RESP" 2>/dev/null | LC_ALL=C tr -d '\000-\010\013-\037\177' || true; echo; }
+show_response() { printf '%s' "$BODY" | head -c 4000 | LC_ALL=C tr -d '\000-\010\013-\037\177' || true; echo; }
 if [[ "$HTTP_CODE" == "200" || "$HTTP_CODE" == "202" ]]; then
   log "Réconciliation acceptée (HTTP ${HTTP_CODE})."
   show_response
 else
-  [[ "$HTTP_CODE" =~ ^[0-9]{3}$ ]] || HTTP_CODE=000
   log "ÉCHEC réconciliation (HTTP ${HTTP_CODE}). Réponse :"
   show_response
   exit 1

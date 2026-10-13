@@ -29,6 +29,7 @@
 - [ ] `apps/web/.env.production` : `NEXT_PUBLIC_API_URL=https://…` + `NEXT_PUBLIC_SOS_NUMBER`.
 - [ ] `/etc/digisante${SUFFIX}/backup.key` (AES-256) — **sauvegardé hors VPS**, distinct par environnement.
 - [ ] `/etc/digisante${SUFFIX}/reconcile.token` (root, 0400) = **source unique** du jeton des tâches internes ; même valeur dans `RECONCILE_TOKEN` du `.env` de l'environnement.
+- [ ] Compte **sans droits** des tâches `digisante${SUFFIX}-jobs` créé (`infra/deploy/README.md` §2, B3) : `internal_job.sh`/`fedapay_reconcile.sh` lisent le jeton en root puis lancent la requête sous ce compte (ni root, ni `digisante${SUFFIX}`) ; `verify_deploy.sh` → `PASS tâches : requêtes sous digisante${SUFFIX}-jobs`.
 - [ ] `API_PORT`/`API_HOST` du `.env` sans effet : `ecosystem.config.cjs` impose le port de l'environnement et `127.0.0.1`.
 - [ ] `apps/api/.env` en **0600** (`deploy.sh` refuse de déployer sans `.env` et corrige les permissions).
 

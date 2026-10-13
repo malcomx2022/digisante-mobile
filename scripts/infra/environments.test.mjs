@@ -30,7 +30,7 @@ const PROFILE = block(read('infra/deploy/scripts/deploy.sh'));
 
 /** Valeurs du profil pour un environnement (bash réel, environnement contrôlé). */
 function profile(env, extra = {}) {
-  const keys = ['PM2_API', 'PM2_WEB', 'API_PORT', 'WEB_PORT', 'API_BASE', 'APP_USER', 'APP_DIR', 'APP_LOG_DIR', 'ETC_DIR', 'ROOT_LIB', 'STATE_DIR', 'CRON_LOG_DIR', 'BACKUP_DIR', 'DB_NAME', 'CRON_FILE', 'WS_LOG'];
+  const keys = ['PM2_API', 'PM2_WEB', 'API_PORT', 'WEB_PORT', 'API_BASE', 'APP_USER', 'JOBS_USER', 'APP_DIR', 'APP_LOG_DIR', 'ETC_DIR', 'ROOT_LIB', 'STATE_DIR', 'CRON_LOG_DIR', 'BACKUP_DIR', 'DB_NAME', 'CRON_FILE', 'WS_LOG'];
   const script = `set -euo pipefail\n${PROFILE}\ndigisante_profile\n${keys.map((k) => `printf '%s=%s\\n' ${k} "$${k}"`).join('\n')}\n`;
   const r = spawnSync('bash', ['-c', script], { encoding: 'utf8', env: { PATH: process.env.PATH, ...(env === undefined ? {} : { DIGISANTE_ENV: env }), ...extra } });
   return { status: r.status, stderr: r.stderr, values: Object.fromEntries(r.stdout.trim().split('\n').filter(Boolean).map((l) => l.split(/=(.*)/s).slice(0, 2))) };
@@ -70,7 +70,7 @@ test('profil : DIGISANTE_ENV obligatoire, valeurs par environnement, ports/noms/
     { ...pre },
     {
       PM2_API: 'digisante-preprod-api', PM2_WEB: 'digisante-preprod-web', API_PORT: '3101', WEB_PORT: '3100', API_BASE: 'http://127.0.0.1:3101',
-      APP_USER: 'digisante-preprod', APP_DIR: '/var/www/digisante-preprod', APP_LOG_DIR: '/var/log/digisante-preprod', ETC_DIR: '/etc/digisante-preprod',
+      APP_USER: 'digisante-preprod', JOBS_USER: 'digisante-preprod-jobs', APP_DIR: '/var/www/digisante-preprod', APP_LOG_DIR: '/var/log/digisante-preprod', ETC_DIR: '/etc/digisante-preprod',
       ROOT_LIB: '/usr/local/lib/digisante-preprod', STATE_DIR: '/var/lib/digisante-preprod', CRON_LOG_DIR: '/var/log/digisante-preprod-cron',
       BACKUP_DIR: '/var/backups/digisante-preprod', DB_NAME: 'digisante_preprod', CRON_FILE: '/etc/cron.d/digisante-preprod', WS_LOG: '/var/log/nginx/digisante-preprod-ws.log',
     },
@@ -80,7 +80,7 @@ test('profil : DIGISANTE_ENV obligatoire, valeurs par environnement, ports/noms/
     { ...prod },
     {
       PM2_API: 'digisante-api', PM2_WEB: 'digisante-web', API_PORT: '3201', WEB_PORT: '3200', API_BASE: 'http://127.0.0.1:3201',
-      APP_USER: 'digisante', APP_DIR: '/var/www/digisante', APP_LOG_DIR: '/var/log/digisante', ETC_DIR: '/etc/digisante',
+      APP_USER: 'digisante', JOBS_USER: 'digisante-jobs', APP_DIR: '/var/www/digisante', APP_LOG_DIR: '/var/log/digisante', ETC_DIR: '/etc/digisante',
       ROOT_LIB: '/usr/local/lib/digisante', STATE_DIR: '/var/lib/digisante', CRON_LOG_DIR: '/var/log/digisante-cron',
       BACKUP_DIR: '/var/backups/digisante', DB_NAME: 'digisante', CRON_FILE: '/etc/cron.d/digisante', WS_LOG: '/var/log/nginx/digisante-ws.log',
     },
