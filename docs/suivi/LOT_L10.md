@@ -98,3 +98,22 @@ distante ; E2E par la CI `main`. Aucune preuve enregistrée : `evidence.json` re
   fournisseur réel (S8–S10 FedaPay, D19–D21 Daily ouverts), aucune installation sur l'hôte IONOS. Gates
   déclaratifs rouges attendus ; L9 humain et L11 (recette 7 rôles, restauration par un tiers, rollback, pentest,
   PV GO/NO-GO) restent ouverts.
+
+## Préparation de la recette S8 FedaPay (13/10/2026)
+
+- **Outil** : sonde opt-in `SMOKE_FEDAPAY_S8=1` (`scripts/preproduction/fedapay-s8.mjs`, lancée par
+  `apps/api/src/services/fedapay-s8.smoke.test.ts`), distincte du préflight GET et exclusive (un seul opt-in par
+  commande). Elle crée une transaction bac à sable de 100 XOF jamais payée, demande son lien et le juge avec le
+  contrôle de production ; sortie limitée à l'hôte, à la forme du chemin, aux codes HTTP et à l'identifiant masqué.
+- **Mode opératoire** : `RECETTE_FedaPay_Sandbox.md`, « S8 — mode opératoire » (pré-requis, commande, décision par
+  code, preuve à consigner). Le cas `FEDAPAY-S8` du dossier L10 renvoie désormais à la sonde, à lancer **avant** S1.
+- **Ordre** : S8 est le premier cas fournisseur, juste après le préflight vert ; un correctif §5 de la liste blanche
+  (nouveau SHA) rend caduques les preuves de l'ancien SHA. Après un PASS, l'hôte observé est reporté ici et dans la
+  ligne B1 de la revue indépendante §8 : B1 reste ouvert pour les hôtes live et l'hôte bac à sable non observé.
+- **Preuves locales** : tests sans réseau (`scripts/preproduction/fedapay-s8.test.mjs`, `apps/api/src/services/fedapay-s8.test.ts`) —
+  verdicts, absence de jeton/lien/clé/identifiant complet en sortie (hôte du lien et du `payment_url`), garde avant
+  réseau (clé à caractère invalide ou blanc de tête), délai de 15 s effectif, montant/API figés, exclusivité de
+  l'opt-in, décisions identiques dans la recette ; câblage de production partagé avec la recette réelle
+  (`apps/api/src/test/fedapay-s8-options.ts`) et vérifié en CI.
+- **Non fait** : aucune exécution contre FedaPay (pas de clé bac à sable dans cette session). `FEDAPAY-S8` reste
+  ouvert ; l'instantané L10 change (nouvelle sonde, recette) : préparation + requalification du SHA `main` après fusion.

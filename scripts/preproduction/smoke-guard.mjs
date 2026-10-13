@@ -1,6 +1,8 @@
 // Garde avant connexion : déclaration d'isolation + version, pas preuve d'accès cible.
 export const SMOKE_PROVIDERS = [
   { flag: 'SMOKE_FEDAPAY', file: 'fedapay' },
+  // Recette S8 (B1) : crée UNE transaction bac à sable non payée — opt-in distinct du préflight GET.
+  { flag: 'SMOKE_FEDAPAY_S8', file: 'fedapay-s8' },
   { flag: 'SMOKE_TWILIO', file: 'twilio' },
   { flag: 'SMOKE_DAILY', file: 'daily' },
   { flag: 'SMOKE_FCM', file: 'firebase' },
@@ -29,7 +31,10 @@ export function smokeEnvironmentIssues(env, actualSha) {
 }
 export function assertFedapaySandbox({ enabled, secrets }) {
   if (!enabled || !['secretKey', 'publicKey', 'webhookSecret'].every((key) => typeof secrets[key] === 'string' && secrets[key].trim())) throw new Error('FedaPay doit être activé avec secretKey, publicKey et webhookSecret ; valeurs non affichées.');
-  if (!/^sk_sandbox_\S+$/i.test(secrets.secretKey.trim())) throw new Error('Seule une clé FedaPay explicitement SANDBOX est autorisée ; aucun appel effectué.');
+  // Forme stricte sur la valeur ENVOYÉE dans `Authorization: Bearer <clé>` : fetch ne retire
+  // que les blancs de bord de la valeur ENTIÈRE, donc seulement ceux de FIN de la clé. Un blanc
+  // de tête (CR/LF) ou tout autre caractère invalide ferait recopier la clé dans l'erreur de fetch.
+  if (!/^sk_sandbox_[A-Za-z0-9_-]+$/i.test(secrets.secretKey.replace(/[\t\n\r ]+$/, ''))) throw new Error('Seule une clé FedaPay explicitement SANDBOX (lettres, chiffres, « _ », « - ») est autorisée ; aucun appel effectué.');
 }
 export async function requestFedapaySandbox(secrets, request = fetch) {
   assertFedapaySandbox({ enabled: true, secrets });

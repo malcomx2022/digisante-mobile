@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { SMOKE_PROVIDERS } from './smoke-guard.mjs';
 export const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 export const PACK = resolve(ROOT, 'docs/preproduction/L10');
 export const RECIPES = {
@@ -35,7 +36,8 @@ export function buildSnapshot(root = ROOT) {
   };
   walk('infra/deploy',(p)=>/\.(sh|conf|example|md|list)$/.test(p)||p.startsWith('infra/deploy/logrotate/'));
   walk('scripts/preproduction',(p)=>!p.endsWith('.test.mjs'));
-  for(const provider of ['fedapay','twilio','daily','firebase','resend']) paths.push(`apps/api/src/services/${provider}.smoke.test.ts`);
+  // Une sonde par opt-in de smoke-guard (même liste) : aucune sonde hors empreinte.
+  for(const {file} of SMOKE_PROVIDERS) paths.push(`apps/api/src/services/${file}.smoke.test.ts`);
   paths.push('apps/api/vitest.smoke.config.ts','apps/api/vitest.smoke.setup.ts');
   const cases = infrastructure.map(([id,scenario])=>({id,recipe:'CONTRAT_Preproduction_L10.md',scenario,conditional:false}));
   for(const [group,name] of Object.entries(RECIPES)) {
