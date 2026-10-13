@@ -23,9 +23,15 @@ import { deriveKey } from './crypto.js';
 const IV_LENGTH = 12;
 const TAG_LENGTH = 16;
 
-function storageDir(): string {
-  return resolve(env.KYC_STORAGE_DIR ?? 'storage/kyc');
+/**
+ * Répertoire du magasin. Une valeur VIDE vaut « non définie » : `.env.example` pose
+ * `KYC_STORAGE_DIR=""`, et `?? ` la gardait — `resolve('')` = répertoire courant du
+ * processus, hors du chemin sauvegardé par `pg_dump_encrypted.sh` (données de santé).
+ */
+export function resolveStorageDir(configured: string | undefined = env.KYC_STORAGE_DIR): string {
+  return resolve(configured?.trim() || 'storage/kyc');
 }
+const storageDir = () => resolveStorageDir();
 
 function fileKey(): Buffer {
   return deriveKey(env.HEALTH_ENCRYPTION_KEY ?? env.JWT_SECRET);

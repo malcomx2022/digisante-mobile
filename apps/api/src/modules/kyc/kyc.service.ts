@@ -220,6 +220,18 @@ export async function reviewSubmission(
   const checklist = { ...(input.checklist ?? {}), cnom };
 
   await app.prisma.$transaction(async (tx) => {
+    // Transition CONDITIONNELLE : deux admins concurrents ne peuvent pas laisser un
+    // dossier REJECTED avec un badge posé (seule la première décision gagne).
+    const decided = await tx.kycSubmission.updateMany({
+      where: { id: submissionId, status: 'UNDER_REVIEW' },
+      data: {
+        status: input.decision,
+        reviewedAt: new Date(),
+        rejectionReason: input.decision === 'REJECTED' ? (input.notes ?? 'Non précisé') : null,
+      },
+    });
+    if (decided.count !== 1) throw forbidden('Seuls les dossiers en revue peuvent être traités');
+
     await tx.kycReview.create({
       data: {
         submissionId,
@@ -227,15 +239,6 @@ export async function reviewSubmission(
         decision: input.decision === 'NEEDS_REVISION' ? 'NEEDS_REVISION' : input.decision,
         notes: input.notes,
         checklist: checklist as Prisma.InputJsonValue,
-      },
-    });
-
-    await tx.kycSubmission.update({
-      where: { id: submissionId },
-      data: {
-        status: input.decision,
-        reviewedAt: new Date(),
-        rejectionReason: input.decision === 'REJECTED' ? (input.notes ?? 'Non précisé') : null,
       },
     });
 

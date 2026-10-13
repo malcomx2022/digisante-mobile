@@ -33,6 +33,23 @@ describe('Actions sans coffre L4', () => {
     expect(await flushQueue()).toEqual({ flushed: 0, failed: 1 }); expect((await allFailed())[0].body).toBeUndefined();
     await expect(post('/vaccinations/subjects', { name: 'SECRET' })).rejects.toThrow('à vérifier'); expect(fetch).toHaveBeenCalledTimes(2);
   });
+  it('refus définitif au premier envoi : rien à vérifier, aucune saisie suivante bloquée', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ code: 'BAD_REQUEST', message: 'Grossesse déjà suivie' }, { status: 400 }));
+    await expect(post('/maternity', { lmpDate: '2026-09-01' })).rejects.toMatchObject({ status: 400 });
+    expect(await allQueued()).toEqual([]); expect(await allFailed()).toEqual([]);
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ id: 'message' }, { status: 201 }));
+    expect(await post('/chat/threads/t1/messages', { body: 'bonjour' })).toEqual({ id: 'message' });
+  });
+  it('ticket en vol : un accusé de lecture en cours ne refuse pas le message suivant', async () => {
+    let release!: (r: Response) => void;
+    vi.mocked(fetch).mockImplementationOnce(() => new Promise<Response>((resolve) => { release = resolve; }));
+    const read = post('/chat/threads/t1/read');
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ id: 'message' }, { status: 201 }));
+    expect(await post('/chat/threads/t1/messages', { body: 'bonjour' })).toEqual({ id: 'message' });
+    release(Response.json({ updated: 1 }));
+    expect(await read).toEqual({ updated: 1 }); expect(await allQueued()).toEqual([]);
+  });
   it('200 sans confirmation valide : ticket gardé, aucune fausse réussite', async () => {
     vi.mocked(fetch).mockRejectedValueOnce(new TypeError('network')); await expect(post('/maternity', {})).rejects.toThrow();
     vi.mocked(fetch).mockResolvedValueOnce(Response.json({ unrelated: true }));

@@ -22,7 +22,10 @@ function internalLink(raw) {
   if (typeof raw !== 'string' || !/^\/(?!\/)/.test(raw) || /[\\\u0000-\u0020]|%(?:2f|5c)/i.test(raw)) return '/';
   try {
     const url = new URL(raw, self.location.origin);
-    return url.origin === self.location.origin ? url.pathname + url.search + url.hash : '/';
+    // Les segments « . »/« .. » se résolvent APRÈS le contrôle brut : `/.//x` donne
+    // le chemin `//x`, relatif au protocole une fois renvoyé à openWindow/navigate.
+    if (url.origin !== self.location.origin || url.pathname.startsWith('//')) return '/';
+    return url.pathname + url.search + url.hash;
   } catch { return '/'; }
 }
 

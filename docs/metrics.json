@@ -7,12 +7,12 @@
   "models": 53,
   "enums": 31,
   "migrations": 34,
-  "apiTestFiles": 80,
+  "apiTestFiles": 82,
   "webTestFiles": 16,
   "e2eSpecFiles": 9,
   "smokeTestFiles": 5,
-  "apiTests": 605,
-  "webTests": 121,
+  "apiTests": 612,
+  "webTests": 124,
   "e2eTests": 24,
-  "unitTests": 726
+  "unitTests": 736
 }

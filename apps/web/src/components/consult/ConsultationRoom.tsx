@@ -64,12 +64,17 @@ export function ConsultationRoom({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const applyMode = useCallback((next: ConsultMode) => {
+  // Bascule automatique vers la messagerie seulement lors d'une TRANSITION vécue
+  // dans la salle. Une consultation déjà en CHAT à l'ouverture affiche la carte
+  // CHAT : sinon le médecin, renvoyé en boucle vers la messagerie, ne pourrait
+  // jamais atteindre « Terminer » (seul point de clôture).
+  const applyMode = useCallback((next: ConsultMode, redirect = true) => {
     const restricted = restrictMode(modeRef.current, next);
+    const transition = restricted === 'CHAT' && modeRef.current !== 'CHAT';
     modeRef.current = restricted;
     media.current?.applyMode(restricted);
     setMode(restricted);
-    if (restricted === 'CHAT') router.push(chatPath);
+    if (transition && redirect) router.push(chatPath);
   }, [chatPath, router]);
 
   const downgrade = useCallback(async () => {
@@ -119,7 +124,7 @@ export function ConsultationRoom({
       try {
         const res = await postNow<JoinResult>(`/consultations/${consultationId}/join`, {});
         if (cancelled) return;
-        applyMode(res.mode);
+        applyMode(res.mode, false);
         if (modeRef.current === 'CHAT') return;
         if (!res.roomUrl || !res.token || !res.expiresAt) return;
         const access = { roomUrl: res.roomUrl, token: res.token, expiresAt: res.expiresAt, mode: modeRef.current };

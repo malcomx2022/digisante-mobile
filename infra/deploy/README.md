@@ -113,6 +113,7 @@ Secrets à définir dans **Settings → Secrets and variables → Actions** :
 | `VPS_HOST` | IP ou hostname du VPS |
 | `VPS_USER` | utilisateur SSH (ex. `digisante`) |
 | `VPS_SSH_KEY` | clé privée SSH autorisée sur le VPS |
+| `VPS_FINGERPRINT` | empreinte SHA256 de la clé d’hôte SSH (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`) — obligatoire, le job échoue sans |
 | `VPS_SSH_PORT` | port SSH si ≠ 22 (optionnel) |
 
 La clé publique correspondante doit être dans `~digisante/.ssh/authorized_keys`,

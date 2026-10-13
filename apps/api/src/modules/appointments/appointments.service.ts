@@ -176,7 +176,11 @@ export async function confirm(app: FastifyInstance, doctorUserId: string, id: st
   const appt = await loadParticipantAppointment(app, { sub: doctorUserId, role: 'MEDECIN' }, id);
   if (appt.doctor.userId !== doctorUserId) throw forbidden('Seul le médecin peut confirmer');
   if (appt.status !== 'PENDING') throw badRequest('Seul un RDV en attente peut être confirmé');
-  return app.prisma.appointment.update({ where: { id }, data: { status: 'CONFIRMED' } });
+  // Transition conditionnelle : une annulation concurrente ne peut pas être
+  // « ressuscitée » en CONFIRMED (jetons de téléconsultation sur un RDV annulé).
+  const confirmed = await app.prisma.appointment.updateMany({ where: { id, status: 'PENDING' }, data: { status: 'CONFIRMED' } });
+  if (confirmed.count !== 1) throw badRequest('Seul un RDV en attente peut être confirmé');
+  return app.prisma.appointment.findUniqueOrThrow({ where: { id } });
 }
 
 /** Annulation par un participant. Annulation par le médecin → signal de remboursement. */
@@ -192,10 +196,14 @@ export async function cancel(
     throw badRequest('Ce rendez-vous ne peut plus être annulé');
   }
 
-  const updated = await app.prisma.appointment.update({
-    where: { id },
+  // Transition conditionnelle : une clôture concurrente (COMPLETED) n'est jamais
+  // écrasée, et le remboursement « annulation médecin » ne suit qu'une annulation gagnée.
+  const cancelled = await app.prisma.appointment.updateMany({
+    where: { id, status: { notIn: ['CANCELLED', 'COMPLETED'] } },
     data: { status: 'CANCELLED', cancelReason: reason },
   });
+  if (cancelled.count !== 1) throw badRequest('Ce rendez-vous ne peut plus être annulé');
+  const updated = await app.prisma.appointment.findUniqueOrThrow({ where: { id } });
 
   // Annulation côté médecin : rembourse automatiquement le paiement confirmé
   // éventuel (reversal interne — la couture « Phase 4 » est désormais branchée).
