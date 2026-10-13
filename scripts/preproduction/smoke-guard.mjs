@@ -31,7 +31,9 @@ export function smokeEnvironmentIssues(env, actualSha) {
 }
 export function assertFedapaySandbox({ enabled, secrets }) {
   if (!enabled || !['secretKey', 'publicKey', 'webhookSecret'].every((key) => typeof secrets[key] === 'string' && secrets[key].trim())) throw new Error('FedaPay doit être activé avec secretKey, publicKey et webhookSecret ; valeurs non affichées.');
-  if (!/^sk_sandbox_\S+$/i.test(secrets.secretKey.trim())) throw new Error('Seule une clé FedaPay explicitement SANDBOX est autorisée ; aucun appel effectué.');
+  // Forme stricte sur la valeur ENVOYÉE (fetch ne retire que les blancs HTTP de bord) :
+  // un caractère invalide dans l'en-tête ferait recopier la clé entière dans l'erreur de fetch.
+  if (!/^sk_sandbox_[A-Za-z0-9_-]+$/i.test(secrets.secretKey.replace(/^[\t\n\r ]+|[\t\n\r ]+$/g, ''))) throw new Error('Seule une clé FedaPay explicitement SANDBOX (lettres, chiffres, « _ », « - ») est autorisée ; aucun appel effectué.');
 }
 export async function requestFedapaySandbox(secrets, request = fetch) {
   assertFedapaySandbox({ enabled: true, secrets });

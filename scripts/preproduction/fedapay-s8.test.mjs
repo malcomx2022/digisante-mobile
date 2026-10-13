@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { S8_AMOUNT_XOF, S8_DECISIONS, SANDBOX_API, describeCheckoutUrl, formatS8, runS8Probe, s8Verdict } from './fedapay-s8.mjs';
+import { S8_AMOUNT_XOF, S8_DECISIONS, SANDBOX_API, describeCheckoutUrl, displayHost, formatS8, runS8Probe, s8Verdict, tokenFacts } from './fedapay-s8.mjs';
 import { selectedSmokeFiles, smokeEnvironmentIssues } from './smoke-guard.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -21,6 +21,7 @@ function fakeFedapay({ create = { status: 200, body: { 'v1/transaction': { id: 7
   const request = async (url, init) => {
     calls.push({ url, init });
     const r = url.endsWith('/token') ? token : create;
+    if (r.throws) throw r.throws;
     return new Response(r.raw ?? JSON.stringify(r.body), { status: r.status, headers: { 'content-type': 'application/json' } });
   };
   return { calls, request };
@@ -32,6 +33,7 @@ test('S8 : hôte bac à sable autorisé ⇒ PASS ; deux POST seulement, vers la 
   const fake = fakeFedapay();
   const result = await probe(fake);
   assert.equal(result.verdict, 'PASS'); assert.equal(result.code, 'HOTE_AUTORISE');
+  assert.equal(result.createWrapper, 'v1/transaction'); assert.deepEqual(result.createFields, ['id']); assert.equal(result.createStatus, 200);
   assert.equal(result.shape.host, 'sandbox-process.fedapay.com'); assert.equal(result.transaction, '••••8301');
   assert.deepEqual(result.tokenFields, ['token', 'url']);
   assert.deepEqual(fake.calls.map((c) => c.url), [`${SANDBOX_API}/transactions`, `${SANDBOX_API}/transactions/7310518301/token`]);
@@ -129,4 +131,65 @@ test('S8 : opt-in distinct du préflight, exclusif (un seul fournisseur par comm
   assert.deepEqual(smokeEnvironmentIssues(env, sha), []);
   assert.ok(smokeEnvironmentIssues({ ...env, SMOKE_FEDAPAY: '1' }, sha).length, 'préflight + S8 dans la même commande');
   for (const change of [{ NODE_ENV: 'test' }, { SMOKE_ENVIRONMENT: 'production' }, { SMOKE_EXPECTED_SHA: 'b'.repeat(40) }]) assert.ok(smokeEnvironmentIssues({ ...env, ...change }, sha).length);
+});
+
+test('S8 : panne de transport ⇒ code RESEAU, référence et identifiant masqué conservés, message d’erreur jamais recopié', async () => {
+  const leaky = new TypeError(`Headers.append: "Bearer ${SECRET}" is an invalid header value. ${TOKEN}`);
+  let fake = fakeFedapay({ create: { throws: leaky } });
+  let result = await probe(fake);
+  assert.equal(result.code, 'CREATION_RESEAU'); assert.equal(result.failure, 'TypeError'); assert.equal(fake.calls.length, 1);
+  let out = printed(result);
+  assert.match(out, new RegExp(`référence=${reference}`)); assert.doesNotMatch(out, /SYNTHETIC_SECRET|SYNTHETICTOKEN|invalid header/);
+  const timeout = new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+  fake = fakeFedapay({ token: { throws: timeout } });
+  result = await probe(fake);
+  assert.equal(result.code, 'TOKEN_RESEAU'); assert.equal(result.failure, 'TimeoutError'); assert.equal(result.transaction, '••••8301');
+  out = printed(result);
+  assert.match(out, /transaction=••••8301/); assert.doesNotMatch(out, /aborted/);
+  // Nom d'erreur hors forme : jamais recopié.
+  const weird = new Error('x'); weird.name = `Bearer ${SECRET}`;
+  result = await probe(fakeFedapay({ create: { throws: weird } }));
+  assert.equal(result.failure, 'Error');
+});
+
+test('S8 : étiquette d’hôte longue (jeton possible) affichée par sa seule forme ; hôtes connus lisibles', async () => {
+  const tokenHost = `${TOKEN.toLowerCase()}.sandbox-process.fedapay.com`;
+  const result = await probe(fakeFedapay({ token: { status: 200, body: { url: `https://${tokenHost}/` } } }));
+  assert.equal(result.code, 'HOTE_NON_LISTE');
+  const out = printed(result);
+  assert.doesNotMatch(out, new RegExp(TOKEN.toLowerCase()));
+  assert.match(out, new RegExp(`lien https://<${TOKEN.length} car\\. a-z,0-9>\\.sandbox-process\\.fedapay\\.com`));
+  for (const host of ['sandbox-process.fedapay.com', 'sandbox-checkout.fedapay.com', 'process.fedapay.com', 'me.fedapay.com', 'fpay.li']) assert.equal(displayHost(host), host);
+  assert.equal(displayHost('xn--bcher-kva.example'), 'xn--bcher-kva.example');
+});
+
+test('S8 : lien ↔ jeton relevés sans affichage (chemin = /<jeton>, JWT sub = transaction, validité arrondie)', async () => {
+  const now = 1_800_000_000;
+  const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const jwt = `${b64({ typ: 'JWT', alg: 'HS256' })}.${b64({ sub: 7310518301, exp: now + 24 * 3600 })}.SIGNATURE_SYNTH`;
+  const result = await probe(fakeFedapay({ token: { status: 200, body: { token: jwt, url: `https://sandbox-process.fedapay.com/${jwt}` } } }), { nowSeconds: now });
+  assert.equal(result.verdict, 'PASS');
+  assert.deepEqual(result.facts, { pathIsToken: true, jwt: { subMatches: true, validityHours: 24 } });
+  const out = printed(result);
+  assert.match(out, /chemin = \/<jeton> : oui · jeton JWT : oui \(sub = transaction : oui, validité ≈ 24 h\)/);
+  for (const part of jwt.split('.')) assert.doesNotMatch(out, new RegExp(part));
+  assert.deepEqual(tokenFacts(`https://sandbox-process.fedapay.com/other`, jwt, '1', now), { pathIsToken: false, jwt: { subMatches: false, validityHours: 24 } });
+  assert.deepEqual(tokenFacts(`https://sandbox-process.fedapay.com/${TOKEN}`, TOKEN, '1'), { pathIsToken: true, jwt: null });
+  assert.deepEqual(tokenFacts('x', undefined, '1'), { pathIsToken: null, jwt: null });
+});
+
+test('S8 : création sans enveloppe (OpenAPI) et lien fourni dès la création ⇒ forme relevée, hôte seul', async () => {
+  const result = await probe(fakeFedapay({ create: { status: 201, body: { id: 77, reference: 'trx_SYNTH', payment_url: `https://sandbox-process.fedapay.com/${TOKEN}` } } }));
+  assert.equal(result.createStatus, 201); assert.equal(result.createWrapper, 'racine');
+  assert.deepEqual(result.createFields, ['id', 'payment_url', 'reference']); assert.equal(result.createPaymentUrlHost, 'sandbox-process.fedapay.com');
+  const out = printed(result);
+  assert.match(out, /création HTTP 201 \(forme : racine ; champs : id,payment_url,reference ; payment_url sur sandbox-process\.fedapay\.com\)/);
+  assert.doesNotMatch(out, new RegExp(TOKEN)); assert.doesNotMatch(out, /trx_SYNTH/);
+});
+
+test('S8 : clé avec caractère invalide (octet nul, espace interne, non ASCII) refusée avant réseau ; blancs de bord tolérés comme par fetch', async () => {
+  const fake = fakeFedapay();
+  for (const secretKey of ['sk_sandbox_AB\u0000CD', 'sk_sandbox_AB CD', 'sk_sandbox_ABé', 'sk_sandbox_AB\nCD']) await assert.rejects(probe(fake, { secrets: { ...secrets, secretKey } }), JSON.stringify(secretKey));
+  assert.equal(fake.calls.length, 0);
+  assert.equal((await probe(fakeFedapay(), { secrets: { ...secrets, secretKey: `${SECRET}\n` } })).verdict, 'PASS');
 });

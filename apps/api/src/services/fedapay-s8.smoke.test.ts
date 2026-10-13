@@ -38,6 +38,9 @@ describe.skipIf(!ENABLED)('RECETTE S8 FedaPay sandbox — hôte du lien de paiem
     const { parseFedapayTransactionId } = await import('./fedapay.js');
     const stamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
     const reference = `ds-recette-s8-${stamp}-${randomBytes(2).toString('hex')}`;
+    // Avant tout réseau : même sans verdict (panne), la transaction reste retrouvable.
+    // eslint-disable-next-line no-console -- sortie destinée à l’opérateur de recette
+    console.info(`[s8:fedapay] référence=${reference} (avant tout appel réseau)`);
     const result = await runS8Probe({
       enabled: integration.enabled,
       secrets: integration.secrets,

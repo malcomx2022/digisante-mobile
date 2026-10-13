@@ -125,9 +125,15 @@ inchangés).
 - crée **une** transaction bac à sable de **100 XOF** (`merchant_reference` = `ds-recette-s8-<horodatage>-<4 hex>`,
   aucune donnée de client), demande son lien (`POST /transactions/{id}/token`), puis s’arrête : deux requêtes vers
   `https://sandbox-api.fedapay.com/v1` uniquement, sans redirection, 15 s au plus chacune ;
-- juge le lien avec le **contrôle de production** et n’affiche que l’hôte, la forme du chemin (longueur et classes de
-  caractères), le nombre de paramètres de requête, les codes HTTP, les noms de champs et l’identifiant masqué
-  (4 derniers caractères).
+- juge le lien avec le **contrôle de production** et n’affiche que l’hôte (une étiquette de plus de 24 caractères,
+  où un jeton pourrait se loger, réduite à sa forme), la forme du chemin (longueur et classes de caractères), le
+  nombre de paramètres de requête, les codes HTTP, la forme de la réponse de création (enveloppe `v1/transaction`
+  ou objet plat) et ses noms de champs, l’hôte d’un éventuel `payment_url` et l’identifiant masqué
+  (4 derniers caractères) ;
+- relève **sans les afficher** : chemin égal à `/<jeton>`, jeton JWT dont `sub` désigne la transaction, durée de
+  validité arrondie en heures (24 h attendues) ;
+- convertit toute panne de transport en code `CREATION_RESEAU` / `TOKEN_RESEAU` (nom d’erreur seul, jamais son
+  message, qui peut recopier des en-têtes) ; la référence de recette est affichée **avant** tout appel réseau.
 
 **Ce qu’elle ne fait jamais** : payer, ouvrir le lien, écrire un `Payment` ou une ligne d’audit locale, appeler
 l’API live, afficher le lien complet, le jeton, la clé ou l’identifiant entier.
@@ -155,8 +161,9 @@ fournisseurs dans la même commande). Ne pas relancer en boucle : chaque exécut
 Exemple de sortie conforme (valeurs synthétiques) :
 ```text
 [s8:fedapay] verdict=PASS · code=HOTE_AUTORISE · référence=ds-recette-s8-20261013090000-ab12 · transaction=••••8301
-[s8:fedapay] création HTTP 200 (…) · lien HTTP 200 (champs : token,url)
-[s8:fedapay] lien https://sandbox-process.fedapay.com chemin /<64 car. a-z,A-Z,0-9> · identifiants=non · paramètres de requête=0 · fragment=non
+[s8:fedapay] création HTTP 201 (forme : racine ; champs : amount,…,id,reference,status) · lien HTTP 200 (champs : token,url)
+[s8:fedapay] lien https://sandbox-process.fedapay.com chemin /<160 car. a-z,A-Z,0-9,autres> · identifiants=non · paramètres de requête=0 · fragment=non
+[s8:fedapay] chemin = /<jeton> : oui · jeton JWT : oui (sub = transaction : oui, validité ≈ 24 h)
 [s8:fedapay] décision : PASS : hôte autorisé pour la clé bac à sable. Poursuivre S1 (redirection effective dans le navigateur) ; consigner l’hôte observé.
 ```
 Le test échoue (code de sortie ≠ 0) pour tout verdict autre que `PASS`. Décision par code :
@@ -169,8 +176,10 @@ Le test échoue (code de sortie ≠ 0) pour tout verdict autre que `PASS`. Déci
 | `FORME_REFUSEE` | FAIL : hôte listé mais lien refusé par le contrôle de production (schéma, port, identifiants ou caractères). Consigner la forme, revue §5 avant toute modification. |
 | `URL_INVALIDE` | FAIL : réponse sans lien exploitable. Consigner les champs reçus et les codes HTTP ; ne pas poursuivre S1. |
 | `CREATION_HTTP` | FAIL : création de transaction refusée par l’API bac à sable. Vérifier la clé, le compte sandbox et le montant ; aucun lien obtenu. |
+| `CREATION_RESEAU` | FAIL : création sans réponse exploitable (délai ou réseau). Rechercher la référence dans le tableau de bord sandbox AVANT toute relance ; une transaction a pu être créée. |
 | `ID_INVALIDE` | FAIL : transaction créée sans identifiant valide. Consigner les champs de la réponse ; aucun lien demandé. |
 | `TOKEN_HTTP` | FAIL : génération du lien refusée par l’API bac à sable. Consigner le code HTTP et l’identifiant masqué. |
+| `TOKEN_RESEAU` | FAIL : demande de lien sans réponse exploitable (délai ou réseau). La transaction existe : la retrouver par sa référence, consigner l’identifiant masqué, relancer une seule fois. |
 
 Un FAIL `HOTE_NON_LISTE` ou `FORME_REFUSEE` **bloque S1, S2, S6 et S7** (ils passent par le lien) : aucun
 élargissement par joker ou suffixe. Correctif éventuel = PR dédiée (§5) ajoutant l’hôte **exact** constaté à
@@ -179,15 +188,21 @@ Un FAIL `HOTE_NON_LISTE` ou `FORME_REFUSEE` **bloque S1, S2, S6 et S7** (ils pas
 ### Après la sonde
 1. **S1** : lancer la recharge ; la page FedaPay doit s’ouvrir sur **le même hôte** que celui relevé par la sonde
    (barre d’adresse : ne noter que l’hôte). C’est la preuve de « redirection effective ».
-2. **Transaction de recette** : la retrouver dans le tableau de bord sandbox par sa `merchant_reference` ; **ne pas
-   la payer** (aucun `Payment` local ne lui correspond). La laisser sans suite ou l’annuler depuis le tableau de
-   bord si FedaPay le permet.
-3. **Décision porteur** : l’hôte observé éclaire le maintien ou non de l’autre hôte bac à sable de la liste ; aucun
+2. **Transaction de recette** : la retrouver dans le tableau de bord sandbox (https://sandbox.fedapay.com,
+   « Collectes ») par sa `merchant_reference` ; **ne pas la payer** (aucun `Payment` local ne lui correspond). La
+   supprimer tant qu’elle est en attente (« Supprimer ») ou la laisser expirer : une collecte en attente expire
+   d’elle-même après 24 h (doc FedaPay « Gestion des collectes »).
+3. **Webhook** : la création émet `transaction.created` vers l’URL de webhook bac à sable déclarée. Le récepteur
+   répond **200 `ignored` (« paiement inconnu »)**, sans effet ni audit de paiement ; une expiration ultérieure
+   donne 200 « statut non géré ». Dans « Évènements »/« Logs » du tableau de bord, consigner l’événement reçu et la
+   réponse 200 ; un **401** signale un secret webhook désynchronisé (corriger avant S1).
+4. **Décision porteur** : l’hôte observé éclaire le maintien ou non de l’autre hôte bac à sable de la liste ; aucun
    retrait automatique. L’hôte **live** reste à confirmer au premier paiement réel encadré (prompt 11).
 
 ### Preuve à consigner
 - **Note privée** (hors dépôt) : date et heure UTC, SHA de la candidate, opérateur, référence `ds-recette-s8-…`,
-  transaction masquée, lignes `[s8:fedapay]` complètes, hôte vu en S1.
+  transaction masquée, lignes `[s8:fedapay]` complètes, réponse du webhook `transaction.created`, hôte vu en S1,
+  suppression ou expiration de la transaction de recette.
 - **Registre** `docs/preproduction/L10/evidence.json` : enregistrement `caseId: "FEDAPAY-S8"`, `result` `PASS` ou
   `FAIL`, SHA et empreinte de l’instantané courants, `evidenceRef` = référence opaque de la note privée.
 - **Jamais** : lien complet, jeton, capture de la barre d’adresse entière, clé, identifiant complet de transaction.
