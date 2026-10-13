@@ -54,6 +54,8 @@ Après correctifs : **612/612 API**, **124/124 web**, 65/65 scripts, lint/typech
 
 ## 4. Constats NON corrigés — à trancher (priorité décroissante)
 
+> Suites données aux bloquants B1–B5 (13/10/2026) : §8.
+
 ### 4.1 Bloquants avant toute recette réelle / GO
 
 | # | Domaine | Constat | Pourquoi non corrigé ici | Action proposée |
@@ -98,3 +100,17 @@ L’instantané **L10** (`docs/preproduction/L10/snapshot.json`), dont le regist
 - Chaque correctif C1, C3–C10 a un test rejoué contre l’ancien fichier (rouge) puis le nouveau (vert). C2/C11/C12 : revue de code/YAML/`bash -n`.
 - **Non attesté** : aucun appel réel Daily/FedaPay/Twilio/Firebase/Resend, aucun VPS, aucune validation clinique ou native. B1/B2/B5 ne peuvent être tranchés que par la recette sandbox L10.
 - Revue réalisée par Claude Code (agents de revue + vérification) ; ce n’est ni un audit externe ni un pentest.
+
+## 8. Suites données aux bloquants (13/10/2026)
+
+> Le §4.1 garde le constat d'origine, non réécrit. État sur `main` `ffa4372` (après #193 et #195 à #198). « Rouges » = tests rejoués contre le code précédant le correctif, en échec sur assertion (pas d'erreur d'import).
+
+| # | Correctifs (PR → commit) | Rouges sur l'ancien code | Statut | Reste ouvert (hors code) |
+|---|---|---|---|---|
+| B1 | #193 → `de51ed8` : hôtes **exacts** liés à l'environnement de la clé (live `process.fedapay.com` / `checkout.fedapay.com`, sandbox `sandbox-process.fedapay.com` / `sandbox-checkout.fedapay.com`) côté API ; client (`paymentOutcome`, abonnements) = union des deux, toute autre URL refusée — traite aussi le point « Client paiement » du §4.2 | 17 | Corrigé dans le code, **preuve externe ouverte** | S8 : relever le `token.url` réel en bac à sable. Les hôtes `process.*` viennent des fixtures du SDK officiel, **non constatés** : la règle « hôtes exacts constatés » n'est pas encore satisfaite ; décision du porteur sur `checkout` / `sandbox-checkout`. |
+| B2 | #193 → `de51ed8` : transaction = `entity.id` / `entity.status` seuls (jamais l'id racine d'événement), événements non transactionnels ignorés ; réconciliation isolée par paiement + `500 RECONCILE_PARTIAL_FAILURE` (compteurs) quand `failed > 0` | 11 (paiements 6, réconciliation 2, finance/parcours 3) | Corrigé dans le code, **preuve externe ouverte** | S9/S10 en bac à sable ; arbitrage S10 (approbation tardive après refus). #198 rend aussi bruyant un jeton de réconciliation absent (ligne `ÉCHEC`). |
+| B3 | #193 → `001d0e6` : scripts root exécutés depuis une copie `root:root` (`install_root_scripts.sh`, `trusted_path`), crontab sans chemin `APP_DIR` ; #195 → `9d35921` + `69b5c66` : profil `DIGISANTE_ENV`, fichiers `/etc/cron.d` par environnement ; #198 → `aa9bb3f` : requêtes des tâches (`curl`, réponse de l'API) sous le compte sans droits `digisante[-preprod]-jobs` | `001d0e6` : 4 ; #198 : 15 | Corrigé dans le dépôt (copie root, profil par environnement, requêtes des tâches sous compte sans droits) | Installation réelle sur l'hôte IONOS (copie root, cron.d, compte des tâches) ; `trusted_path` ne couvre pas les binaires résolus par le PATH du cron. |
+| B4 | #193 → `001d0e6` : `KYC_STORAGE_DIR` lu dans le `.env` de l'API (`parseEnv`), magasin complet exigé (`files_expected` / `files_missing`), archive sous l'identité applicative ; #197 → `f3e7e2b` : exercice de restauration avec la même définition des fichiers du magasin (UUID) que la sauvegarde | `001d0e6` : 9 ; #197 : 4 | Corrigé dans le dépôt | Restauration par un tiers (L11) ; une base seedée n'est pas restaurable de bout en bout (chaîne d'audit du seed non recalculable). |
+| B5 | #193 → `3cbe67b` : salle Daily créée hors transaction, nom propre à la tentative, suppression sur refus ; #196 → `14c95c9` : budget explicite de 30 s des phases courtes (le défaut Prisma de 5 s transformait l'attente d'une souscription PRO concurrente en 500) | `3cbe67b` : 13 ; #196 : 1 | Corrigé dans le code, **preuve externe ouverte** | Recette Daily D19–D21 ; appels FedaPay de la souscription PRO sous verrou médecin (décision §5 / L6, non modifiée). |
+
+Aucun de ces correctifs ne vaut recette réelle, déploiement ou GO : L9 humain et L11 (recette 7 rôles, restauration par un tiers, rollback, pentest, PV GO/NO-GO) restent ouverts. Requalification de la candidate : `docs/suivi/LOT_L10.md`.
