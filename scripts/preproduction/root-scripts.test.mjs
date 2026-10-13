@@ -122,6 +122,20 @@ test('B3 : root-scripts.list couvre scripts root, configurations copiées par ro
   }
 });
 
+test('B3 : requêtes des tâches sous le compte sans droits — bloc jobs_user identique, aucun curl direct', () => {
+  const block = (text) => text.slice(text.indexOf('# >>> jobs_user'), text.indexOf('# <<< jobs_user'));
+  const reference = block(read('infra/deploy/scripts/internal_job.sh'));
+  assert.ok(reference.includes('as_jobs_user() {') && reference.includes('--no-new-privs'));
+  for (const path of ['infra/deploy/scripts/internal_job.sh', 'infra/deploy/scripts/fedapay_reconcile.sh']) {
+    const text = read(path);
+    assert.equal(block(text), reference, `${path} : bloc jobs_user absent ou divergent`);
+    assert.match(text, /^jobs_identity \|\| exit 1$/m, `${path} : compte des tâches non contrôlé`);
+    const code = text.replace(/^\s*#.*$/gm, '');
+    assert.match(code, /\| as_jobs_user curl -q /, `${path} : requête hors du compte sans droits`);
+    assert.doesNotMatch(code.replace(/as_jobs_user curl/g, ''), /(^|[|;&]\s*)curl\b/m, `${path} : curl lancé en root`);
+  }
+});
+
 test('B3 : chaque script root vérifie sa propre origine avec un trusted_path identique', () => {
   const block = (text) => text.slice(text.indexOf('# >>> trusted_path'), text.indexOf('# <<< trusted_path'));
   const reference = block(read('infra/deploy/scripts/install_root_scripts.sh'));

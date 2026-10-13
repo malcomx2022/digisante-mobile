@@ -40,7 +40,8 @@ trusted_path() {
 # l'hôte IONOS partagé, où 3000 (ImmiPro) et 3001 (Grafana) sont déjà pris. Il FIXE les
 # noms PM2, les ports (mêmes valeurs que ecosystem.config.cjs, test de cohérence) et l'URL
 # locale de l'API : un jeton de service ne part que vers l'API de CET environnement. Il
-# donne aussi les chemins PAR DÉFAUT (utilisateur, checkout, journaux, copie root,
+# donne aussi les chemins PAR DÉFAUT (utilisateur, compte sans droits des tâches, checkout,
+# journaux, copie root,
 # configuration, état, sauvegardes, base, crontab, journal WebSocket) ; une valeur déjà
 # posée par l'opérateur prime pour ces chemins.
 digisante_profile() {
@@ -51,7 +52,8 @@ digisante_profile() {
     *) echo "DIGISANTE_ENV requis : preproduction ou production (aucun défaut implicite)" >&2; return 1 ;;
   esac
   PM2_API="digisante${sfx}-api"; PM2_WEB="digisante${sfx}-web"; API_BASE="http://127.0.0.1:${API_PORT}"
-  : "${APP_USER:=digisante${sfx}}" "${APP_DIR:=/var/www/digisante${sfx}}" "${APP_LOG_DIR:=/var/log/digisante${sfx}}"
+  : "${APP_USER:=digisante${sfx}}" "${JOBS_USER:=digisante${sfx}-jobs}"
+  : "${APP_DIR:=/var/www/digisante${sfx}}" "${APP_LOG_DIR:=/var/log/digisante${sfx}}"
   : "${ETC_DIR:=/etc/digisante${sfx}}" "${ROOT_LIB:=/usr/local/lib/digisante${sfx}}" "${STATE_DIR:=/var/lib/digisante${sfx}}"
   : "${CRON_LOG_DIR:=/var/log/digisante${sfx}-cron}" "${BACKUP_DIR:=/var/backups/digisante${sfx}}"
   : "${CRON_FILE:=/etc/cron.d/digisante${sfx}}" "${WS_LOG:=/var/log/nginx/digisante${sfx}-ws.log}"
@@ -166,6 +168,19 @@ ALL_CRON="${CRON}"$'\n'"${ROOT_CRON}"
 CRON_EXEC="$(sed -E 's/(^|[[:space:]])(API_ENV_FILE|API_DIR)=[^[:space:]]*//g' <<<"$ALL_CRON")"
 grep -Fq "${APP_DIR%/}/" <<<"$CRON_EXEC" && fail "cron : chemin sous ${APP_DIR} (modifiable par ${APP_USER}) exécuté par root" || pass "cron : aucun chemin sous ${APP_DIR}"
 grep -Eq ">>?[[:space:]]*${APP_LOG_DIR%/}/" <<<"$ALL_CRON" && fail "cron : journal root écrit dans ${APP_LOG_DIR} (répertoire de ${APP_USER})" || pass "cron : journaux root hors de ${APP_LOG_DIR}"
+# B3 : requêtes des tâches (internal_job.sh, fedapay_reconcile.sh) sous un compte sans droits,
+# ni root ni l'utilisateur applicatif ; absent ⇒ ces tâches journalisent ÉCHEC sans requête.
+if JOBS_UID="$(id -u -- "$JOBS_USER" 2>/dev/null)" && JOBS_GID="$(id -g -- "$JOBS_USER" 2>/dev/null)"; then
+  APP_UID="$(id -u -- "$APP_USER" 2>/dev/null || true)"; APP_GID="$(id -g -- "$APP_USER" 2>/dev/null || true)"
+  if [[ "$JOBS_UID" == 0 || "$JOBS_GID" == 0 || "$JOBS_UID" == "$APP_UID" || "$JOBS_GID" == "$APP_GID" ]]; then
+    fail "tâches : compte ${JOBS_USER} = root ou utilisateur/groupe applicatif ${APP_USER}"
+  else
+    pass "tâches : requêtes sous ${JOBS_USER} (uid ${JOBS_UID}), ni root ni ${APP_USER}"
+  fi
+else
+  fail "tâches : compte sans droits ${JOBS_USER} absent (provisionnement) — tâches en ÉCHEC"
+fi
+setpriv --help 2>/dev/null | grep -q -- '--no-new-privs' && pass "tâches : setpriv (util-linux) disponible" || fail "tâches : setpriv --no-new-privs indisponible"
 
 # 7 bis. Scripts root installés (B3) : intégrité de la copie root, SHA comparé au déployé.
 manifest_re='^file=([A-Za-z0-9._/-]+) mode=(0755|0644) sha256=([0-9a-f]{64})$'

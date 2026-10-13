@@ -135,6 +135,14 @@ if ! id "$APP_USER" >/dev/null 2>&1; then
   log "Création de l'utilisateur applicatif '${APP_USER}'…"
   adduser --system --group --home "/home/${APP_USER}" "$APP_USER"
 fi
+# B3 — compte SANS DROITS des requêtes de tâches (internal_job.sh / fedapay_reconcile.sh,
+# lancés par cron en root : seuls la lecture du jeton et le journal restent root). Ni root,
+# ni l'utilisateur applicatif ni son groupe ; sans shell ni répertoire personnel.
+JOBS_USER="${JOBS_USER:-${APP_USER}-jobs}"
+if ! id "$JOBS_USER" >/dev/null 2>&1; then
+  log "Création du compte sans droits des tâches '${JOBS_USER}'…"
+  adduser --system --group --no-create-home --home /nonexistent --shell /usr/sbin/nologin "$JOBS_USER"
+fi
 install -d -o "$APP_USER" -g "$APP_USER" "$APP_DIR"
 # Checkout de l'APPLICATION : propriété de `digisante` (deploy.sh y fait git fetch/build).
 # Un ancien clone root y est ramené ; root n'y exécute plus rien (B3).

@@ -27,6 +27,8 @@ DIGISANTE_ENV=production
 # Jeton de service interne : AUCUN secret dans ce fichier. `internal_job.sh` et
 # `fedapay_reconcile.sh` lisent /etc/digisante/reconcile.token (root, 0600) — même
 # valeur que RECONCILE_TOKEN du .env de l'API. Fichier absent ⇒ ÉCHEC journalisé.
+# B3 : la requête (curl + réponse) part sous le compte sans droits digisante-jobs,
+# jamais en root ; compte absent ⇒ ÉCHEC journalisé, aucune requête.
 J=/usr/local/lib/digisante/infra/deploy/scripts/internal_job.sh
 
 # Génération des rappels horaires de traitement dus → Notifications PENDING.
