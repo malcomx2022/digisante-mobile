@@ -216,7 +216,8 @@ guard_ports() {
     line="$(grep -E "[:.]${port}[[:space:]]" <<<"$listing" | head -1 || true)"
     [[ -z "$line" ]] && continue
     pid="$(sed -n 's/.*pid=\([0-9]*\).*/\1/p' <<<"$line" | head -1)"
-    owner="$( [[ -n "$pid" ]] && ps -o user= -p "$pid" 2>/dev/null | tr -d ' ' || true)"
+    owner=""
+    if [[ -n "$pid" ]]; then owner="$(ps -o user= -p "$pid" 2>/dev/null | tr -d ' ' || true)"; fi
     [[ "$owner" == "$APP_USER" ]] || die "port ${port} déjà écouté par « ${owner:-inconnu} » (≠ ${APP_USER}) : port squatté, rien n'est configuré"
   done
   pass "ports ${WEB_PORT}/${API_PORT} libres ou tenus par ${APP_USER}"
@@ -657,7 +658,7 @@ verify_store() {
 rollback_all() {
   log "── rollback ${DIGISANTE_ENV} : vhost, crons, rotation, service PM2 — JAMAIS base, rôle, Valkey, magasin, comptes ni certificat"
   local other_site
-  [[ "$SITE" == digisante ]] && other_site=digisante-preprod || other_site=digisante
+  if [[ "$SITE" == digisante ]]; then other_site=digisante-preprod; else other_site=digisante; fi
   [[ -e "$(F "${NGINX_DIR}/sites-enabled/${SITE}")" ]] && act "désactivation du vhost ${SITE}" rm -f -- "$(F "${NGINX_DIR}/sites-enabled/${SITE}")"
   [[ -e "$(F "${NGINX_DIR}/sites-available/${SITE}")" ]] && act "retrait de ${NGINX_DIR}/sites-available/${SITE}" rm -f -- "$(F "${NGINX_DIR}/sites-available/${SITE}")"
   if [[ ! -e "$(F "${NGINX_DIR}/sites-enabled/${other_site}")" ]]; then
