@@ -33,7 +33,7 @@ export function buildSnapshot(root = ROOT) {
       if(e.isDirectory()) walk(path,accept); else if(accept(path)) paths.push(path);
     }
   };
-  walk('infra/deploy',(p)=>/\.(sh|conf|example|md)$/.test(p)||p==='infra/deploy/logrotate/digisante');
+  walk('infra/deploy',(p)=>/\.(sh|conf|example|md|list)$/.test(p)||p==='infra/deploy/logrotate/digisante');
   walk('scripts/preproduction',(p)=>!p.endsWith('.test.mjs'));
   for(const provider of ['fedapay','twilio','daily','firebase','resend']) paths.push(`apps/api/src/services/${provider}.smoke.test.ts`);
   paths.push('apps/api/vitest.smoke.config.ts','apps/api/vitest.smoke.setup.ts');

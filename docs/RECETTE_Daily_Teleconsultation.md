@@ -12,7 +12,7 @@ Configurer Daily via l'admin (`apiKey`, `domain`) ou le fallback serveur `.env`.
 SMOKE_DAILY=1 pnpm --filter @digisante/api test:smoke -- daily
 ```
 
-Création `smoke-<horodatage>`, lecture effective de salle privée et protections, émission de JWT fournisseur borné, suppression et constat de 404. Le service vérifie aussi frappe interdite, limite de participants, identité unique et capacités désactivées. Le smoke ne prouve pas les médias ni l'éjection de participants connectés. Échec explicite si non configuré. Nettoyage dans afterAll ; aucun token ni clé publiés.
+Création `smoke-<horodatage>`, lecture effective de salle privée et protections, émission de JWT fournisseur borné, doublon de nom (B5, 13/10/2026 : statut et type `error` consignés, refus 4xx attendu, `createRoom` en 502 sans reprendre ni supprimer la salle existante), suppression et constat de 404. Le service vérifie aussi frappe interdite, limite de participants, identité unique et capacités désactivées. Le smoke ne prouve pas les médias ni l'éjection de participants connectés. Échec explicite si non configuré. Nettoyage dans afterAll ; aucun token ni clé publiés.
 
 ## Matrice sur deux appareils + un tiers
 
@@ -36,8 +36,11 @@ Création `smoke-<horodatage>`, lecture effective de salle privée et protection
 | D16 | Quitter/raccrocher/fermer page puis Réessayer rapidement | périphériques libérés ; pas d'ancienne session qui redémarre après réponse tardive | ☐ |
 | D17 | Daily 401/5xx/timeout ou configuration absente | pas d'iframe/jeton fictif ; erreur normalisée ou vidéo indisponible explicite, chat accessible | ☐ |
 | D18 | Deux connexions de même identité puis troisième identité | unicité d'identité et limite deux vérifiées ; documenter le comportement fournisseur réel | ☐ |
+| D19 | B5 — compte et noms : vérifier que le compte n'est pas en mode HIPAA ; créer `consult-<id>-<32 hex>`, puis tenter 129 caractères et un caractère hors `[A-Za-z0-9_-]` | nom de 105 caractères accepté ; statut et `error` des refus consignés (jamais `info`) ; mode HIPAA = flux incompatible, bloquant | ☐ |
+| D20 | B5 — démarrage lent : retarder Daily (proxy/latence) puis, pendant la création, réserver un autre créneau chez ce médecin et annuler le RDV | réservation acceptée sans P2028 ; démarrage refusé (400), aucune consultation ni notification, salle de la tentative absente de la liste Daily | ☐ |
+| D21 | B5 — délai/coupure après envoi du POST, et deux démarrages simultanés du même RDV | DELETE du nom envoyé (200 ou 404) ; une seule consultation/notification, salle perdante supprimée ; aucune salle orpheline au-delà des avertissements journalisés (nom seul) | ☐ |
 
-Consigner date, modèle/OS/navigateur Android et iOS, réseau, version/commit, opérateur, résultat par case et incident. Vérifier Permissions-Policy/CSP après Nginx en HTTPS : caméra/micro délégués au seul domaine Daily, pas bloqués par un en-tête proxy. Recette B4/Daily L10 : toutes les garanties privées/médias critiques et les cas D1–D18 examinés, aucun échec bloquant ouvert. La qualification fournisseur (région, télémétrie, traitements, contrat de sous-traitance) reste à valider par le porteur avant usage médical.
+Consigner date, modèle/OS/navigateur Android et iOS, réseau, version/commit, opérateur, résultat par case et incident. Vérifier Permissions-Policy/CSP après Nginx en HTTPS : caméra/micro délégués au seul domaine Daily, pas bloqués par un en-tête proxy. Recette B4/Daily L10 : toutes les garanties privées/médias critiques et les cas D1–D21 examinés, aucun échec bloquant ouvert. La qualification fournisseur (région, télémétrie, traitements, contrat de sous-traitance) reste à valider par le porteur avant usage médical.
 
 ## Retour sûr et héritage
 

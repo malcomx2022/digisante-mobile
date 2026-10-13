@@ -12,7 +12,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
 import type { FastifyBaseLogger } from 'fastify';
-import { isFedapayCheckoutUrl } from '@digisante/shared';
+import { isFedapayCheckoutUrl, type FedapayEnvironment } from '@digisante/shared';
 
 import { badGateway, isAppError } from '@/lib/errors.js';
 
@@ -33,8 +33,25 @@ const FEDAPAY_LIVE_BASE = 'https://api.fedapay.com/v1';
  * passent pas — visible immédiatement —, alors qu'un repli « live » enverrait de
  * vraies transactions avec une clé de test.
  */
-export function fedapayEnvironment(secretKey: string): 'sandbox' | 'live' {
+export function fedapayEnvironment(secretKey: string): FedapayEnvironment {
   return /^sk_live_/i.test(secretKey.trim()) ? 'live' : 'sandbox';
+}
+
+/**
+ * Identifiant de transaction FedaPay normalisé, ou `null` s'il est invalide.
+ *
+ * Définition UNIQUE, partagée par la création (réponse `POST /transactions`) et
+ * le webhook (`entity.id`) : un même identifiant ne peut pas être accepté par
+ * l'un et refusé par l'autre. L'OpenAPI FedaPay le type `integer` ; on admet un
+ * entier JSON sûr (> 0) ou une chaîne bornée (identifiants synthétiques du stub
+ * `fdp_…` et des tests). Un entier au-delà de 2^53 a déjà perdu sa précision au
+ * `JSON.parse` : il pourrait désigner une AUTRE transaction, il est donc refusé.
+ * La chaîne obtenue est sûre dans un chemin d'URL et comme clé `Payment.fedapayId`.
+ */
+export function parseFedapayTransactionId(value: unknown): string | null {
+  if (typeof value === 'number') return Number.isSafeInteger(value) && value > 0 ? String(value) : null;
+  if (typeof value === 'string') return /^[a-z0-9_-]{1,128}$/i.test(value) ? value : null;
+  return null;
 }
 
 /** Base d'API correspondant à la clé fournie. */
@@ -251,12 +268,12 @@ export async function createTransaction(opts: {
       opts.log.error({ status: txRes.status }, '[FedaPay] création transaction en échec');
       throw badGateway('Échec de la création de la transaction de paiement');
     }
-    const txJson = (await txRes.json()) as { 'v1/transaction'?: { id?: number | string }; id?: number | string };
-    const id = txJson['v1/transaction']?.id ?? txJson.id;
-    if (!id || !/^[a-z0-9_-]{1,128}$/i.test(String(id))) throw badGateway('Réponse FedaPay inattendue (transaction sans id valide)');
+    const txJson = (await txRes.json()) as { 'v1/transaction'?: { id?: unknown }; id?: unknown };
+    const id = parseFedapayTransactionId(txJson['v1/transaction']?.id ?? txJson.id);
+    if (!id) throw badGateway('Réponse FedaPay inattendue (transaction sans id valide)');
 
     // 2) Génération du token → URL de paiement hébergée.
-    const tokRes = await fetch(`${base}/transactions/${encodeURIComponent(String(id))}/token`, {
+    const tokRes = await fetch(`${base}/transactions/${encodeURIComponent(id)}/token`, {
       method: 'POST',
       redirect: 'error',
       ...(opts.timeoutMs ? { signal: AbortSignal.timeout(opts.timeoutMs) } : {}),
@@ -267,13 +284,12 @@ export async function createTransaction(opts: {
       throw badGateway('Échec de génération du lien de paiement');
     }
     const tokJson = (await tokRes.json()) as { url?: string };
-    if (!isFedapayCheckoutUrl(tokJson.url)) throw badGateway('Réponse FedaPay inattendue (lien de paiement invalide)');
+    // Hôte EXACT de la page hébergée, lié à l'environnement de la clé (B1).
+    const environment = fedapayEnvironment(opts.secretKey);
+    if (!isFedapayCheckoutUrl(tokJson.url, environment)) throw badGateway('Réponse FedaPay inattendue (lien de paiement invalide)');
 
-    opts.log.info(
-      { fedapayId: id, amount: opts.amount, environment: fedapayEnvironment(opts.secretKey) },
-      'transaction FedaPay créée',
-    );
-    return { fedapayId: String(id), paymentUrl: tokJson.url };
+    opts.log.info({ fedapayId: id, amount: opts.amount, environment }, 'transaction FedaPay créée');
+    return { fedapayId: id, paymentUrl: tokJson.url };
   } catch (err) {
     if (isAppError(err)) throw err;
     opts.log.error({ operation: 'create' }, '[FedaPay] erreur réseau création transaction');

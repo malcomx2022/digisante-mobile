@@ -66,11 +66,26 @@ export default async function paymentsRoutes(app: FastifyInstance) {
   });
 
   // Réconciliation (cron interne) — protégée par jeton de service.
-  app.post('/reconcile', async (request) => {
+  app.post('/reconcile', async (request, reply) => {
     const token = request.headers['x-service-token'];
     if (!isValidServiceToken(token)) {
       throw unauthorized('Jeton de service invalide');
     }
-    return payments.reconcile(app);
+    const result = await payments.reconcile(app);
+    // B2 (revue indépendante) : le lot se poursuit après l'échec d'un paiement,
+    // mais l'échec doit rester BRUYANT. Réponse non 2xx dès `failed > 0` ⇒
+    // `fedapay_reconcile.sh` journalise ÉCHEC et sort 1 ⇒ sonde `cron` de
+    // healthwatch (seuil 1), comme lorsque l'exception remontait en 500. Un 200
+    // laisserait un paiement débité chez FedaPay en PENDING sans aucune alerte
+    // (la sonde `providers` n'alerte qu'à partir de 3 lignes par passage).
+    // Corps : compteurs seuls, aucun identifiant ni charge utile.
+    if (result.failed > 0) {
+      return reply.code(500).send({
+        code: 'RECONCILE_PARTIAL_FAILURE',
+        message: 'Réconciliation incomplète : paiement(s) en échec, lot poursuivi',
+        ...result,
+      });
+    }
+    return result;
   });
 }

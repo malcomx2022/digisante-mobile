@@ -1,11 +1,17 @@
 # ─────────────────────────────────────────────────────────────
 # Rotation des journaux DigiSanté (PM2 api/web + crons + healthwatch).
-#   sudo cp infra/deploy/logrotate/digisante /etc/logrotate.d/digisante
+#   sudo install -m 0644 /usr/local/lib/digisante/infra/deploy/logrotate/digisante /etc/logrotate.d/digisante
 #   sudo logrotate -d /etc/logrotate.d/digisante     # simulation
+# (copie root:root installée par install_root_scripts.sh — jamais celle de APP_DIR : une
+# configuration logrotate est exécutée par root, cf. bloquant B3.)
 # `copytruncate` : PM2 garde le descripteur ouvert (pas de rechargement nécessaire).
 # 14 jours = même rétention que les sauvegardes. Les journaux ne contiennent ni JWT
 # (sérialiseur req + log_format Nginx noquery), ni message d'erreur Prisma (§4).
 # ─────────────────────────────────────────────────────────────
+
+# Journaux de l'utilisateur applicatif (PM2, historique de déploiement) : le répertoire
+# lui appartient, la rotation s'exécute donc SOUS SON IDENTITÉ (jamais root dans un
+# répertoire qu'il contrôle : liens symboliques).
 /var/log/digisante/*.log {
     daily
     rotate 14
@@ -15,6 +21,18 @@
     compress
     delaycompress
     copytruncate
-    su root root
+    su digisante digisante
     create 0640 digisante digisante
+}
+
+# Journaux des tâches cron ROOT : répertoire root:root 0750 (B3).
+/var/log/digisante-cron/*.log {
+    daily
+    rotate 14
+    maxsize 100M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
 }

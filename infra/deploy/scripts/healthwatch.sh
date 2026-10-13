@@ -9,12 +9,42 @@
 # Le message arrive sur l'entrée standard. Sans ALERT_CMD : syslog seulement
 # (`journalctl -t digisante-healthwatch`). Runbook : docs/RUNBOOK_Alertes.md.
 # Aucun secret, aucune donnée de santé dans les messages (comptages et états seuls).
+#
+# B3 : lancé depuis la copie INSTALLÉE root:root (/usr/local/lib/digisante, cf.
+# install_root_scripts.sh), jamais depuis APP_DIR. Le module de contrôle des sauvegardes
+# est pris dans la MÊME installation (même commit) et n'est exécuté que s'il n'est
+# modifiable par aucun autre compte ; les journaux des tâches root sont lus dans
+# /var/log/digisante-cron (root), pas dans le répertoire de l'utilisateur applicatif.
 # ─────────────────────────────────────────────────────────────
 set -euo pipefail
 
+# >>> trusted_path (B3 — copie IDENTIQUE dans chaque script exécuté par root ; test de non-dérive)
+# Vrai si le chemin résolu ET tous ses ancêtres appartiennent à root (ou à l'utilisateur
+# courant) et ne sont modifiables par aucun autre compte (seule exception : répertoire
+# sticky appartenant à root, ex. /tmp). Root n'exécute ni ne lit comme code un fichier
+# que l'utilisateur applicatif pourrait réécrire.
+trusted_path() {
+  local p owner mode
+  p="$(readlink -f -- "$1")" && [[ -e "$p" ]] || return 1
+  while :; do
+    read -r owner mode < <(stat -c '%u %a' -- "$p") || return 1
+    [[ "$owner" == 0 || "$owner" == "$EUID" ]] || return 1
+    if (( 8#$mode & 8#022 )); then [[ "$owner" == 0 && -d "$p" && -k "$p" ]] || return 1; fi
+    [[ "$p" == / ]] && return 0
+    p="$(dirname -- "$p")"
+  done
+}
+# <<< trusted_path
+trusted_path "${BASH_SOURCE[0]}" || { echo "[healthwatch] ÉCHEC : script lancé depuis un emplacement modifiable par un autre compte ; utiliser la copie installée par install_root_scripts.sh" >&2; exit 1; }
+SELF_ROOT="$(cd "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/../../.." && pwd -P)"
+
 CONF="${HEALTHWATCH_CONF:-/etc/digisante/alert.conf}"
-# shellcheck disable=SC1090
-[[ -r "$CONF" ]] && source "$CONF"
+if [[ -r "$CONF" ]]; then
+  # Fichier SOURCÉ par root : refusé s'il est modifiable par un autre compte.
+  trusted_path "$CONF" || { echo "[healthwatch] ÉCHEC : ${CONF} modifiable par un autre compte ; non chargé" >&2; exit 1; }
+  # shellcheck disable=SC1090
+  source "$CONF"
+fi
 
 API_URL="${API_URL:-http://127.0.0.1:3001}"
 APP_USER="${APP_USER:-digisante}"
@@ -23,7 +53,10 @@ BACKUP_DIR="${BACKUP_DIR:-/var/backups/digisante}"
 BACKUP_MAX_AGE_H="${BACKUP_MAX_AGE_H:-26}"
 DISK_PATHS="${DISK_PATHS:-/ /var/backups/digisante}"
 DISK_THRESHOLD="${DISK_THRESHOLD:-85}"
-JOB_LOGS="${JOB_LOGS:-/var/log/digisante/med_reminders.log /var/log/digisante/appt_reminders.log /var/log/digisante/vaccination_reminders.log /var/log/digisante/maternity_reminders.log /var/log/digisante/notify_dispatch.log /var/log/digisante/reconcile.log /var/log/digisante/pg_dump.log /var/log/digisante/sync_receipts.log}"
+# Journaux des tâches ROOT : répertoire root:root (un journal dans le répertoire de
+# l'utilisateur applicatif pourrait être remplacé par un lien vers un fichier système).
+CRON_LOG_DIR="${CRON_LOG_DIR:-/var/log/digisante-cron}"
+JOB_LOGS="${JOB_LOGS:-${CRON_LOG_DIR}/med_reminders.log ${CRON_LOG_DIR}/appt_reminders.log ${CRON_LOG_DIR}/vaccination_reminders.log ${CRON_LOG_DIR}/maternity_reminders.log ${CRON_LOG_DIR}/notify_dispatch.log ${CRON_LOG_DIR}/reconcile.log ${CRON_LOG_DIR}/pg_dump.log ${CRON_LOG_DIR}/sync_receipts.log}"
 API_LOG="${API_LOG:-/var/log/digisante/api-error.log /var/log/digisante/api-out.log}"
 DB_NAME="${DB_NAME:-digisante}"
 [[ "$DB_NAME" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]] || { echo "Nom de base invalide" >&2; exit 1; }
@@ -64,14 +97,18 @@ done
 (( worst < DISK_THRESHOLD )) && check disk "OK|max ${worst}% (seuil ${DISK_THRESHOLD}%)" || check disk "ALERTE|${where} à ${worst}% (seuil ${DISK_THRESHOLD}%)"
 
 # 4. Fraîcheur du trio PUBLIÉ : manifeste = marqueur de fin, pas une archive partielle.
-BACKUP_CHECK="$(cd "$(dirname "$0")/../../.." && pwd)/scripts/preproduction/check-backup.mjs"
+#    Le contrôle refuse aussi un magasin de fichiers incomplet (fichiers archivés <
+#    fichiers référencés par la base au moment du dump — B4).
+BACKUP_CHECK="${SELF_ROOT}/scripts/preproduction/check-backup.mjs"
 last="$(ls -1t "$BACKUP_DIR"/digisante_manifest_2*.txt 2>/dev/null | head -1 || true)"
 if [[ -z "$last" ]]; then
   check backup "ALERTE|aucune sauvegarde complète publiée dans ${BACKUP_DIR}"
+elif ! trusted_path "$BACKUP_CHECK"; then
+  check backup "ALERTE|module de contrôle des sauvegardes absent ou modifiable par un autre compte (réinstaller les scripts root)"
 else
   age_s=$(( $(date +%s) - $(stat -c %Y "$last") )); age_h=$((age_s / 3600))
   if (( age_s < 0 || age_s > BACKUP_MAX_AGE_H * 3600 )); then check backup "ALERTE|sauvegarde périmée ou horodatage futur (${age_h} h)"
-  elif ! node "$BACKUP_CHECK" "$last" --metadata-only >/dev/null 2>&1; then check backup "ALERTE|trio base/fichiers/manifeste absent, vide ou incohérent"
+  elif ! node "$BACKUP_CHECK" "$last" --metadata-only >/dev/null 2>&1; then check backup "ALERTE|trio base/fichiers/manifeste absent, vide, incohérent ou magasin de fichiers incomplet"
   else check backup "OK|trio publié (${age_h} h) ; intégrité/restauration à contrôler séparément"; fi
 fi
 

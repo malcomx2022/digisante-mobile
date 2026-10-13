@@ -18,6 +18,7 @@ import {
   createTransaction,
   getTransactionStatus,
   mapFedapayStatus,
+  parseFedapayTransactionId,
   verifyWebhookSignature,
 } from '@/services/fedapay.js';
 import { assertRefundNotReserved, captureWithin, refundFinanceWithin } from './finance.effects.js';
@@ -290,16 +291,46 @@ export async function handleWebhook(
     throw unauthorized('Signature de webhook invalide');
   }
 
-  // 2) Extraction normalisée { fedapayId, status }.
-  let event: { fedapayId?: string; id?: string; status?: string; entity?: { id?: string; status?: string } };
+  // 2) Extraction de la TRANSACTION — forme officielle d'une livraison FedaPay :
+  //    `{ name: 'transaction.approved', entity: { id, status, … } }` (exemples
+  //    docs.fedapay.com « webhooks » sur `event.name` ; intégrations officielles
+  //    PMPro `$event->entity->id` et Odoo `data['entity']['id']`).
+  //
+  //    ⚠️ B2 (revue indépendante 13/10/2026) : l'ancienne extraction
+  //    `event.fedapayId ?? event.id ?? event.entity?.id` prenait l'identifiant
+  //    d'ÉVÉNEMENT (`id` racine) à la place de celui de la transaction, et un `id`
+  //    entier faisait lever Prisma (500, retries vains) : confirmations, CAPTURE
+  //    L7, activation L6 et crédits ne passaient plus que par la réconciliation.
+  //    Seul `entity.id` désigne la transaction ; `id`, `fedapayId` et `status`
+  //    racine ne sont JAMAIS lus.
+  let event: unknown;
   try {
     event = JSON.parse(rawBody);
   } catch {
     throw badRequest('Charge de webhook illisible');
   }
-  const fedapayId = event.fedapayId ?? event.id ?? event.entity?.id;
-  const rawStatus = event.status ?? event.entity?.status;
-  if (!fedapayId || !rawStatus) throw badRequest('Webhook incomplet');
+  if (!event || typeof event !== 'object' || Array.isArray(event)) throw badRequest('Webhook incomplet');
+  const { name, type } = event as { name?: unknown; type?: unknown };
+  const eventName = typeof name === 'string' ? name : typeof type === 'string' ? type : undefined;
+  // Un endpoint reçoit par défaut TOUS les événements du compte (customer.*…).
+  // Les refuser ferait rejouer FedaPay indéfiniment : accusé de réception, sans effet.
+  if (eventName !== undefined && !eventName.startsWith('transaction.')) {
+    return { ignored: true, reason: 'événement non transactionnel' };
+  }
+  let entity = (event as { entity?: unknown }).entity;
+  if (typeof entity === 'string') {
+    // Forme de l'API Events (`entity` sérialisée en chaîne) — tolérée par prudence.
+    try {
+      entity = JSON.parse(entity);
+    } catch {
+      throw badRequest('Charge de webhook illisible');
+    }
+  }
+  if (!entity || typeof entity !== 'object' || Array.isArray(entity)) throw badRequest('Webhook incomplet');
+  const { id: rawId, status: rawStatus } = entity as { id?: unknown; status?: unknown };
+  // Même borne qu'à la création : chaîne sûre comme clé `Payment.fedapayId`.
+  const fedapayId = parseFedapayTransactionId(rawId);
+  if (!fedapayId || typeof rawStatus !== 'string' || !rawStatus) throw badRequest('Webhook incomplet');
 
   const status = mapFedapayStatus(rawStatus);
   if (!status) return { ignored: true, reason: 'statut non géré' };
@@ -328,6 +359,8 @@ export function reconciliationWhere(now = Date.now()): Prisma.PaymentWhereInput 
 export async function reconcile(app: FastifyInstance) {
   const pendings = await app.prisma.payment.findMany({
     where: reconciliationWhere(),
+    // Ordre déterministe : les plus anciens d'abord (les plus en retard).
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     select: { id: true, userId: true, type: true, status: true, fedapayId: true, amount: true },
   });
 
@@ -335,20 +368,31 @@ export async function reconcile(app: FastifyInstance) {
   const cfg = await resolveConfiguredSecrets(app, 'FEDAPAY');
   if (!cfg) {
     app.log.info({ job: 'reconcile', scanned: pendings.length }, 'réconciliation FedaPay (balayage — non configuré)');
-    return { scanned: pendings.length, resolved: 0 };
+    return { scanned: pendings.length, resolved: 0, failed: 0 };
   }
 
   let resolved = 0;
+  let failed = 0;
   for (const payment of pendings) {
     if (!payment.fedapayId) continue;
-    const raw = await getTransactionStatus(payment.fedapayId, app.log, cfg.secretKey);
-    if (!raw) continue;
-    const status = mapFedapayStatus(raw);
-    if (!status || status === 'PROCESSING') continue; // on ne résout que les statuts terminaux
-    const result = await applyPaymentStatus(app, payment, status, null, 'reconcile');
-    if ('processed' in result) resolved += 1;
+    // B2 : un paiement en échec (P2028, interblocage, conflit d'activation L6 ou
+    // de capture L7…) n'interrompt plus le lot. Sa transaction est annulée en
+    // entier par `applyPaymentStatus` ; il reste PENDING/PROCESSING et sera repris
+    // au prochain passage. Journal : identifiant seul, l'erreur passe par le
+    // sérialiseur `err` (messages Prisma minimisés), jamais de charge utile.
+    try {
+      const raw = await getTransactionStatus(payment.fedapayId, app.log, cfg.secretKey);
+      if (!raw) continue;
+      const status = mapFedapayStatus(raw);
+      if (!status || status === 'PROCESSING') continue; // on ne résout que les statuts terminaux
+      const result = await applyPaymentStatus(app, payment, status, null, 'reconcile');
+      if ('processed' in result) resolved += 1;
+    } catch (err) {
+      failed += 1;
+      app.log.error({ err, paymentId: payment.id, job: 'reconcile' }, '[FedaPay] réconciliation : paiement en échec, lot poursuivi');
+    }
   }
 
-  app.log.info({ job: 'reconcile', scanned: pendings.length, resolved }, 'réconciliation FedaPay');
-  return { scanned: pendings.length, resolved };
+  app.log.info({ job: 'reconcile', scanned: pendings.length, resolved, failed }, 'réconciliation FedaPay');
+  return { scanned: pendings.length, resolved, failed };
 }

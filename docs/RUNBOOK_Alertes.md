@@ -13,7 +13,7 @@
 | Erreurs API | type, code, pile | **message des erreurs Prisma masqué** (il recopie les arguments de la requête — mesures, titres, identifiants) : opération + noms de champs seulement (`serializeErrorForLog`, corrigé le 22/09) |
 | Fournisseurs (Twilio/Resend/Daily/FCM) | statut, code d'erreur fournisseur | numéro/e-mail **masqués**, code OTP et corps de message **jamais** en production (`lib/redact.ts`) |
 | Nginx WS `/var/log/nginx/digisante-ws.log` | `$uri` sans query | JWT du WebSocket jamais journalisé |
-| Tâches cron | `OK/ÉCHEC (HTTP n)` + compteurs | jeton de service jamais en argument ni journalisé |
+| Tâches cron (root) `/var/log/digisante-cron/*.log` | `OK/ÉCHEC (HTTP n)` + extrait de réponse borné, sans caractères de contrôle | jeton de service jamais en argument ni journalisé ; répertoire root:root (B3 : jamais dans celui de `digisante`, où un lien détournerait l'écriture root) |
 | Rotation | `/etc/logrotate.d/digisante` : quotidienne, 14 j, compressée, `copytruncate`, `maxsize 100M` | — |
 
 ## 2. Contrôles, seuils et signification
@@ -23,8 +23,8 @@
 | `ready` | `GET /api/v1/ready` (DB + Redis) | ≠ 200 | `systemctl status postgresql redis-server` ; `pm2 logs digisante-api --lines 100` |
 | `pm2` | api online ×2, web ×1 | autre | `sudo -u digisante pm2 status` ; `pm2 restart digisante-api` si crash en boucle → logs |
 | `disk` | `df` sur `/` et `/var/backups/digisante` | ≥ `DISK_THRESHOLD`=85 % | purger vieux journaux compressés ; vérifier la rétention des sauvegardes ; agrandir le volume |
-| `backup` | dernière archive base < `BACKUP_MAX_AGE_H`=26 h **et** archive fichiers du même horodatage | dépassé / absente | `tail /var/log/digisante/pg_dump.log` ; lancer `pg_dump_encrypted.sh` à la main |
-| `cron` | lignes `ÉCHEC` récentes (15 min) des tâches | ≥ 1 | 401 ⇒ `/etc/digisante/reconcile.token` ≠ `RECONCILE_TOKEN` du `.env` ; 5xx ⇒ logs API |
+| `backup` | dernière archive base < `BACKUP_MAX_AGE_H`=26 h **et** archive fichiers du même horodatage, magasin complet (`files_count` ≥ `files_expected`, `files_missing=0`) | dépassé / absente / magasin incomplet / module de contrôle non fiable | `tail /var/log/digisante-cron/pg_dump.log` ; vérifier `KYC_STORAGE_DIR` du `.env` API (magasin `digisante 700`, nom sans « - » initial, fichiers lisibles par `digisante` — « refusé » ou « archivage impossible sous l'identité » au journal) ; lancer `sudo /usr/local/lib/digisante/infra/deploy/scripts/pg_dump_encrypted.sh` ; module non fiable ⇒ réinstaller les scripts root |
+| `cron` | lignes `ÉCHEC` récentes (15 min) des tâches | ≥ 1 | 401 ⇒ `/etc/digisante/reconcile.token` ≠ `RECONCILE_TOKEN` du `.env` ; 5xx ⇒ logs API ; réconciliation `500 RECONCILE_PARTIAL_FAILURE` (`failed` ≥ 1, reste du lot traité) ⇒ `paymentId` des lignes `[FedaPay] réconciliation : paiement en échec` du journal API, paiement resté PENDING/PROCESSING alors que FedaPay peut l’avoir encaissé — **§5** : diagnostiquer la cause (activation L6, capture L7, base) avant le passage suivant de 02:30, jamais de mise à jour manuelle du statut |
 | `providers` | erreurs Twilio/Resend/Daily/FCM/FedaPay depuis le dernier passage | ≥ `PROVIDER_ERR_MAX`=3 | `/admin/integrations` → **Tester** ; statut du fournisseur ; clé révoquée ? |
 | `backlog` | notifications `PENDING` > 15 min | > `BACKLOG_MAX`=100 | dispatch en échec (`cron`) ou fournisseur en panne (`providers`) |
 | `webhooks` | `AUTH_FAIL` source `fedapay_webhook` sur 1 h | ≥ `WEBHOOK_401_MAX`=5 | secret webhook FedaPay désynchronisé (base ≠ dashboard) — **§5** : re-`PUT` du jeu complet, la réconciliation 02:30 rattrape |

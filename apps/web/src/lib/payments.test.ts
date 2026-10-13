@@ -39,4 +39,23 @@ describe('paymentOutcome', () => {
     expect(paymentOutcome(null)).toEqual({ kind: 'settled' });
     expect(paymentOutcome(undefined)).toEqual({ kind: 'settled' });
   });
+
+  // B1 (13/10/2026) : page hébergée réelle `process` / `sandbox-process`.
+  it('redirige vers la page hébergée FedaPay process / sandbox-process', () => {
+    for (const url of ['https://process.fedapay.com/tok', 'https://sandbox-process.fedapay.com/tok', 'https://sandbox-checkout.fedapay.com/tok']) {
+      expect(paymentOutcome({ paymentUrl: url })).toEqual({ kind: 'redirect', url });
+    }
+  });
+
+  // B1 : consultations et recharges redirigeaient vers N'IMPORTE QUELLE URL
+  // renvoyée par l'API, sans le contrôle déjà appliqué à l'abonnement L6.
+  it('refuse toute URL hors page hébergée FedaPay : ni redirection, ni paiement annoncé réglé', () => {
+    for (const url of [
+      'https://evil.test/pay', 'https://stub.fedapay.com/checkout/fdp_x', 'http://process.fedapay.com/tok',
+      'https://process.fedapay.com.evil.test/tok', 'https://process.fedapay.com@evil.test/tok', 'https://u:p@checkout.fedapay.com/x',
+      'https://api.fedapay.com/v1/transactions', 'https://fpay.li/uxAga', 'javascript:alert(1)', '/patient/appointments', 'malformed',
+    ]) {
+      expect(() => paymentOutcome({ paymentUrl: url }), url).toThrow('Invalid FedaPay checkout');
+    }
+  });
 });
