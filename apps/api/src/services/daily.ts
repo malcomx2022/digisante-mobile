@@ -12,7 +12,9 @@ export function roomProperties(now: number) {
   return {
     exp: now + ROOM_TTL_SECONDS, eject_at_room_exp: true,
     enable_knocking: false, max_participants: 2, enforce_unique_user_ids: true,
-    enable_chat: false, enable_screenshare: false, enable_recording: false,
+    // `enable_recording` n'accepte qu'un mode (`cloud`, `local`…) : son ABSENCE
+    // vaut « aucun enregistrement ». `false` sort du schéma Daily documenté.
+    enable_chat: false, enable_screenshare: false,
     enable_transcription_storage: false,
     permissions: { canAdmin: false, canSend: ['audio', 'video'] },
   };
@@ -56,6 +58,9 @@ async function request(app: FastifyInstance, creds: DailyCreds, path: string, me
   }
 }
 
+/** Tout mode d'enregistrement déclaré (chaîne ou liste) rend la salle non conforme. */
+const recordingDisabled = (value: unknown) => value === undefined || value === null || value === false;
+
 /** Contrôle aussi les salles historiques : jamais de confiance dans l'URL en DB. */
 async function inspectRoom(app: FastifyInstance, creds: DailyCreds, name: string): Promise<DailyRoom> {
   const res = await request(app, creds, `rooms/${encodeURIComponent(name)}`);
@@ -67,7 +72,7 @@ async function inspectRoom(app: FastifyInstance, creds: DailyCreds, name: string
   if (data.name !== name || data.url !== url || data.privacy !== 'private' ||
       p?.enable_knocking !== false || p.eject_at_room_exp !== true ||
       p.max_participants !== 2 || p.enforce_unique_user_ids !== true || p.enable_chat !== false || p.enable_screenshare !== false ||
-      p.enable_recording !== false || typeof p.exp !== 'number' || !Number.isSafeInteger(p.exp)) {
+      !recordingDisabled(p.enable_recording) || typeof p.exp !== 'number' || !Number.isSafeInteger(p.exp)) {
     throw badGateway('Salle Daily non conforme à la confidentialité requise');
   }
   if (p.exp <= nowSeconds()) throw badRequest('La salle a expiré');

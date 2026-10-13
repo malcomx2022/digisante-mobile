@@ -17,7 +17,9 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('Daily — politique privée', () => {
   it('salle expirant après 4 h, sans frappe, chat, écran ni enregistrement', () => {
-    expect(roomProperties(1_000)).toMatchObject({ exp: 1_000 + ROOM_TTL_SECONDS, eject_at_room_exp: true, enable_knocking: false, max_participants: 2, enable_chat: false, enable_screenshare: false, enable_recording: false, permissions: { canAdmin: false } });
+    expect(roomProperties(1_000)).toMatchObject({ exp: 1_000 + ROOM_TTL_SECONDS, eject_at_room_exp: true, enable_knocking: false, max_participants: 2, enable_chat: false, enable_screenshare: false, permissions: { canAdmin: false } });
+    // Schéma Daily : `enable_recording` = mode(s) d'enregistrement ; absent = désactivé.
+    expect(roomProperties(1_000)).not.toHaveProperty('enable_recording');
   });
   it('jeton nominatif 15 min, sans propriétaire ni administration', () => {
     expect(tokenProperties({ room: 'r', userId: 'u', nowSeconds: 1_000, roomExpiresAt: 99_000 })).toMatchObject({ room_name: 'r', user_id: 'u', exp: 1_000 + TOKEN_TTL_SECONDS, is_owner: false, eject_at_token_exp: true, permissions: { canAdmin: false } });
@@ -52,6 +54,13 @@ describe('Daily — réponse fournisseur vérifiée', () => {
     const room = info(); room.config.enable_knocking = true;
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(room)));
     await expect(createMeetingToken(tokenOpts())).rejects.toMatchObject({ statusCode: 502 });
+  });
+  it('refuse une salle déclarant un mode d’enregistrement', async () => {
+    for (const mode of ['cloud', 'local', ['raw-tracks']]) {
+      const room = info(); (room.config as Record<string, unknown>).enable_recording = mode;
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(room)));
+      await expect(createMeetingToken(tokenOpts())).rejects.toMatchObject({ statusCode: 502 });
+    }
   });
   it('refuse une URL étrangère ou contenant un jeton', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response({ ...info(), url: info().url + '?t=secret' })));

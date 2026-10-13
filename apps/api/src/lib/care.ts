@@ -29,10 +29,19 @@ export async function hasCareRelationship(
   doctor: { id: string; userId: string },
   patientId: string,
 ): Promise<boolean> {
-  const now = new Date();
+  const now = new Date(Date.now());
   const [appointments, consents, referrals] = await Promise.all([
     app.prisma.appointment.count({ where: { doctorId: doctor.id, patientId, status: { not: 'CANCELLED' } } }),
-    app.prisma.consent.count({ where: { granteeId: doctor.userId, patientId, revokedAt: null, expiresAt: { gt: now } } }),
+    // Consentement = au moins UNE entrée encore consentie (L1). `Consent.expiresAt`
+    // n'est plus autoritatif : il survit au retrait d'un partage et le minimum
+    // d'un lien expiré le ferait mentir dans les deux sens.
+    app.prisma.consentRecord.count({
+      where: {
+        expiresAt: { gt: now },
+        record: { patientId },
+        consent: { granteeId: doctor.userId, patientId, revokedAt: null },
+      },
+    }),
     app.prisma.referral.count({ where: { toDoctorId: doctor.id, patientId, status: { in: ['PENDING', 'ACCEPTED'] } } }),
   ]);
   return appointments + consents + referrals > 0;

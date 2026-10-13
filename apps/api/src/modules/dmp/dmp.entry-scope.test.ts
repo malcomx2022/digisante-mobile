@@ -133,6 +133,34 @@ describe.skipIf(!HAS_INFRA)('DMP L1 — échéances et auteurs (intégration)', 
     expect(c.records.find((r: { recordId: string }) => r.recordId === short)).toMatchObject({ active: false, expiresAt: s.expiresAt });
   });
 
+  it('la relation de soin par consentement suit les entrées actives, pas l’échéance parent', async () => {
+    const { hasCareRelationship } = await import('@/lib/care.js');
+    const doctor = await app.prisma.doctor.findUniqueOrThrow({ where: { userId: doctorId }, select: { id: true } });
+    const care = () => hasCareRelationship(app, { id: doctor.id, userId: doctorId }, patientId);
+    // ① Retrait du partage : le parent garde +72 h, la relation de soin doit tomber.
+    const withdrawnRecord = await makeRecord();
+    await claim(withdrawnRecord, 72);
+    expect(await care()).toBe(true);
+    const withdrawn = await app.inject({
+      method: 'DELETE', url: `/api/v1/dmp/records/${withdrawnRecord}/share`, headers: auth(patientToken),
+    });
+    expect(withdrawn.statusCode).toBe(200);
+    expect(await care()).toBe(false);
+    // ② Le parent hérite du minimum (lien expiré) : seul le lien valide doit compter.
+    const expired = await makeRecord();
+    const valid = await makeRecord();
+    await claim(expired, 1);
+    vi.mocked(Date.now).mockReturnValue(baseTime + 2 * 3600_000);
+    expect(await care()).toBe(false);
+    await claim(valid, 72);
+    expect((await app.prisma.consent.findFirstOrThrow({ where: { granteeId: doctorId } })).expiresAt.getTime())
+      .toBeLessThan(Date.now());
+    expect(await care()).toBe(true);
+    // ③ La révocation persistante ferme tout, même avec une entrée encore datée.
+    expect((await revoke()).statusCode).toBe(200);
+    expect(await care()).toBe(false);
+  });
+
   it('réclamer une entrée courte ne raccourcit pas la longue déjà consentie', async () => {
     const long = await makeRecord();
     const short = await makeRecord();
