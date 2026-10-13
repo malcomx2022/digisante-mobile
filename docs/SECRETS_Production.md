@@ -84,7 +84,7 @@
 
 ## Secrets GitHub Actions (déploiement SSH)
 
-`VPS_HOST` · `VPS_USER` · `VPS_SSH_KEY` (clé privée) · `VPS_SSH_PORT` (si ≠ 22)
+`VPS_HOST` · `VPS_USER` · `VPS_SSH_KEY` (clé privée) · `VPS_FINGERPRINT` (empreinte d’hôte, obligatoire) · `VPS_SSH_PORT` (si ≠ 22)
 \+ **variable** `DEPLOY_ENABLED=true` pour activer le job `deploy`.
 
 ## Build de production (rappel)

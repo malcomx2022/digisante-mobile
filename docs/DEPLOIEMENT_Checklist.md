@@ -50,7 +50,7 @@
       ⚠️ Les générateurs **vaccination** et **CPN** n'étaient PAS planifiés avant août 2026 : sans eux, aucun rappel de vaccination ni de consultation prénatale n'est émis — en silence.
 
 ## 6. Déploiement continu (GitHub Actions)
-- [ ] Secrets repo : `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` (+ `VPS_SSH_PORT`).
+- [ ] Secrets repo : `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `VPS_FINGERPRINT` (empreinte d’hôte, obligatoire) (+ `VPS_SSH_PORT`).
 - [ ] **Variables** `DEPLOY_ENABLED=true` ET `DEPLOY_MAINTENANCE_READY=true`, seulement dans une fenêtre autorisée/maintenance Nginx vérifiée ; désactiver hors fenêtre.
 - [ ] Clé publique dans `~digisante/.ssh/authorized_keys`.
 - [ ] Push sur `main` → CI (`build-and-test` **et** `e2e`) → `deploy` SSH (`deploy.sh`) si l'opt-in est actif. La PR L0 ne déploie pas.
@@ -82,7 +82,7 @@
 ---
 
 **Contrôles techniques actuels ; ouverture pilote non attestée.** Le code (backend **28 modules** / **182 endpoints REST + 1 WS**
-+ frontend **7 espaces**, **67 pages**) est testé (**726 tests verts** — 605 API + 121 web, + 24 e2e
++ frontend **7 espaces**, **67 pages**) est testé (**736 tests verts** — 612 API + 124 web, + 24 e2e
 Playwright — preuves du 7 octobre 2026 dans LOT_L4), l'infra scriptée. Restent la livraison L7 et la finalisation L8–L11, la validation humaine et l'exécution sur
 le VPS réel (étapes ci-dessus).
 

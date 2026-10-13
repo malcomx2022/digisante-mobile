@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "sourceSnapshotSha256": "d3ac2b0c27b2eaf9b3c9f9799f1f5c8afd8c642b8481ff73da83a4b386e8fce1",
+  "sourceSnapshotSha256": "510553fe7c88a8f2942c5ac866150510153935ffb6c278358186bfda206aad03",
   "sources": {
-    ".github/workflows/ci.yml": "645c6a804fc35d9aff03cadcf3197a3181496a54f23c868b40eade97d308a635",
+    ".github/workflows/ci.yml": "fd8cade29c0c42b8ae1f0284644b064ea91d6e1fc99c3e0e0ac82f8228509c44",
     ".github/workflows/preproduction.yml": "1e2994588735f71d731b28ebc1cffacebf71114db787540dd2f7af935e6c6e97",
     "apps/api/src/services/daily.smoke.test.ts": "2aed54c987c124d9fc36e1e2694d7b767fe48d140ab9c2375d65ad0d546f2b93",
     "apps/api/src/services/fedapay.smoke.test.ts": "28049ec8af72b636dc0c4f3036a5748e8be592156b0717af94ad51ce50ff7874",
@@ -22,7 +22,7 @@
     "docs/SECRETS_Preproduction_L10.md": "d55a6b482dc6f94b99a972eb882e9f33602414287748064ef850be50c0c47a33",
     "docs/preproduction/L10/README.md": "2eeccbcd070065cdd2c9dc52beaf464fe7d555466cdede038882a9ccc4bf6545",
     "ecosystem.config.cjs": "36207237b7d01001dcdb0c4f4cc23e50c203836d900156d3b80889167d73fefa",
-    "infra/deploy/README.md": "c1ae8cca18cbd8ace11f2aa2d04b8fa0fea98718427d462fe337fb3473c8cdd1",
+    "infra/deploy/README.md": "7e3f6d200b3c16da152a12e1b625bc7258fbee30f30352bfa9bd87e13bfe7cf8",
     "infra/deploy/crontab.example": "d34c3f2b50dc881a62265135c97c61119ba0ab3c2d72ea701fd350114b845aa9",
     "infra/deploy/crontab.preproduction.example": "5176476cd82fccaeb3e610b5f69e585799c3d314f675c303cf9b761e83f6b200",
     "infra/deploy/logrotate/digisante": "51dc5fc6d3f751a97badc1f4b6bcf1a19474d2399b30783ecb83feb33ec0e64c",
@@ -31,7 +31,7 @@
     "infra/deploy/nginx/rate-limit.conf": "65e73c3bac5e7dbc361475ef2d420593d190752a0da1c11f71d6c511598b0ddc",
     "infra/deploy/scripts/deploy.sh": "c4caa0fde40eea6c899bb7b3e6dfe8a54ee8f47ec076b4d4f332ed88b9193c3b",
     "infra/deploy/scripts/fedapay_reconcile.sh": "bd8812bacaef7d48e9348ad737015f70535dad4ee07b09581c9804420cd82649",
-    "infra/deploy/scripts/healthwatch.sh": "c1b50e0e4ec537e6e9afd06b15de5b0004ccb6c06d93f67e3f459847c3b03917",
+    "infra/deploy/scripts/healthwatch.sh": "1d57f62137c3b1b0fdc662729c2c5c7973eb8e85b8e99a3c1c9f46ab8b431764",
     "infra/deploy/scripts/internal_job.sh": "60314b55c80cffc903fa820ac90281b4266e101e2aa7d72aad93463b9d3c2034",
     "infra/deploy/scripts/pg_dump_encrypted.sh": "d7d67c9053971cf73ca1ba6c1af9a3eb5dc395fcb3ab48dee045f211d49feee7",
     "infra/deploy/scripts/provision.sh": "92c68ef86ff394685fd8895cf13e68d85934c5aef29da5a4caa4176babcdaa98",
