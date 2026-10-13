@@ -15,6 +15,9 @@ Porteur : **SEGLA E. Ulrich Gislain** (full-stack, 10+ ans). Collaboratrice : **
 
 **État au 8 octobre 2026** : socle avancé, **finalisation fonctionnelle et validation avant ouverture** — **182 endpoints REST + 1 canal WebSocket** temps réel / **28 modules** + 5 intégrations, **67 pages frontend** (dont 23 espace patient), **53 modèles Prisma**, 31 enums, 34 migrations, **759 tests** (633 API + 126 web) + 24 e2e. **7 rôles** (patient · médecin · pharmacie · laboratoire · diaspora · **ASC** · admin). Les vagues d'optimisation 1-12 sont historiques ; elles ne prouvent pas la clôture des abonnements, revenus, hors-ligne médical ou résiduels de sécurité. Les quatre corrections du 6 octobre sont regroupées sur `feat/l0-baseline-review` : baseline et revue locales validées (dont 8 E2E), CI candidates vertes, PR #178/#179 fusionnées sur main `2ee3cfb` ; preuves de fusion et CI main dans `docs/suivi/LOT_L0.md`, aucune mise en production attestée par L0. **Plan actif : `docs/PLAN_Implementations_Restantes_2026-10.md`, lots L0–L11**. Ne plus déclarer le projet « feature-complete » ni « en production » sans les preuves correspondantes.
 
+
+**Dérogation cible 13 octobre 2026 (porteur, validée)** : préprod et prod DigiSanté sur le VPS IONOS partagé `srv1.immipro.app` (31.70.148.167, Myvps1, 2-4-120, Ubuntu 26.04.1 LTS, Espagne), déjà hôte d'ImmiPro prod et BeninLink prod/recette. Remplace la cible du contrat initial (VPS Infomaniak distinct, Ubuntu 22.04, PG16 natif, Redis natif). Domaines : préprod `preprod.digisantemobile.app`, prod `digisantemobile.app` + `www.digisantemobile.app`. Ports : préprod web 3100 / api 3101, prod web 3200 / api 3201. Le cas I2 « VPS distinct » est non conforme en l'état ; dérogation documentée, à arbitrer en L11.
+
 **Lot L1 (6 octobre 2026)** : livré sur main par PR #181 (`53775be`), fusion constatée le 6 octobre à 15:32:54 UTC ; implémenté sur `feat/l1-dmp-consent-authorship` depuis main après fusion de #180. Échéances indépendantes `ConsentRecord.expiresAt`, auteur authentifié `MedicalRecord.authorId/authorRole`, migration additive 29→30 fermant les liens historiques non prouvés. Résultats et statut de livraison : `docs/suivi/LOT_L1.md` ; revue : `docs/REVUE_L1_2026-10.md`. Ne pas confondre implémentation locale et fusion/déploiement.
 
 **Lot L2 (6 octobre 2026)** : habilitation laboratoire sur `feat/l2-laboratory-verification` depuis main après #181. Identité administrative figée, pièces du responsable/autorisation vérifiées, badge `Lab.verifiedAt`, accès actif/vérifié et attribution conditionnelle ; migration 30→31 sans approbation historique. Fiche/statut : `docs/suivi/LOT_L2.md` ; auto-revue : `docs/REVUE_L2_2026-10.md`. Tests et livraison ne valent pas validation juridique/clinique ni déploiement.
@@ -71,8 +74,8 @@ Porteur : **SEGLA E. Ulrich Gislain** (full-stack, 10+ ans). Collaboratrice : **
 |---|---|
 | Frontend | **Next.js 14** (App Router) + Tailwind CSS — PWA, service worker |
 | Backend | **Fastify** (Node.js) — clustering PM2 ×2 |
-| ORM / DB | **Prisma** + **PostgreSQL 16 natif** |
-| Cache / files | **Redis** (cache, OTP, allowlist refresh, **pub/sub temps réel chat**) |
+| ORM / DB | **Prisma** + **PostgreSQL 18.6 natif** (PG18, dérogation 13/10 ; PG16 initial) |
+| Cache / files | **Valkey** 6379 (compatible Redis, auth, index dédiés /5 préprod /6 prod, jamais FLUSHDB/FLUSHALL) — cache, OTP, allowlist refresh, **pub/sub temps réel chat** |
 | Temps réel | **WebSocket** (`@fastify/websocket`) — chat ; fan-out inter-workers via Redis pub/sub |
 | Téléconsultation | **Daily.co** (WebRTC) |
 | Paiements | **FedaPay** — MTN MoMo, Moov, Wave, cartes intl. (wallet diaspora) |
@@ -80,7 +83,7 @@ Porteur : **SEGLA E. Ulrich Gislain** (full-stack, 10+ ans). Collaboratrice : **
 | SMS / OTP / urgences | **Twilio** |
 | Email transactionnel | **Resend** |
 | Tests | Vitest (+ e2e type Playwright) |
-| Infra | **VPS Infomaniak** Ubuntu 22.04 LTS — Nginx reverse proxy, Certbot SSL, PM2, GitHub Actions (deploy SSH), cron `pg_dump` chiffré nocturne |
+| Infra | **VPS IONOS partagé** (`srv1.immipro.app`, 31.70.148.167) Ubuntu 26.04.1 LTS — Nginx reverse proxy, Certbot SSL, PM2, GitHub Actions (deploy SSH), cron `pg_dump` chiffré nocturne, ports préprod 3100/3101, prod 3200/3201 |
 
 ---
 
@@ -88,8 +91,8 @@ Porteur : **SEGLA E. Ulrich Gislain** (full-stack, 10+ ans). Collaboratrice : **
 
 Ces décisions sont définitives. Ne **jamais** les remettre en question, ne jamais générer de code qui les contourne :
 
-1. **PostgreSQL 16 natif sur le VPS** — PAS de Supabase en production. PAS de base managée.
-2. **VPS Infomaniak** — PAS de Railway, PAS de Vercel, PAS de déploiement serverless.
+1. **PostgreSQL 18.6 natif sur le VPS partagé** (dérogation 13/10 ; PG16 initial) — PAS de Supabase en production. PAS de base managée. Bases + rôles séparés par environnement (`digisante_preprod` / `digisante`).
+2. **VPS IONOS partagé** (`srv1.immipro.app`, 31.70.148.167) — PAS de Railway, PAS de Vercel, PAS de déploiement serverless. Hôte partagé avec ImmiPro prod + BeninLink prod/recette (dérogation 13/10 ; Infomaniak distinct initial). I2 « VPS distinct » non conforme, à arbitrer en L11. Domaines `preprod.digisantemobile.app` (préprod) / `digisantemobile.app` + `www` (prod). Chemins et utilisateurs séparés par environnement.
 3. **Tout outillage IA** (ex. GBrain de GStack) utilise **sa propre base locale (PGLite)**, strictement séparée de la base de production DigiSanté. Aucun outil de dev ne se connecte à la DB prod.
 4. **DOCX uniquement** pour les livrables documentaires (pas de conversion PDF), générés via la lib Node `docx` avec le workflow **build → validate** (et unpack → edit → pack pour les modifications).
 5. La logique de paiement FedaPay validée est **gelée** (`/freeze` GStack) : toute modification exige une revue explicite + re-tests des webhooks (HMAC, retry ×5, DLQ, réconciliation cron 02:30).
@@ -160,16 +163,20 @@ Exigences NEXT IMPACT : page de garde conventionnée, marqueurs « Conforme audi
 - **/freeze** : appliqué à `src/modules/payments/**` — modification = revue explicite.
 - **/retro** : rétrospectives de sprint alignées sur le reporting NEXT IMPACT.
 
-### Déploiement (VPS Infomaniak)
+### Déploiement (VPS IONOS partagé)
 ```
 GitHub Actions (main, deux gates) → SHA exact → maintenance/arrêt PM2 → build → migrate deploy → démarrage homogène
 Nginx (reverse proxy + SSL Certbot) · Redis local · pg_dump chiffré cron 02:00 · réconciliation FedaPay cron 02:30
+Ports : préprod web 3100 / api 3101, prod web 3200 / api 3201 (3000 ImmiPro et 3001 Grafana pris, ne jamais les réutiliser). Valkey 6379 partagé, index /5 préprod /6 prod. `provision.sh` (écrit pour Ubuntu 22.04 / PG16 / Redis) doit être adapté, jamais appliqué à l'aveugle. B3 + B4 obligatoires avant tout déploiement sur l'hôte partagé.
 ```
 Les scripts shell complets sont dans la Documentation technique v2 (`DocTech_DigiSante_Mobile_v2.docx`).
 
 ---
 
 ## 8. Pièges connus (ne pas re-découvrir)
+
+
+- **Hôte partagé IONOS (13/10/2026)** : ne jamais utiliser 3000/3001 (ImmiPro / Grafana) ; ne jamais FLUSHDB/FLUSHALL sur Valkey partagé ; ne jamais partager une base PG, un index Valkey, un `.env`, un `/etc/digisante*`, un répertoire de backup ou un utilisateur Linux entre environnements ; ne jamais faire exécuter par un cron root un script appartenant à l'app (B3) ; ne jamais copier la clé de santé de prod sur la préprod ; ne jamais appliquer `provision.sh` 22.04 à l'aveugle sur Ubuntu 26.04.
 
 - **Finances L7** : lire le contrat et réutiliser `finance.effects/service`. CAPTURE à confirmation locale, REFUND contre-écriture datée ; ne jamais dériver une date de `updatedAt` ou reconstruire une commission historique sans preuve. Net de période, créance globale et PAYOUT exécuté avec preuve sont distincts. Subs/topups/transferts/pharmacie/labo ne sont pas revenus médecin. Verrou finance avant paiement/refund ; réservation bloque restitution concurrente. Trop-perçu = balance négative et allocations plafonnées, reliquats conservés. UUID stable + empreinte de la sélection initiale (même si allocation partielle), pas de prix client. REQUESTED→EXECUTING→EXECUTED, annulation PAYOUT REQUESTED seulement ; issue externe incertaine reste EXECUTING, jamais répéter un transfert. Référence preuve opaque unique et ref fournisseur minimisée, pas de DMP/URL/fichier. La finance atteste la preuve externe manuellement ; pas de garantie exactly-once humaine. CSV/receipt non fiscaux approuvés ; téléchargements restent sur appareil. Financier sans FK destructive vers User/Payment : conservation à valider L11. X12 audit global traité en L8 (X6 = refus fermé Redis). Aucune file financière offline, mêmes droits PRO L6 et soins ouverts L5.
 
@@ -350,4 +357,10 @@ Relecture indépendante du code Codex sur main `901c598` ; détail, preuves et c
 - **Déploiement production** : `VPS_FINGERPRINT` obligatoire (empreinte d’hôte), comme la préproduction.
 - **Instantané L9** : modifier `messages.ts`, `ChatRoom.tsx` ou une autre source listée dans `snapshot.json` change l’empreinte (et, pour FR/EN, celle de la relecture native UI) ; impose `validation:prepare` + régénération/validation du dossier. La revue du 13/10 s’en est abstenue pour ne pas compromettre le rattachement des retours annoncés.
 - **Ouverts, à trancher avant GO** : hôte réel du lien FedaPay (B1) et identifiant de transaction du webhook (B2) — zone §5, preuve sandbox requise ; scripts root exécutés depuis `APP_DIR` possédé par `digisante` (B3) ; `KYC_STORAGE_DIR` lu hors `.env` par la sauvegarde (B4) ; création de salle Daily dans la transaction et appels réseau sous verrous (B5).
+
+
+## Reprise — dérogation cible IONOS (13 octobre 2026)
+
+
+Dérogation porteur validée : préprod et prod sur VPS IONOS partagé `srv1.immipro.app` (31.70.148.167), Ubuntu 26.04.1, PG 18.6 natif, Valkey 6379. Préprod `preprod.digisantemobile.app` (web 3100 / api 3101, PG `digisante_preprod`, Valkey /5, `/var/www/digisante-preprod`, utilisateur `digisante-preprod`). Prod `digisantemobile.app` + `www` (web 3200 / api 3201, PG `digisante`, Valkey /6, `/var/www/digisante`, utilisateur `digisante`). DNS Porkbun vérifié 13/10 : A @, preprod, www → 31.70.148.167 TTL 600, wildcard conservé. PR #192 (branche `docs/ionos-digisantemobile-preprod`) porte cette mise à jour. Après fusion : requalifier la candidate (nouveau SHA), re-générer `preprod:prepare` / `metrics:check`, puis dérouler L10. B3 + B4 obligatoires avant tout déploiement sur l'hôte partagé.
 
