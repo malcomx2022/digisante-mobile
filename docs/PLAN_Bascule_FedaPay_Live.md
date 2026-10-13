@@ -22,14 +22,14 @@
 
 | Étape | Qui | Action | Contrôle (par le 2ᵉ) |
 |---|---|---|---|
-| 1 | Opérateur | Sauvegarde immédiate : `sudo /var/www/digisante-mobile/infra/deploy/scripts/pg_dump_encrypted.sh` | 2 archives du même horodatage présentes |
+| 1 | Opérateur | Sauvegarde immédiate : `sudo /usr/local/lib/digisante/infra/deploy/scripts/pg_dump_encrypted.sh` (copie root, B3) | 2 archives du même horodatage présentes |
 | 2 | Opérateur | Dashboard FedaPay **live** : créer l'endpoint webhook `https://<domaine>/api/v1/payments/webhook`, **révéler** son secret | URL exacte (HTTPS, bon domaine) |
 | 3 | Opérateur | `/admin/integrations` → **FEDAPAY** → saisir **dans le même `PUT`** : `secretKey` (`sk_live_…`), `publicKey` (`pk_live_…`), `webhookSecret` (**le nouveau**, live) | le `PUT` remplace TOUT : les 3 clés présentes ; affichage masqué `••••` ; `source=db` |
 | 4 | Contrôleur | **Tester** (readiness) | `ok: true, missing: []` |
 | 5 | Contrôleur | `/admin/audit` : `INTEGRATION_UPDATE` (clés **nommées**, aucune valeur) + `INTEGRATION_TEST` | ligne présente, pas de secret |
 | 6 | Opérateur | Transaction **réelle minimale** (recharge du plus petit montant accepté, compte synthétique de l'équipe) | redirection vers la page FedaPay **live** |
 | 7 | Contrôleur | `/admin/finance` : le paiement passe **PENDING → COMPLETED** en < 2 min ; audit `PAYMENT_CONFIRMED source=webhook` ; solde crédité **une seule fois** | capture non sensible |
-| 8 | Contrôleur | Logs : `grep -Eic 'sk_live|wh_live' /var/log/digisante/*.log` → **0** | 0 occurrence |
+| 8 | Contrôleur | Logs : `grep -Eic 'sk_live|wh_live' /var/log/digisante/*.log /var/log/digisante-cron/*.log` → **0** | 0 occurrence |
 | 9 | Opérateur | Dashboard FedaPay : **renvoyer** l'événement de l'étape 6 | réponse `idempotent: true`, **aucun** crédit supplémentaire |
 | 10 | Les deux | Rapprochement : montant FedaPay = montant `/admin/finance` ; commission 3 % cohérente | écart = 0 |
 | 11 | Opérateur | Remboursement : le reversal interne (`/admin/finance`) + **retour opérateur manuel** côté FedaPay (étape tracée, hors API) | `PAYMENT_REFUND` + preuve FedaPay |

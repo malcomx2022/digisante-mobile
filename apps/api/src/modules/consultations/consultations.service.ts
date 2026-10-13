@@ -1,9 +1,10 @@
 // Téléconsultation : accès courant, salle privée, mode monotone et clôture.
+import { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
 import { badRequest, forbidden, notFound } from '@/lib/errors.js';
 import { localize } from '@/modules/notifications/notifications.templates.js';
-import { createMeetingToken, createRoom, deleteRoom, ejectParticipants, ROOM_TTL_SECONDS } from '@/services/daily.js';
+import { createMeetingToken, createRoom, deleteRoom, ejectParticipants, ROOM_TTL_SECONDS, uniqueRoomName } from '@/services/daily.js';
 import { nextMode } from './consultations.rules.js';
 import { requireProWithin } from '@/modules/subscriptions/subscriptions.effects.js';
 
@@ -33,39 +34,66 @@ function assertActive(consult: Loaded) {
   return expiresAt;
 }
 
-/** Le démarrage ne renvoie pas de jeton inutilisé ; join est son seul émetteur. */
+/** Toutes les conditions du démarrage, sous verrou du RDV ; relues après l'appel Daily. */
+async function lockStartable(tx: Prisma.TransactionClient, doctorUserId: string, appointmentId: string) {
+  // Deux démarrages simultanés ne doivent ni doubler la consultation ni sa notification.
+  await tx.$queryRaw`SELECT id FROM appointments WHERE id = ${appointmentId} FOR UPDATE`;
+  const appt = await tx.appointment.findUnique({
+    where: { id: appointmentId },
+    include: {
+      doctor: { select: { ...participantSelect, verifiedAt: true } }, consultation: { select: { id: true } },
+      patient: { select: { user: { select: { id: true, lang: true, role: true, status: true } } } },
+    },
+  });
+  if (!appt) throw notFound('Rendez-vous introuvable');
+  if (appt.doctor.userId !== doctorUserId) throw forbidden('Seul le médecin du RDV peut démarrer la consultation');
+  if (appt.doctor.user.status !== 'ACTIVE' || appt.patient.user.status !== 'ACTIVE' ||
+      !appt.doctor.verifiedAt || appt.doctor.user.role !== 'MEDECIN' || appt.patient.user.role !== 'PATIENT') throw forbidden('Participants non habilités');
+  if (appt.type !== 'TELECONSULTATION') throw badRequest('Ce rendez-vous n’est pas une téléconsultation');
+  if (appt.status !== 'CONFIRMED') throw badRequest('Le rendez-vous doit être confirmé');
+  if (appt.consultation) throw badRequest('Une consultation existe déjà pour ce rendez-vous');
+  await requireProWithin(tx, doctorUserId);
+  return appt;
+}
+
+// READ COMMITTED : chaque lecture suivant le verrou voit le dernier état validé.
+const START_TX = { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted };
+
+/**
+ * Le démarrage ne renvoie pas de jeton inutilisé ; join est son seul émetteur.
+ * B5 : aucun appel réseau sous verrou RDV/médecin. Contrôle court, création Daily
+ * hors transaction sous un nom propre à la tentative, puis relecture complète et
+ * insertion ; tout refus final supprime la salle de CETTE tentative.
+ */
 export async function start(app: FastifyInstance, doctorUserId: string, appointmentId: string) {
-  return app.prisma.$transaction(async (tx) => {
-    // Deux démarrages simultanés ne doivent ni doubler la salle ni sa notification.
-    await tx.$queryRaw`SELECT id FROM appointments WHERE id = ${appointmentId} FOR UPDATE`;
-    const appt = await tx.appointment.findUnique({
-      where: { id: appointmentId },
-      include: {
-        doctor: { select: { ...participantSelect, verifiedAt: true } }, consultation: { select: { id: true } },
-        patient: { select: { user: { select: { id: true, lang: true, role: true, status: true } } } },
-      },
-    });
-    if (!appt) throw notFound('Rendez-vous introuvable');
-    if (appt.doctor.userId !== doctorUserId) throw forbidden('Seul le médecin du RDV peut démarrer la consultation');
-    if (appt.doctor.user.status !== 'ACTIVE' || appt.patient.user.status !== 'ACTIVE' ||
-        !appt.doctor.verifiedAt || appt.doctor.user.role !== 'MEDECIN' || appt.patient.user.role !== 'PATIENT') throw forbidden('Participants non habilités');
-    if (appt.type !== 'TELECONSULTATION') throw badRequest('Ce rendez-vous n’est pas une téléconsultation');
-    if (appt.status !== 'CONFIRMED') throw badRequest('Le rendez-vous doit être confirmé');
-    if (appt.consultation) throw badRequest('Une consultation existe déjà pour ce rendez-vous');
-    await requireProWithin(tx, doctorUserId);
-    const startedAt = new Date();
-    const room = await createRoom({ app, name: `consult-${appointmentId}` });
-    const consult = await tx.consultation.create({
-      data: { appointmentId, mode: 'VIDEO', status: 'ACTIVE', dailyRoomName: room.url ? room.name : null, dailyRoomUrl: room.url, startedAt },
-    });
-    const { title, body } = localize('CONSULTATION_START', appt.patient.user.lang, {
-      title: 'Téléconsultation', body: 'Votre téléconsultation va commencer.',
-    });
-    await tx.notification.create({
-      data: { recipientId: appt.patient.user.id, type: 'CONSULTATION_START', channel: 'IN_APP', title, body, status: 'PENDING' },
-    });
-    return { consultation: consult, roomUrl: room.url, provider: room.url ? 'DAILY' : 'UNAVAILABLE' };
-  }, { timeout: 25_000 });
+  // 1. Aucun appel fournisseur pour un démarrage déjà refusable.
+  await app.prisma.$transaction((tx) => lockStartable(tx, doctorUserId, appointmentId), START_TX);
+  // 2. Jusqu'à 2 × 8 s de réseau sans transaction : réservations du médecin libres.
+  const startedAt = new Date();
+  const room = await createRoom({ app, name: uniqueRoomName(appointmentId) });
+  // 3. Annulation, suspension, PRO échu ou démarrage concurrent pendant l'appel : refus.
+  try {
+    return await app.prisma.$transaction(async (tx) => {
+      const appt = await lockStartable(tx, doctorUserId, appointmentId);
+      const consult = await tx.consultation.create({
+        data: { appointmentId, mode: 'VIDEO', status: 'ACTIVE', dailyRoomName: room.url ? room.name : null, dailyRoomUrl: room.url, startedAt },
+      });
+      const { title, body } = localize('CONSULTATION_START', appt.patient.user.lang, {
+        title: 'Téléconsultation', body: 'Votre téléconsultation va commencer.',
+      });
+      await tx.notification.create({
+        data: { recipientId: appt.patient.user.id, type: 'CONSULTATION_START', channel: 'IN_APP', title, body, status: 'PENDING' },
+      });
+      return { consultation: consult, roomUrl: room.url, provider: room.url ? 'DAILY' : 'UNAVAILABLE' };
+    }, START_TX);
+  } catch (err) {
+    if (room.url) {
+      // Best effort : l'erreur d'origine reste la réponse ; l'expiration 4 h est le filet.
+      const deleted = await deleteRoom({ app, name: room.name }).catch(() => false);
+      if (!deleted) app.log.warn({ room: room.name }, '[Daily] salle d’un démarrage refusé non supprimée, expiration comme filet');
+    }
+    throw err;
+  }
 }
 
 /** État sans jeton ni notes, relu par les deux clients toutes les 15 secondes. */

@@ -62,6 +62,21 @@ describe.skipIf(!ENABLED)('SMOKE Daily.co (réel, opt-in)', () => {
     console.info(`[smoke:daily] salle ${name} · privée=${info.privacy === 'private'} · exp=${new Date(info.config!.exp! * 1000).toISOString()} · jeton émis=oui`);
   });
 
+  it('B5 — nom déjà pris : refus fournisseur 4xx, salle existante ni reprise ni supprimée', async () => {
+    const { createRoom, roomProperties } = await import('./daily.js');
+    // Comportement non documenté par Daily : consigner statut et type stable `error` (jamais `info`).
+    const dup = await fetch('https://api.daily.co/v1/rooms', {
+      method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, privacy: 'private', properties: roomProperties(Math.floor(Date.now() / 1000)) }),
+    });
+    const error = ((await dup.json().catch(() => ({}))) as { error?: unknown }).error;
+    // eslint-disable-next-line no-console -- sortie destinée à l’opérateur de recette
+    console.info(`[smoke:daily] doublon de nom · statut=${dup.status} · error=${typeof error === 'string' ? error : '-'}`);
+    expect(dup.status).toBeGreaterThanOrEqual(400); expect(dup.status).toBeLessThan(500);
+    await expect(createRoom({ app, name })).rejects.toMatchObject({ statusCode: 502 });
+    expect((await getRoom()).status, 'la salle existante ne doit pas être supprimée').toBe(200);
+  });
+
   it('suppression : la salle n’existe plus', async () => {
     const { deleteRoom } = await import('./daily.js');
     expect(await deleteRoom({ app, name })).toBe(true);

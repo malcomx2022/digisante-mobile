@@ -57,8 +57,9 @@ export default function WalletPage() {
         window.location.href = outcome.url;
         return;
       }
-      // Pas d'URL de paiement (FedaPay non configuré ⇒ stub) : informer sans
-      // laisser croire que le solde va bouger.
+      // Pas d'URL de paiement : informer sans laisser croire que le solde va
+      // bouger. (Un lien hors page hébergée FedaPay — dont le stub de
+      // développement — est refusé par `paymentOutcome` et part en erreur.)
       setMsg(`✓ ${t('wallet.topup_initiated')}`);
       setTick((x) => x + 1);
     } catch {

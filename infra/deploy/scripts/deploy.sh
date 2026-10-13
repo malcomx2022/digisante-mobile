@@ -124,5 +124,22 @@ fi
 STAGE=complete
 record SUCCESS
 trap - ERR
+
+# B3 : rappel JAMAIS bloquant. Les scripts lancés par root (crons, sauvegarde) sont une
+# copie root:root que l'utilisateur applicatif ne peut pas (et ne doit pas) installer ;
+# le manifeste root est lu ici comme simple donnée.
+root_scripts_reminder() {
+  local manifest="${ROOT_SCRIPTS_MANIFEST:-/usr/local/lib/digisante/root-scripts.manifest}" installed
+  local -a paths=()
+  installed="$(sed -n 's/^sha=\([0-9a-f]\{40\}\)$/\1/p' "$manifest" 2>/dev/null || true)"
+  if [[ "$installed" == "$TARGET_SHA" ]]; then log "Scripts root : copie installée au même SHA ✓"; return 0; fi
+  mapfile -t paths < <(sed -n -E 's#^(0755|0644) ((infra/deploy|scripts)/[A-Za-z0-9._/-]+)$#\2#p' "$APP_DIR/infra/deploy/root-scripts.list" 2>/dev/null)
+  if [[ -n "$installed" ]] && (( ${#paths[@]} > 0 )) && git cat-file -e "${installed}^{commit}" 2>/dev/null \
+    && git diff --quiet "$installed" "$TARGET_SHA" -- "${paths[@]}"; then
+    log "Scripts root : inchangés depuis la copie installée (${installed}) ✓"; return 0
+  fi
+  log "AVERTISSEMENT (B3) : scripts exécutés par root à mettre à jour (copie installée : ${installed:-aucune}). Après relecture, en root : /usr/local/lib/digisante/infra/deploy/scripts/install_root_scripts.sh ${TARGET_SHA}"
+}
+root_scripts_reminder || true
 log "Déploiement technique terminé (${PREVIOUS_SHA} → ${TARGET_SHA}) ; maintenance à conserver pour la recette."
 pm2 status

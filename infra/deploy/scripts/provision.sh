@@ -4,13 +4,33 @@
 # Cible : Ubuntu 22.04 LTS. À exécuter UNE FOIS, en root (ou sudo).
 # cf. CLAUDE.md §3 (Postgres 16 natif, pas de Docker en prod) et §7.
 #
+# B3 : lancé depuis la copie INSTALLÉE root:root (install_root_scripts.sh, amorçage
+# README §1), jamais depuis APP_DIR — qui appartient à `digisante` après ce script :
 #   sudo BASE_DOMAIN=digisante.example.bj \
 #        DB_PASSWORD='change-me' \
-#        bash infra/deploy/scripts/provision.sh
+#        bash /usr/local/lib/digisante/infra/deploy/scripts/provision.sh
 #
 # Idempotent dans la mesure du possible : relançable sans casse.
 # ─────────────────────────────────────────────────────────────
 set -euo pipefail
+
+# >>> trusted_path (B3 — copie IDENTIQUE dans chaque script exécuté par root ; test de non-dérive)
+# Vrai si le chemin résolu ET tous ses ancêtres appartiennent à root (ou à l'utilisateur
+# courant) et ne sont modifiables par aucun autre compte (seule exception : répertoire
+# sticky appartenant à root, ex. /tmp). Root n'exécute ni ne lit comme code un fichier
+# que l'utilisateur applicatif pourrait réécrire.
+trusted_path() {
+  local p owner mode
+  p="$(readlink -f -- "$1")" && [[ -e "$p" ]] || return 1
+  while :; do
+    read -r owner mode < <(stat -c '%u %a' -- "$p") || return 1
+    [[ "$owner" == 0 || "$owner" == "$EUID" ]] || return 1
+    if (( 8#$mode & 8#022 )); then [[ "$owner" == 0 && -d "$p" && -k "$p" ]] || return 1; fi
+    [[ "$p" == / ]] && return 0
+    p="$(dirname -- "$p")"
+  done
+}
+# <<< trusted_path
 
 # ── Paramètres (surcharger via variables d'environnement) ──
 APP_USER="${APP_USER:-digisante}"
@@ -29,6 +49,10 @@ if [[ $EUID -ne 0 ]]; then
   echo "Ce script doit être lancé en root (sudo)." >&2
   exit 1
 fi
+trusted_path "${BASH_SOURCE[0]}" || { echo "Script lancé depuis un emplacement modifiable par un autre compte (APP_DIR ?) : utiliser la copie installée par install_root_scripts.sh (README §1)." >&2; exit 1; }
+SELF_ROOT="$(cd "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/../../.." && pwd -P)"
+ROOT_LIB="${ROOT_LIB:-/usr/local/lib/digisante}"
+CRON_LOG_DIR="/var/log/digisante-cron"
 
 # ── 0. Fuseau horaire : les crons (sauvegarde 02:00, réconciliation 02:30, rappels
 #       06:30/06:40) sont exprimés en heure du Bénin ──
@@ -112,20 +136,37 @@ if ! id "$APP_USER" >/dev/null 2>&1; then
   adduser --system --group --home "/home/${APP_USER}" "$APP_USER"
 fi
 install -d -o "$APP_USER" -g "$APP_USER" "$APP_DIR"
-# Dépôt cloné en root AVANT le provisioning (README §1) : sans chown récursif,
-# deploy.sh (lancé en `digisante`) échoue sur `git fetch` / l'écriture du build.
+# Checkout de l'APPLICATION : propriété de `digisante` (deploy.sh y fait git fetch/build).
+# Un ancien clone root y est ramené ; root n'y exécute plus rien (B3).
 chown -R "$APP_USER:$APP_USER" "$APP_DIR"
 install -d -o "$APP_USER" -g "$APP_USER" "$LOG_DIR"
+# B3 — fichiers exécutés par root : copie root:root (install_root_scripts.sh), miroir nu
+# root et journaux des tâches root HORS des répertoires de l'utilisateur applicatif.
+install -d -o root -g root -m 0755 "$ROOT_LIB"
+install -d -o root -g root -m 0750 "$CRON_LOG_DIR"
 install -d -o root        -g root  -m 0700 "$BACKUP_DIR"
 # Magasin de fichiers chiffrés (KYC + pièces jointes DMP = DONNÉES DE SANTÉ) :
 # 0700, propriété de l'utilisateur applicatif. = KYC_STORAGE_DIR par défaut.
-install -d -o "$APP_USER" -g "$APP_USER" -m 0700 "$APP_DIR/apps/api/storage" "$APP_DIR/apps/api/storage/kyc"
+# Créé SOUS SON IDENTITÉ : root n'opère jamais sous APP_DIR, où un lien symbolique
+# planté détournerait chown/chmod vers un fichier système lors d'une relance (B3).
+sudo -u "$APP_USER" install -d -m 0700 "$APP_DIR/apps/api/storage" "$APP_DIR/apps/api/storage/kyc"
 # Secrets de service root-only (clé de sauvegarde, jeton des tâches internes, alertes).
 install -d -o root -g root -m 0700 /etc/digisante
-# État de la surveillance (healthwatch.sh) + rotation des journaux applicatifs (14 j).
+# État de la surveillance (healthwatch.sh), miroir nu root des scripts d'exploitation
+# (/var/lib/digisante/ops.git) + rotation des journaux (14 j).
 install -d -o root -g root -m 0700 /var/lib/digisante
-if [[ -f "$APP_DIR/infra/deploy/logrotate/digisante" ]]; then
-  install -m 0644 "$APP_DIR/infra/deploy/logrotate/digisante" /etc/logrotate.d/digisante
+# Configuration logrotate exécutée par root : prise dans la MÊME copie root que ce
+# script, jamais dans APP_DIR (une directive postrotate y serait exécutée en root).
+LOGROTATE_SRC="${SELF_ROOT}/infra/deploy/logrotate/digisante"
+if [[ -f "$LOGROTATE_SRC" ]] && trusted_path "$LOGROTATE_SRC"; then
+  install -o root -g root -m 0644 "$LOGROTATE_SRC" /etc/logrotate.d/digisante
+else
+  log "AVERTISSEMENT : configuration logrotate absente de la copie root (${LOGROTATE_SRC}) ; non installée."
+fi
+# Installation/mise à jour des scripts root si un SHA qualifié est fourni.
+if [[ -n "${ROOT_SCRIPTS_REF:-}" ]]; then
+  log "Installation des scripts exécutés par root (${ROOT_SCRIPTS_REF})…"
+  ROOT_LIB="$ROOT_LIB" bash "${SELF_ROOT}/infra/deploy/scripts/install_root_scripts.sh" "$ROOT_SCRIPTS_REF"
 fi
 
 # ── 9. Pare-feu (UFW) ──
@@ -142,13 +183,17 @@ cat <<'NEXT'
 
 ──────────────────────────────────────────────────────────────
 Provisioning terminé. Étapes suivantes :
-  1. Cloner le dépôt dans /var/www/digisante-mobile (utilisateur digisante).
-  2. Créer apps/api/.env et apps/web/.env.production (jamais commités).
-  3. Maintenance puis déploiement : DEPLOY_REF=<SHA complet qualifié> DEPLOY_ENVIRONMENT=<preproduction|production> DEPLOY_MAINTENANCE_READY=1 bash infra/deploy/scripts/deploy.sh
-  4. Nginx :  cp infra/deploy/nginx/digisante.conf → sites-available, puis certbot.
-  5. Jeton des tâches internes (= RECONCILE_TOKEN du .env de l'API) :
+  1. Dépôt applicatif cloné dans /var/www/digisante-mobile avant ce script (README §1.b),
+     désormais propriété de digisante : root n'y exécute JAMAIS rien (B3).
+  2. Créer apps/api/.env (0600) et apps/web/.env.production (jamais commités).
+     KYC_STORAGE_DIR : chemin ABSOLU conseillé ; la sauvegarde le lit dans ce .env.
+  3. Maintenance puis déploiement (utilisateur digisante) : DEPLOY_REF=<SHA complet qualifié> DEPLOY_ENVIRONMENT=<preproduction|production> DEPLOY_MAINTENANCE_READY=1 bash infra/deploy/scripts/deploy.sh
+  4. Scripts root au MÊME SHA (après chaque déploiement qui les modifie) :
+       sudo /usr/local/lib/digisante/infra/deploy/scripts/install_root_scripts.sh <SHA>
+  5. Nginx : copier depuis /usr/local/lib/digisante/infra/deploy/nginx/ → sites-available, puis certbot.
+  6. Jeton des tâches internes (= RECONCILE_TOKEN du .env de l'API) :
        sudo sh -c 'umask 077; printf %s "<RECONCILE_TOKEN>" > /etc/digisante/reconcile.token'
-  6. Alertes : sudo sh -c 'umask 077; echo "ALERT_CMD=\"mail -s [DigiSanté] ops@<domaine>\"" > /etc/digisante/alert.conf'
-  7. Cron : relire/sauvegarder la crontab ; template crontab.preproduction.example en L10, crontab.example en production (aucun secret).
+  7. Alertes : sudo sh -c 'umask 077; echo "ALERT_CMD=\"mail -s [DigiSanté] ops@<domaine>\"" > /etc/digisante/alert.conf'
+  8. Cron : relire/sauvegarder la crontab ; template /usr/local/lib/digisante/infra/deploy/crontab.preproduction.example en L10, crontab.example en production (aucun secret, aucun chemin /var/www).
 ──────────────────────────────────────────────────────────────
 NEXT

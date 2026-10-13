@@ -11,6 +11,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { buildWebhookSignatureHeader } from '@/services/fedapay.js';
+import { fedapayWebhookBody } from '@/test/fedapay-fixture.js';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 const PHONE = '+2290190000091';
@@ -46,7 +47,7 @@ describe.skipIf(!HAS_INFRA)('Paiements — webhooks concurrents (re-test §5)', 
   });
 
   const deliver = (fedapayId: string) => {
-    const body = JSON.stringify({ fedapayId, status: 'approved' });
+    const body = fedapayWebhookBody(fedapayId, 'approved');
     return app.inject({
       method: 'POST', url: '/api/v1/payments/webhook',
       headers: { 'content-type': 'application/json', 'x-fedapay-signature': buildWebhookSignatureHeader(body, WHSEC) },

@@ -6,8 +6,9 @@
 |---|---|
 | GitHub Variables | `PREPROD_DEPLOY_ENABLED` absent/false jusqu'à fenêtre autorisée ; production `DEPLOY_ENABLED` ET `DEPLOY_MAINTENANCE_READY` false hors fenêtre |
 | GitHub Secrets préprod | `PREPROD_VPS_HOST`, `PREPROD_VPS_USER`, `PREPROD_VPS_SSH_KEY`, `PREPROD_VPS_FINGERPRINT` (empreinte SHA256 vérifiée hors canal SSH), `PREPROD_VPS_SSH_PORT` optionnel |
-| API `.env` 0600 | `NODE_ENV=production`, `DATABASE_URL` locale base `digisante_preprod`, `REDIS_URL` local index `/0` dédié, `JWT_SECRET`, `HEALTH_ENCRYPTION_KEY`, `RECONCILE_TOKEN`, `KYC_STORAGE_DIR` privé, origines/domaine préprod selon `.env.example` |
-| `/etc/digisante` 0700 | `backup.key` root 0400/0600, clé de sauvegarde distincte et copie hors VPS ; `reconcile.token` root 0400 identique à RECONCILE_TOKEN ; alert.conf privé et destinataire autorisé |
+| API `.env` 0600 | `NODE_ENV=production`, `DATABASE_URL` locale base `digisante_preprod`, `REDIS_URL` local index `/0` dédié, `JWT_SECRET`, `HEALTH_ENCRYPTION_KEY`, `RECONCILE_TOKEN`, `KYC_STORAGE_DIR` privé (chemin absolu conseillé ; répertoire 0700 propriété de `digisante`, nom sans « - » initial ; la sauvegarde le lit dans ce fichier comme donnée et l'archive sous l'identité `digisante`, B3/B4), origines/domaine préprod selon `.env.example` |
+| `/etc/digisante` 0700 | `backup.key` root 0400/0600, clé de sauvegarde distincte et copie hors VPS ; `reconcile.token` root 0400 identique à RECONCILE_TOKEN ; alert.conf privé et destinataire autorisé ; `ops.env` root 0600 optionnel (`OPS_REPO_URL`, `OPS_BRANCH` — **aucun identifiant dans l'URL** ; dépôt privé = clé de déploiement lecture seule de root) |
+| Copie root B3 | `/usr/local/lib/digisante` root:root (scripts root, modules, Nginx/logrotate/crontab) + `root-scripts.manifest` ; miroir `/var/lib/digisante/ops.git` 0700 ; journaux `/var/log/digisante-cron` 0750 — aucun secret dedans |
 | FEDAPAY DB chiffrée | `secretKey` **sk_sandbox_…**, `publicKey`, `webhookSecret` ensemble ; webhook public HTTPS préprod configuré dans dashboard ; aucun live L10 |
 | TWILIO DB chiffrée | `accountSid`, `authToken`, `fromNumber` ; permissions géographiques BJ/SMS/VOICE, numéros de recette MTN/Moov autorisés ; trial et limites à relever |
 | DAILY DB chiffrée | `apiKey` ; sous-domaine compte de test et salle privée éphémère ; aucun token/URL nominatif dans les preuves publiques |

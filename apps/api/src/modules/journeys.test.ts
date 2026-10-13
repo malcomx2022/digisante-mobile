@@ -4,6 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { buildWebhookSignatureHeader } from '@/services/fedapay.js';
+import { fedapayWebhookBody } from '@/test/fedapay-fixture.js';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 const PHONES = ['+2290188000001', '+2290188000002', '+2290188000003'];
@@ -96,7 +97,7 @@ describe.skipIf(!HAS_INFRA)('Parcours de bout en bout (intégration)', () => {
     const topup = await app.inject({ method: 'POST', url: '/api/v1/wallet/topup', headers: auth(patientToken), payload: { amountEur: 10, method: 'VISA_MC' } });
     const fedapayId = topup.json().payment.fedapayId as string;
 
-    const body = JSON.stringify({ fedapayId, status: 'approved' });
+    const body = fedapayWebhookBody(fedapayId, 'approved');
     const wh = await app.inject({ method: 'POST', url: '/api/v1/payments/webhook', headers: { 'content-type': 'application/json', 'x-fedapay-signature': sign(body) }, payload: body });
     expect(wh.json().processed).toBe(true);
 
