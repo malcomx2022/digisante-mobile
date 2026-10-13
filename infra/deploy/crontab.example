@@ -2,9 +2,14 @@
 # Cron DigiSanté Mobile — à installer en root sur le VPS.
 # cf. CLAUDE.md §7 : pg_dump chiffré 02:00, réconciliation FedaPay 02:30.
 #
-# Installation :
-#   sudo crontab infra/deploy/crontab.example
-# (ou copier ces lignes dans `sudo crontab -e`)
+# Installation — depuis la copie INSTALLÉE root:root (jamais depuis APP_DIR, qu'une
+# exécution de code dans l'API pourrait réécrire — bloquant B3) :
+#   sudo sh -c 'crontab -l > /root/crontab.avant.$(date +%F)'   # sauvegarde de l'existant
+#   sudo crontab /usr/local/lib/digisante/infra/deploy/crontab.example
+# Tous les scripts lancés ci-dessous sont ceux de /usr/local/lib/digisante, installés
+# par `install_root_scripts.sh <SHA>` depuis le miroir root ; aucun chemin sous
+# /var/www. Journaux dans /var/log/digisante-cron (root:root 0750) : jamais dans le
+# répertoire de l'utilisateur applicatif, où un lien symbolique détournerait l'écriture.
 #
 # Fuseau : régler l'horloge serveur sur Africa/Porto-Novo (UTC+1) :
 #   sudo timedatectl set-timezone Africa/Porto-Novo
@@ -15,44 +20,48 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # Jeton de service interne : AUCUN secret dans ce fichier. `internal_job.sh` et
 # `fedapay_reconcile.sh` lisent /etc/digisante/reconcile.token (root, 0600) — même
 # valeur que RECONCILE_TOKEN du .env de l'API. Fichier absent ⇒ ÉCHEC journalisé.
-J=/var/www/digisante-mobile/infra/deploy/scripts/internal_job.sh
+J=/usr/local/lib/digisante/infra/deploy/scripts/internal_job.sh
 
 # Génération des rappels horaires de traitement dus → Notifications PENDING.
 # Toutes les 5 minutes (idempotent par jour). À exécuter AVANT le dispatch.
-*/5 * * * * $J /api/v1/reminders/generate >> /var/log/digisante/med_reminders.log 2>&1
+*/5 * * * * $J /api/v1/reminders/generate >> /var/log/digisante-cron/med_reminders.log 2>&1
 
 # Génération des rappels de RDV (RDV confirmés dans les 24 h) → Notifications.
 # Toutes les 15 minutes (idempotent par RDV via reminderSentAt).
-*/15 * * * * $J /api/v1/appointments/reminders/generate >> /var/log/digisante/appt_reminders.log 2>&1
+*/15 * * * * $J /api/v1/appointments/reminders/generate >> /var/log/digisante-cron/appt_reminders.log 2>&1
 
 # Génération des rappels de VACCINATION (PEV) : doses non faites dues sous 7 j
 # (retards inclus) → Notifications. Une fois par jour, idempotent (lastNotifiedOn).
 # ⚠️ Ajouté en août 2026 : ce générateur existait depuis la v1.23 mais n'était PAS
 # planifié — aucun rappel de vaccination n'aurait donc été émis en production.
-30 6 * * * $J /api/v1/vaccinations/reminders/generate >> /var/log/digisante/vaccination_reminders.log 2>&1
+30 6 * * * $J /api/v1/vaccinations/reminders/generate >> /var/log/digisante-cron/vaccination_reminders.log 2>&1
 
 # Génération des rappels de CPN (santé maternelle) → Notifications.
 # Une fois par jour, idempotent (AntenatalVisit.lastNotifiedOn). Même oubli que
 # ci-dessus : générateur livré en v1.25, jamais planifié.
-40 6 * * * $J /api/v1/maternity/reminders/generate >> /var/log/digisante/maternity_reminders.log 2>&1
+40 6 * * * $J /api/v1/maternity/reminders/generate >> /var/log/digisante-cron/maternity_reminders.log 2>&1
 
 # Dispatch des notifications dues (rappels, SOS, labo…) — toutes les 2 minutes.
 # Appelle l'endpoint interne protégé par le jeton de service (x-service-token).
-*/2 * * * * $J /api/v1/notifications/dispatch >> /var/log/digisante/notify_dispatch.log 2>&1
+*/2 * * * * $J /api/v1/notifications/dispatch >> /var/log/digisante-cron/notify_dispatch.log 2>&1
 
-# Sauvegarde PostgreSQL chiffrée — tous les jours à 02:00
-0 2 * * * /var/www/digisante-mobile/infra/deploy/scripts/pg_dump_encrypted.sh >> /var/log/digisante/pg_dump.log 2>&1
+# Sauvegarde PostgreSQL + magasin de fichiers, chiffrés — tous les jours à 02:00.
+# Le magasin est lu dans le .env de l'API (KYC_STORAGE_DIR, comme l'API — B4) ;
+# API_ENV_FILE=/chemin/.env si le checkout n'est pas /var/www/digisante-mobile.
+# Il doit appartenir à APP_USER (défaut digisante), en 0700 ; il est archivé sous
+# l'identité de cet utilisateur, jamais lu par root à sa place (B3).
+0 2 * * * /usr/local/lib/digisante/infra/deploy/scripts/pg_dump_encrypted.sh >> /var/log/digisante-cron/pg_dump.log 2>&1
 
 # Réconciliation FedaPay (module gelé) — tous les jours à 02:30
-30 2 * * * /var/www/digisante-mobile/infra/deploy/scripts/fedapay_reconcile.sh >> /var/log/digisante/reconcile.log 2>&1
+30 2 * * * /usr/local/lib/digisante/infra/deploy/scripts/fedapay_reconcile.sh >> /var/log/digisante-cron/reconcile.log 2>&1
 
 # Surveillance locale (aucun SaaS) : readiness, PM2, disque, fraîcheur des sauvegardes,
 # tâches en échec, erreurs fournisseurs, backlog de notifications, webhooks rejetés, TLS.
 # Alerte UNIQUEMENT sur changement d'état — destinataire : /etc/digisante/alert.conf.
-*/5 * * * * /var/www/digisante-mobile/infra/deploy/scripts/healthwatch.sh >> /var/log/digisante/healthwatch.log 2>&1
+*/5 * * * * /usr/local/lib/digisante/infra/deploy/scripts/healthwatch.sh >> /var/log/digisante-cron/healthwatch.log 2>&1
 
 # Renouvellement SSL Certbot — deux fois par jour (no-op si pas dû)
 15 3,15 * * * certbot renew --quiet --deploy-hook "systemctl reload nginx"
 
 # L3 : reçus chiffrés conservés 14 jours, mutations acceptées au plus 7 jours.
-10 3 * * * $J /api/v1/sync/receipts/prune >> /var/log/digisante/sync_receipts.log 2>&1
+10 3 * * * $J /api/v1/sync/receipts/prune >> /var/log/digisante-cron/sync_receipts.log 2>&1

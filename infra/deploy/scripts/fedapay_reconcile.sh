@@ -11,8 +11,30 @@
 # L'endpoint n'est joignable qu'en local (127.0.0.1) et protégé par un
 # token de service lu dans un fichier root-only HORS dépôt :
 #   /etc/digisante/reconcile.token
+# Lancé par cron en root depuis la copie INSTALLÉE root:root (/usr/local/lib/digisante,
+# install_root_scripts.sh — B3), jamais depuis APP_DIR. La réponse de l'API n'est
+# recopiée au journal root que bornée et sans caractères de contrôle.
 # ─────────────────────────────────────────────────────────────
 set -euo pipefail
+
+# >>> trusted_path (B3 — copie IDENTIQUE dans chaque script exécuté par root ; test de non-dérive)
+# Vrai si le chemin résolu ET tous ses ancêtres appartiennent à root (ou à l'utilisateur
+# courant) et ne sont modifiables par aucun autre compte (seule exception : répertoire
+# sticky appartenant à root, ex. /tmp). Root n'exécute ni ne lit comme code un fichier
+# que l'utilisateur applicatif pourrait réécrire.
+trusted_path() {
+  local p owner mode
+  p="$(readlink -f -- "$1")" && [[ -e "$p" ]] || return 1
+  while :; do
+    read -r owner mode < <(stat -c '%u %a' -- "$p") || return 1
+    [[ "$owner" == 0 || "$owner" == "$EUID" ]] || return 1
+    if (( 8#$mode & 8#022 )); then [[ "$owner" == 0 && -d "$p" && -k "$p" ]] || return 1; fi
+    [[ "$p" == / ]] && return 0
+    p="$(dirname -- "$p")"
+  done
+}
+# <<< trusted_path
+trusted_path "${BASH_SOURCE[0]}" || { echo "[reconcile] ÉCHEC : script lancé depuis un emplacement modifiable par un autre compte ; utiliser la copie installée par install_root_scripts.sh" >&2; exit 1; }
 
 API_BASE="${API_BASE:-http://127.0.0.1:3001}"
 RECONCILE_PATH="${RECONCILE_PATH:-/api/v1/payments/reconcile}"
@@ -37,11 +59,14 @@ HTTP_CODE="$(printf 'header = "X-Service-Token: %s"\n' "$(tr -d '\r\n' < "$TOKEN
   -X POST "${API_BASE}${RECONCILE_PATH}" \
   --max-time 300 || true)"
 
+# Réponse bornée, caractères de contrôle retirés (sauf saut de ligne/tabulation).
+show_response() { head -c 4000 "$RESP" 2>/dev/null | LC_ALL=C tr -d '\000-\010\013-\037\177' || true; echo; }
 if [[ "$HTTP_CODE" == "200" || "$HTTP_CODE" == "202" ]]; then
   log "Réconciliation acceptée (HTTP ${HTTP_CODE})."
-  cat "$RESP" 2>/dev/null || true
+  show_response
 else
+  [[ "$HTTP_CODE" =~ ^[0-9]{3}$ ]] || HTTP_CODE=000
   log "ÉCHEC réconciliation (HTTP ${HTTP_CODE}). Réponse :"
-  cat "$RESP" 2>/dev/null || true
+  show_response
   exit 1
 fi

@@ -4,11 +4,33 @@
 # configuration ; sondes HTTP/WS et journaux. Les tâches mutantes exigent
 # --run-jobs + VERIFY_JOB_ENVIRONMENT=preproduction. Aucun secret affiché.
 #
-#   sudo DOMAIN=digisante.bj bash infra/deploy/scripts/verify_deploy.sh
+#   sudo DOMAIN=digisante.bj bash /usr/local/lib/digisante/infra/deploy/scripts/verify_deploy.sh
+# (copie root:root installée par install_root_scripts.sh — B3 : jamais celle de APP_DIR.)
 #
-# Sortie : une ligne PASS/FAIL/INFO par contrôle, code 1 si au moins un FAIL.
+# Sortie : une ligne PASS/FAIL/WARN/INFO par contrôle, code 1 si au moins un FAIL. Un
+# écart entre le SHA des scripts root installés et le SHA déployé est un WARN : il ne
+# fait pas échouer la vérification (relancer install_root_scripts.sh si nécessaire).
 # ─────────────────────────────────────────────────────────────
 set -euo pipefail
+
+# >>> trusted_path (B3 — copie IDENTIQUE dans chaque script exécuté par root ; test de non-dérive)
+# Vrai si le chemin résolu ET tous ses ancêtres appartiennent à root (ou à l'utilisateur
+# courant) et ne sont modifiables par aucun autre compte (seule exception : répertoire
+# sticky appartenant à root, ex. /tmp). Root n'exécute ni ne lit comme code un fichier
+# que l'utilisateur applicatif pourrait réécrire.
+trusted_path() {
+  local p owner mode
+  p="$(readlink -f -- "$1")" && [[ -e "$p" ]] || return 1
+  while :; do
+    read -r owner mode < <(stat -c '%u %a' -- "$p") || return 1
+    [[ "$owner" == 0 || "$owner" == "$EUID" ]] || return 1
+    if (( 8#$mode & 8#022 )); then [[ "$owner" == 0 && -d "$p" && -k "$p" ]] || return 1; fi
+    [[ "$p" == / ]] && return 0
+    p="$(dirname -- "$p")"
+  done
+}
+# <<< trusted_path
+trusted_path "${BASH_SOURCE[0]}" || { echo "Script lancé depuis un emplacement modifiable par un autre compte : utiliser la copie installée par install_root_scripts.sh" >&2; exit 1; }
 
 DOMAIN="${DOMAIN:?Définir DOMAIN (ex. digisante.bj)}"
 [[ "$DOMAIN" =~ ^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$ ]] || { echo "Nom de domaine invalide" >&2; exit 1; }
@@ -19,12 +41,18 @@ if [[ "${1:-}" == "--run-jobs" && $# == 1 ]]; then
 elif (( $# != 0 )); then echo "Option inconnue (seule --run-jobs est autorisée)" >&2; exit 1; fi
 APP_DIR="${APP_DIR:-/var/www/digisante-mobile}"
 APP_USER="${APP_USER:-digisante}"
+APP_LOG_DIR="${APP_LOG_DIR:-/var/log/digisante}"
 WS_LOG="${WS_LOG:-/var/log/nginx/digisante-ws.log}"
-JOB="${APP_DIR}/infra/deploy/scripts/internal_job.sh"
+# B3 : scripts exécutés par root = copie root:root, jamais APP_DIR.
+ROOT_LIB="${ROOT_LIB:-/usr/local/lib/digisante}"
+ROOT_MANIFEST="${ROOT_LIB}/root-scripts.manifest"
+JOB="${ROOT_LIB}/infra/deploy/scripts/internal_job.sh"
 FAILS=0
+WARNS=0
 
 pass() { printf '\033[0;32mPASS\033[0m %s\n' "$*"; }
 fail() { printf '\033[0;31mFAIL\033[0m %s\n' "$*"; FAILS=$((FAILS + 1)); }
+warn() { printf '\033[0;33mWARN\033[0m %s\n' "$*"; WARNS=$((WARNS + 1)); }
 info() { printf 'INFO %s\n' "$*"; }
 
 # 1. PM2 : api ×2 + web, en ligne (parse du JSON de `pm2 jlist` de l'utilisateur applicatif)
@@ -78,18 +106,59 @@ fi
 
 # 6. Tâches MUTANTES : aucune émission de notification par défaut.
 if (( RUN_JOBS == 1 )); then
-  for p in reminders/generate appointments/reminders/generate vaccinations/reminders/generate maternity/reminders/generate notifications/dispatch sync/receipts/prune; do
-    if bash "$JOB" "/api/v1/${p}" >/dev/null 2>&1; then pass "tâche /api/v1/${p} : 2xx"; else fail "tâche /api/v1/${p} : échec (voir internal_job.sh)"; fi
-  done
+  if ! trusted_path "$JOB"; then
+    fail "tâches : ${JOB} absent ou modifiable par un autre compte (install_root_scripts.sh)"
+  else
+    for p in reminders/generate appointments/reminders/generate vaccinations/reminders/generate maternity/reminders/generate notifications/dispatch sync/receipts/prune; do
+      if bash "$JOB" "/api/v1/${p}" >/dev/null 2>&1; then pass "tâche /api/v1/${p} : 2xx"; else fail "tâche /api/v1/${p} : échec (voir internal_job.sh)"; fi
+    done
+  fi
 else
   info "Tâches non exécutées : résultat limité aux sondes/configuration, aucune preuve cron métier."
 fi
 
 # 7. Toutes les tâches attendues, sans accepter une ligne commentée comme installée.
 CRON="$(crontab -l 2>/dev/null | sed '/^[[:space:]]*#/d' || true)"
-for needle in /api/v1/reminders/generate /api/v1/appointments/reminders/generate /api/v1/vaccinations/reminders/generate /api/v1/maternity/reminders/generate /api/v1/notifications/dispatch /api/v1/sync/receipts/prune pg_dump_encrypted.sh fedapay_reconcile.sh healthwatch.sh 'certbot renew'; do
+for needle in /api/v1/reminders/generate /api/v1/appointments/reminders/generate /api/v1/vaccinations/reminders/generate /api/v1/maternity/reminders/generate /api/v1/notifications/dispatch /api/v1/sync/receipts/prune 'certbot renew' \
+  "${ROOT_LIB}/infra/deploy/scripts/internal_job.sh" "${ROOT_LIB}/infra/deploy/scripts/pg_dump_encrypted.sh" "${ROOT_LIB}/infra/deploy/scripts/fedapay_reconcile.sh" "${ROOT_LIB}/infra/deploy/scripts/healthwatch.sh"; do
   grep -Fq "$needle" <<<"$CRON" && pass "cron : ${needle}" || fail "cron : ${needle} absent"
 done
+# B3 : la crontab root ne lance rien depuis APP_DIR et n'écrit pas dans le répertoire de
+# journaux de l'utilisateur applicatif (un lien symbolique y détournerait l'écriture root).
+# (API_ENV_FILE/API_DIR désignent le .env LU COMME DONNÉE par la sauvegarde — B4 : exclus.)
+CRON_EXEC="$(sed -E 's/(^|[[:space:]])(API_ENV_FILE|API_DIR)=[^[:space:]]*//g' <<<"$CRON")"
+grep -Fq "${APP_DIR%/}/" <<<"$CRON_EXEC" && fail "cron : chemin sous ${APP_DIR} (modifiable par ${APP_USER}) exécuté par root" || pass "cron : aucun chemin sous ${APP_DIR}"
+grep -Eq ">>?[[:space:]]*${APP_LOG_DIR%/}/" <<<"$CRON" && fail "cron : journal root écrit dans ${APP_LOG_DIR} (répertoire de ${APP_USER})" || pass "cron : journaux root hors de ${APP_LOG_DIR}"
+
+# 7 bis. Scripts root installés (B3) : intégrité de la copie root, SHA comparé au déployé.
+manifest_re='^file=([A-Za-z0-9._/-]+) mode=(0755|0644) sha256=([0-9a-f]{64})$'
+if [[ -f "$ROOT_MANIFEST" && ! -L "$ROOT_MANIFEST" ]] && trusted_path "$ROOT_MANIFEST"; then
+  INSTALLED_SHA="$(sed -n 's/^sha=\([0-9a-f]\{40\}\)$/\1/p' "$ROOT_MANIFEST")"
+  bad=0; total=0; drift=0
+  while IFS= read -r line; do
+    [[ "$line" =~ $manifest_re ]] || continue
+    rel="${BASH_REMATCH[1]}"; want="${BASH_REMATCH[3]}"; total=$((total + 1))
+    if [[ "/$rel/" == */../* ]] || ! trusted_path "${ROOT_LIB}/${rel}" || [[ "$(sha256sum "${ROOT_LIB}/${rel}" | cut -d' ' -f1)" != "$want" ]]; then bad=$((bad + 1)); continue; fi
+    # Contenu du checkout déployé lu comme DONNÉES (empreinte), jamais exécuté.
+    if [[ ! -f "${APP_DIR}/${rel}" || "$(sha256sum "${APP_DIR}/${rel}" | cut -d' ' -f1)" != "$want" ]]; then drift=$((drift + 1)); fi
+  done < "$ROOT_MANIFEST"
+  if [[ -z "$INSTALLED_SHA" || "$total" == 0 || "$bad" != 0 ]]; then
+    fail "scripts root : installation ${ROOT_LIB} incomplète ou altérée (${bad}/${total} fichier(s)) — relancer install_root_scripts.sh"
+  else
+    pass "scripts root : ${total} fichier(s) root:root conformes au manifeste (${INSTALLED_SHA})"
+    # git exécuté SOUS L'IDENTITÉ applicative (jamais root dans un dépôt qu'elle contrôle) ;
+    # sortie non fiable : seul un SHA de 40 hex est retenu.
+    DEPLOYED_SHA="$(sudo -u "$APP_USER" git -C "$APP_DIR" rev-parse HEAD 2>/dev/null || true)"
+    [[ "$DEPLOYED_SHA" =~ ^[0-9a-f]{40}$ ]] || DEPLOYED_SHA=""
+    if [[ "$DEPLOYED_SHA" == "$INSTALLED_SHA" ]]; then
+      pass "scripts root : même SHA que le déploiement"
+    else
+      warn "scripts root installés au SHA ${INSTALLED_SHA}, déployé ${DEPLOYED_SHA:-inconnu} ; ${drift} fichier(s) diffèrent du checkout — si > 0 : sudo ${ROOT_LIB}/infra/deploy/scripts/install_root_scripts.sh ${DEPLOYED_SHA:-<SHA>}"
+    fi
+  fi
+else
+  fail "scripts root : manifeste ${ROOT_MANIFEST} absent ou non fiable — crons root sans copie installée (install_root_scripts.sh)"
+fi
 
 # 8. Informations (non bloquantes ici, suivies ailleurs)
 curl -sSI --connect-timeout 5 --max-time 15 "https://${DOMAIN}/" | grep -qi '^strict-transport-security' && info "HSTS présent" || info "HSTS absent (PREFLIGHT O1)"
@@ -97,5 +166,5 @@ curl -sSI --connect-timeout 5 --max-time 15 "https://${DOMAIN}/" | grep -qi '^st
 [[ "$(stat -c '%a' "${APP_DIR}/apps/api/.env" 2>/dev/null)" == "600" ]] && pass ".env API en 600" || fail ".env API absent ou permissions ≠ 600"
 
 echo
-if (( FAILS > 0 )); then echo "❌ ${FAILS} contrôle(s) en échec"; exit 1; fi
-echo "Vérification des sondes/configuration : PASS (tâches exécutées=${RUN_JOBS}) ; ni recette fournisseur, ni GO pilote."
+if (( FAILS > 0 )); then echo "❌ ${FAILS} contrôle(s) en échec (${WARNS} avertissement(s))"; exit 1; fi
+echo "Vérification des sondes/configuration : PASS (tâches exécutées=${RUN_JOBS}, avertissements=${WARNS}) ; ni recette fournisseur, ni GO pilote."
