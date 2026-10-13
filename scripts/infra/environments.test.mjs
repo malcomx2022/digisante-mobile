@@ -19,8 +19,8 @@ const read = (p) => readFileSync(join(ROOT, p), 'utf8');
 const ENVS = ['preproduction', 'production'];
 // Scripts d'exploitation pilotés par DIGISANTE_ENV (provision.sh : à adapter avant usage
 // sur l'hôte partagé ; verify_restore.sh : machine de restauration isolée).
-const PROFILED = ['deploy.sh', 'healthwatch.sh', 'verify_deploy.sh', 'internal_job.sh', 'fedapay_reconcile.sh', 'pg_dump_encrypted.sh', 'install_root_scripts.sh'];
-const ROOT_GUARDED = ['healthwatch.sh', 'verify_deploy.sh', 'internal_job.sh', 'fedapay_reconcile.sh', 'pg_dump_encrypted.sh'];
+const PROFILED = ['deploy.sh', 'healthwatch.sh', 'verify_deploy.sh', 'internal_job.sh', 'fedapay_reconcile.sh', 'pg_dump_encrypted.sh', 'install_root_scripts.sh', 'provision-ionos.sh'];
+const ROOT_GUARDED = ['healthwatch.sh', 'verify_deploy.sh', 'internal_job.sh', 'fedapay_reconcile.sh', 'pg_dump_encrypted.sh', 'provision-ionos.sh'];
 const block = (text) => {
   const start = text.indexOf('# >>> digisante_profile');
   const end = text.indexOf('# <<< digisante_profile');
@@ -55,7 +55,8 @@ test('profil : bloc IDENTIQUE dans chaque script d’exploitation, appelé avant
     assert.doesNotMatch(code, /127\.0\.0\.1:300[01]\b|(?:\[|n\()"digisante-(?:api|web)"|\/var\/www\/digisante-mobile|pm2 logs digisante\b/, `${name} : défaut d’environnement codé en dur`);
   }
   for (const name of ROOT_GUARDED) {
-    assert.match(read(`infra/deploy/scripts/${name}`), /^\[\[ "\$\(readlink -f -- "\$ROOT_LIB"\)" == "\$SELF_ROOT" \]\] \|\| \{ echo ".*copie root d'un autre environnement/m, `${name} : garde de copie root absente`);
+    // provision-ionos.sh préfixe ses chemins par F() (racine de test, vide en exploitation).
+    assert.match(read(`infra/deploy/scripts/${name}`), /^\[\[ "\$\(readlink -f -- "\$(?:ROOT_LIB|\(F "\$ROOT_LIB"\))"\)" == "\$SELF_ROOT" \]\] \|\| \{ echo ".*copie root d'un autre environnement/m, `${name} : garde de copie root absente`);
   }
 });
 
@@ -146,10 +147,15 @@ test('Nginx : vhost préproduction = production hors marqueurs ; upstreams/ports
     [/127\.0\.0\.1:3101\b/g, '127.0.0.1:3201'],
     [/port local 3100 \(DIGISANTE_ENV=preproduction\)/g, 'port local 3200 (DIGISANTE_ENV=production)'],
     [/port local 3101,/g, 'port local 3201,'],
-    [/server_name preprod\.digisantemobile\.app;/g, 'server_name digisantemobile.app www.digisantemobile.app;'],
+    [/preprod\.digisantemobile\.app/g, 'digisantemobile.app'],
     [/\/var\/log\/nginx\/digisante-preprod-/g, '/var/log/nginx/digisante-'],
   ]);
-  assert.equal(mapped, body(prod), 'digisante-preprod.conf a dérivé de digisante.conf');
+  // Production seulement : bloc www (redirection vers le nom canonique) et nom www sur :80.
+  const prodCore = body(prod)
+    .replace(/# >>> www \(production seulement\)[\s\S]*?# <<< www\n\n/, '')
+    .replace('server_name digisantemobile.app www.digisantemobile.app;', 'server_name digisantemobile.app;');
+  assert.equal(mapped, prodCore, 'digisante-preprod.conf a dérivé de digisante.conf');
+  assert.match(prod, /server_name www\.digisantemobile\.app;[\s\S]*?return 301 https:\/\/digisantemobile\.app\$request_uri;/, 'www redirigé vers le nom canonique');
   for (const [env, text] of [['production', prod], ['preproduction', pre]]) {
     const p = profile(env).values;
     const upstreams = Object.fromEntries([...text.matchAll(/upstream (\w+) \{\s*\n\s*server 127\.0\.0\.1:(\d+);/g)].map((m) => [m[1], m[2]]));
@@ -158,8 +164,22 @@ test('Nginx : vhost préproduction = production hors marqueurs ; upstreams/ports
     assert.ok(text.includes(`access_log ${p.WS_LOG} digisante_noquery;`), `${env} : journal WS = WS_LOG du profil (verify_deploy)`);
     // Domaine et journal général propres à l'environnement (la normalisation ci-dessus
     // les masque : un vhost préprod déclarant le domaine de production passerait sinon).
-    const names = env === 'production' ? 'digisantemobile.app www.digisantemobile.app' : 'preprod.digisantemobile.app';
-    assert.deepEqual([...text.matchAll(/^\s*server_name ([^;]+);/gm)].map((m) => m[1]), [names], `${env} : server_name`);
+    const names = env === 'production'
+      ? ['digisantemobile.app www.digisantemobile.app', 'www.digisantemobile.app', 'digisantemobile.app']
+      : ['preprod.digisantemobile.app', 'preprod.digisantemobile.app'];
+    assert.deepEqual([...text.matchAll(/^\s*server_name ([^;]+);/gm)].map((m) => m[1]), names, `${env} : server_name`);
+    // TLS : certificat de l'environnement, HTTP limité au challenge ACME et à la redirection.
+    const cert = env === 'production' ? 'digisantemobile.app' : 'preprod.digisantemobile.app';
+    assert.ok(text.includes(`ssl_certificate     /etc/letsencrypt/live/${cert}/fullchain.pem;`), `${env} : certificat`);
+    assert.match(text, /location \^~ \/\.well-known\/acme-challenge\/ \{\s*\n\s*root \/var\/www\/digisante-acme;/, `${env} : ACME webroot`);
+    assert.doesNotMatch(text, /(127\.0\.0\.1|localhost):300[01]\b/, `${env} : port réservé de l'hôte`);
+    // Corps max = plus grand bodyLimit de l'API (8 Mio, KYC/DMP).
+    assert.match(text, /^\s+client_max_body_size 8m;$/m, `${env} : client_max_body_size`);
+    for (const probe of ['/api/v1/health', '/api/v1/ready']) assert.match(text, new RegExp(`location = ${probe.replace(/\//g, '\\/')} \\{\\s*\\n\\s*access_log off;`), `${env} : ${probe} sans journal`);
+    // Toute location qui pose add_header ré-inclut les en-têtes de sécurité (héritage Nginx).
+    for (const block of text.split(/\n    location /).slice(1)) {
+      if (/add_header/.test(block.split('\n    }')[0])) assert.match(block, /include \/etc\/nginx\/snippets\/digisante-headers\.conf;/, `${env} : en-têtes perdus dans ${block.split('\n')[0]}`);
+    }
     const logSfx = env === 'production' ? '' : '-preprod';
     assert.ok(text.includes(`access_log /var/log/nginx/digisante${logSfx}-access.log digisante_noquery;`), `${env} : journal d'accès`);
     for (const proxied of text.matchAll(/proxy_pass http:\/\/(\w+);/g)) assert.ok(proxied[1] in upstreams, `${env} : ${proxied[1]}`);
@@ -190,7 +210,11 @@ test('crontabs /etc/cron.d : mêmes tâches pour les deux environnements, chemin
     }
   }
   const strip = (line) => line.replace(/^((?:\S+\s+){5})/, '');
-  const mappedPre = jobs(pre).map((l) => strip(l).replaceAll('/usr/local/lib/digisante-preprod/', '/usr/local/lib/digisante/').replaceAll('/var/log/digisante-preprod-cron/', '/var/log/digisante-cron/'));
+  const mappedPre = jobs(pre).map((l) => strip(l).replaceAll('/usr/local/lib/digisante-preprod/', '/usr/local/lib/digisante/').replaceAll('/var/log/digisante-preprod-cron/', '/var/log/digisante-cron/').replaceAll('--cert-name preprod.digisantemobile.app', '--cert-name digisantemobile.app'));
+  // Hôte partagé : certbot ne renouvelle QUE le certificat DigiSanté de l'environnement.
+  for (const [text, cert] of [[prod, 'digisantemobile.app'], [pre, 'preprod.digisantemobile.app']]) {
+    for (const line of jobs(text).filter((l) => /certbot/.test(l))) assert.ok(line.includes(`certbot renew --quiet --cert-name ${cert} `), line);
+  }
   assert.deepEqual(mappedPre, jobs(prod).map(strip), 'tâches divergentes entre environnements');
   // Sauvegardes et renouvellement certbot jamais simultanés sur l'hôte partagé.
   const at = (text, re) => jobs(text).find((l) => re.test(l)).split(/\s+/).slice(0, 5).join(' ');
@@ -221,4 +245,50 @@ test('workflows : checkout de déploiement = APP_DIR du profil de l’environnem
     assert.match(text, new RegExp(`^\\s+cd ${profile(env).values.APP_DIR}$`, 'm'), file);
     assert.match(text, new RegExp(`DEPLOY_ENVIRONMENT=${env}`), file);
   }
+});
+
+/** Clés NON commentées d'un modèle .env (ordre conservé) et leurs valeurs brutes. */
+const envKeys = (text) => [...text.matchAll(/^([A-Z][A-Z0-9_]*)=(.*)$/gm)].map((m) => [m[1], m[2]]);
+
+test('.env.preprod.example / .env.prod.example : mêmes clés que .env.example, secrets vides, valeurs = profil et provision-ionos.sh', () => {
+  const base = envKeys(read('.env.example')).map(([k]) => k);
+  const prov = read('infra/deploy/scripts/provision-ionos.sh');
+  // Variables dont la valeur DOIT rester vide dans un modèle commité (env.ts refuse alors de démarrer).
+  const SECRET = /SECRET|PASSWORD|TOKEN|_KEY$|PRIVATE|AUTH|SID$|DATABASE_URL|REDIS_URL/;
+  for (const [file, env, domain, idx] of [['.env.preprod.example', 'preproduction', 'preprod.digisantemobile.app', 5], ['.env.prod.example', 'production', 'digisantemobile.app', 6]]) {
+    const text = read(file);
+    const entries = envKeys(text);
+    const values = Object.fromEntries(entries);
+    assert.deepEqual(entries.map(([k]) => k), base, `${file} : clés ≠ .env.example (parité)`);
+    for (const [k, v] of entries) if (SECRET.test(k)) assert.equal(v, '""', `${file} : ${k} doit rester vide (coffre)`);
+    // Aucun motif de secret réel nulle part, même en commentaire.
+    assert.doesNotMatch(text, /sk_(live|sandbox)_[A-Za-z0-9]|-----BEGIN|AC[0-9a-f]{32}|re_[A-Za-z0-9]{16}/, file);
+    const p = profile(env).values;
+    assert.equal(values.NODE_ENV, 'production', file);
+    assert.equal(values.API_PORT, p.API_PORT, file);
+    assert.equal(values.API_HOST, '127.0.0.1', file);
+    assert.equal(values.CORS_ORIGIN, `"https://${domain}"`, file);
+    assert.equal(values.NEXT_PUBLIC_API_URL, '""', `${file} : même origine`);
+    const site = env === 'production' ? 'digisante' : 'digisante-preprod';
+    assert.equal(values.KYC_STORAGE_DIR, `"/var/lib/${site}-files"`, `${file} : magasin absolu = STORE_DIR de provision-ionos.sh`);
+    assert.match(prov, /^STORE_DIR="\/var\/lib\/\$\{SITE\}-files"$/m);
+    assert.match(prov, new RegExp(`^\\s+${env}\\) DOMAINS="${domain.replace(/\./g, '\\.')}[^"]*"; VALKEY_DB=${idx}; SITE=${site} ;;$`, 'm'));
+    // Formes documentées : base dédiée, index Valkey de l'environnement, jamais 3000/3001.
+    assert.match(text, new RegExp(`@127\\.0\\.0\\.1:5432/${p.DB_NAME}\\?schema=public`), file);
+    assert.match(text, new RegExp(`@127\\.0\\.0\\.1:6379/${idx}\\b`), file);
+    assert.doesNotMatch(text, /:300[01]\b/, file);
+  }
+  // Noms GitHub exacts (préprod PREPROD_VPS_*, production VPS_* lus par ci.yml) et métadonnées smoke.
+  const pre = read('.env.preprod.example');
+  for (const k of ['PREPROD_VPS_HOST', 'PREPROD_VPS_USER=digisante-preprod', 'PREPROD_VPS_SSH_KEY', 'PREPROD_VPS_FINGERPRINT', 'SMOKE_ENVIRONMENT=preproduction', 'SMOKE_DATABASE_NAME=digisante_preprod', 'SMOKE_REDIS_DB=5']) {
+    assert.match(pre, new RegExp(`^#\\s+${k}\\b`, 'm'), k);
+  }
+  const ci = read('.github/workflows/ci.yml');
+  for (const k of ['VPS_HOST', 'VPS_USER', 'VPS_SSH_KEY', 'VPS_FINGERPRINT']) {
+    assert.match(read('.env.prod.example'), new RegExp(`^#\\s+${k}\\b`, 'm'), k);
+    assert.match(ci, new RegExp(`secrets\\.${k}\\b`), `ci.yml ne lit plus ${k}`);
+  }
+  assert.match(read('.github/workflows/preproduction.yml'), /secrets\.PREPROD_VPS_FINGERPRINT/);
+  assert.match(read('.gitignore'), /^!\.env\.preprod\.example$/m);
+  assert.match(read('.gitignore'), /^!\.env\.prod\.example$/m);
 });

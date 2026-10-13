@@ -49,6 +49,13 @@ if [[ $EUID -ne 0 ]]; then
   echo "Ce script doit être lancé en root (sudo)." >&2
   exit 1
 fi
+# Ancien VPS Ubuntu 22.04 SEULEMENT : il installe PostgreSQL 16, Redis, Node, règle UFW et le
+# fuseau. Sur l'hôte IONOS partagé (Ubuntu 26.04, PG 18 et Valkey natifs, autres applications),
+# l'appliquer casserait des services tiers : provision-ionos.sh (dry-run par défaut).
+if ! grep -qxE 'VERSION_ID="?22\.04"?' /etc/os-release 2>/dev/null; then
+  echo "provision.sh cible l'ancien VPS Ubuntu 22.04 ; sur l'hôte IONOS, utiliser infra/deploy/scripts/provision-ionos.sh" >&2
+  exit 1
+fi
 trusted_path "${BASH_SOURCE[0]}" || { echo "Script lancé depuis un emplacement modifiable par un autre compte (APP_DIR ?) : utiliser la copie installée par install_root_scripts.sh (README §1)." >&2; exit 1; }
 SELF_ROOT="$(cd "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/../../.." && pwd -P)"
 ROOT_LIB="${ROOT_LIB:-/usr/local/lib/digisante}"
