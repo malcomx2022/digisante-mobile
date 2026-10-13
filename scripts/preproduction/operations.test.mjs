@@ -16,6 +16,10 @@ const sha256=(path)=>createHash('sha256').update(readFileSync(path)).digest('hex
 // abandonne réellement les privilèges pour tar) ; sinon l'utilisateur courant de la CI.
 const IS_ROOT=process.getuid?.()===0;
 const APP=IS_ROOT?{user:'nobody',uid:65534,gid:65534}:{user:userInfo().username,uid:process.getuid(),gid:process.getgid()};
+// Compte sans droits des tâches (B3) : en root, `daemon` (≠ utilisateur applicatif `nobody`),
+// les requêtes des tâches abandonnent réellement les privilèges ; hors root, rien à abandonner.
+// Hors root, compte existant distinct de l'utilisateur courant (contrôlé par verify_deploy seulement).
+const JOBS=IS_ROOT?{user:'daemon',uid:1}:{user:'nobody',uid:65534};
 function own(path){if(!IS_ROOT)return;lchownSync(path,APP.uid,APP.gid);if(lstatSync(path).isDirectory())for(const n of readdirSync(path))own(join(path,n));}
 // Magasin conforme : répertoire 0700 appartenant à l'utilisateur applicatif.
 function appStore(path){mkdirSync(path,{recursive:true});chmodSync(path,0o700);return path;}
@@ -33,11 +37,12 @@ function writeRootManifest(lib,installedSha,environment='preproduction') {
 }
 function fixture() {
   const dir=mkdtempSync(join(tmpdir(),'digisante-l10-'));chmodSync(dir,0o755);const bin=join(dir,'bin');mkdirSync(bin);const lib=join(dir,'lib');copyTree(lib);
-  const env={...process.env,PATH:bin+':'+process.env.PATH,DIGISANTE_ENV:'preproduction',APP_DIR:join(dir,'app'),APP_USER:APP.user,LOG_DIR:join(dir,'log'),TRACE:join(dir,'trace'),DB_NAME:'fixture_preprod',BACKUP_DIR:join(dir,'backups'),BACKUP_KEY_FILE:join(dir,'backup.key'),KYC_STORAGE_DIR:join(dir,'files'),ROOT_LIB:lib,ROOT_SCRIPTS_MANIFEST:join(lib,'root-scripts.manifest'),API_ENV_FILE:join(dir,'app/apps/api/.env')};
+  const env={...process.env,PATH:bin+':'+process.env.PATH,DIGISANTE_ENV:'preproduction',APP_DIR:join(dir,'app'),APP_USER:APP.user,JOBS_USER:JOBS.user,LOG_DIR:join(dir,'log'),TRACE:join(dir,'trace'),DB_NAME:'fixture_preprod',BACKUP_DIR:join(dir,'backups'),BACKUP_KEY_FILE:join(dir,'backup.key'),KYC_STORAGE_DIR:join(dir,'files'),ROOT_LIB:lib,ROOT_SCRIPTS_MANIFEST:join(lib,'root-scripts.manifest'),API_ENV_FILE:join(dir,'app/apps/api/.env')};
   for(const path of [env.APP_DIR,env.LOG_DIR,env.BACKUP_DIR,join(env.APP_DIR,'apps/api')]) mkdirSync(path,{recursive:true});
   appStore(env.KYC_STORAGE_DIR);
   writeFileSync(join(env.APP_DIR,'apps/api/.env'),'NODE_ENV=production\n');chmodSync(join(env.APP_DIR,'apps/api/.env'),0o600);
   writeFileSync(env.BACKUP_KEY_FILE,'SYNTHETIC TEST KEY');chmodSync(env.BACKUP_KEY_FILE,0o600);
+  writeFileSync(env.TRACE,'');chmodSync(env.TRACE,0o666);
   writeFileSync(join(env.KYC_STORAGE_DIR,`${STORE_ID}.bin`),'SYNTHETIC ENCRYPTED FILE');own(env.KYC_STORAGE_DIR);
   const command=(name,body)=>{const path=join(bin,name);writeFileSync(path,'#!/bin/bash\nset -euo pipefail\n'+body+'\n');chmodSync(path,0o755);};
   command('git',`echo "git $*" >> "$TRACE"
@@ -309,7 +314,7 @@ test('B3 : scripts root refusent de s’exécuter depuis un emplacement modifiab
 });
 test('B3 : réponse API recopiée au journal root bornée et sans séquence d’échappement',()=>{
   const f=fixture();try{
-    f.command('curl',`while [[ $# -gt 0 ]]; do if [[ "$1" == -o ]]; then printf 'ok\\033]0;pwn\\007\\nssh-ed25519 AAAA attacker\\n%.0s' {1..2} > "$2"; fi; shift; done; printf 200`);
+    f.command('curl',`printf 'ok\\033]0;pwn\\007\\nssh-ed25519 AAAA attacker\\n%.0s' {1..2}; printf '\\n200'`);
     const token=join(f.dir,'token');writeFileSync(token,'SYNTHETIC TOKEN');chmodSync(token,0o600);
     const r=f.run('internal_job.sh',{RECONCILE_TOKEN_FILE:token},['/api/v1/notifications/dispatch']);assert.equal(r.status,0,r.stderr);
     assert.doesNotMatch(r.stdout,/\u001b/);assert.equal(r.stdout.trim().split('\n').length,1);
@@ -350,7 +355,7 @@ test('tâches root : sans DIGISANTE_ENV aucun appel ; jeton envoyé au seul port
   for(const script of ['internal_job.sh','fedapay_reconcile.sh']){const f=fixture();try{
     const token=join(f.dir,'token');writeFileSync(token,'SYNTHETIC TOKEN');chmodSync(token,0o600);
     const args=script==='internal_job.sh'?['/api/v1/notifications/dispatch']:[];
-    f.command('curl',`echo "curl $*" >> "$TRACE"; while [[ $# -gt 0 ]]; do if [[ "$1" == -o ]]; then echo '{}' > "$2"; fi; shift; done; printf 200`);
+    f.command('curl',`echo "curl $*" >> "$TRACE"; printf '{}\\n200'`);
     for(const bad of ['','bogus','toString']){const r=f.run(script,{RECONCILE_TOKEN_FILE:token,DIGISANTE_ENV:bad},args);assert.notEqual(r.status,0,`${script} ${bad}`);assert.match(r.stderr,/DIGISANTE_ENV requis/);assert.equal(f.trace(),'',`${script} ${bad}`);}
     // Anciens réglages (3001 = Grafana sur l'hôte partagé) : jamais suivis.
     let r=f.run(script,{RECONCILE_TOKEN_FILE:token,API_BASE:'http://127.0.0.1:3001',API_PORT:'3001'},args);assert.equal(r.status,0,r.stderr+r.stdout);
@@ -392,4 +397,44 @@ test('healthwatch : PM2, readiness, état et alerte propres à l’environnement
     assert.match(r.stdout,/DigiSanté preproduction — /);
     assert.match(f.trace(),/^curl .*http:\/\/127\.0\.0\.1:3101\/api\/v1\/ready$/m);
   }finally{f.clean();}
+});
+
+// ── B3 : requête des tâches sous un compte sans droits, jamais en root ──
+const jobArgs=(script)=>script==='internal_job.sh'?['/api/v1/notifications/dispatch']:[];
+test('B3 : tâches lancées par root ⇒ requête (curl) sous le compte sans droits, jeton jamais en argument',{skip:!IS_ROOT&&'abandon réel des privilèges : exige root'},()=>{
+  for(const script of ['internal_job.sh','fedapay_reconcile.sh']){const f=fixture();try{
+    const token=join(f.dir,'token');writeFileSync(token,'SYNTHETIC TOKEN');chmodSync(token,0o600);
+    f.command('curl',`echo "curl-as uid=$(id -u) gid=$(id -g) groups=$(id -G) $*" >> "$TRACE"; cat > /dev/null; printf '{"uid":%s}\\n200' "$(id -u)"`);
+    const r=f.run(script,{RECONCILE_TOKEN_FILE:token},jobArgs(script));assert.equal(r.status,0,script+r.stderr+r.stdout);
+    assert.match(f.trace(),new RegExp(`^curl-as uid=${JOBS.uid} gid=${JOBS.uid} groups=${JOBS.uid} `,'m'),script);
+    assert.doesNotMatch(f.trace(),/uid=0\b/,script);assert.doesNotMatch(f.trace(),/SYNTHETIC TOKEN/,script);
+    assert.match(r.stdout,new RegExp(`"uid":${JOBS.uid}`),script);
+  }finally{f.clean();}}
+});
+test('B3 : compte des tâches absent, root ou confondu avec l’utilisateur applicatif ⇒ ÉCHEC journalisé, aucune requête',{skip:!IS_ROOT&&'exige root'},()=>{
+  for(const script of ['internal_job.sh','fedapay_reconcile.sh']){
+    for(const [jobs,why] of [['digisante-absent-jobs',/compte sans droits digisante-absent-jobs absent/],['root',/compte root refusé/],[APP.user,new RegExp(`compte ${APP.user} refusé`)]]){const f=fixture();try{
+      const token=join(f.dir,'token');writeFileSync(token,'SYNTHETIC TOKEN');chmodSync(token,0o600);
+      const r=f.run(script,{RECONCILE_TOKEN_FILE:token,JOBS_USER:jobs},jobArgs(script));
+      assert.equal(r.status,1,`${script} ${jobs}`);assert.match(r.stdout,/ÉCHEC/,`${script} ${jobs}`);assert.match(r.stdout,why,`${script} ${jobs}`);
+      assert.doesNotMatch(f.trace(),/^curl/m,`${script} ${jobs} : requête émise`);
+    }finally{f.clean();}}
+  }
+});
+test('B3 : réconciliation sans jeton ⇒ ligne ÉCHEC au journal (sonde cron), comme les autres tâches',()=>{
+  const f=fixture();try{
+    for(const token of [join(f.dir,'absent'),join(f.dir,'empty')]){
+      writeFileSync(join(f.dir,'empty'),'');
+      const r=f.run('fedapay_reconcile.sh',{RECONCILE_TOKEN_FILE:token});
+      assert.equal(r.status,1);assert.match(r.stdout,/ÉCHEC : jeton de service absent ou vide/);assert.doesNotMatch(f.trace(),/^curl/m);
+    }
+  }finally{f.clean();}
+});
+test('vérification B3 : compte des tâches absent ou confondu avec root/l’utilisateur applicatif ⇒ FAIL',()=>{
+  for(const [jobs,expect] of [[JOBS.user,/PASS.*tâches : requêtes sous /],['digisante-absent-jobs',/FAIL.*tâches : compte sans droits digisante-absent-jobs absent/],['root',/FAIL.*tâches : compte root = root ou utilisateur\/groupe applicatif/],[APP.user,/FAIL.*tâches : compte .* = root ou utilisateur\/groupe applicatif/]]){
+    const {f,ws}=verifyFixture();try{
+      const r=f.run('verify_deploy.sh',{DOMAIN:'preprod.example.bj',WS_LOG:ws,JOBS_USER:jobs});
+      assert.match(r.stdout,expect,jobs);assert.equal(r.status===0,jobs===JOBS.user,jobs+r.stdout);
+    }finally{f.clean();}
+  }
 });

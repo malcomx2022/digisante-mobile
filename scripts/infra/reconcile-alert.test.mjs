@@ -20,6 +20,7 @@ const SYNTHETIC_TOKEN = 'synthetic-reconcile-token-0000';
 
 function fixture({ code, body }) {
   const dir = mkdtempSync(join(tmpdir(), 'digisante-reconcile-'));
+  chmodSync(dir, 0o755); // faux outils exécutables par le compte sans droits (B3, en root)
   const bin = join(dir, 'bin');
   mkdirSync(bin);
   const tokenFile = join(dir, 'reconcile.token');
@@ -41,7 +42,8 @@ while (($#)); do
     *) url="$1"; shift;;
   esac
 done
-if [[ "$url" == */payments/reconcile ]]; then printf '%s' "$RECONCILE_BODY" > "$out"; printf '%s' "$RECONCILE_CODE"
+# Sortie réelle de \`-o -\` + \`-w '\\n%{http_code}'\` : corps puis code sur stdout.
+if [[ "$url" == */payments/reconcile ]]; then printf '%s' "$RECONCILE_BODY"; printf '\\n%s' "$RECONCILE_CODE"
 else echo '{"status":"ready","db":"up","redis":"up"}'; fi`);
   command('logger', ':');
   command('fixture-psql', 'echo 0');
@@ -56,7 +58,10 @@ else echo '{"status":"ready","db":"up","redis":"up"}'; fi`);
     RECONCILE_BODY: body,
     ARGV_TRACE: join(dir, 'argv'),
     CONFIG_TRACE: join(dir, 'config'),
+    // B3 : lancé par root, la requête part sous ce compte sans droits (traces accessibles).
+    ...(process.getuid?.() === 0 ? { JOBS_USER: 'daemon' } : {}),
   };
+  for (const trace of [env.ARGV_TRACE, env.CONFIG_TRACE]) { writeFileSync(trace, ''); chmodSync(trace, 0o666); }
   const log = join(dir, 'reconcile.log');
   const apiLog = join(dir, 'api-out.log');
   const run = (script, extra = {}) =>

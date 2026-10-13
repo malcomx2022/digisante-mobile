@@ -125,6 +125,12 @@ sudo sh -c 'umask 077; openssl rand -hex 32 > /etc/digisante-preprod/reconcile.t
 sudo chmod 0400 /etc/digisante-preprod/reconcile.token
 # … puis reporter EXACTEMENT cette valeur dans RECONCILE_TOKEN= de apps/api/.env
 # (sans l'afficher à l'écran partagé) ; sinon toutes les tâches répondent 401.
+
+# Compte SANS DROITS des requêtes de tâches (B3) : internal_job.sh / fedapay_reconcile.sh
+# sont lancés par cron en root, qui ne garde que la lecture de ce jeton et le journal ; curl
+# et la réponse de l'API tournent sous ce compte (setpriv, no_new_privs). Ni root, ni
+# l'utilisateur applicatif, ni leur groupe (verify_deploy.sh le contrôle) ; absent ⇒ ÉCHEC.
+sudo adduser --system --group --no-create-home --home /nonexistent --shell /usr/sbin/nologin digisante-preprod-jobs   # prod : digisante-jobs
 ```
 
 `DATABASE_URL` (Postgres natif partagé, socket local) :
