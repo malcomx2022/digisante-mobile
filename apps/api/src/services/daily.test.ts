@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/integrations.js', () => ({ resolveConfiguredSecrets: vi.fn() }));
 const { resolveConfiguredSecrets } = await import('@/lib/integrations.js');
-const { ROOM_TTL_SECONDS, TOKEN_TTL_SECONDS, createMeetingToken, createRoom, deleteRoom, ejectParticipants, roomProperties, tokenProperties } = await import('./daily.js');
+const { ROOM_NAME_MAX_LENGTH, ROOM_TTL_SECONDS, TOKEN_TTL_SECONDS, createMeetingToken, createRoom, deleteRoom, ejectParticipants, roomProperties, tokenProperties, uniqueRoomName } = await import('./daily.js');
 const app = { log: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } } as unknown as FastifyInstance;
 const now = () => Math.floor(Date.now() / 1000);
 const creds = { apiKey: 'daily-test-only-secret', domain: 'digisante' };
@@ -42,13 +42,58 @@ describe('Daily — réponse fournisseur vérifiée', () => {
     expect(fetchMock.mock.calls[1]![0]).toBe('https://api.daily.co/v1/rooms/consult-1');
     expect(fetchMock.mock.calls[0]![1]).toMatchObject({ redirect: 'error', headers: { 'Cache-Control': 'no-store' } });
   });
-  it('409 : réutilise uniquement une salle effectivement conforme', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(response({}, 409)).mockResolvedValueOnce(response(info())));
-    expect((await createRoom({ app, name: 'consult-1' })).url).toBe(info().url);
+  it('B5 — nom déjà pris (409 ou autre 4xx) : jamais réutilisé ni supprimé', async () => {
+    // Aucun 409 documenté par Daily ; un conflit sur un nom aléatoire est une anomalie.
+    for (const status of [409, 400, 401, 403, 429]) {
+      const fetchMock = vi.fn().mockResolvedValue(response({ error: 'invalid-request-error' }, status)); vi.stubGlobal('fetch', fetchMock);
+      await expect(createRoom({ app, name: 'consult-1' })).rejects.toMatchObject({ statusCode: 502 });
+      expect(fetchMock).toHaveBeenCalledOnce();
+    }
   });
-  it('refuse une salle historique publique au lieu de fabriquer son URL', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(response({}, 409)).mockResolvedValueOnce(response({ ...info(), privacy: 'public' })));
+  it('B5 — salle créée mais relue non conforme : 502 et suppression de cette salle', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(response({})).mockResolvedValueOnce(response({ ...info(), privacy: 'public' }))
+      .mockResolvedValueOnce(response({ deleted: true, name: 'consult-1' }));
+    vi.stubGlobal('fetch', fetchMock);
     await expect(createRoom({ app, name: 'consult-1' })).rejects.toMatchObject({ statusCode: 502 });
+    expect(fetchMock.mock.calls[2]![0]).toBe('https://api.daily.co/v1/rooms/consult-1');
+    expect(fetchMock.mock.calls[2]![1].method).toBe('DELETE');
+  });
+  it('B5 — délai dépassé après envoi : suppression du même nom, erreur d’origine conservée', async () => {
+    const fetchMock = vi.fn().mockRejectedValueOnce(new DOMException('aborted', 'TimeoutError')).mockResolvedValueOnce(response({ error: 'not-found' }, 404));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(createRoom({ app, name: 'consult-1' })).rejects.toMatchObject({ statusCode: 502, message: expect.stringContaining('indisponible') });
+    expect(fetchMock.mock.calls.map(([url, init]) => [url, init.method])).toEqual([
+      ['https://api.daily.co/v1/rooms', 'POST'], ['https://api.daily.co/v1/rooms/consult-1', 'DELETE'],
+    ]);
+    expect(app.log.warn).not.toHaveBeenCalled();
+  });
+  it('B5 — suppression en échec : l’erreur de création reste la réponse, nom seul journalisé', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(response({ error: 'server-error' }, 503)).mockResolvedValueOnce(response({ detail: creds.apiKey }, 500));
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(createRoom({ app, name: 'consult-1' })).rejects.toMatchObject({ statusCode: 502, message: 'Création de salle Daily impossible' });
+    expect(fetchMock.mock.calls[1]![1].method).toBe('DELETE');
+    expect(app.log.warn).toHaveBeenCalledWith({ room: 'consult-1' }, expect.any(String));
+    expect(JSON.stringify((app.log.warn as ReturnType<typeof vi.fn>).mock.calls)).not.toContain(creds.apiKey);
+  });
+  it('B5 — nom hors jeu documenté ou trop long : refus avant tout appel réseau', async () => {
+    const fetchMock = vi.fn(); vi.stubGlobal('fetch', fetchMock);
+    for (const name of ['', 'consult/1', 'consult 1', 'consult-1?t=x', 'é', 'a'.repeat(ROOM_NAME_MAX_LENGTH + 1)]) {
+      await expect(createRoom({ app, name })).rejects.toMatchObject({ statusCode: 502 });
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(resolveConfiguredSecrets).not.toHaveBeenCalled();
+  });
+  it('B5 — nom unique par tentative, dans le jeu et la longueur documentés', () => {
+    const ref = 'cm1a2b3c4d5e6f7g8h9i0j1k2';
+    const names = Array.from({ length: 50 }, () => uniqueRoomName(ref));
+    expect(new Set(names).size).toBe(50);
+    for (const name of names) expect(name).toMatch(new RegExp(`^consult-${ref}-[0-9a-f]{32}$`));
+    // Référence hostile ou démesurée : réduite au jeu sûr et bornée.
+    for (const hostile of ['../../x?t=1', 'A'.repeat(500), '', 'é&/ ']) {
+      const name = uniqueRoomName(hostile);
+      expect(name).toMatch(/^consult-(?:[a-z0-9]{1,64}-)?[0-9a-f]{32}$/);
+      expect(name.length).toBeLessThanOrEqual(ROOM_NAME_MAX_LENGTH);
+    }
   });
   it('refuse une salle autorisant la frappe sans jeton', async () => {
     const room = info(); room.config.enable_knocking = true;
@@ -80,15 +125,18 @@ describe('Daily — réponse fournisseur vérifiée', () => {
     expect(JSON.parse(fetchMock.mock.calls[1]![1].body).properties).toMatchObject({ exp: result?.expiresAt, is_owner: false, user_id: 'patient-1' });
     expect(result!.expiresAt).toBeLessThanOrEqual(now() + 40);
   });
-  it('502 création : aucun repli déterministe', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response({ detail: creds.apiKey }, 502)));
+  it('502 création : aucun repli déterministe, suppression tentée du nom envoyé', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response({ detail: creds.apiKey }, 502)); vi.stubGlobal('fetch', fetchMock);
     await expect(createRoom({ app, name: 'consult-1' })).rejects.toMatchObject({ statusCode: 502 });
+    expect(fetchMock.mock.calls.map(([, init]) => init.method)).toEqual(['POST', 'DELETE']);
     expect(JSON.stringify(app.log)).not.toContain(creds.apiKey);
   });
   it('panne réseau : aucune clé ni exception fournisseur brute dans les logs', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error(creds.apiKey + ' jwt.test.signature')));
     await expect(createRoom({ app, name: 'consult-1' })).rejects.toMatchObject({ statusCode: 502 });
-    expect(JSON.stringify((app.log.error as ReturnType<typeof vi.fn>).mock.calls)).not.toContain(creds.apiKey);
+    for (const level of [app.log.error, app.log.warn]) {
+      expect(JSON.stringify((level as ReturnType<typeof vi.fn>).mock.calls)).not.toContain(creds.apiKey);
+    }
   });
   it('jeton refusé par Daily : aucun faux jeton de secours', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(response(info())).mockResolvedValueOnce(response({}, 401)));

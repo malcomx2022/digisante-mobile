@@ -1,4 +1,6 @@
 // Daily : contrat privé, aucun accès inventé en cas d'échec fournisseur.
+import { randomBytes } from 'node:crypto';
+
 import type { FastifyInstance } from 'fastify';
 
 import { badGateway, badRequest } from '@/lib/errors.js';
@@ -7,6 +9,24 @@ import { resolveConfiguredSecrets } from '@/lib/integrations.js';
 export const ROOM_TTL_SECONDS = 4 * 60 * 60;
 export const TOKEN_TTL_SECONDS = 15 * 60;
 const nowSeconds = () => Math.floor(Date.now() / 1000);
+
+/**
+ * Jeu `[A-Za-z0-9_-]`, 128 caractères au plus : règle de l'ancienne page Daily
+ * `rooms/config` (retirée ; la référence actuelle ne contraint plus `name`).
+ * Plus étroit que toute règle plausible ; à reconfirmer en recette L10.
+ */
+export const ROOM_NAME_MAX_LENGTH = 128;
+const ROOM_NAME_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
+
+/**
+ * Nom propre à CHAQUE tentative (B5) : une salle existante n'est jamais reprise.
+ * 128 bits aléatoires ; la référence (identifiant opaque du RDV) est réduite au
+ * jeu sûr et bornée à 64 caractères, soit 105 caractères au plus.
+ */
+export function uniqueRoomName(reference: string): string {
+  const ref = reference.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 64);
+  return `consult-${ref ? `${ref}-` : ''}${randomBytes(16).toString('hex')}`;
+}
 
 export function roomProperties(now: number) {
   return {
@@ -79,15 +99,37 @@ async function inspectRoom(app: FastifyInstance, creds: DailyCreds, name: string
   return { name, url, expiresAt: p.exp };
 }
 
-/** Sans configuration : absence explicite de média, jamais d'iframe stub externe. */
+/**
+ * Sans configuration : absence explicite de média, jamais d'iframe stub externe.
+ * Renvoie une salle relue conforme, sinon lève APRÈS avoir tenté de supprimer
+ * toute salle que cette tentative a pu créer (l'erreur d'origine est conservée).
+ */
 export async function createRoom(opts: { app: FastifyInstance; name: string }): Promise<DailyRoom> {
+  if (!ROOM_NAME_PATTERN.test(opts.name)) throw badGateway('Nom de salle Daily invalide');
   const creds = await resolveCreds(opts.app);
   if (!creds) return { name: opts.name, url: null, expiresAt: nowSeconds() + ROOM_TTL_SECONDS };
-  const res = await request(opts.app, creds, 'rooms', 'POST', {
-    name: opts.name, privacy: 'private', properties: roomProperties(nowSeconds()),
-  });
-  if (!res.ok && res.status !== 409) throw badGateway('Création de salle Daily impossible');
-  return inspectRoom(opts.app, creds, opts.name);
+  let res: Response;
+  try {
+    res = await request(opts.app, creds, 'rooms', 'POST', {
+      name: opts.name, privacy: 'private', properties: roomProperties(nowSeconds()),
+    });
+  } catch (err) {
+    // Délai ou coupure après envoi : Daily a pu créer la salle malgré tout.
+    await discardRoom(opts.app, creds, opts.name);
+    throw err;
+  }
+  if (!res.ok) {
+    // 4xx = refus définitif. Un nom déjà pris (aucun statut documenté, 409 compris)
+    // n'appartient pas à cette tentative : ni réutilisé, ni supprimé.
+    if (res.status >= 500) await discardRoom(opts.app, creds, opts.name);
+    throw badGateway('Création de salle Daily impossible');
+  }
+  try {
+    return await inspectRoom(opts.app, creds, opts.name);
+  } catch (err) {
+    await discardRoom(opts.app, creds, opts.name);
+    throw err;
+  }
 }
 
 /** Jeton nominatif à privilèges minimaux, borné par la salle ET le début en DB. */
@@ -116,12 +158,24 @@ export async function ejectParticipants(opts: { app: FastifyInstance; name: stri
   } catch { return false; }
 }
 
+/** 404 = salle absente (sens générique Daily) : rien à supprimer. Ne lève jamais. */
+async function removeRoom(app: FastifyInstance, creds: DailyCreds, name: string): Promise<boolean> {
+  try {
+    const res = await request(app, creds, `rooms/${encodeURIComponent(name)}`, 'DELETE');
+    return res.ok || res.status === 404;
+  } catch { return false; }
+}
+
+/** Nettoyage d'une création échouée : seul le nom (exploitation) est journalisé. */
+async function discardRoom(app: FastifyInstance, creds: DailyCreds, name: string) {
+  if (!await removeRoom(app, creds, name)) app.log.warn({ room: name }, '[Daily] salle possiblement orpheline, expiration comme filet');
+}
+
 /** Best effort : l'échéance et l'éjection du jeton restent les filets indépendants. */
 export async function deleteRoom(opts: { app: FastifyInstance; name: string }): Promise<boolean> {
   try {
     const creds = await resolveCreds(opts.app);
     if (!creds) return true;
-    const res = await request(opts.app, creds, `rooms/${encodeURIComponent(opts.name)}`, 'DELETE');
-    return res.ok || res.status === 404;
+    return await removeRoom(opts.app, creds, opts.name);
   } catch { return false; }
 }
