@@ -15,6 +15,7 @@
 # ─────────────────────────────────────────────────────────────
 0755 infra/deploy/scripts/install_root_scripts.sh
 0755 infra/deploy/scripts/provision.sh
+0755 infra/deploy/scripts/provision-ionos.sh
 0755 infra/deploy/scripts/internal_job.sh
 0755 infra/deploy/scripts/fedapay_reconcile.sh
 0755 infra/deploy/scripts/healthwatch.sh
@@ -29,5 +30,6 @@
 0644 infra/deploy/nginx/digisante-preprod.conf
 0644 infra/deploy/nginx/rate-limit.conf
 0644 infra/deploy/nginx/hsts-after-tls.conf
+0644 infra/deploy/nginx/digisante-headers.conf
 0644 scripts/preproduction/check-backup.mjs
 0644 scripts/preproduction/filestore-dir.mjs

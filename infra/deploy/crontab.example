@@ -69,8 +69,9 @@ J=/usr/local/lib/digisante/infra/deploy/scripts/internal_job.sh
 # Alerte UNIQUEMENT sur changement d'état — destinataire : /etc/digisante/alert.conf.
 */5 * * * * root /usr/local/lib/digisante/infra/deploy/scripts/healthwatch.sh >> /var/log/digisante-cron/healthwatch.log 2>&1
 
-# Renouvellement SSL Certbot — deux fois par jour (no-op si pas dû)
-15 3,15 * * * root certbot renew --quiet --deploy-hook "systemctl reload nginx"
+# Renouvellement SSL Certbot — deux fois par jour (no-op si pas dû). --cert-name : SEUL le
+# certificat DigiSanté ; jamais ceux des autres applications de l'hôte partagé.
+15 3,15 * * * root certbot renew --quiet --cert-name digisantemobile.app --deploy-hook "systemctl reload nginx"
 
 # L3 : reçus chiffrés conservés 14 jours, mutations acceptées au plus 7 jours.
 10 3 * * * root $J /api/v1/sync/receipts/prune >> /var/log/digisante-cron/sync_receipts.log 2>&1

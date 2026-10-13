@@ -80,7 +80,8 @@ test('nginx : WS journalisé sans query, zones définies, en-têtes cohérents a
     assert.match(zones, new RegExp(`zone=${z}:`), `zone ${z} non définie`);
   }
   assert.match(zones, /log_format digisante_noquery/);
-  assert.match(site, /add_header X-Frame-Options "DENY"/);
+  assert.match(read('infra/deploy/nginx/digisante-headers.conf'), /add_header X-Frame-Options "DENY"/);
+  assert.match(site, /include \/etc\/nginx\/snippets\/digisante-headers\.conf;/);
   assert.match(site, /location ~ \^\/api\/v1\/auth\/\(refresh\|logout\)\$ \{\s*\n\s*limit_req zone=digisante_rl_api /);
 });
 

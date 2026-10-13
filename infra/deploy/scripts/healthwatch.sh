@@ -44,9 +44,10 @@ trusted_path() {
 # noms PM2, les ports (mêmes valeurs que ecosystem.config.cjs, test de cohérence) et l'URL
 # locale de l'API : un jeton de service ne part que vers l'API de CET environnement. Il
 # donne aussi les chemins PAR DÉFAUT (utilisateur, compte sans droits des tâches, checkout,
-# journaux, copie root,
-# configuration, état, sauvegardes, base, crontab, journal WebSocket) ; une valeur déjà
-# posée par l'opérateur prime pour ces chemins.
+# journaux, copie root, configuration, état, sauvegardes, base, crontab, journal
+# WebSocket) ; une valeur déjà posée par l'opérateur prime pour ces chemins.
+# Chaque script n'utilise qu'une partie de ces variables communes (SC2034 attendu).
+# shellcheck disable=SC2034
 digisante_profile() {
   local sfx
   case "${DIGISANTE_ENV:-}" in

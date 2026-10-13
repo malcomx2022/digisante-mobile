@@ -6,6 +6,9 @@ node_modules/
 .env
 .env.*
 !.env.example
+# Modèles par environnement (placeholders vides, aucun secret — test de parité)
+!.env.preprod.example
+!.env.prod.example
 
 # Builds
 .next/

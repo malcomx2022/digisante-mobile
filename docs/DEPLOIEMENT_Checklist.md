@@ -20,16 +20,19 @@
 
 ## 1. Provisioning (une fois par environnement, root) — `infra/deploy/README.md` §1
 - [ ] Miroir root + copie root des scripts (B3) : `sudo DIGISANTE_ENV=<env> bash /root/install_root_scripts${SUFFIX}.sh <SHA_COMPLET_QUALIFIE>` → `/usr/local/lib/digisante${SUFFIX}` + `root-scripts.manifest` (`environment=<env>`).
-- [ ] Checkout `/var/www/digisante${SUFFIX}` (données seulement, propriété de `digisante${SUFFIX}`).
-- [ ] `provision.sh` : ⚠️ **à ADAPTER** à l'hôte partagé (Ubuntu 26.04, PG 18.6 et Valkey déjà présents, autres projets en production), **jamais appliqué à l'aveugle** : ne créer que rôle/base `digisante_preprod` / `digisante`, utilisateur `digisante${SUFFIX}`, `/etc/digisante${SUFFIX}`, journaux, sauvegardes, magasin `apps/api/storage/kyc` (0700) et PM2 de l'utilisateur.
+- [ ] Vérifications de l'hôte AVANT `--apply` (README §1.b, lecture seule, aucun secret affiché) : index Valkey **5/6 libres** et non utilisés par ImmiPro/BeninLink/Grafana, `CONFIG GET databases` ≥ 7 ; règle `pg_hba` `host <base> <rôle> 127.0.0.1/32 scram-sha-256` (+ `::1/128`) ajoutée **à la main** ; groupe `sshusers` / `AllowGroups` ; DNS A → 31.70.148.167 ; `certbot.timer` ; `nginx -t` vert ; ports 3100–3201 libres ; sauvegarde de `/etc/nginx`, `/etc/cron.d`, `/etc/logrotate.d` et des rôles PG ; fenêtre convenue avec les autres applications.
+- [ ] **`provision-ionos.sh`** depuis la copie root, shell root, secrets par `read -rs` (jamais en argument) : `bash $P` (**dry-run** : gardes + plan, aucune écriture, relu intégralement) → `bash $P --apply --only users,dirs,pg,valkey,runtime` → `--only nginx` → `--only cron`. Jamais `provision.sh` (ancien VPS 22.04, refuse cet OS).
+- [ ] Checkout `/var/www/digisante${SUFFIX}` cloné **par** `digisante${SUFFIX}` (données seulement), `.env` créés (§2), puis `bash $P --apply --only secrets`.
+- [ ] `bash $P --verify` → **0 FAIL** (comptes, modes, rôle/base, marqueur Valkey, PM2 au boot, vhost/certificat, cron B3, logrotate, `backup.key`, **B4** `KYC_STORAGE_DIR` absolu + `files_count ≥ références`) ; relancé après le premier déploiement.
+- [ ] Rollback préparé : `bash $P --rollback` (dry-run) retire vhost/cron/rotation/service PM2 seulement ; base, rôle, index Valkey, magasin, comptes, certificat **conservés** (suppression = décision humaine après sauvegarde, jamais `FLUSHDB`/`FLUSHALL`).
 - [ ] Fuseau : `timedatectl` de l'hôte partagé à constater ; tout changement est une décision porteur (dérogation I2, L11) — il affecte aussi ImmiPro/BeninLink.
 
 ## 2. Secrets (jamais commités — cf. `docs/SECRETS_Production.md`)
-- [ ] `apps/api/.env` rempli (DATABASE_URL, REDIS_URL, JWT_SECRET ≥32, **HEALTH_ENCRYPTION_KEY**, RECONCILE_TOKEN, FedaPay, Twilio, Resend, Daily, Firebase, `NODE_ENV=production`).
-- [ ] `apps/web/.env.production` : `NEXT_PUBLIC_API_URL=https://…` + `NEXT_PUBLIC_SOS_NUMBER`.
-- [ ] `/etc/digisante${SUFFIX}/backup.key` (AES-256) — **sauvegardé hors VPS**, distinct par environnement.
-- [ ] `/etc/digisante${SUFFIX}/reconcile.token` (root, 0400) = **source unique** du jeton des tâches internes ; même valeur dans `RECONCILE_TOKEN` du `.env` de l'environnement.
-- [ ] Compte **sans droits** des tâches `digisante${SUFFIX}-jobs` créé (`infra/deploy/README.md` §2, B3) : `internal_job.sh`/`fedapay_reconcile.sh` lisent le jeton en root puis lancent la requête sous ce compte (ni root, ni `digisante${SUFFIX}`) ; `verify_deploy.sh` → `PASS tâches : requêtes sous digisante${SUFFIX}-jobs`.
+- [ ] `apps/api/.env` (0600) depuis `.env.preprod.example` / `.env.prod.example` (noms seuls, secrets vides) puis rempli depuis le coffre : DATABASE_URL (`127.0.0.1:5432`, base de l'environnement), REDIS_URL (Valkey **/5** préproduction, **/6** production), JWT_SECRET ≥32, **HEALTH_ENCRYPTION_KEY**, RECONCILE_TOKEN, `KYC_STORAGE_DIR=/var/lib/digisante${SUFFIX}-files`, `NODE_ENV=production` ; clés **distinctes** par environnement. Fournisseurs : base chiffrée via `/admin/integrations` (fallback `.env`).
+- [ ] `apps/web/.env.production` : `NEXT_PUBLIC_API_URL` **vide** (même origine) + `NEXT_PUBLIC_FIREBASE_*` publics ; `NEXT_PUBLIC_SOS_NUMBER` seulement sur décision du porteur (vide en préproduction).
+- [ ] `/etc/digisante${SUFFIX}/backup.key` (AES-256, générée par `--only secrets`) — **sauvegardée hors VPS**, distincte par environnement.
+- [ ] `/etc/digisante${SUFFIX}/reconcile.token` (root, 0400) = **source unique** du jeton des tâches internes, aligné par `--only secrets` sur `RECONCILE_TOKEN` du `.env` de l'environnement.
+- [ ] Compte **sans droits** des tâches `digisante${SUFFIX}-jobs` (créé par l'étape `users`, B3) : `internal_job.sh`/`fedapay_reconcile.sh` lisent le jeton en root puis lancent la requête sous ce compte (ni root, ni `digisante${SUFFIX}`) ; `verify_deploy.sh` → `PASS tâches : requêtes sous digisante${SUFFIX}-jobs`.
 - [ ] `API_PORT`/`API_HOST` du `.env` sans effet : `ecosystem.config.cjs` impose le port de l'environnement et `127.0.0.1`.
 - [ ] `apps/api/.env` en **0600** (`deploy.sh` refuse de déployer sans `.env` et corrige les permissions).
 
@@ -46,11 +49,10 @@
 - [ ] Après tout changement de `infra/deploy/root-scripts.list` : `sudo DIGISANTE_ENV=<env> /usr/local/lib/digisante${SUFFIX}/infra/deploy/scripts/install_root_scripts.sh <SHA_DEPLOYE>` (README §3 bis).
 
 ## 4. Nginx + SSL + rate-limit
-- [ ] Depuis la copie root (B3, jamais le checkout) : `R=/usr/local/lib/digisante${SUFFIX}/infra/deploy/nginx`
-- [ ] Une fois pour l'hôte : `sudo install -m 0644 "$R/rate-limit.conf" /etc/nginx/conf.d/digisante-rate-limit.conf` (noms préfixés `digisante_`, aucune directive globale).
-- [ ] Vhost dédié : `sudo install -m 0644 "$R/digisante${SUFFIX}.conf" /etc/nginx/sites-available/digisante${SUFFIX} && sudo ln -sf /etc/nginx/sites-available/digisante${SUFFIX} /etc/nginx/sites-enabled/` — domaine, ports et journaux déjà fixés, aucune édition à la main.
-- [ ] `sudo nginx -t && sudo systemctl reload nginx` — **ne pas** supprimer le site `default` ni toucher aux vhosts ImmiPro/BeninLink.
-- [ ] `sudo certbot --nginx -d preprod.digisantemobile.app` (production : `-d digisantemobile.app -d www.digisantemobile.app`).
+- [ ] Installé par `provision-ionos.sh --apply --only nginx` depuis la copie root (B3) : `conf.d/digisante-rate-limit.conf`, `snippets/digisante-{headers,hsts}.conf` (communs, préfixés), vhost `digisante${SUFFIX}` (aucune édition à la main).
+- [ ] Certificat `certbot certonly --webroot -w /var/www/digisante-acme --cert-name <domaine>` (dry-run Let's Encrypt d'abord) — **jamais `certbot --nginx`** ; `certbot renew --cert-name <domaine> --dry-run` vert avant HSTS.
+- [ ] `sudo nginx -t` vert ; **ne pas** supprimer le site `default` ni toucher aux vhosts ImmiPro/BeninLink/supervision.
+- [ ] `curl -sI https://<domaine>/` : HSTS, `X-Frame-Options`, `nosniff`, `Referrer-Policy` ; production : `https://www.digisantemobile.app` → 301 vers l'apex.
 
 ## 5. Crons
 - [ ] **Aucun secret dans la crontab** : les tâches passent par `internal_job.sh`, qui lit `/etc/digisante${SUFFIX}/reconcile.token` et journalise `ÉCHEC` (code 1) si le jeton manque ou si l'API répond ≠ 2xx.

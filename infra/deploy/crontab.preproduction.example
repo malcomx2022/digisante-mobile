@@ -72,8 +72,9 @@ J=/usr/local/lib/digisante-preprod/infra/deploy/scripts/internal_job.sh
 */5 * * * * root /usr/local/lib/digisante-preprod/infra/deploy/scripts/healthwatch.sh >> /var/log/digisante-preprod-cron/healthwatch.log 2>&1
 
 # Renouvellement SSL Certbot — deux fois par jour (no-op si pas dû) ; décalé de la
-# production (verrou certbot : deux renouvellements simultanés, un seul passe).
-45 3,15 * * * root certbot renew --quiet --deploy-hook "systemctl reload nginx"
+# production (verrou certbot : deux renouvellements simultanés, un seul passe). --cert-name :
+# SEUL le certificat DigiSanté ; jamais ceux des autres applications de l'hôte partagé.
+45 3,15 * * * root certbot renew --quiet --cert-name preprod.digisantemobile.app --deploy-hook "systemctl reload nginx"
 
 # L3 : reçus chiffrés conservés 14 jours, mutations acceptées au plus 7 jours.
 10 3 * * * root $J /api/v1/sync/receipts/prune >> /var/log/digisante-preprod-cron/sync_receipts.log 2>&1
