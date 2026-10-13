@@ -24,6 +24,7 @@ export interface S8TokenFacts {
 export interface S8Hosts { live: readonly string[]; sandbox: readonly string[] }
 export const SANDBOX_API: string;
 export const S8_AMOUNT_XOF: number;
+export const S8_TIMEOUT_MS: number;
 export const S8_DECISIONS: Readonly<Record<S8Code, string>>;
 export function describeCheckoutUrl(value: unknown): S8UrlShape;
 export function displayHost(host: string): string;
@@ -39,5 +40,6 @@ export function runS8Probe(opts: {
   hosts: S8Hosts;
   reference: string;
   nowSeconds?: number;
+  timeoutMs?: number;
 }): Promise<S8Result>;
 export function formatS8(result: S8Result, reference: string): string[];

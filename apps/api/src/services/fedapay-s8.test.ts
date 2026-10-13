@@ -1,9 +1,11 @@
-// Recette S8 (B1) : la sonde juge avec le contrôle et l'identifiant de PRODUCTION
-// (`isFedapayCheckoutUrl` lié au bac à sable, `parseFedapayTransactionId`). Sans réseau.
+// Recette S8 (B1) : la sonde juge avec le contrôle et l'identifiant de PRODUCTION, par le
+// MÊME câblage que la recette réelle (`productionS8Options`, partagé avec le smoke). Sans réseau.
 import { FEDAPAY_CHECKOUT_HOSTS, isFedapayCheckoutUrl } from '@digisante/shared';
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 import { formatS8, runS8Probe } from '../../../../scripts/preproduction/fedapay-s8.mjs';
+import { productionS8Options } from '../test/fedapay-s8-options.js';
 import { parseFedapayTransactionId } from './fedapay.js';
 
 const TOKEN = 'SYNTHETICtokenABCDEF0123456789';
@@ -17,10 +19,7 @@ async function probe(url: string) {
     const body = target.endsWith('/token') ? { token: TOKEN, url } : { 'v1/transaction': { id: 42 } };
     return new Response(JSON.stringify(body), { status: 200 });
   };
-  const result = await runS8Probe({
-    enabled: true, secrets, request, reference, hosts: FEDAPAY_CHECKOUT_HOSTS,
-    parseId: parseFedapayTransactionId, isAllowedSandbox: (u: unknown) => isFedapayCheckoutUrl(u, 'sandbox'),
-  });
+  const result = await runS8Probe({ enabled: true, secrets, request, reference, ...productionS8Options() });
   return { result, calls, out: formatS8(result, reference).join('\n') };
 }
 
@@ -48,5 +47,20 @@ describe('Recette S8 — verdict aligné sur le contrôle de production (B1)', (
       expect(result.code, url).toBe(code);
       expect(out).not.toContain(TOKEN);
     }
+  });
+
+  it('câblage partagé avec la recette réelle : contrôle lié au bac à sable, identifiant et liste de production', () => {
+    const options = productionS8Options();
+    expect(options.parseId).toBe(parseFedapayTransactionId);
+    expect(options.hosts).toBe(FEDAPAY_CHECKOUT_HOSTS);
+    // Un hôte live n'est JAMAIS accepté par le contrôle du bac à sable (l'union le serait).
+    for (const host of FEDAPAY_CHECKOUT_HOSTS.live) {
+      expect(isFedapayCheckoutUrl(`https://${host}/${TOKEN}`), host).toBe(true);
+      expect(options.isAllowedSandbox(`https://${host}/${TOKEN}`), host).toBe(false);
+    }
+    // La recette réelle (hors CI) passe par ce câblage et par lui seul.
+    const smoke = readFileSync(new URL('./fedapay-s8.smoke.test.ts', import.meta.url), 'utf8');
+    expect(smoke).toMatch(/\.\.\.productionS8Options\(\),/);
+    expect(smoke).not.toMatch(/isFedapayCheckoutUrl|FEDAPAY_CHECKOUT_HOSTS|parseFedapayTransactionId/);
   });
 });

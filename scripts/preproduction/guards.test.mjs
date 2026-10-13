@@ -23,7 +23,7 @@ test('Vitest smoke refuse le mode test avant serveur/Redis ; aucun setup FLUSHDB
 });
 test('préflight FedaPay live/inconnu/incomplet refusé AVANT réseau ; sandbox bornée sans redirect', async () => {
   const calls=[];const request=async (...args)=>{calls.push(args);return new Response('{}',{status:200});};
-  for (const secretKey of ['sk_live_SYNTHETIC','unknown','']) await assert.rejects(requestFedapaySandbox({secretKey,publicKey:'pk_sandbox_TEST',webhookSecret:'TEST'},request));
+  for (const secretKey of ['sk_live_SYNTHETIC','unknown','','\nsk_sandbox_TEST','\rsk_sandbox_TEST','sk_sandbox_TE ST']) await assert.rejects(requestFedapaySandbox({secretKey,publicKey:'pk_sandbox_TEST',webhookSecret:'TEST'},request), JSON.stringify(secretKey));
   await assert.rejects(requestFedapaySandbox({secretKey:'sk_sandbox_TEST',publicKey:'TEST'},request));
   assert.equal(calls.length,0);
   assert.equal((await requestFedapaySandbox({secretKey:'sk_sandbox_TEST',publicKey:'pk_sandbox_TEST',webhookSecret:'TEST'},request)).status,200);

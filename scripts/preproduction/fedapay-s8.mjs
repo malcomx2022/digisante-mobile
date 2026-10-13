@@ -17,7 +17,8 @@ import { assertFedapaySandbox } from './smoke-guard.mjs';
 export const SANDBOX_API = 'https://sandbox-api.fedapay.com/v1';
 /** Montant de la transaction de recette (XOF entier, jamais payée). */
 export const S8_AMOUNT_XOF = 100;
-const TIMEOUT_MS = 15_000;
+/** Délai de CHAQUE requête (création, lien) : 15 s, au-delà verdict *_RESEAU. */
+export const S8_TIMEOUT_MS = 15_000;
 /** Au-delà, une étiquette d'hôte pourrait porter un jeton : seule sa forme est affichée. */
 const MAX_LABEL_SHOWN = 24;
 
@@ -28,11 +29,11 @@ export const S8_DECISIONS = {
   HOTE_NON_LISTE: 'FAIL : hôte absent de la liste blanche (S1 répondrait 502). Ne pas élargir ; consigner l’hôte exact, revue §5 puis ajout de CET hôte seul, avec tests.',
   FORME_REFUSEE: 'FAIL : hôte listé mais lien refusé par le contrôle de production (schéma, port, identifiants ou caractères). Consigner la forme, revue §5 avant toute modification.',
   URL_INVALIDE: 'FAIL : réponse sans lien exploitable. Consigner les champs reçus et les codes HTTP ; ne pas poursuivre S1.',
-  CREATION_HTTP: 'FAIL : création de transaction refusée par l’API bac à sable. Vérifier la clé, le compte sandbox et le montant ; aucun lien obtenu.',
-  CREATION_RESEAU: 'FAIL : création sans réponse exploitable (délai ou réseau). Rechercher la référence dans le tableau de bord sandbox AVANT toute relance ; une transaction a pu être créée.',
+  CREATION_HTTP: 'FAIL : création refusée par l’API bac à sable, aucun lien obtenu. 401/403 : clé ou compte sandbox. Autre 4xx : validation du corps ou du compte — consigner le code et les noms de champs, ne pas changer les clés ; S1 (corps de production) tranche.',
+  CREATION_RESEAU: 'FAIL : création sans réponse exploitable (délai ou réseau). Rechercher la référence dans le tableau de bord sandbox AVANT toute relance ; une transaction a pu être créée : la nettoyer avant de relancer.',
   ID_INVALIDE: 'FAIL : transaction créée sans identifiant valide. Consigner les champs de la réponse ; aucun lien demandé.',
   TOKEN_HTTP: 'FAIL : génération du lien refusée par l’API bac à sable. Consigner le code HTTP et l’identifiant masqué.',
-  TOKEN_RESEAU: 'FAIL : demande de lien sans réponse exploitable (délai ou réseau). La transaction existe : la retrouver par sa référence, consigner l’identifiant masqué, relancer une seule fois.',
+  TOKEN_RESEAU: 'FAIL : demande de lien sans réponse exploitable (délai ou réseau). La transaction existe : la retrouver par sa référence, consigner l’identifiant masqué ; une seule relance, qui crée une NOUVELLE transaction (nettoyer les deux).',
 };
 
 const maskId = (id) => `••••${String(id).slice(-4)}`;
@@ -153,7 +154,7 @@ const transportError = (err) => (typeof err?.name === 'string' && /^[A-Za-z]{1,4
  * redirection, bornés à 15 s. Ne lève que sur garde ; toute réponse ou panne amont
  * devient un verdict FAIL codé, sans corps ni message d'erreur recopié.
  */
-export async function runS8Probe({ enabled, secrets, request = fetch, parseId, isAllowedSandbox, hosts, reference, nowSeconds }) {
+export async function runS8Probe({ enabled, secrets, request = fetch, parseId, isAllowedSandbox, hosts, reference, nowSeconds, timeoutMs = S8_TIMEOUT_MS }) {
   assertFedapaySandbox({ enabled, secrets });
   if (typeof reference !== 'string' || !/^[a-z0-9-]{8,64}$/.test(reference)) throw new Error('Référence de recette invalide (minuscules, chiffres, tirets).');
   const call = async (path, body) => {
@@ -164,7 +165,7 @@ export async function runS8Probe({ enabled, secrets, request = fetch, parseId, i
         method: 'POST',
         headers: { Authorization: `Bearer ${secrets.secretKey}`, 'Content-Type': 'application/json' },
         redirect: 'error',
-        signal: AbortSignal.timeout(TIMEOUT_MS),
+        signal: AbortSignal.timeout(timeoutMs),
         ...(body ? { body: JSON.stringify(body) } : {}),
       });
       return { res, json: await res.json().catch(() => null) };

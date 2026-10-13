@@ -145,6 +145,11 @@ l’API live, afficher le lien complet, le jeton, la clé ou l’identifiant ent
 - Préflight `SMOKE_FEDAPAY=1` vert **juste avant**, sur le même SHA, lancé avec la commande complète de
   `CONTRAT_Preproduction_L10.md` §3 (la commande courte du §4 ne suffit plus seule).
 - Opérateur nommé, accès au tableau de bord **sandbox** FedaPay pour retrouver la transaction de recette.
+- **S8 est le PREMIER cas fournisseur de la campagne L10**, juste après le préflight vert : aucune autre preuve L10
+  (Twilio, Daily, FCM, Resend, infra, S3/S4…) n’est consignée sur une candidate avant le PASS de S8 et la décision
+  du porteur sur l’hôte bac à sable non observé (ou son report explicite après L10). Un correctif §5 de la liste
+  blanche — ou le retrait d’un hôte décidé par le porteur — crée un **nouveau SHA** : `preprod:gate` exige que
+  chaque preuve porte ce SHA, donc toutes celles prises sur l’ancien deviennent caduques.
 
 ### Commande (sur la cible, une seule exécution suffit)
 ```bash
@@ -156,7 +161,9 @@ SMOKE_REDIS_DB=5 SMOKE_FEDAPAY_S8=1 \
 node --env-file=.env node_modules/vitest/vitest.mjs run --config vitest.smoke.config.ts
 ```
 `SMOKE_FEDAPAY_S8=1` est **exclusif** : retirer `SMOKE_FEDAPAY` et tout autre opt-in hérité (la garde refuse deux
-fournisseurs dans la même commande). Ne pas relancer en boucle : chaque exécution crée une transaction de plus.
+fournisseurs dans la même commande). **Chaque exécution crée une transaction de plus**, avec une nouvelle
+référence : deux exécutions au plus, chaque référence affichée consignée et nettoyée (§ « Après la sonde », étape 2),
+quel que soit le code obtenu.
 
 ### Lecture du résultat
 Exemple de sortie conforme (valeurs synthétiques) :
@@ -176,37 +183,56 @@ Le test échoue (code de sortie ≠ 0) pour tout verdict autre que `PASS`. Déci
 | `HOTE_NON_LISTE` | FAIL : hôte absent de la liste blanche (S1 répondrait 502). Ne pas élargir ; consigner l’hôte exact, revue §5 puis ajout de CET hôte seul, avec tests. |
 | `FORME_REFUSEE` | FAIL : hôte listé mais lien refusé par le contrôle de production (schéma, port, identifiants ou caractères). Consigner la forme, revue §5 avant toute modification. |
 | `URL_INVALIDE` | FAIL : réponse sans lien exploitable. Consigner les champs reçus et les codes HTTP ; ne pas poursuivre S1. |
-| `CREATION_HTTP` | FAIL : création de transaction refusée par l’API bac à sable. Vérifier la clé, le compte sandbox et le montant ; aucun lien obtenu. |
-| `CREATION_RESEAU` | FAIL : création sans réponse exploitable (délai ou réseau). Rechercher la référence dans le tableau de bord sandbox AVANT toute relance ; une transaction a pu être créée. |
+| `CREATION_HTTP` | FAIL : création refusée par l’API bac à sable, aucun lien obtenu. 401/403 : clé ou compte sandbox. Autre 4xx : validation du corps ou du compte — consigner le code et les noms de champs, ne pas changer les clés ; S1 (corps de production) tranche. |
+| `CREATION_RESEAU` | FAIL : création sans réponse exploitable (délai ou réseau). Rechercher la référence dans le tableau de bord sandbox AVANT toute relance ; une transaction a pu être créée : la nettoyer avant de relancer. |
 | `ID_INVALIDE` | FAIL : transaction créée sans identifiant valide. Consigner les champs de la réponse ; aucun lien demandé. |
 | `TOKEN_HTTP` | FAIL : génération du lien refusée par l’API bac à sable. Consigner le code HTTP et l’identifiant masqué. |
-| `TOKEN_RESEAU` | FAIL : demande de lien sans réponse exploitable (délai ou réseau). La transaction existe : la retrouver par sa référence, consigner l’identifiant masqué, relancer une seule fois. |
+| `TOKEN_RESEAU` | FAIL : demande de lien sans réponse exploitable (délai ou réseau). La transaction existe : la retrouver par sa référence, consigner l’identifiant masqué ; une seule relance, qui crée une NOUVELLE transaction (nettoyer les deux). |
 
 Un FAIL `HOTE_NON_LISTE`, `FORME_REFUSEE` ou `HOTE_LIVE` bloque **tout parcours qui crée un paiement opérateur**
 (l’API répond 502) : S1, S2, S5 (pas de paiement PENDING à réconcilier), S6 et S7 (dépendent de S1), S9 et S10
 (livraisons d’une transaction réglée), ainsi que les paiements opérateur des recettes abonnements L6 et finances
-L7. S3 (portefeuille) et S4 (webhook rejeté) restent exécutables. Aucun élargissement par joker ou suffixe. Correctif éventuel = PR dédiée (§5) ajoutant l’hôte **exact** constaté à
-`FEDAPAY_CHECKOUT_HOSTS.sandbox`, tests du contrôle et re-tests webhooks, nouvelle qualification, puis S8 rejoué.
+L7. S3 (portefeuille) et S4 (webhook rejeté) restent techniquement exécutables mais **ne se consignent pas** sur ce
+SHA : le correctif le rendra caduc. Aucun élargissement par joker ou suffixe. Correctif éventuel = PR dédiée (§5)
+ajoutant l’hôte **exact** constaté à `FEDAPAY_CHECKOUT_HOSTS.sandbox`, tests du contrôle et re-tests webhooks,
+nouvelle qualification, puis **toute la campagne L10 rejouée sur le nouveau SHA**, S8 en tête (jamais de recopie
+d’un PASS de l’ancien SHA). Un hôte dont une étiquette est réduite à sa forme (`<N car. …>`, jeton possible) ne
+s’ajoute jamais à la liste : le signaler à FedaPay et au porteur.
 
 ### Après la sonde
 1. **S1** : lancer la recharge ; la page FedaPay doit s’ouvrir sur **le même hôte** que celui relevé par la sonde
    (barre d’adresse : ne noter que l’hôte). C’est la preuve de « redirection effective ». La sonde n’envoie ni
    `customer` ni `callback_url` (corps minimal de l’API) : S1, qui passe par le code de production, confirme que
    l’hôte ne dépend pas de ces champs. Un hôte différent en S1 = FAIL S8, à consigner comme ci-dessus.
-2. **Transaction de recette** : la retrouver dans le tableau de bord sandbox (https://sandbox.fedapay.com,
-   « Collectes ») par sa `merchant_reference` ; **ne pas la payer** (aucun `Payment` local ne lui correspond). La
-   supprimer tant qu’elle est en attente (« Supprimer ») ou la laisser expirer : une collecte en attente expire
-   d’elle-même après 24 h (doc FedaPay « Gestion des collectes »).
-3. **Webhook** : la création émet `transaction.created` vers l’URL de webhook bac à sable déclarée. Le récepteur
-   répond **200 `ignored` (« paiement inconnu »)**, sans effet ni audit de paiement ; une expiration ultérieure
-   donne 200 « statut non géré ». Dans « Évènements »/« Logs » du tableau de bord, consigner l’événement reçu et la
-   réponse 200 ; un **401** signale un secret webhook désynchronisé (corriger avant S1).
+2. **Transactions de recette** (une par exécution, quel que soit le code) : les retrouver dans le tableau de bord
+   sandbox (https://sandbox.fedapay.com, « Collectes ») par leur `merchant_reference` ; **ne jamais les payer**
+   (aucun `Payment` local ne leur correspond, et elles ne doivent pas être confondues avec les transactions de
+   S5/S9). Les supprimer tant qu’elles sont en attente (« Supprimer ») ou les laisser expirer : une collecte en
+   attente expire d’elle-même après 24 h (doc FedaPay « Gestion des collectes »).
+3. **Webhook** — première livraison réelle observée, donc premier relevé B2 : la création émet
+   `transaction.created` vers l’URL de webhook bac à sable déclarée. Dans « Évènements »/« Logs » du tableau de
+   bord, consigner la livraison et la réponse, et, dans la note privée S9, la **forme** du corps (types de
+   `entity`, de `entity.id`, de `entity.status` ; noms des champs racine), jamais les valeurs. Selon la réponse :
+   - **200 `ignored` (« paiement inconnu »)** : attendu, sans effet ni audit de paiement ; une expiration ultérieure
+     donne 200 « statut non géré » ;
+   - **401** : secret webhook désynchronisé — le corriger, puis **renvoyer le même événement depuis le tableau de
+     bord** (ne pas relancer la sonde, qui créerait une transaction) ; corriger avant S1 ;
+   - **400** (« Webhook incomplet » / « Charge de webhook illisible ») : signal **B2** — la forme réelle diffère de
+     celle attendue par `handleWebhook` ; consigner la forme, **ne pas** modifier le récepteur sans revue §5 ;
+     S1/S9 bloqués pour la confirmation par webhook (seule la réconciliation 02:30 rattraperait) ;
+   - **5xx ou délai** : incident de la cible (API, Nginx) à corriger avant S1 ;
+   - **aucune livraison** : URL de webhook bac à sable non déclarée ou injoignable — à corriger avant S1, sinon le
+     critère « COMPLETED par webhook » de S1 ne peut pas passer.
 4. **Décision porteur** : l’hôte observé éclaire le maintien ou non de l’autre hôte bac à sable de la liste ; aucun
    retrait automatique. L’hôte **live** reste à confirmer au premier paiement réel encadré (prompt 11).
+5. **Suivi de B1** : reporter l’hôte observé (non sensible), la date, le SHA de la candidate et le résultat
+   FEDAPAY-S8 dans `docs/suivi/LOT_L10.md` et dans la ligne B1 de `docs/REVUE_Independante_L0-L10_2026-10.md` §8,
+   avec l’état « bac à sable constaté ; hôtes live et hôte bac à sable non observé ouverts ». Un PASS de S8 **ne
+   ferme pas** B1.
 
 ### Preuve à consigner
-- **Note privée** (hors dépôt) : date et heure UTC, SHA de la candidate, opérateur, référence `ds-recette-s8-…`,
-  transaction masquée, lignes `[s8:fedapay]` complètes, réponse du webhook `transaction.created`, hôte vu en S1,
+- **Note privée** (hors dépôt) : date et heure UTC, SHA de la candidate, opérateur, **chaque** référence
+  `ds-recette-s8-…` affichée et sa transaction masquée, lignes `[s8:fedapay]` complètes, réponse du webhook `transaction.created`, hôte vu en S1,
   suppression ou expiration de la transaction de recette.
 - **Registre** `docs/preproduction/L10/evidence.json` (schéma : `preproduction/L10/README.md`) : un seul
   enregistrement `caseId: "FEDAPAY-S8"`, `result: "PASS"`, `candidateSha` (SHA complet qualifié),

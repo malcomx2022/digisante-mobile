@@ -12,10 +12,10 @@ import { randomBytes } from 'node:crypto';
 
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { FEDAPAY_CHECKOUT_HOSTS, isFedapayCheckoutUrl } from '@digisante/shared';
 
 import { assertFedapaySandbox } from '../../../../scripts/preproduction/smoke-guard.mjs';
 import { formatS8, runS8Probe } from '../../../../scripts/preproduction/fedapay-s8.mjs';
+import { productionS8Options } from '../test/fedapay-s8-options.js';
 
 const ENABLED = process.env.SMOKE_FEDAPAY_S8 === '1';
 
@@ -35,7 +35,6 @@ describe.skipIf(!ENABLED)('RECETTE S8 FedaPay sandbox — hôte du lien de paiem
   afterAll(async () => app?.close());
 
   it('le lien de paiement d’une clé bac à sable vise un hôte EXACT autorisé', async () => {
-    const { parseFedapayTransactionId } = await import('./fedapay.js');
     const stamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
     const reference = `ds-recette-s8-${stamp}-${randomBytes(2).toString('hex')}`;
     // Avant tout réseau : même sans verdict (panne), la transaction reste retrouvable.
@@ -44,9 +43,7 @@ describe.skipIf(!ENABLED)('RECETTE S8 FedaPay sandbox — hôte du lien de paiem
     const result = await runS8Probe({
       enabled: integration.enabled,
       secrets: integration.secrets,
-      parseId: parseFedapayTransactionId,
-      isAllowedSandbox: (url: unknown) => isFedapayCheckoutUrl(url, 'sandbox'),
-      hosts: FEDAPAY_CHECKOUT_HOSTS,
+      ...productionS8Options(),
       reference,
     });
     const lines = formatS8(result, reference);
