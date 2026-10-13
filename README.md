@@ -15,14 +15,14 @@ Monorepo **pnpm** :
 
 ```
 apps/web      Next.js 14 (App Router, PWA) — 67 pages
-apps/api      Fastify — 182 endpoints REST + 1 WebSocket / 28 modules + Prisma + Redis
+apps/api      Fastify — 182 endpoints REST + 1 WebSocket / 28 modules + Prisma + Valkey (compatible Redis)
 packages/shared   types, enums, schémas zod partagés
 packages/config   tsconfig de base
 infra/        docker-compose dev (Postgres 16 + Redis) · scripts deploy VPS
 ```
 
-**Stack** : Next.js 14 · Fastify · Prisma · PostgreSQL 16 (natif) · Redis · Daily.co · FedaPay · Firebase FCM · Twilio · Resend.
-**Prod** : VPS Infomaniak Ubuntu 22.04 (Nginx, PM2, Certbot). Jamais Supabase/Railway/Vercel.
+**Stack** : Next.js 14 · Fastify · Prisma · PostgreSQL natif (18.6 sur l'hôte IONOS partagé) · Valkey (compatible Redis) · Daily.co · FedaPay · Firebase FCM · Twilio · Resend.
+**Prod** : VPS IONOS partagé `srv1.immipro.app` (31.70.148.167, Ubuntu 26.04) — dérogation porteur 13/10/2026 (remplace VPS Infomaniak distinct). Préprod `preprod.digisantemobile.app` (web 3100 / api 3101), prod `digisantemobile.app` (web 3200 / api 3201). Jamais Supabase/Railway/Vercel.
 
 ## Démarrage local
 
@@ -109,4 +109,4 @@ Sécurité L8 : [contrat](./docs/CONTRAT_Securite_L8.md), [matrice des résiduel
 Lot L9 : [contrat](docs/CONTRAT_Validation_L9.md), [relecture/version des sources](docs/validation/L9/README.md), [auto-revue](docs/REVUE_L9_2026-10.md) et [preuves](docs/suivi/LOT_L9.md). `pnpm validation:prepare` / `validation:check` contrôlent les instantanés ; `validation:gate` reste non vert tant que langues et pièces vérifiées ne sont pas intégrées. Retours annoncés, références différées ; aucune traduction ni signature inventée. Nouveau dossier clinique non signé, ancien dossier en circulation préservé. CI technique != GO clinique.
 
 
-Lot L10 : [contrat de préproduction](docs/CONTRAT_Preproduction_L10.md), [auto-revue](docs/REVUE_L10_2026-10.md), [preuves et limites](docs/suivi/LOT_L10.md), [inventaire sans secrets](docs/SECRETS_Preproduction_L10.md), [94 cas de recette](docs/preproduction/L10/README.md). `pnpm preprod:prepare` / `preprod:check` / `preprod:qualify` / `preprod:gate --expected-sha <SHA>` ; workflow manuel préproduction sur VPS distinct. Outillage préparé selon décision du porteur, accès fournis ultérieurement ; recettes VPS/fournisseurs réels et L9 humain/L11 encore ouverts. Aucun deploy/merge automatique.
+Lot L10 : [contrat de préproduction](docs/CONTRAT_Preproduction_L10.md), [auto-revue](docs/REVUE_L10_2026-10.md), [preuves et limites](docs/suivi/LOT_L10.md), [inventaire sans secrets](docs/SECRETS_Preproduction_L10.md), [94 cas de recette](docs/preproduction/L10/README.md). `pnpm preprod:prepare` / `preprod:check` / `preprod:qualify` / `preprod:gate --expected-sha <SHA>` ; workflow manuel préproduction sur VPS IONOS partagé (dérogation 13/10/2026). Outillage préparé selon décision du porteur, accès fournis ultérieurement ; recettes VPS/fournisseurs réels et L9 humain/L11 encore ouverts. Aucun deploy/merge automatique.
