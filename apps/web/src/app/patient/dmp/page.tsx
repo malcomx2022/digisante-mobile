@@ -48,6 +48,8 @@ export default function DmpPage() {
   async function regrant(granteeId: string) {
     setActionError(false);
     try {
+      // Sans lien attribuable (`requiresNewShare`), la ligne reste « partage plus
+      // valide » : un nouveau partage de l'entrée concernée est nécessaire.
       await dmpApi.regrantConsent(granteeId);
       setRevokeTick((n) => n + 1);
     } catch {
@@ -106,25 +108,31 @@ export default function DmpPage() {
                       {c.name}
                       {c.speciality ? ` · ${c.speciality}` : ''}
                     </p>
+                    {/* L1 : « inactif » ≠ « révoqué ». Seul `revokedAt` bloque les
+                        réclamations futures ; un lien expiré ou historique reste
+                        révocable, sinon le patient se croit protégé à tort. */}
                     <p className="text-[0.6875rem] text-stone-400">
-                      {c.active
-                        ? t('dmp.share_expires', { date: formatDate(c.expiresAt, { dateStyle: 'medium' }) })
-                        : t('dmp.revoked_label')}
+                      {c.revokedAt
+                        ? t('dmp.revoked_label')
+                        : c.active
+                          ? t('dmp.share_expires', { date: formatDate(c.expiresAt, { dateStyle: 'medium' }) })
+                          : t('dmp.revoked_desc')}
                     </p>
                   </div>
-                  {c.active ? (
+                  {!c.revokedAt && (
                     <button
                       type="button"
                       onClick={() => revoke(c.granteeId)}
-                      className="shrink-0 card-pagne bg-sos-50 text-sos-700 font-display font-extrabold text-[0.6875rem] px-3 py-1.5"
+                      className="shrink-0 card-pagne pagne-focus bg-sos-50 text-sos-700 font-display font-extrabold text-[0.6875rem] px-3 py-1.5"
                     >
                       {t('dmp.revoke')}
                     </button>
-                  ) : (
+                  )}
+                  {!c.active && (
                     <button
                       type="button"
                       onClick={() => regrant(c.granteeId)}
-                      className="shrink-0 card-pagne bg-sante-50 text-sante-700 font-display font-extrabold text-[0.6875rem] px-3 py-1.5"
+                      className="shrink-0 card-pagne pagne-focus bg-sante-50 text-sante-700 font-display font-extrabold text-[0.6875rem] px-3 py-1.5"
                     >
                       {t('dmp.regrant')}
                     </button>

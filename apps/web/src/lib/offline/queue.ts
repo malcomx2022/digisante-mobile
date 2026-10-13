@@ -33,11 +33,12 @@ async function unpack(row: StoredMutation): Promise<QueuedMutation> {
   if (item.owner !== row.owner || item.id !== row.id || item.idempotencyKey !== row.idempotencyKey) throw new Error('Identité locale altérée');
   return { ...item, ...(row.failedStatus === undefined ? {} : { failedStatus: row.failedStatus, failedAt: row.failedAt }) };
 }
-export async function enqueue(item: Omit<QueuedMutation, 'id' | 'ts' | 'owner' | 'idempotencyKey'>): Promise<QueuedMutation> {
+/** `reserve` reçoit l'id AVANT l'écriture : l'appelant le marque « en vol » sans fenêtre. */
+export async function enqueue(item: Omit<QueuedMutation, 'id' | 'ts' | 'owner' | 'idempotencyKey'>, reserve?: (id: string) => void): Promise<QueuedMutation> {
   const owner = currentOwner(); if (!owner) throw new VaultLockedError();
   const valid = captureLocalGuard(!item.onlineOnly);
   if (!item.onlineOnly && !isVaultOpen()) throw new VaultLockedError();
-  const id = crypto.randomUUID(); lastTs = Math.max(Date.now(), lastTs + 1);
+  const id = crypto.randomUUID(); lastTs = Math.max(Date.now(), lastTs + 1); reserve?.(id);
   const entry: QueuedMutation = { ...item, body: item.onlineOnly || item.body === undefined ? undefined : JSON.parse(JSON.stringify(item.body)), id, ts: lastTs, owner, idempotencyKey: `v1.${Date.now()}.${id}` };
   const row = await storeEntry(entry);
   await localTx(['pendingSealed'], 'readwrite', (tx) => { if (!valid()) throw new VaultLockedError(); tx.objectStore('pendingSealed').add(row); }); notifyLocal(); return entry;

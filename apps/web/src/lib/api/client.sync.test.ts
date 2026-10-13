@@ -30,7 +30,8 @@ describe('Premier envoi et rejeu L3', () => {
       expect(firstKey).toBe(pending.idempotencyKey); expect(firstKey).toMatch(/^v1\.\d{13}\./);
       throw new TypeError('response lost after commit');
     });
-    await expect(post(path, body)).rejects.toThrow('response lost');
+    // Corps scellé conservé avec SA clé : « en attente », jamais une erreur à renvoyer.
+    await expect(post(path, body)).resolves.toEqual({ queued: true });
     vi.mocked(fetch).mockImplementationOnce(async (_url, init) => {
       expect(new Headers(init?.headers).get('Idempotency-Key')).toBe(firstKey);
       expect(JSON.parse(init?.body as string)).toEqual(body); return Response.json({ id: 'same-subject' }, { status: 201 });
@@ -49,7 +50,19 @@ describe('Premier envoi et rejeu L3', () => {
     vi.mocked(fetch).mockImplementationOnce(async (_url, init) => {
       expect(JSON.parse(init?.body as string).name).toBe(body.name); throw new TypeError('network');
     });
-    await expect(promise).rejects.toThrow('network'); expect((await allQueued())[0].body).toEqual(body);
+    await expect(promise).resolves.toEqual({ queued: true }); expect((await allQueued())[0].body).toEqual(body);
+  });
+  it('503 avec coffre puis nouvelle saisie : l’ancienne passe d’abord sous sa clé, aucun doublon', async () => {
+    const keys: string[] = [];
+    vi.mocked(fetch).mockImplementation(async (_url, init) => {
+      keys.push(new Headers(init?.headers).get('Idempotency-Key')!);
+      return keys.length === 1 ? new Response(null, { status: 503 }) : Response.json({ id: `s${keys.length}` }, { status: 201 });
+    });
+    expect(await post(path, body)).toEqual({ queued: true });
+    expect(await post(path, { ...body, name: 'Second' })).toEqual({ id: 's3' });
+    // 1er envoi (503), rejeu FIFO de la MÊME clé, puis la nouvelle saisie : 2 effets, pas 3.
+    expect(keys).toHaveLength(3); expect(keys[1]).toBe(keys[0]); expect(keys[2]).not.toBe(keys[0]);
+    expect(await allQueued()).toHaveLength(0); expect(await allFailed()).toHaveLength(0);
   });
   it('deux flush simultanés dans un onglet : un seul envoi', async () => {
     await enqueue({ method: 'POST', path, body });

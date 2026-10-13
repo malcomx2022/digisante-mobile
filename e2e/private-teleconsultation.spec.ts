@@ -41,6 +41,11 @@ test('médecin ouvre, patient rejoint puis passe AUDIO → CHAT, médecin clôtu
     await patientPage.getByRole('button', { name: /passer en audio/i }).click();
     await patientPage.waitForURL(/\/patient\/chat/);
     await expect.poll(async () => (await prisma.consultation.findUniqueOrThrow({ where: { id: consult.id } })).mode).toBe('CHAT');
+    // Revenir dans une salle déjà en CHAT ne doit pas renvoyer le médecin vers la
+    // messagerie : « Terminer » est le seul point de clôture.
+    await page.reload();
+    await expect(page.getByText('Mode chat (réseau faible)')).toBeVisible();
+    await expect(page).toHaveURL(/\/pro\/teleconsult\?id=/);
     await page.getByRole('button', { name: 'Terminer la consultation' }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Terminer la consultation' }).click();
     await page.waitForURL(/\/pro\/agenda/);

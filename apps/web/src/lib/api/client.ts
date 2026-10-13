@@ -191,6 +191,18 @@ export function isQueueable(path: string, method: string = 'POST'): boolean {
   return isReplayableMutation(method, path);
 }
 
+/**
+ * Entrées de file dont le PREMIER envoi est en cours dans cet onglet. Ni ambiguës ni
+ * échouées : elles ne bloquent pas une autre saisie (un accusé de lecture en vol
+ * refusait le message suivant) et `flushQueue` ne les vérifie pas avant leur réponse
+ * (un reçu encore non commité lu 404 les archivait à tort « non confirmées »).
+ */
+const inFlight = new Set<string>();
+const definitiveRejection = (error: unknown): error is ApiRequestError =>
+  error instanceof ApiRequestError && error.status >= 400 && error.status < 500 && ![401, 408, 429].includes(error.status);
+const unresolvedTicket = async () => (await Promise.all([allQueued(), allFailed()])).flat()
+  .some((m) => m.onlineOnly && !inFlight.has(m.id));
+
 export async function mutate<T>(
   method: MutationMethod,
   path: string,
@@ -205,13 +217,24 @@ export async function mutate<T>(
   // Photographie synchrone avant tout await : l'appelant ne peut plus modifier le corps.
   body = body === undefined ? undefined : JSON.parse(JSON.stringify(body));
   if (covered && opts.queue !== false) {
-    if ((await Promise.all([allQueued(), allFailed()])).flat().some((m) => m.onlineOnly)) throw new Error('Action précédente à vérifier avant une nouvelle saisie');
+    // FIFO : les actions plus anciennes passent d'abord (même clé), et un reçu déjà
+    // commité lève à lui seul le blocage « à vérifier ».
+    if (isOnline() && (await allQueued()).some((m) => !inFlight.has(m.id))) await flushQueue().catch(() => undefined);
+    if (await unresolvedTicket()) throw new Error('Action précédente à vérifier avant une nouvelle saisie');
     if (mutationOwner !== getQueueOwner()) throw new VaultLockedError();
   }
   // Persister AVANT fetch : la fermeture d'onglet après commit serveur reste reprenable.
-  const pending = covered && opts.queue !== false ? await enqueue({ method, path, body, onlineOnly: !isVaultOpen() }) : null;
+  // L'id est marqué « en vol » dès sa création, avant même l'écriture IndexedDB.
+  let reserved: string | undefined;
+  const release = () => { if (reserved) inFlight.delete(reserved); };
+  let pending: QueuedMutation | null = null;
+  try {
+    pending = covered && opts.queue !== false
+      ? await enqueue({ method, path, body, onlineOnly: !isVaultOpen() }, (id) => { reserved = id; inFlight.add(id); })
+      : null;
+  } catch (error) { release(); throw error; }
   const key = pending?.idempotencyKey ?? (covered ? `v1.${Date.now()}.${crypto.randomUUID()}` : undefined);
-  if (!isOnline()) return { queued: true };
+  if (!isOnline()) { release(); return { queued: true }; }
   try {
     const res = await withAuthRetry(path, () => {
       if (pending && (pending.owner !== getQueueOwner() || (!pending.onlineOnly && !isVaultOpen()))) throw new VaultLockedError();
@@ -224,11 +247,22 @@ export async function mutate<T>(
     if (pending) await remove(pending.id);
     return result;
   } catch (error) {
-    // 401/429/réseau/5xx restent en attente ; aucun nouveau UUID au prochain envoi.
-    if (pending && error instanceof ApiRequestError && error.status >= 400 && error.status < 500 && ![401, 408, 429].includes(error.status)) {
-      await archiveFailed(pending, error.status);
+    if (pending && definitiveRejection(error)) {
+      // Refus définitif : l'effet et son reçu ont été annulés ensemble côté serveur.
+      // Un ticket SANS corps n'a rien à vérifier : le garder bloquerait toute saisie.
+      // Un corps scellé reste archivé pour la revue des rejets.
+      if (pending.onlineOnly) await remove(pending.id);
+      else await archiveFailed(pending, error.status);
+    } else if (pending && !pending.onlineOnly) {
+      // 401/408/429/5xx/réseau/coffre verrouillé : le corps scellé reste en file avec
+      // SA clé et sera rejoué. Le signaler comme « en attente » : une erreur inviterait
+      // à « Renvoyer », c.-à-d. une NOUVELLE clé, puis le rejeu créerait un doublon.
+      return { queued: true };
     }
+    // Ticket sans corps en échec ambigu : il reste en attente de vérification (GET reçu).
     throw error;
+  } finally {
+    release();
   }
 }
 
@@ -241,6 +275,8 @@ export async function mutate<T>(
  */
 export async function flushQueue(): Promise<{ flushed: number; failed: number }> {
   return flush(async (m) => {
+    // Premier envoi encore en vol dans cet onglet : sa réponse tranchera (arrêt du tour).
+    if (inFlight.has(m.id)) throw new Error('in-flight');
     if ((!m.onlineOnly && !isQueueable(m.path, m.method)) || !hasReplayIdentity(m)) throw new PermanentReplayError(409);
     const createdAt = mutationKeyTime(m.idempotencyKey!)!;
     if (m.onlineOnly) {

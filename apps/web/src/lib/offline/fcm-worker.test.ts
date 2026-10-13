@@ -17,7 +17,9 @@ function worker(client?: any) {
 }
 describe('L8 — liens notifications FCM', () => {
   it('backslash brut/encodé, double slash, contrôle et URL externe reviennent à accueil', async () => {
-    for (const link of ['/\\evil.test/pay', '//evil.test/pay', '/%5cevil.test', '/%2fevil.test', '/\t/evil.test', 'https://evil.test', 'javascript:alert(1)', 42]) {
+    for (const link of ['/\\evil.test/pay', '//evil.test/pay', '/%5cevil.test', '/%2fevil.test', '/\t/evil.test', 'https://evil.test', 'javascript:alert(1)', 42,
+      // Segments résolus après contrôle brut → chemin `//evil.test` (revue du 13/10/2026).
+      '/.//evil.test/phish', '/a/..//evil.test', '/%2e//evil.test']) {
       const w = worker(); await w.click(link); expect(w.openWindow).toHaveBeenCalledWith('/');
     }
   });
