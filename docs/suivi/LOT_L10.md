@@ -53,6 +53,25 @@ L'historique ci-dessus est inchangé. Dérogation validée par le porteur le 13/
   `provision.sh` (écrit pour Ubuntu 22.04 / PG16 / Redis) doit être **adapté**, jamais appliqué à l'aveugle.
 - **Docs mises à jour** : `CLAUDE.md`, `README.md`, `CONTRAT_Preproduction_L10.md`, `SECRETS_Preproduction_L10.md`,
   `ecosystem.config.cjs`, `infra/deploy/README.md` (cette PR, docs + ecosystem uniquement).
+- **Outillage par environnement (complément 13/10/2026, revue de la PR)** : `DIGISANTE_ENV` (preproduction |
+  production) est **obligatoire, sans défaut**, pour `ecosystem.config.cjs` et chaque script d'exploitation
+  (profil `digisante_profile`, copie identique, test de non-dérive). Il fixe noms PM2, ports et URL locale de
+  l'API (jamais 3000/3001 : un jeton de service ne part plus vers Grafana), checkout, utilisateur, journaux, copie
+  root, `/etc`, `/var/lib`, sauvegardes, base, `/etc/cron.d/digisante[-preprod]`. Corrigé au passage : l'API lit
+  `API_PORT` (pas `PORT`) — sans cela elle aurait écouté sur le 3001 du `.env` ; API et web écoutent sur
+  127.0.0.1. `deploy.sh` n'arrête que les processus de l'environnement déployé ; crontabs au format `/etc/cron.d`
+  (jamais `crontab <fichier>` sur l'hôte partagé), vhosts Nginx et logrotate dédiés par environnement, zones Nginx
+  préfixées sans directive globale. Preuves : `scripts/infra/environments.test.mjs` + tests d'exploitation.
+  Revue adverse (13/10/2026) : **bloquant corrigé** — en cluster, PM2 transmet `node_args` sans cwd, donc
+  `--env-file=.env` relatif était cherché dans le répertoire du démon (`/` après `pm2 resurrect`) : API jamais
+  démarrée (`errored`, 15 redémarrages, reproduit avec PM2 5.4.3 réel) ; `cwd` et `--env-file` sont désormais
+  absolus (même vérification réelle : 2 workers en ligne, port 3101, 127.0.0.1, `.env` chargé). Groupe de
+  concurrence `deploy-ionos-srv1` commun aux deux workflows (un seul `pnpm build` à la fois sur l'hôte de 4 Go).
+  Documents d'exploitation alignés (checklist, SUIVI_B3, RUNBOOK, bascule FedaPay, SECRETS_Production).
+  Résiduels I2 consignés dans `infra/deploy/README.md` (port libre squatté, Valkey sans ACL ni pub/sub séparé,
+  fuseau de l'hôte, zones Nginx communes) : arbitrage L11, non corrigés par le code.
+  ⚠️ Ce changement d'outillage **invalide la qualification** de la candidate précédente : nouvelle préparation
+  + requalification sur le SHA `main` obtenu après sa fusion.
 - **Non changé par cet addendum** : aucune logique métier, aucune migration, aucun secret, aucun déploiement,
   aucune recette réelle. Après fusion de la PR docs, requalifier la candidate (nouveau SHA) et re-générer
   `preprod:prepare` / `metrics:check` (fraîcheur des empreintes) avant de dérouler L10 sur la cible IONOS.

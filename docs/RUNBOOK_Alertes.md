@@ -20,10 +20,10 @@
 
 | Clé | Contrôle | Seuil (défaut, surchargeable dans `alert.conf`) | Première action |
 |---|---|---|---|
-| `ready` | `GET /api/v1/ready` (DB + Redis) | ≠ 200 | `systemctl status postgresql redis-server` ; `pm2 logs digisante-api --lines 100` |
-| `pm2` | api online ×2, web ×1 | autre | `sudo -u digisante pm2 status` ; `pm2 restart digisante-api` si crash en boucle → logs |
+| `ready` | `GET /api/v1/ready` (DB + Valkey) sur le port de l'environnement (3101/3201) | ≠ 200 | `systemctl status postgresql valkey-server` (unités de l'hôte) ; `sudo -u digisante${SUFFIX} pm2 logs digisante${SUFFIX}-api --lines 100` |
+| `pm2` | `digisante${SUFFIX}-api` online ×2, `digisante${SUFFIX}-web` ×1 | autre | `sudo -u digisante${SUFFIX} pm2 status` ; `pm2 restart digisante${SUFFIX}-api` si crash en boucle → logs |
 | `disk` | `df` sur `/` et `/var/backups/digisante` | ≥ `DISK_THRESHOLD`=85 % | purger vieux journaux compressés ; vérifier la rétention des sauvegardes ; agrandir le volume |
-| `backup` | dernière archive base < `BACKUP_MAX_AGE_H`=26 h **et** archive fichiers du même horodatage, magasin complet (`files_count` ≥ `files_expected`, `files_missing=0`) | dépassé / absente / magasin incomplet / module de contrôle non fiable | `tail /var/log/digisante-cron/pg_dump.log` ; vérifier `KYC_STORAGE_DIR` du `.env` API (magasin `digisante 700`, nom sans « - » initial, fichiers lisibles par `digisante` — « refusé » ou « archivage impossible sous l'identité » au journal) ; lancer `sudo /usr/local/lib/digisante/infra/deploy/scripts/pg_dump_encrypted.sh` ; module non fiable ⇒ réinstaller les scripts root |
+| `backup` | dernière archive base < `BACKUP_MAX_AGE_H`=26 h **et** archive fichiers du même horodatage, magasin complet (`files_count` ≥ `files_expected`, `files_missing=0`) | dépassé / absente / magasin incomplet / module de contrôle non fiable | `tail /var/log/digisante-cron/pg_dump.log` ; vérifier `KYC_STORAGE_DIR` du `.env` API (magasin `digisante 700`, nom sans « - » initial, fichiers lisibles par `digisante` — « refusé » ou « archivage impossible sous l'identité » au journal) ; lancer `sudo DIGISANTE_ENV=<env> /usr/local/lib/digisante${SUFFIX}/infra/deploy/scripts/pg_dump_encrypted.sh` ; module non fiable ⇒ réinstaller les scripts root |
 | `cron` | lignes `ÉCHEC` récentes (15 min) des tâches | ≥ 1 | 401 ⇒ `/etc/digisante/reconcile.token` ≠ `RECONCILE_TOKEN` du `.env` ; 5xx ⇒ logs API ; réconciliation `500 RECONCILE_PARTIAL_FAILURE` (`failed` ≥ 1, reste du lot traité) ⇒ `paymentId` des lignes `[FedaPay] réconciliation : paiement en échec` du journal API, paiement resté PENDING/PROCESSING alors que FedaPay peut l’avoir encaissé — **§5** : diagnostiquer la cause (activation L6, capture L7, base) avant le passage suivant de 02:30, jamais de mise à jour manuelle du statut |
 | `providers` | erreurs Twilio/Resend/Daily/FCM/FedaPay depuis le dernier passage | ≥ `PROVIDER_ERR_MAX`=3 | `/admin/integrations` → **Tester** ; statut du fournisseur ; clé révoquée ? |
 | `backlog` | notifications `PENDING` > 15 min | > `BACKLOG_MAX`=100 | dispatch en échec (`cron`) ou fournisseur en panne (`providers`) |
@@ -35,7 +35,11 @@ normale) : une panne qui dure ne génère pas un message toutes les 5 minutes.
 
 ## 3. Destinataires et escalade
 
-Configuration root-only : `/etc/digisante/alert.conf` (0600), par exemple :
+Hôte IONOS partagé : une instance healthwatch PAR environnement (`DIGISANTE_ENV` dans son fichier `/etc/cron.d`), le
+corps de l'alerte nomme l'environnement (« DigiSanté preproduction|production »). Ci-dessous `${SUFFIX}` = `-preprod`
+ou vide, `<env>` = `preproduction` ou `production`.
+
+Configuration root-only : `/etc/digisante${SUFFIX}/alert.conf` (0600), par exemple :
 
 ```bash
 ALERT_CMD='mail -s "[DigiSanté] alerte production" ops@<domaine>'   # ou tout outil local lisant stdin

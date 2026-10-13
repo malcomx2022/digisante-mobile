@@ -22,7 +22,7 @@
 
 | Étape | Qui | Action | Contrôle (par le 2ᵉ) |
 |---|---|---|---|
-| 1 | Opérateur | Sauvegarde immédiate : `sudo /usr/local/lib/digisante/infra/deploy/scripts/pg_dump_encrypted.sh` (copie root, B3) | 2 archives du même horodatage présentes |
+| 1 | Opérateur | Sauvegarde immédiate : `sudo DIGISANTE_ENV=production /usr/local/lib/digisante/infra/deploy/scripts/pg_dump_encrypted.sh` (copie root, B3) | 2 archives du même horodatage présentes |
 | 2 | Opérateur | Dashboard FedaPay **live** : créer l'endpoint webhook `https://<domaine>/api/v1/payments/webhook`, **révéler** son secret | URL exacte (HTTPS, bon domaine) |
 | 3 | Opérateur | `/admin/integrations` → **FEDAPAY** → saisir **dans le même `PUT`** : `secretKey` (`sk_live_…`), `publicKey` (`pk_live_…`), `webhookSecret` (**le nouveau**, live) | le `PUT` remplace TOUT : les 3 clés présentes ; affichage masqué `••••` ; `source=db` |
 | 4 | Contrôleur | **Tester** (readiness) | `ok: true, missing: []` |

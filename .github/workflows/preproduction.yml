@@ -14,8 +14,10 @@ on:
 permissions:
   contents: read
   actions: read
+# Groupe PARTAGÉ avec le job deploy de ci.yml (même VPS IONOS, 4 Go de RAM) : un seul
+# build/déploiement DigiSanté à la fois sur l'hôte.
 concurrency:
-  group: deploy-preproduction
+  group: deploy-ionos-srv1
   cancel-in-progress: false
 jobs:
   preproduction:
@@ -56,7 +58,8 @@ jobs:
           script: |
             set -e
             [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
-            cd /var/www/digisante-mobile
+            # Checkout de préproduction sur l'hôte IONOS partagé (= APP_DIR du profil preproduction).
+            cd /var/www/digisante-preprod
             git fetch origin main
             deploy_script=$(mktemp)
             trap 'rm -f "$deploy_script"' EXIT

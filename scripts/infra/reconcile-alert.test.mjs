@@ -48,6 +48,9 @@ else echo '{"status":"ready","db":"up","redis":"up"}'; fi`);
   const env = {
     ...process.env,
     PATH: `${bin}:${process.env.PATH}`,
+    // Profil d'environnement obligatoire ; la copie exécutée est ici le checkout.
+    DIGISANTE_ENV: 'preproduction',
+    ROOT_LIB: ROOT,
     RECONCILE_TOKEN_FILE: tokenFile,
     RECONCILE_CODE: String(code),
     RECONCILE_BODY: body,

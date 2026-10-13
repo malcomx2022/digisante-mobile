@@ -130,8 +130,11 @@ jobs:
       && vars.DEPLOY_ENABLED == 'true'
       && vars.DEPLOY_MAINTENANCE_READY == 'true'
     runs-on: ubuntu-latest
+    # Groupe PARTAGÉ avec preproduction.yml : préproduction et production vivent sur le même
+    # VPS IONOS (4 Go de RAM, avec ImmiPro, BeninLink, PG, Valkey, Grafana) ; deux
+    # `pnpm build` simultanés exposeraient les applications voisines à l'OOM killer.
     concurrency:
-      group: deploy-production
+      group: deploy-ionos-srv1
       cancel-in-progress: false
     steps:
       # Même garde que la préproduction L10 : sans empreinte, ssh-action ne vérifie
@@ -158,7 +161,8 @@ jobs:
           port: ${{ secrets.VPS_SSH_PORT || 22 }}
           script: |
             set -e
-            cd /var/www/digisante-mobile
+            # Checkout de production sur l'hôte IONOS partagé (= APP_DIR du profil production).
+            cd /var/www/digisante
             git fetch origin main
             deploy_script=$(mktemp)
             trap 'rm -f "$deploy_script"' EXIT

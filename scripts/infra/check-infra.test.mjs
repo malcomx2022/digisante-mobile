@@ -81,7 +81,7 @@ test('nginx : WS journalisé sans query, zones définies, en-têtes cohérents a
   }
   assert.match(zones, /log_format digisante_noquery/);
   assert.match(site, /add_header X-Frame-Options "DENY"/);
-  assert.match(site, /location ~ \^\/api\/v1\/auth\/\(refresh\|logout\)\$ \{\s*\n\s*limit_req zone=api/);
+  assert.match(site, /location ~ \^\/api\/v1\/auth\/\(refresh\|logout\)\$ \{\s*\n\s*limit_req zone=digisante_rl_api /);
 });
 
 test('deploy : migrate deploy (jamais db push), .env requis, healthcheck /ready', () => {
@@ -93,8 +93,9 @@ test('deploy : migrate deploy (jamais db push), .env requis, healthcheck /ready'
 });
 
 test('observabilité : healthwatch planifié, rotation des journaux installée par le provisioning', () => {
-  const cron = read('infra/deploy/crontab.example');
-  assert.match(cron, /^\*\/5 \* \* \* \* \S+\/healthwatch\.sh/m);
+  for (const name of ['crontab.example', 'crontab.preproduction.example']) {
+    assert.match(read(`infra/deploy/${name}`), /^\*\/5 \* \* \* \* root \S+\/healthwatch\.sh/m, name);
+  }
   assert.match(read('infra/deploy/scripts/provision.sh'), /\/etc\/logrotate\.d\/digisante/);
   const lr = read('infra/deploy/logrotate/digisante');
   assert.match(lr, /\/var\/log\/digisante\/\*\.log/);

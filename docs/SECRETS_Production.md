@@ -4,12 +4,12 @@
 > `apps/api/.env` (chargé par PM2 via `--env-file`) et `apps/web/.env.production` (lu au build Next.js).
 > Modèle complet : `.env.example` à la racine.
 
-## API (`/var/www/digisante-mobile/apps/api/.env`)
+## API (`/var/www/digisante/apps/api/.env` — production, hôte IONOS partagé)
 
 | Variable | Obligatoire | Note |
 |---|---|---|
 | `DATABASE_URL` | ✅ | `postgresql://digisante:<pwd>@localhost:5432/digisante?schema=public` (Postgres 16 natif) |
-| `REDIS_URL` | ✅ | `redis://:<pwd>@localhost:6379` |
+| `REDIS_URL` | ✅ | `redis://:<pwd>@localhost:6379/6` (Valkey partagé : index **/6** production, /5 préproduction ; jamais l'index 0 des autres projets) |
 | `NODE_ENV` | ✅ | `production` (désactive l'exposition du `devCode` OTP) |
 | `JWT_SECRET` | ✅ | **≥ 32 caractères aléatoires** — `openssl rand -base64 48` |
 | `JWT_ACCESS_TTL` / `JWT_REFRESH_TTL` | — | défauts `15m` / `30d` |
@@ -66,7 +66,7 @@
    nuit pas (la base prime). Sauvegarde : la base chiffrée est incluse dans le `pg_dump` nocturne ;
    `HEALTH_ENCRYPTION_KEY` reste hors VPS.
 
-## Web (`/var/www/digisante-mobile/apps/web/.env.production`)
+## Web (`/var/www/digisante/apps/web/.env.production`)
 
 | Variable | Note |
 |---|---|
@@ -94,11 +94,12 @@ pnpm install --frozen-lockfile
 pnpm --filter @digisante/api prisma generate
 pnpm --filter @digisante/api prisma migrate deploy
 pnpm build            # shared → api (tsc + tsc-alias) → web (next build)
-pm2 startOrReload ecosystem.config.cjs --update-env   # api cluster ×2 + web
+DIGISANTE_ENV=production pm2 startOrReload ecosystem.config.cjs --update-env   # api cluster ×2 + web (DIGISANTE_ENV obligatoire)
 ```
 
-`ecosystem.config.cjs` (racine) : `digisante-api` (cluster ×2, `--env-file=.env`) + `digisante-web`
-(`next start`). Logs sous `/var/log/digisante/`.
+`ecosystem.config.cjs` (racine) : `digisante-api` (cluster ×2, `--env-file=<checkout>/apps/api/.env`, chemin
+absolu) + `digisante-web` (`next start -H 127.0.0.1`), ports 3201/3200 en production (3101/3100 et noms
+`digisante-preprod-*` en préproduction). Logs sous `/var/log/digisante/` (préproduction : `/var/log/digisante-preprod/`).
 
 ## Mise à jour L8 — 7 octobre 2026
 

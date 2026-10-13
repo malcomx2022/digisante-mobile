@@ -8,16 +8,20 @@
 # minutes (clé de sauvegarde, jeton de service, `sudo -u postgres`).
 #
 # Ce script copie les fichiers de `infra/deploy/root-scripts.list` du COMMIT EXACT
-# demandé vers un répertoire root:root (défaut /usr/local/lib/digisante), en gardant
-# leur chemin relatif. Source : un miroir nu PROPRE À ROOT (défaut
-# /var/lib/digisante/ops.git, 0700) alimenté depuis l'URL déclarée dans
-# /etc/digisante/ops.env (root, 0600) — JAMAIS l'arbre de travail, le .git ni la
-# configuration distante de APP_DIR, tous modifiables par `digisante`.
+# demandé vers un répertoire root:root PROPRE À L'ENVIRONNEMENT, en gardant leur chemin
+# relatif. Source : un miroir nu PROPRE À ROOT (0700) alimenté depuis l'URL déclarée dans
+# ops.env (root, 0600) — JAMAIS l'arbre de travail, le .git ni la configuration distante
+# de APP_DIR, tous modifiables par l'utilisateur applicatif.
+# DIGISANTE_ENV (obligatoire) fixe les défauts (hôte partagé : une copie par environnement) :
+#   production    : /usr/local/lib/digisante, /var/lib/digisante/ops.git, /etc/digisante/ops.env
+#   preproduction : /usr/local/lib/digisante-preprod, /var/lib/digisante-preprod/ops.git,
+#                   /etc/digisante-preprod/ops.env
+# et l'environnement est inscrit au manifeste (contrôlé par verify_deploy.sh).
 #
-#   sudo /usr/local/lib/digisante/infra/deploy/scripts/install_root_scripts.sh <SHA40>
+#   sudo DIGISANTE_ENV=preproduction /usr/local/lib/digisante-preprod/infra/deploy/scripts/install_root_scripts.sh <SHA40>
 #   (SHA aussi lisible dans ROOT_SCRIPTS_REF ou DEPLOY_REF)
 #
-# /etc/digisante/ops.env (optionnel ; AUCUN secret, aucun identifiant dans l'URL) :
+# ops.env (optionnel ; AUCUN secret, aucun identifiant dans l'URL) :
 #   OPS_REPO_URL=https://github.com/malcomx2022/digisante-mobile.git   # défaut
 #   OPS_BRANCH=main                                                     # défaut
 # Dépôt privé : clé de déploiement LECTURE SEULE de root et URL ssh (git@hôte:chemin).
@@ -32,10 +36,6 @@
 set -euo pipefail
 umask 022
 
-ROOT_LIB="${ROOT_LIB:-/usr/local/lib/digisante}"
-OPS_MIRROR="${OPS_MIRROR:-/var/lib/digisante/ops.git}"
-OPS_CONF="${OPS_CONF:-/etc/digisante/ops.env}"
-OPS_LOG_DIR="${OPS_LOG_DIR:-/var/log/digisante-cron}"
 DEFAULT_REPO_URL='https://github.com/malcomx2022/digisante-mobile.git'
 LIST_PATH='infra/deploy/root-scripts.list'
 MANIFEST_NAME='root-scripts.manifest'
@@ -61,9 +61,35 @@ trusted_path() {
   done
 }
 # <<< trusted_path
+# >>> digisante_profile (environnement — copie IDENTIQUE dans chaque script d'exploitation ; test de non-dérive)
+# DIGISANTE_ENV est OBLIGATOIRE, sans défaut : préproduction et production cohabitent sur
+# l'hôte IONOS partagé, où 3000 (ImmiPro) et 3001 (Grafana) sont déjà pris. Il FIXE les
+# noms PM2, les ports (mêmes valeurs que ecosystem.config.cjs, test de cohérence) et l'URL
+# locale de l'API : un jeton de service ne part que vers l'API de CET environnement. Il
+# donne aussi les chemins PAR DÉFAUT (utilisateur, checkout, journaux, copie root,
+# configuration, état, sauvegardes, base, crontab, journal WebSocket) ; une valeur déjà
+# posée par l'opérateur prime pour ces chemins.
+digisante_profile() {
+  local sfx
+  case "${DIGISANTE_ENV:-}" in
+    preproduction) sfx=-preprod; API_PORT=3101; WEB_PORT=3100; : "${DB_NAME:=digisante_preprod}" ;;
+    production) sfx=; API_PORT=3201; WEB_PORT=3200; : "${DB_NAME:=digisante}" ;;
+    *) echo "DIGISANTE_ENV requis : preproduction ou production (aucun défaut implicite)" >&2; return 1 ;;
+  esac
+  PM2_API="digisante${sfx}-api"; PM2_WEB="digisante${sfx}-web"; API_BASE="http://127.0.0.1:${API_PORT}"
+  : "${APP_USER:=digisante${sfx}}" "${APP_DIR:=/var/www/digisante${sfx}}" "${APP_LOG_DIR:=/var/log/digisante${sfx}}"
+  : "${ETC_DIR:=/etc/digisante${sfx}}" "${ROOT_LIB:=/usr/local/lib/digisante${sfx}}" "${STATE_DIR:=/var/lib/digisante${sfx}}"
+  : "${CRON_LOG_DIR:=/var/log/digisante${sfx}-cron}" "${BACKUP_DIR:=/var/backups/digisante${sfx}}"
+  : "${CRON_FILE:=/etc/cron.d/digisante${sfx}}" "${WS_LOG:=/var/log/nginx/digisante${sfx}-ws.log}"
+}
+# <<< digisante_profile
 
 (( EUID == 0 )) || { echo "[install-root] ÉCHEC : à lancer en root (sudo) — les fichiers installés doivent appartenir à root." >&2; exit 1; }
 trusted_path "${BASH_SOURCE[0]}" || { echo "[install-root] ÉCHEC : installateur lancé depuis un emplacement modifiable par un autre compte (APP_DIR ?) ; utiliser une copie root (README §1)." >&2; exit 1; }
+digisante_profile || exit 1
+OPS_MIRROR="${OPS_MIRROR:-${STATE_DIR}/ops.git}"
+OPS_CONF="${OPS_CONF:-${ETC_DIR}/ops.env}"
+OPS_LOG_DIR="${OPS_LOG_DIR:-${CRON_LOG_DIR}}"
 
 (( $# <= 1 )) || die "un seul argument attendu : le SHA complet"
 SHA="${1:-${ROOT_SCRIPTS_REF:-${DEPLOY_REF:-}}}"
@@ -205,6 +231,7 @@ done
 # ── Manifeste publié EN DERNIER (marqueur d'installation complète) ──
 {
   echo "sha=${SHA}"
+  echo "environment=${DIGISANTE_ENV}"
   echo "branch=${BRANCH}"
   echo "source=${REPO_URL}"
   echo "installed_at=$(date -Is)"
@@ -214,4 +241,4 @@ chown root:root "$STAGE/manifest"; chmod 0644 "$STAGE/manifest"
 mv -f -T -- "$STAGE/manifest" "$ROOT_LIB/$MANIFEST_NAME"
 
 log "OK : ${#PATHS[@]} fichier(s) du commit ${SHA} installés dans ${ROOT_LIB} (manifeste ${MANIFEST_NAME})."
-log "Crontab NON modifiée : comparer « crontab -l » à ${ROOT_LIB}/infra/deploy/crontab*.example avant tout changement."
+log "Crontab NON modifiée : comparer ${CRON_FILE} à ${ROOT_LIB}/infra/deploy/crontab*.example (environnement ${DIGISANTE_ENV}) avant tout changement."
