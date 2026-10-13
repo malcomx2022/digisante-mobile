@@ -57,7 +57,10 @@ async function lockStartable(tx: Prisma.TransactionClient, doctorUserId: string,
 }
 
 // READ COMMITTED : chaque lecture suivant le verrou voit le dernier état validé.
-const START_TX = { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted };
+// Budget explicite : requireProWithin (doctors FOR SHARE) peut attendre une souscription PRO
+// concurrente, qui tient doctors FOR UPDATE jusqu'à 25 s (appels FedaPay) ; le défaut Prisma
+// de 5 s transformait cette attente en 500. 30 s > 25 s : le verrou est libéré avant l'échéance.
+const START_TX = { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted, timeout: 30_000 };
 
 /**
  * Le démarrage ne renvoie pas de jeton inutilisé ; join est son seul émetteur.

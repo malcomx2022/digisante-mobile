@@ -242,6 +242,23 @@ describe.skipIf(!HAS_INFRA)('L5 — accès consultation courant', () => {
         expect(warn).toHaveBeenCalledWith({ room: createdNames()[0] }, expect.stringContaining('[Daily]'));
       } finally { warn.mockRestore(); }
     });
+    it('verrou médecin tenu plus de 5 s (souscription PRO concurrente) : le démarrage attend puis réussit', async () => {
+      // subscriptions.subscribe tient doctors FOR UPDATE pendant ses appels FedaPay (jusqu'à 25 s) ;
+      // requireProWithin (FOR SHARE) attend ce verrou dans les phases 1 et 3 du démarrage.
+      let locked!: () => void;
+      const held = new Promise<void>((resolve) => { locked = resolve; });
+      const holder = app.prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM doctors WHERE id = ${doctorId} FOR UPDATE`;
+        locked();
+        await new Promise((resolve) => setTimeout(resolve, 6_000));
+      }, { timeout: 15_000 });
+      await held;
+      const res = await startReq();
+      await holder;
+      expect(res.statusCode).toBe(201);
+      expect(await app.prisma.consultation.count({ where: { appointmentId } })).toBe(1);
+      expect(daily.deleteRoom).not.toHaveBeenCalled();
+    });
     it('deux démarrages simultanés : une consultation, une notification, salle perdante supprimée', async () => {
       let arrived = 0; let release!: () => void;
       const barrier = new Promise<void>((resolve) => { release = resolve; });
