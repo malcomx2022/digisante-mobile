@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "sourceSnapshotSha256": "9665842d0fa9dcbc182852579eecfe54c48686c15a09b67d74620128261fc74b",
+  "sourceSnapshotSha256": "f150e70c20b4a34102873ada6c0619a0ff063b0dd8e5320ce09d768e5ec49ddc",
   "sources": {
-    ".github/workflows/ci.yml": "e915c49bb847b1abd880058fbb4410f1e8a649f1a536d184d6e5f81d01ca97cf",
+    ".github/workflows/ci.yml": "b2dd66e634f137fe14200fc302536a4f5510182814f3c6996c3aaa101260526d",
     ".github/workflows/preproduction.yml": "055bf59c9c4b40c4acd8a5ddf53b94b7caafb050f37f754006b077d9d98d384c",
     "apps/api/src/services/daily.smoke.test.ts": "bc31b9d526b21e6de80f3020eeb82ef3303ea3789bf350908096800edc041b35",
     "apps/api/src/services/fedapay-s8.smoke.test.ts": "32a8c834105ebd987761923a24753e1a6304227afbe5071989b20e34c59f576c",
@@ -44,7 +44,7 @@
     "infra/deploy/scripts/provision.sh": "48aa409a87f1bb2fa7981760bad6f6b84833b1d0ac42e1ba935e4e0013f769df",
     "infra/deploy/scripts/verify_deploy.sh": "b6b4af1c426037dbb2274c9de2f34f2f3da219b516f6cff774b93b17cb293382",
     "infra/deploy/scripts/verify_restore.sh": "300a3e59ed437f921a7dd969cb582515de8895968c8a5c1170ef7a74c01f908c",
-    "package.json": "794f5e7c2e92072ef19dd261fb1338348f9908421f954e6abb8553201a94bf0d",
+    "package.json": "ba152835a501e4d65eca1d6ede2f8bbb5f7aa750590919ca30bfb8a76cb89f5e",
     "scripts/preproduction/check-backup.mjs": "3e0c6a0f7ff4d410baa015fd02d0ba934ba6c0f34f1e04dcb96c7478d56c7901",
     "scripts/preproduction/check-l10-gate.mjs": "2462aed14459f21d20011067064df07199dda54b0e77cc8b0c500cbd33927b44",
     "scripts/preproduction/fedapay-s8.d.mts": "92e323bf1c4d827e47806e80724f216b67342c774cef06a2ea064145255e40dd",

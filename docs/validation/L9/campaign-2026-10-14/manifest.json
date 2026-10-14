@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "campaignId": "L9-2026-10-14",
+  "artifacts": {
+    "campaign.json": "2dd2f7cdeb8005b711d9dd6f4ef7a5852c11362123f242aa382b69134b05d578",
+    "README.md": "e1d538deb356024202ec91e013955332d20df174d860c81ab56051fffd8afac9",
+    "clinical-cases.csv": "9084130bf8b5830f4f8f5d5afbdf6aef64302522be43bf5d6797bd1eba45a05a",
+    "clinical-scopes.csv": "2c4e4cf273fd75affb9f9291c30c2a0a6af1f3460102510331445b007abc28ad",
+    "source-questions.csv": "884434449978d13459ba7f7c7dbd6a8f195978aefec82e05de1c41f5ec991531",
+    "references.csv": "5c083235f3f2df6478f4488a7d6e1c903ecb1509bdbd52f07684e47e1d68dd1a",
+    "usability-sessions.csv": "2fad468edc0b02d21be54674f8cbc8ce37f43016c732c2d7e9918500c4f16309",
+    "ui.fon.review.csv": "d505286ca820aa8485a6623d1bc0849059adcdc2a292aae5b1af2c796fd443fe",
+    "critical.fon.review.csv": "5d594717ea19083cc32fbec4b9aadaf4d6d6643f7d488738ff73e28c53de2dc1",
+    "phrasebook.fon.review.csv": "01f87eedd8c60134509d5155534ea0b00818a245b6b8502def80b7752d064096",
+    "glossary.fon.csv": "7fe64dc9259081dc10a28e33ef0a8e09d629eb34944e08e5475fdede4880e593",
+    "ui.yor.review.csv": "1b3bacef9e73307bc2690faebbd45bd01e453313337a77e1b776e2ad90be4272",
+    "critical.yor.review.csv": "58fa73c87eba4922cd8d0f4e57bd179bc324fa1c7e4f61f760adce006fbe661b",
+    "phrasebook.yor.review.csv": "52227f4dc64be3b79446b407e4fe4b2e81c4f0ca8f68ca0b88e9573d6c6dca73",
+    "glossary.yor.csv": "2f600c8cf6f3271888495f5a3b9e11ac830ec5b7cd04ecacd033e39e1e4494df",
+    "source-snapshot.json": "2285f3e532341d085e7431348baba76c55f5f77cee31454856e8c709863a50ce",
+    "source-messages.fon.csv": "249c0b1ecdf8abcd00cffe30c5cd4a0257ad3044610393232987fabfc94c9aef",
+    "source-phrasebook.fon.csv": "7d4f6f71f95ac758cd04689c21ebcdf841bbcfed219a9f49ee811d73c15e7f2f",
+    "source-messages.yor.csv": "83dd8bcfdaca21f5b59bbdefb18373e91b06c5c6b5669c09c0fdd55689a45ab1",
+    "source-phrasebook.yor.csv": "3f1f7f9fb4aaeb336bfa2d3e56d4b58f5ffd8284316f398142140d4c0bacd5d1",
+    "source-manifest.json": "53962b075ad079363958023d081cb75730abe0999fc89df463a4aad54a830a8f",
+    "Guide_Relecteurs_L9.docx": "f8d98dbc736f6f4af91a5ed9c6615e318ec9e3eeb8dd769690b7622e1444079c",
+    "Avis_Clinique_L9.docx": "7703244d2d287d7c934669e36dcbf71973e05cd7ecbe760f7d93151c3d43455f",
+    "Avis_Linguistique_FON_L9.docx": "187cf41bd30473f6990403e437a1253528644176a0c718e52fee4bd56cf431d9",
+    "Avis_Linguistique_YOR_L9.docx": "5d76c6615b3b88b1d7c5d625287bdaea16e342d68ce4627ba66d5e4695336c2f",
+    "Dossier_Clinique_L9.docx": "466ab08b6c4b2288e2571610a0bbc6577c5c10f5bd638696d362d58456845ce5"
+  }
+}
