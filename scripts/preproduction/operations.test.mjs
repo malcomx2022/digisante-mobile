@@ -63,6 +63,8 @@ rev-parse) echo '${sha}';;
 merge-base) [[ "\u0024{WRONG_BRANCH:-0}" == 0 ]];;
 esac`);
   command('pnpm',`echo "pnpm $*" >> "$TRACE"; if [[ "\u0024{BUILD_FAIL:-0}" == 1 && "$1" == build ]]; then exit 9; fi`);
+  // deploy.sh : `corepack pnpm …` (version épinglée) ; la simulation délègue au pnpm simulé.
+  command('corepack','echo "corepack $*" >> "$TRACE"; [[ "$1" == pnpm ]] || exit 2; shift; exec pnpm "$@"');
   command('pm2',`echo "pm2 $*" >> "$TRACE"
 case "$1" in
 jlist) other='{"name":"digisante-api","pm2_env":{"status":"online"}},{"name":"digisante-web","pm2_env":{"status":"online"}}'; other="\u0024{OTHER_ENV:-$other}"
@@ -102,7 +104,7 @@ test('déploiement : SHA/maintenance/env production/change opérateur/branche ex
   const f=fixture();try {writeFileSync(join(f.env.APP_DIR,'apps/api/.env'),'NODE_ENV=test\n');assert.notEqual(f.run('deploy.sh',deployEnv).status,0);assert.doesNotMatch(f.trace(),/pnpm |pm2 /);}finally{f.clean();}
 });
 test('déploiement : anciens writers arrêtés, SHA détaché, build avant migrate, succès tracé',()=>{
-  const f=fixture();try {const r=f.run('deploy.sh',{...deployEnv,OLD_WRITERS:'1'});assert.equal(r.status,0,r.stderr+r.stdout);const t=f.trace();assert.ok(t.indexOf('pm2 stop')<t.indexOf('git switch --detach'));assert.ok(t.indexOf('pnpm build')<t.indexOf('prisma migrate deploy'));assert.ok(t.indexOf('prisma migrate deploy')<t.indexOf('pm2 startOrReload'));assert.match(readFileSync(join(f.env.LOG_DIR,'deploy_history.log'),'utf8'),/status=SUCCESS/);}finally{f.clean();}
+  const f=fixture();try {const r=f.run('deploy.sh',{...deployEnv,OLD_WRITERS:'1'});assert.equal(r.status,0,r.stderr+r.stdout);const t=f.trace();assert.ok(t.indexOf('pm2 stop')<t.indexOf('git switch --detach'));assert.ok(t.indexOf('pnpm build')<t.indexOf('prisma migrate deploy'));assert.ok(t.indexOf('prisma migrate deploy')<t.indexOf('pm2 startOrReload'));assert.match(t,/^corepack pnpm install --frozen-lockfile$/m,'pnpm épinglé (corepack), jamais le pnpm global de l’hôte');assert.match(readFileSync(join(f.env.LOG_DIR,'deploy_history.log'),'utf8'),/status=SUCCESS/);}finally{f.clean();}
 });
 test('déploiement B3 : rappel non bloquant si les scripts root installés ne sont pas au SHA déployé',()=>{
   const f=fixture();try {

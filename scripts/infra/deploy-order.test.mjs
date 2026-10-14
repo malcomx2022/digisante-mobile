@@ -57,6 +57,8 @@ function fixture() {
   mkdirSync(log); mkdirSync(bin); writeFileSync(trace, '');
   for (const [name, body] of Object.entries({
     pnpm: 'printf "pnpm %s\\n" "$*" >> "$TRACE"',
+    // deploy.sh : `corepack pnpm …` (version épinglée) ; la simulation délègue au pnpm simulé.
+    corepack: '[[ "$1" == pnpm ]] || exit 2; shift; exec pnpm "$@"',
     pm2: 'printf "pm2 %s\\n" "$*" >> "$TRACE"; [[ "$1" != jlist ]] || printf "[]\\n"',
     curl: 'printf "curl %s\\n" "$*" >> "$TRACE"; printf \'{"status":"ready","db":"up","redis":"up"}\\n\'',
   })) {

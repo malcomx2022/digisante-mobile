@@ -116,6 +116,9 @@ test('ecosystem.config.cjs : DIGISANTE_ENV obligatoire, noms/ports/journaux = pr
     assert.equal(api.env.API_PORT, p.API_PORT, `${env} : port de l’API`);
     assert.equal(api.env.API_HOST, '127.0.0.1', `${env} : API joignable hors Nginx`);
     assert.equal(api.instances, 2);
+    // Hôte partagé de 4 Go : seuil de redémarrage PM2 par processus (3 processus par environnement).
+    assert.equal(api.max_memory_restart, '512M', `${env} : plafond API`);
+    assert.equal(web.max_memory_restart, '512M', `${env} : plafond web`);
     assert.equal(web.args, `start -p ${p.WEB_PORT} -H 127.0.0.1`);
     // Chemins ABSOLUS du checkout : PM2 (cluster) ne transmet pas le cwd aux node_args, et
     // `pm2 resurrect` démarre depuis `/` — un `.env` relatif n'était jamais trouvé.
@@ -136,6 +139,7 @@ function body(text) {
   while (i < lines.length && (lines[i].startsWith('#') || lines[i].trim() === '')) i++;
   return lines.slice(i).join('\n');
 }
+const logSfx0 = (env) => (env === 'production' ? '' : '-preprod');
 const toProduction = (text, pairs) => pairs.reduce((t, [re, to]) => t.replace(re, to), text);
 
 test('Nginx : vhost préproduction = production hors marqueurs ; upstreams/ports = profil ; noms globaux préfixés', () => {
@@ -149,6 +153,7 @@ test('Nginx : vhost préproduction = production hors marqueurs ; upstreams/ports
     [/port local 3101,/g, 'port local 3201,'],
     [/preprod\.digisantemobile\.app/g, 'digisantemobile.app'],
     [/\/var\/log\/nginx\/digisante-preprod-/g, '/var/log/nginx/digisante-'],
+    [/snippets\/digisante-preprod-maintenance\[\.\]conf/g, 'snippets/digisante-maintenance[.]conf'],
   ]);
   // Production seulement : bloc www (redirection vers le nom canonique) et nom www sur :80.
   const prodCore = body(prod)
@@ -178,8 +183,21 @@ test('Nginx : vhost préproduction = production hors marqueurs ; upstreams/ports
     for (const probe of ['/api/v1/health', '/api/v1/ready']) assert.match(text, new RegExp(`location = ${probe.replace(/\//g, '\\/')} \\{\\s*\\n\\s*access_log off;`), `${env} : ${probe} sans journal`);
     // Toute location qui pose add_header ré-inclut les en-têtes de sécurité (héritage Nginx).
     for (const block of text.split(/\n    location /).slice(1)) {
-      if (/add_header/.test(block.split('\n    }')[0])) assert.match(block, /include \/etc\/nginx\/snippets\/digisante-headers\.conf;/, `${env} : en-têtes perdus dans ${block.split('\n')[0]}`);
+      if (/add_header/.test(block.split('\n    }')[0])) {
+        assert.match(block, /include \/etc\/nginx\/snippets\/digisante-headers\.conf;/, `${env} : en-têtes perdus dans ${block.split('\n')[0]}`);
+        assert.match(block, /include \/etc\/nginx\/snippets\/digisante-hsts\.conf;/, `${env} : HSTS perdu dans ${block.split('\n')[0]}`);
+      }
     }
+    // Bloc HTTPS principal : en-têtes + HSTS L8 hérités, HSTS de l'API masqué (le navigateur ne
+    // retient que le premier), maintenance facultative propre à l'environnement.
+    const main = text.split(/\nserver \{\n/).find((b) => b.includes(`server_name ${cert};`) && /listen 443 ssl;/.test(b));
+    assert.ok(main, `${env} : bloc HTTPS principal`);
+    for (const directive of ['include /etc/nginx/snippets/digisante-headers.conf;', 'include /etc/nginx/snippets/digisante-hsts.conf;', 'proxy_hide_header Strict-Transport-Security;', `include /etc/nginx/snippets/digisante${logSfx0(env)}-maintenance[.]conf;`]) {
+      assert.match(main, new RegExp(`^    ${directive.replace(/[.[\]/]/g, '\\$&')}$`, 'm'), `${env} : ${directive}`);
+    }
+    // Limitation de débit : authentification (zone stricte) et API ; WebSocket sans limite de corps.
+    assert.match(text, /location \/api\/v1\/auth\/ \{[^}]*limit_req zone=digisante_rl_auth burst=5 nodelay;/, `${env} : limite auth`);
+    assert.match(text, /location \/api\/ \{[^}]*limit_req zone=digisante_rl_api burst=20 nodelay;/, `${env} : limite API`);
     const logSfx = env === 'production' ? '' : '-preprod';
     assert.ok(text.includes(`access_log /var/log/nginx/digisante${logSfx}-access.log digisante_noquery;`), `${env} : journal d'accès`);
     for (const proxied of text.matchAll(/proxy_pass http:\/\/(\w+);/g)) assert.ok(proxied[1] in upstreams, `${env} : ${proxied[1]}`);
@@ -192,6 +210,12 @@ test('Nginx : vhost préproduction = production hors marqueurs ; upstreams/ports
   for (const [, name] of zones.matchAll(/log_format (\w+)/g)) assert.match(name, /^digisante_/, `format ${name} non préfixé`);
   const active = zones.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
   assert.doesNotMatch(active, /server_tokens|limit_req_status/, 'directive globale imposée à l’hôte partagé');
+  // HSTS L8 : 24 h, ni includeSubDomains ni preload sans qualification.
+  const hsts = read('infra/deploy/nginx/hsts-after-tls.conf').split('\n').filter((l) => !/^\s*#/.test(l) && l.trim()).join('\n');
+  assert.equal(hsts, 'add_header Strict-Transport-Security "max-age=86400" always;');
+  const headers = read('infra/deploy/nginx/digisante-headers.conf').split('\n').filter((l) => !/^\s*#/.test(l) && l.trim());
+  assert.deepEqual(headers, ['add_header X-Frame-Options "DENY" always;', 'add_header X-Content-Type-Options "nosniff" always;', 'add_header Referrer-Policy "strict-origin-when-cross-origin" always;']);
+  assert.match(prod, /server_name www\.digisantemobile\.app;[^}]*include \/etc\/nginx\/snippets\/digisante-hsts\.conf;/, 'www : HSTS');
 });
 
 test('crontabs /etc/cron.d : mêmes tâches pour les deux environnements, chemins du profil, horaires lourds décalés', () => {

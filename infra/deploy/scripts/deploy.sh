@@ -73,6 +73,11 @@ fi
 # Ne pas écraser les changements d'un opérateur ni dériver vers la tête de main.
 [[ -z "$(git status --porcelain --untracked-files=normal)" ]] || { log "ERREUR : checkout modifié ; préserver le diff avant déploiement."; exit 1; }
 [[ -d "$LOG_DIR" && -w "$LOG_DIR" ]] || { log "ERREUR : répertoire de journal non accessible."; exit 1; }
+# pnpm de la version épinglée (packageManager du dépôt) via corepack, jamais le pnpm global de
+# l'hôte partagé (autre version, celle des autres applications). Contrôlé AVANT l'arrêt PM2.
+command -v corepack >/dev/null 2>&1 || { log "ERREUR : corepack absent (Node 24) : pnpm épinglé introuvable."; exit 1; }
+# `|| return` : l'échec remonte à l'appelant, où le piège ERR trace l'échec (non hérité ici).
+pnpm() { COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack pnpm "$@" || return; }
 # Sérialiser aussi les invocations manuelles : deux candidats ne doivent pas comparer
 # leur ascendance au même ancien HEAD puis se déployer dans l'ordre inverse.
 exec 9>"$LOG_DIR/deploy.lock"
