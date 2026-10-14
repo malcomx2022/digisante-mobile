@@ -772,6 +772,8 @@ test('--verify : module filestore modifiable par autrui jamais exécuté par roo
     writeFileSync(f.t('var/www/digisante-preprod/package.json'), '{"packageManager":"pnpm@9.12.0"}\n');
     r = f.run(['--verify'], users);
     assert.match(r.stdout, /PASS  pnpm 9\.12\.0 \(corepack, cache de digisante-preprod\)/); assert.match(r.stdout, /NOTE  maintenance inactive/);
+    assert.match(r.stdout, /PASS  Node 24 \(compte digisante-preprod\)/);
+    assert.match(f.run(['--verify'], { ...users, FAKE_NODE_VERSION: 'v22.11.0' }).stdout, /FAIL  Node 24 introuvable pour digisante-preprod/);
     writeFileSync(f.t('etc/nginx/snippets/digisante-preprod-maintenance.conf'), 'return 503;\n');
     r = f.run(['--verify'], { ...users, FAKE_PNPM_VERSION: '10.0.0' });
     assert.match(r.stdout, /FAIL  corepack pnpm → 10\.0\.0 \(≠ 9\.12\.0\)/); assert.match(r.stdout, /NOTE  maintenance ACTIVE/);

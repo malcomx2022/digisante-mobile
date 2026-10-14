@@ -850,7 +850,8 @@ verify_all() {
     valkey_eviction_check
   else note "VALKEY_PASSWORD absent : index Valkey non vérifié"; fi
   # Runtime.
-  if [[ "$(node -v 2>/dev/null | sed -n 's/^v\([0-9]*\)\..*/\1/p')" == "$NODE_MAJOR" ]]; then pass "Node ${NODE_MAJOR}"; else fail "Node ≠ ${NODE_MAJOR}"; fi
+  # Node du COMPTE applicatif (PM2, deploy.sh) : un Node réservé à root (nvm sous /root) ne lui sert à rien.
+  if [[ "$(as_user "$APP_USER" node -v 2>/dev/null | sed -n 's/^v\([0-9]*\)\..*/\1/p')" == "$NODE_MAJOR" ]]; then pass "Node ${NODE_MAJOR} (compte ${APP_USER})"; else fail "Node ${NODE_MAJOR} introuvable pour ${APP_USER} (Node de root seulement ?)"; fi
   if systemctl is-enabled "pm2-${APP_USER}" >/dev/null 2>&1; then pass "service pm2-${APP_USER} activé"; else fail "service pm2-${APP_USER} non activé"; fi
   # pnpm de deploy.sh : `corepack pnpm` dans le checkout, depuis le cache (aucun téléchargement ici).
   if [[ -f "$(F "${APP_DIR}/package.json")" ]]; then

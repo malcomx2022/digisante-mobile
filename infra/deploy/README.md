@@ -141,6 +141,8 @@ Le dry-run les évalue, mais elles exigent l'accès à l'hôte et ne sont **pas*
    d'Ubuntu sur 80), sinon le dry-run échoue si DigiSanté devenait le serveur de repli ; `nginx -t` vert AVANT
    intervention.
 7. **Ports** : `ss -ltnp` — 3100/3101/3200/3201 libres ; 3000 (ImmiPro) et 3001 (Grafana) jamais touchés.
+   **Node 24** installé pour tout l'hôte (`/usr/bin/node`, pas un `nvm` réservé à root) : PM2 et `deploy.sh`
+   tournent sous le compte applicatif (`--verify` le contrôle sous ce compte).
 8. **Fuseau** (`timedatectl`) : `Africa/Porto-Novo` attendu par `verify_deploy.sh` ; décision du porteur si
    l'hôte partagé est sur un autre fuseau (résiduel 3).
 9. **Sauvegarde préalable de la configuration de l'hôte** (`/etc/nginx`, `/etc/cron.d`, `/etc/logrotate.d`,
