@@ -21,7 +21,12 @@ test('un laboratoire prépare son dossier et accède aux demandes après revue a
     await page.getByLabel('Numéro d’autorisation d’exercice').fill('BJ-LAB-E2E');
     await page.getByRole('button', { name: 'Enregistrer la structure' }).click();
     const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+    // La page ignore un fichier déposé pendant une action en cours (enregistrement, dépôt précédent) :
+    // « Ajouter une pièce » est alors désactivé. setInputFiles contourne ce bouton, donc attendre qu'il
+    // soit réactivé, comme un utilisateur — la base peut avoir reçu la pièce avant la fin de l'action.
+    const addDocument = page.getByRole('button', { name: 'Ajouter une pièce' });
     for (const type of ['NATIONAL_ID', 'PRACTICE_LICENSE']) {
+      await expect(addDocument).toBeEnabled();
       await page.getByLabel('Type de pièce').selectOption(type);
       await page.locator('input[type=file]').setInputFiles({ name: `${type}.png`, mimeType: 'image/png', buffer: png });
       await expect.poll(async () => prisma.kycDocument.count({ where: { submission: { userId: labUserId }, type: type as 'NATIONAL_ID' | 'PRACTICE_LICENSE' } })).toBe(1);
