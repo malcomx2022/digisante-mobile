@@ -9,6 +9,8 @@ Offline-first · multilingue (FR, EN, Fɔ̀ngbè, Yorùbá) · téléconsultatio
 
 > L1 : échéances et auteurs DMP côté serveur, [revue](./docs/REVUE_L1_2026-10.md). Migration additive `20261006144830_dmp_entry_expiry_authorship` : les liens historiques non prouvés restent fermés jusqu’à une nouvelle réclamation valide ; anciens auteurs inconnus conservés. Procédure de maintenance et limites de reprise dans la fiche L1.
 
+> Revue complète du 14 octobre 2026 : [constats et corrections](docs/REVUE_Complete_Codex_2026-10-14.md), [fiche de reprise Claude/Codex](docs/suivi/LOT_Revue_2026-10-14.md), [L11 ouvert](docs/suivi/LOT_L11.md). Candidate en revue ; aucune ouverture production attestée.
+
 ## Architecture
 
 Monorepo **pnpm** :

@@ -17,19 +17,42 @@ import { sortByPriority } from './notifications.priority.js';
 /** Envoie une notification via son canal, dans la langue du destinataire. */
 async function deliver(
   app: FastifyInstance,
-  n: { id: string; recipientId: string; type: NotificationType; channel: string; title: string; body: string; recipient: { phone: string; email: string | null; fcmToken: string | null; lang: Lang } },
+  n: { id: string; recipientId: string; type: NotificationType; channel: string; title: string; body: string; recipient: { phone: string; email: string | null; lang: Lang } },
 ) {
   const content = localize(n.type, n.recipient.lang, { title: n.title, body: n.body });
 
   let delivered = false;
   switch (n.channel) {
     case 'PUSH_FCM': {
-      const push = await sendPush({ app, token: n.recipient.fcmToken, title: content.title, body: content.body });
+      // La liaison peut avoir été retirée (logout/changement de compte) depuis
+      // le chargement du lot. Relire avant chaque push ; un
+      // message déjà transmis au fournisseur ne peut toutefois pas être rappelé.
+      const recipient = await app.prisma.user.findUnique({
+        where: { id: n.recipientId }, select: { fcmToken: true },
+      });
+      const token = recipient?.fcmToken ?? null;
+      if (token) {
+        // Les anciennes versions ont pu garder plusieurs propriétaires. Refus
+        // fermé tant que la réinscription n'a pas résolu cette liaison ambiguë.
+        const owners = await app.prisma.user.findMany({
+          where: { fcmToken: token }, select: { id: true }, take: 2,
+        });
+        if (owners.length !== 1 || owners[0]!.id !== n.recipientId) {
+          app.log.warn({ userId: n.recipientId }, '[FCM] liaison d’appareil ambiguë ou retirée — push ignoré');
+          return false;
+        }
+      }
+      const push = await sendPush({ app, token, title: content.title, body: content.body });
       delivered = push.delivered;
       // Token périmé / appareil désinstallé : on le purge pour ne plus réessayer.
-      if (push.invalidToken) {
-        await app.prisma.user.update({ where: { id: n.recipientId }, data: { fcmToken: null } }).catch(() => {});
-        app.log.warn({ userId: n.recipientId }, '[FCM] token d’appareil invalide retiré');
+      if (push.invalidToken && token) {
+        // Une réponse fournisseur tardive ne doit jamais effacer un token tourné.
+        const removed = await app.prisma.user.updateMany({
+          where: { id: n.recipientId, fcmToken: token }, data: { fcmToken: null },
+        }).catch(() => null);
+        if (removed?.count) {
+          app.log.warn({ userId: n.recipientId }, '[FCM] token d’appareil invalide retiré');
+        }
       }
       break;
     }
@@ -56,7 +79,7 @@ export async function dispatchPending(app: FastifyInstance, limit = 100) {
   const pending = await app.prisma.notification.findMany({
     where: { status: 'PENDING', OR: [{ scheduledAt: null }, { scheduledAt: { lte: now } }] },
     take: limit,
-    include: { recipient: { select: { phone: true, email: true, fcmToken: true, lang: true } } },
+    include: { recipient: { select: { phone: true, email: true, lang: true } } },
   });
 
   const ordered = sortByPriority(pending);

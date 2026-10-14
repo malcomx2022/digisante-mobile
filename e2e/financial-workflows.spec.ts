@@ -26,8 +26,9 @@ test('revenus PRO et CSV réels isolés, reçu explicitement non fiscal', async 
     const patient = await prisma.user.create({ data: { phone: uniquePhone(), role: 'PATIENT', status: 'ACTIVE', patient: { create: {} }, wallet: { create: { balance: 30000 } } }, include: { patient: true } }); ids.push(patient.id);
     const headers = await login(request, patient.phone); const payments: string[] = [];
     for (const doctorId of [doctor.doctor!.id, other.doctor!.id]) {
-      const appointment = await prisma.appointment.create({ data: { patientId: patient.patient!.id, doctorId, type: 'PHYSICAL', status: 'COMPLETED', scheduledAt: new Date() } });
+      const appointment = await prisma.appointment.create({ data: { patientId: patient.patient!.id, doctorId, type: 'PHYSICAL', status: 'CONFIRMED', scheduledAt: new Date() } });
       const paid = await request.post(`${WEB}/api/v1/payments`, { headers, data: { type: 'CONSULTATION', method: 'WALLET', appointmentId: appointment.id, amount: 1 } }); expect(paid.status()).toBe(201); payments.push((await paid.json()).payment.id);
+      await prisma.appointment.update({ where: { id: appointment.id }, data: { status: 'COMPLETED' } });
     }
     await page.reload();
     await expect(page.locator('dl > div').filter({ has: page.getByText('Montants confirmés', { exact: true }) })).toContainText(/3\s*000 FCFA/);
@@ -49,8 +50,9 @@ test('finance admin : réservation, prise en charge et preuve sans transfert ext
     const doctor = await prisma.user.create({ data: { phone: uniquePhone(), role: 'MEDECIN', status: 'ACTIVE', doctor: { create: { speciality: 'G', licenseNumber: randomUUID(), consultFee: 3000, verifiedAt: new Date() } } }, include: { doctor: true } }); ids.push(doctor.id);
     const patient = await prisma.user.create({ data: { phone: uniquePhone(), role: 'PATIENT', status: 'ACTIVE', patient: { create: {} }, wallet: { create: { balance: 10000 } } }, include: { patient: true } }); ids.push(patient.id);
     const headers = await login(request, patient.phone);
-    const appointment = await prisma.appointment.create({ data: { patientId: patient.patient!.id, doctorId: doctor.doctor!.id, type: 'PHYSICAL', status: 'COMPLETED', scheduledAt: new Date() } });
+    const appointment = await prisma.appointment.create({ data: { patientId: patient.patient!.id, doctorId: doctor.doctor!.id, type: 'PHYSICAL', status: 'CONFIRMED', scheduledAt: new Date() } });
     const res = await request.post(`${WEB}/api/v1/payments`, { headers, data: { type: 'CONSULTATION', method: 'WALLET', appointmentId: appointment.id } }); expect(res.status()).toBe(201); const paymentId = (await res.json()).payment.id;
+    await prisma.appointment.update({ where: { id: appointment.id }, data: { status: 'COMPLETED' } });
     await page.goto('/admin/finance');
     // Le profil optimiste peut rediriger une fois après la promotion de rôle.
     // Attendre la navigation ADMIN issue du refresh, puis utiliser son lien réel.

@@ -241,6 +241,44 @@ sudo -u digisante-preprod DEPLOY_REF=<SHA_COMPLET_QUALIFIE> DEPLOY_ENVIRONMENT=p
 # Prod (depuis /var/www/digisante) : sudo -u digisante DEPLOY_REF=<SHA> DEPLOY_ENVIRONMENT=production DEPLOY_MAINTENANCE_READY=1 bash infra/deploy/scripts/deploy.sh
 ```
 
+Le déploiement accepte le SHA courant ou un descendant de ce checkout. Une CI ancienne
+terminée après une version plus récente est refusée **avant l'arrêt PM2, le checkout et
+les migrations**. Le verrou `deploy.lock` dans le répertoire de journaux de l'environnement
+refuse aussi une invocation manuelle concurrente.
+
+Avant l'arrêt PM2 ou une migration, le `.env` API doit cibler les services locaux du
+profil : rôle/base PostgreSQL `digisante_preprod` et Valkey `/5` en préproduction,
+`digisante` et `/6` en production (ports 5432/6379, schéma `public`). Les mots de passe
+URL-encodés restent acceptés. Une variable héritée `NODE_ENV`, `DATABASE_URL` ou
+`REDIS_URL` différente du fichier est refusée ; aucune valeur secrète n'est affichée.
+
+Pour un retour manuel à un **ancêtre** du checkout courant, qualifier la version et
+vérifier sa compatibilité avec le schéma ; si des migrations incompatibles ont été
+appliquées, restaurer base **et** fichiers selon `docs/SUIVI_B5_Restauration_2026-09.md`.
+La maintenance reste obligatoire et aucune migration n'est annulée par le script :
+
+```bash
+sudo -u digisante-preprod DEPLOY_REF=<SHA_ANCESTRE_QUALIFIE> DEPLOY_ENVIRONMENT=preproduction \
+  DEPLOY_MAINTENANCE_READY=1 DEPLOY_ALLOW_ROLLBACK=1 bash infra/deploy/scripts/deploy.sh
+```
+
+Une cible divergente est refusée même avec `DEPLOY_ALLOW_ROLLBACK=1`. Les workflows CI
+ne posent jamais ce drapeau de retour manuel.
+
+Les workflows récupèrent `main`, relèvent son SHA exact `MAIN_SHA`, puis extraient
+`deploy.sh` de **ce SHA d'outillage**. `DEPLOY_REF` reste le SHA applicatif qualifié ;
+les deux références sont conservées dans le journal Actions et l'historique local
+(`tooling=<SHA>` ; lancement manuel : `tooling=manual`). Ainsi une candidate historique
+ne choisit pas son ancienne version de la garde.
+
+**Installation de cette garde sur une cible existante** : maintenir les gates
+`DEPLOY_ENABLED` et `PREPROD_DEPLOY_ENABLED` désactivés, annuler les anciens jobs
+de déploiement en attente/en cours puis confirmer leur fin avant le premier lancement
+du workflow mis à jour. GitHub conserve la définition d'un workflow déjà déclenché :
+ces anciens jobs peuvent encore extraire le script historique, et la nouvelle garde
+ne les protège pas rétroactivement. Pour une invocation manuelle, utiliser le script
+actuel de `main` depuis un emplacement relu, et garder la candidate dans `DEPLOY_REF`.
+
 ### 3 bis. Après CHAQUE déploiement : scripts exécutés par root (B3)
 
 `deploy.sh` tourne sous l'utilisateur de l'environnement et ne peut pas (ne doit pas) mettre à jour la copie

@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────────────────────
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, chownSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, chownSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { tmpdir, userInfo } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -20,8 +20,10 @@ const ROOT_LIST = readFileSync(resolve(ROOT, 'infra/deploy/root-scripts.list'), 
   .map((l) => /^(0755|0644) (\S+)$/.exec(l)).filter(Boolean).map((m) => ({ mode: parseInt(m[1], 8), path: m[2] }));
 const ME = userInfo().username;
 const UID = process.getuid();
+const REAL_STAT = spawnSync('bash', ['-c', 'command -v stat'], { encoding: 'utf8' }).stdout.trim();
 // Compte applicatif simulé : jamais root (filestore-dir.mjs refuse un magasin de root) ; en root, `nobody`.
 const APP_UID = UID === 0 ? 65534 : UID;
+const STORE_IDS = ['00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000003'];
 
 const ENVS = {
   preproduction: { site: 'digisante-preprod', lib: '/usr/local/lib/digisante-preprod', app: 'digisante-preprod', db: 'digisante_preprod', idx: 5, ports: [3100, 3101] },
@@ -30,6 +32,12 @@ const ENVS = {
 
 /** Commandes simulées : chaque appel est tracé ; le comportement suit des variables FAKE_*. */
 const FAKES = {
+  // Certains exécuteurs mappent root vers nobody pour / et /tmp. Normaliser ces
+  // deux ancêtres extérieurs à la fixture, sans changer leurs modes ni les fichiers testés.
+  stat: `p="\${@: -1}"
+if [[ "$1" == -c && "$2" == '%u %a' && ( "$p" == / || "$p" == "$FAKE_ROOT_PARENT" ) ]]; then
+  printf '0 %s\\n' "$("$REAL_STAT" -c %a -- "$p")"
+else exec "$REAL_STAT" "$@"; fi`,
   id: `u="\${@: -1}"; line="$(printf '%s\\n' "\${FAKE_USERS:-}" | tr ';' '\\n' | grep "^$u:" || true)"
 [[ -n "$line" ]] || exit 1
 IFS=: read -r _ uid gid groups <<<"$line"
@@ -42,7 +50,7 @@ esac`,
 LISTEN 0 4096 127.0.0.1:3001 0.0.0.0:* users:((\\"grafana\\",pid=4200,fd=8))}"`,
   ps: `pid="\${@: -1}"; printf '%s\\n' "\${FAKE_PS:-4100:immipro;4200:grafana}" | tr ';' '\\n' | sed -n "s/^$pid://p"`,
   sudo: `args=(); while [[ "$1" == -* && "$1" != -- ]]; do case "$1" in -u) echo "sudo-as $2" >> "$TRACE"; shift 2;; *) shift;; esac; done; [[ "$1" == -- ]] && shift; exec "$@"`,
-  psql: `sql=""; prev=""; for a in "$@"; do [[ "$prev" == -c ]] && sql="$a"; prev="$a"; done
+  psql: `sql=""; db=""; prev=""; for a in "$@"; do [[ "$prev" == -c ]] && sql="$a"; [[ "$prev" == -d ]] && db="$a"; prev="$a"; done
 if [[ -z "$sql" ]]; then sql="$(cat)"; echo "psql-stdin $(tr '\\n' ' ' <<<"$sql")" >> "$TRACE"; exit 0; fi
 case "$sql" in
 *server_version_num*) echo "\${FAKE_PG_VERSION:-180006}";;
@@ -52,7 +60,15 @@ case "$sql" in
 *"SELECT 1 FROM pg_database"*) [[ -n "\${FAKE_PG_DB_OWNER:-}" ]] && echo 1;;
 *pg_hba_file_rules*) echo "\${FAKE_PG_HBA:-1}";;
 *has_database_privilege*) echo "\${FAKE_PG_PUBLIC:-f}";;
-*kyc_documents*) [[ -n "\${FAKE_PG_REFS:-}" ]] && echo "$FAKE_PG_REFS" || exit 1;;
+*to_regclass*)
+  echo "psql-files-db $db" >> "$TRACE"
+  [[ "$db" == "$FAKE_APP_DB" && "\${FAKE_PG_QUERY_FAILURE:-}" != tables ]] || exit 1
+  echo "\${FAKE_PG_TABLES:-2}";;
+*kyc_documents*)
+  echo "psql-files-db $db" >> "$TRACE"
+  [[ "$db" == "$FAKE_APP_DB" ]] || exit 1
+  [[ "\${FAKE_PG_QUERY_FAILURE:-}" != refs ]] || exit 1
+  printf '%s' "\${FAKE_PG_REF_IDS:-}";;
 *) echo "psql-c $sql" >> "$TRACE";;
 esac
 exit 0`,
@@ -101,8 +117,9 @@ function fixture(env = 'preproduction', { osVersion = '26.04', fakeInstall = fal
   const trace = t('trace.log'); writeFileSync(trace, '');
   const baseEnv = {
     PATH: `${bin}:${process.env.PATH}`, HOME: process.env.HOME ?? '/root', TRACE: trace, REAL_NODE: process.execPath,
+    REAL_STAT, FAKE_ROOT_PARENT: dirname(dir),
     PROVISION_TEST_ROOT: dir, DIGISANTE_ENV: env, VALKEY_PASSWORD: VALKEY_SECRET, FAKE_VALKEY_PASS: VALKEY_SECRET,
-    PG_APP_PASSWORD: PG_SECRET, LETSENCRYPT_EMAIL: 'ops@example.invalid',
+    PG_APP_PASSWORD: PG_SECRET, LETSENCRYPT_EMAIL: 'ops@example.invalid', FAKE_APP_DB: e.db,
   };
   const run = (args = [], extra = {}) => spawnSync('bash', [t(join(e.lib, SCRIPT_REL)), ...args], { env: { ...baseEnv, ...extra }, encoding: 'utf8', timeout: 30_000 });
   const tree = () => {
@@ -140,6 +157,59 @@ test('dry-run préproduction : gardes vertes, plan complet, AUCUNE écriture ni 
     assert.deepEqual(f.tree(), before, 'le dry-run a écrit dans l’arborescence');
     for (const secret of [PG_SECRET, VALKEY_SECRET]) { assert.ok(!out.includes(secret), 'secret affiché'); assert.ok(!f.trace().includes(secret), 'secret en argument'); }
     assert.doesNotMatch(out, /127\.0\.0\.1:300[01]/);
+  } finally { f.clean(); }
+});
+
+test('B4 --verify : un fichier orphelin ne compense pas une référence absente, un lien ou un répertoire', () => {
+  const f = fixture();
+  try {
+    const api = f.t('var/www/digisante-preprod/apps/api'); mkdirSync(api, { recursive: true });
+    const store = f.t('var/lib/digisante-preprod-files'); mkdirSync(store, { recursive: true }); chmodSync(store, 0o700);
+    if (UID === 0) chownSync(store, APP_UID, APP_UID);
+    writeFileSync(join(api, '.env'), `KYC_STORAGE_DIR="${store}"\n`);
+    const ref = STORE_IDS[0];
+    const orphan = STORE_IDS[1];
+    const extra = { FAKE_USERS: `digisante-preprod:${APP_UID}:${APP_UID}:digisante-preprod sshusers`, FAKE_PG_REF_IDS: ref };
+    writeFileSync(join(store, `${orphan}.bin`), 'orphan');
+    let r = f.run(['--verify'], extra);
+    assert.match(r.stdout, /FAIL  B4 : 1 fichier\(s\) référencé\(s\) absent\(s\) ou non ordinaire\(s\) sur 1/);
+    symlinkSync(join(store, `${orphan}.bin`), join(store, `${ref}.bin`));
+    r = f.run(['--verify'], extra);
+    assert.match(r.stdout, /FAIL  B4 : 1 fichier\(s\) référencé\(s\) absent\(s\) ou non ordinaire\(s\) sur 1/);
+    rmSync(join(store, `${ref}.bin`)); mkdirSync(join(store, `${ref}.bin`));
+    r = f.run(['--verify'], extra);
+    assert.match(r.stdout, /FAIL  B4 : 1 fichier\(s\) référencé\(s\) absent\(s\) ou non ordinaire\(s\) sur 1/);
+    rmSync(join(store, `${ref}.bin`), { recursive: true }); writeFileSync(join(store, `${ref}.bin`), 'present');
+    r = f.run(['--verify'], extra);
+    assert.match(r.stdout, /PASS  B4 : 1 référence\(s\) du magasin vérifiée\(s\), aucun fichier manquant/);
+    assert.doesNotMatch(r.stdout + r.stderr, new RegExp(STORE_IDS.join('|')), 'identifiants de pièces affichés');
+    assert.doesNotMatch(f.trace(), MUTATING);
+  } finally { f.clean(); }
+});
+
+test('B4 --verify : seules les deux tables absentes reportent la comparaison ; erreur SQL ou schéma partiel ⇒ FAIL', () => {
+  const f = fixture();
+  try {
+    const api = f.t('var/www/digisante-preprod/apps/api'); mkdirSync(api, { recursive: true });
+    const store = f.t('var/lib/digisante-preprod-files'); mkdirSync(store, { recursive: true }); chmodSync(store, 0o700);
+    if (UID === 0) chownSync(store, APP_UID, APP_UID);
+    writeFileSync(join(api, '.env'), `KYC_STORAGE_DIR="${store}"\n`);
+    const users = { FAKE_USERS: `digisante-preprod:${APP_UID}:${APP_UID}:digisante-preprod sshusers` };
+    let r = f.run(['--verify'], { ...users, FAKE_PG_TABLES: '0' });
+    assert.match(r.stdout, /NOTE  B4 : base digisante_preprod sans tables applicatives \(avant migration\) : comparaison des fichiers reportée/);
+    for (const [extra, message] of [
+      [{ FAKE_PG_TABLES: '1' }, /FAIL  B4 : tables applicatives incomplètes dans digisante_preprod/],
+      [{ FAKE_PG_QUERY_FAILURE: 'tables' }, /FAIL  B4 : lecture des tables applicatives impossible dans digisante_preprod/],
+      [{ FAKE_PG_QUERY_FAILURE: 'refs' }, /FAIL  B4 : lecture des références de fichiers impossible dans digisante_preprod/],
+      [{ FAKE_PG_REF_IDS: '../../outside-store' }, /FAIL  B4 : résultat des références de fichiers invalide dans digisante_preprod/],
+    ]) {
+      r = f.run(['--verify'], { ...users, ...extra });
+      assert.match(r.stdout, message, r.stdout + r.stderr);
+      assert.doesNotMatch(r.stdout, /comparaison des fichiers reportée/);
+    }
+    r = f.run(['--verify'], users);
+    assert.match(r.stdout, /PASS  B4 : 0 référence\(s\) du magasin vérifiée\(s\), aucun fichier manquant/);
+    assert.doesNotMatch(f.trace(), MUTATING);
   } finally { f.clean(); }
 });
 
@@ -284,18 +354,38 @@ test('B4 --verify : KYC_STORAGE_DIR absolu exigé, magasin du compte applicatif,
     let r = f.run(['--verify'], users);
     assert.match(r.stdout, /FAIL  B4 : KYC_STORAGE_DIR doit être un chemin ABSOLU/);
     writeFileSync(envFile, `KYC_STORAGE_DIR="${store}"\n`);
-    r = f.run(['--verify'], { ...users, FAKE_PG_REFS: '3' });
+    r = f.run(['--verify'], { ...users, FAKE_PG_REF_IDS: STORE_IDS.join('\n') });
     assert.match(r.stdout, /PASS  B4 : magasin KYC .*digisante-preprod-files \(absolu, digisante-preprod/);
-    assert.match(r.stdout, /FAIL  B4 : 3 fichiers référencés, 0 présents dans le magasin/);
-    for (const id of ['00000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000003']) writeFileSync(join(store, `${id}.bin`), 'x');
-    r = f.run(['--verify'], { ...users, FAKE_PG_REFS: '3' });
-    assert.match(r.stdout, /PASS  B4 : files_count=3 ≥ références=3/);
+    assert.match(r.stdout, /FAIL  B4 : 3 fichier\(s\) référencé\(s\) absent\(s\) ou non ordinaire\(s\) sur 3/);
+    for (const id of STORE_IDS) writeFileSync(join(store, `${id}.bin`), 'x');
+    r = f.run(['--verify'], { ...users, FAKE_PG_REF_IDS: STORE_IDS.join('\n') });
+    assert.match(r.stdout, /PASS  B4 : 3 référence\(s\) du magasin vérifiée\(s\), aucun fichier manquant/);
     // Magasin ouvert en écriture au groupe/autres : refusé par le même module que la sauvegarde.
     chmodSync(store, 0o770);
-    r = f.run(['--verify'], { ...users, FAKE_PG_REFS: '3' });
+    r = f.run(['--verify'], { ...users, FAKE_PG_REF_IDS: STORE_IDS.join('\n') });
     assert.match(r.stdout, /FAIL  B4 : magasin KYC refusé/);
     assert.notEqual(r.status, 0);
   } finally { f.clean(); }
+});
+
+test('B4 --verify interroge les fichiers dans la base applicative de chaque environnement, jamais postgres', () => {
+  for (const env of ['preproduction', 'production']) {
+    const f = fixture(env);
+    try {
+      const api = f.t(`var/www/${f.e.app}/apps/api`); mkdirSync(api, { recursive: true });
+      const store = f.t(`var/lib/${f.e.app}-files`); mkdirSync(store, { recursive: true }); chmodSync(store, 0o700);
+      if (UID === 0) chownSync(store, APP_UID, APP_UID);
+      writeFileSync(join(api, '.env'), `KYC_STORAGE_DIR="${store}"\n`);
+      const r = f.run(['--verify'], {
+        FAKE_USERS: `${f.e.app}:${APP_UID}:${APP_UID}:${f.e.app} sshusers`, FAKE_PG_REF_IDS: STORE_IDS[0],
+      });
+      assert.match(f.trace(), new RegExp(`^psql-files-db ${f.e.db}$`, 'm'), f.trace());
+      assert.doesNotMatch(f.trace(), /^psql-files-db postgres$/m);
+      assert.match(r.stdout, /FAIL  B4 : 1 fichier\(s\) référencé\(s\) absent\(s\) ou non ordinaire\(s\) sur 1/);
+      assert.doesNotMatch(r.stdout, /comparaison des fichiers reportée/);
+      assert.doesNotMatch(f.trace(), MUTATING);
+    } finally { f.clean(); }
+  }
 });
 
 test('--apply : secrets requis contrôlés AVANT toute écriture ; mot de passe PG par \\getenv (stdin), Valkey par l’environnement', () => {

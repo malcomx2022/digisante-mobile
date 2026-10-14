@@ -61,7 +61,11 @@ jobs:
             # Checkout de préproduction sur l'hôte IONOS partagé (= APP_DIR du profil preproduction).
             cd /var/www/digisante-preprod
             git fetch origin main
+            # L'outillage de contrôle vient du main récupéré ; le code applicatif
+            # reste exactement celui de la candidate qualifiée ci-dessus.
+            MAIN_SHA="$(git rev-parse --verify 'origin/main^{commit}')"
+            printf 'Outillage de déploiement : main %s\n' "$MAIN_SHA"
             deploy_script=$(mktemp)
             trap 'rm -f "$deploy_script"' EXIT
-            git show "$CANDIDATE_SHA:infra/deploy/scripts/deploy.sh" > "$deploy_script"
-            DEPLOY_REF="$CANDIDATE_SHA" DEPLOY_ENVIRONMENT=preproduction DEPLOY_MAINTENANCE_READY=1 bash "$deploy_script"
+            git show "$MAIN_SHA:infra/deploy/scripts/deploy.sh" > "$deploy_script"
+            DEPLOY_TOOLING_SHA="$MAIN_SHA" DEPLOY_REF="$CANDIDATE_SHA" DEPLOY_ENVIRONMENT=preproduction DEPLOY_MAINTENANCE_READY=1 bash "$deploy_script"

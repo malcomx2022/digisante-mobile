@@ -76,6 +76,12 @@ Le plan actif détaille contrats, dépendances, fichiers de départ, migrations,
 
 ---
 
+## Reprise après revue complète — 14 octobre 2026
+
+Lire `docs/REVUE_Complete_Codex_2026-10-14.md` et `docs/suivi/LOT_Revue_2026-10-14.md` avant la prochaine édition. Candidate sur `codex/full-review-2026-10-14` depuis `b974080` : protections KYC/FCM/pharmacie/sessions/patients, atomisation annulation-remboursement §5, échéances/statistiques/anomalies finances et contrôle déploiement/provisioning. Conserver les invariants ajoutés dans CLAUDE.md ; tests simulés et preuves externes distincts.
+
+Ancien instantané L9 archivé sans approbation ni réécriture de pièce signée ; nouveau dossier technique non signé à relire. Après fusion, requalifier SHA CI/L10. Dérouler la fiche L11 sur appareils/cibles autorisés, avec pièces privées et signatures ; aucune ouverture automatique.
+
 ## PHASE 0 — Préparation & socle
 
 ### P0.1 — Cadrage et audit du squelette

@@ -11,12 +11,13 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const SYNTHETIC_TOKEN = 'synthetic-reconcile-token-0000';
+const REAL_STAT = spawnSync('bash', ['-c', 'command -v stat'], { encoding: 'utf8' }).stdout.trim();
 
 function fixture({ code, body }) {
   const dir = mkdtempSync(join(tmpdir(), 'digisante-reconcile-'));
@@ -31,6 +32,12 @@ function fixture({ code, body }) {
     writeFileSync(path, `#!/bin/bash\nset -euo pipefail\n${script}\n`);
     chmodSync(path, 0o755);
   };
+  // Certains exécuteurs mappent root vers nobody pour / et /tmp. Normaliser ces
+  // deux ancêtres extérieurs à la fixture ; leurs modes et les fichiers testés restent réels.
+  command('stat', `p="\${@: -1}"
+if [[ "$1" == -c && "$2" == '%u %a' && ( "$p" == / || "$p" == "$FAKE_ROOT_PARENT" ) ]]; then
+  printf '0 %s\\n' "$("$REAL_STAT" -c %a -- "$p")"
+else exec "$REAL_STAT" "$@"; fi`);
   // Faux curl : réponse de /payments/reconcile (code + corps) ; /ready toujours prêt.
   command('curl', `printf '%s\\n' "$*" >> "$ARGV_TRACE"
 out=""; url=""
@@ -50,6 +57,8 @@ else echo '{"status":"ready","db":"up","redis":"up"}'; fi`);
   const env = {
     ...process.env,
     PATH: `${bin}:${process.env.PATH}`,
+    REAL_STAT,
+    FAKE_ROOT_PARENT: dirname(dir),
     // Profil d'environnement obligatoire ; la copie exécutée est ici le checkout.
     DIGISANTE_ENV: 'preproduction',
     ROOT_LIB: ROOT,

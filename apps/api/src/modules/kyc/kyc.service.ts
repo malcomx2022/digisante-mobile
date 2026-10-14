@@ -220,6 +220,16 @@ export async function reviewSubmission(
   const checklist = { ...(input.checklist ?? {}), cnom };
 
   await app.prisma.$transaction(async (tx) => {
+    // Même ordre que le KYC laboratoire : compte, puis dossier/badge/audit.
+    // Une suspension gagnante doit rester effective, même si la revue avait
+    // commencé avant elle ou si le reviewer ne porte que le scope kyc:review.
+    await tx.$queryRaw`SELECT id FROM users WHERE id = ${submission.user.id} FOR UPDATE`;
+    const account = await tx.user.findUnique({ where: { id: submission.user.id }, select: { role: true, status: true } });
+    if (!account || account.role !== submission.user.role || !['MEDECIN', 'PHARMACIE'].includes(account.role)) {
+      throw forbidden('Profil professionnel courant requis');
+    }
+    if (account.status === 'SUSPENDED') throw forbidden('Réactivation administrative préalable requise');
+
     // Transition CONDITIONNELLE : deux admins concurrents ne peuvent pas laisser un
     // dossier REJECTED avec un badge posé (seule la première décision gagne).
     const decided = await tx.kycSubmission.updateMany({

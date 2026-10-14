@@ -21,12 +21,16 @@ import {
   parseFedapayTransactionId,
   verifyWebhookSignature,
 } from '@/services/fedapay.js';
-import { assertRefundNotReserved, captureWithin, refundFinanceWithin } from './finance.effects.js';
+import { assertRefundNotReserved, captureWithin, lockFinance, refundFinanceWithin } from './finance.effects.js';
 
 type ResolvableStatus = 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'PROCESSING';
 
 /** Statuts terminaux : un paiement qui les atteint n'est plus jamais retraité. */
 const TERMINAL_STATUSES = ['COMPLETED', 'FAILED', 'REFUNDED', 'CANCELLED'] as const;
+
+// Une souscription PRO concurrente garde User/Doctor jusqu'à 25 s ; ces phases
+// locales doivent pouvoir attendre ses verrous, sans appel fournisseur en transaction.
+const PAYMENT_TX = { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted, timeout: 30_000 };
 
 /**
  * Applique un statut résolu à un paiement, de façon IDEMPOTENTE, avec les effets
@@ -92,7 +96,18 @@ export async function refund(
   paymentId: string,
   opts: { actorId: string; ip?: string | null; reason?: string },
 ): Promise<{ idempotent: true; status: string } | { refunded: true; status: string }> {
-  const payment = await app.prisma.payment.findUnique({
+  return app.prisma.$transaction((tx) => refundWithin(tx, paymentId, opts), PAYMENT_TX);
+}
+
+/** Même reversal interne, dans la transaction de l'appelant (annulation du RDV). */
+export async function refundWithin(
+  tx: Prisma.TransactionClient,
+  paymentId: string,
+  opts: { actorId: string; ip?: string | null; reason?: string },
+): Promise<{ idempotent: true; status: string } | { refunded: true; status: string }> {
+  // Toujours avant paiement/doctor/wallet ; l'appelant peut déjà tenir ce verrou.
+  await lockFinance(tx);
+  const payment = await tx.payment.findUnique({
     where: { id: paymentId },
     select: { id: true, userId: true, type: true, method: true, status: true, amount: true, fedapayId: true },
   });
@@ -103,30 +118,24 @@ export async function refund(
   // Transition CONDITIONNELLE COMPLETED → REFUNDED (double-clic admin, deux
   // administrateurs, annulation de RDV ∥ action admin) + reversal dans la même
   // transaction : un seul remboursement effectif, jamais de double reversal.
-  const refundWalletId = payment.type === 'WALLET_TOPUP' || payment.method === 'WALLET'
-    ? (await wallet.getOrCreateWallet(app, payment.userId)).id
-    : null;
-  const won = await app.prisma.$transaction(async (tx) => {
-    await assertRefundNotReserved(tx, payment.id);
-    const { count } = await tx.payment.updateMany({ where: { id: payment.id, status: 'COMPLETED' }, data: { status: 'REFUNDED' } });
-    if (count === 0) return false;
-    if (payment.type === 'SUBSCRIPTION') await revokeWithin(tx, payment.id);
-    if (refundWalletId) {
-      if (payment.type === 'WALLET_TOPUP') {
-        await wallet.refundWithin(tx, refundWalletId, payment.amount.toNumber(), payment.id, opts.reason ?? 'Remboursement');
-      } else {
-        await wallet.creditWithin(tx, refundWalletId, payment.amount.toNumber(), payment.id, opts.reason ?? 'Remboursement', 'REFUND_IN');
-      }
+  await assertRefundNotReserved(tx, payment.id);
+  const { count } = await tx.payment.updateMany({ where: { id: payment.id, status: 'COMPLETED' }, data: { status: 'REFUNDED' } });
+  if (count === 0) return { idempotent: true, status: 'REFUNDED' };
+  if (payment.type === 'SUBSCRIPTION') await revokeWithin(tx, payment.id);
+  if (payment.type === 'WALLET_TOPUP' || payment.method === 'WALLET') {
+    const refundWallet = await tx.wallet.upsert({ where: { userId: payment.userId },
+      create: { userId: payment.userId, balance: 0, currency: 'XOF' }, update: {} });
+    if (payment.type === 'WALLET_TOPUP') {
+      await wallet.refundWithin(tx, refundWallet.id, payment.amount.toNumber(), payment.id, opts.reason ?? 'Remboursement');
+    } else {
+      await wallet.creditWithin(tx, refundWallet.id, payment.amount.toNumber(), payment.id, opts.reason ?? 'Remboursement', 'REFUND_IN');
     }
-    await refundFinanceWithin(tx, payment.id, opts.actorId);
-    await writeAuditWithin(tx, {
-      action: 'PAYMENT_REFUND', actorId: opts.actorId, targetId: payment.id, ip: opts.ip,
-      meta: { fedapayId: payment.fedapayId, type: payment.type, amount: payment.amount.toString(), reason: opts.reason ?? null },
-    });
-    return true;
+  }
+  await refundFinanceWithin(tx, payment.id, opts.actorId);
+  await writeAuditWithin(tx, {
+    action: 'PAYMENT_REFUND', actorId: opts.actorId, targetId: payment.id, ip: opts.ip,
+    meta: { fedapayId: payment.fedapayId, type: payment.type, amount: payment.amount.toString(), reason: opts.reason ?? null },
   });
-  if (!won) return { idempotent: true, status: 'REFUNDED' };
-
   return { refunded: true, status: 'REFUNDED' };
 }
 
@@ -135,6 +144,28 @@ interface InitiateInput {
   method: PaymentMethod;
   amount?: number;
   appointmentId?: string;
+}
+
+async function payableAppointment(client: Pick<Prisma.TransactionClient, 'appointment'>, userId: string, appointmentId: string) {
+  const appt = await client.appointment.findUnique({ where: { id: appointmentId }, select: {
+    status: true, patient: { select: { userId: true } }, doctor: { select: { consultFee: true } }, payment: { select: { id: true } },
+  } });
+  if (!appt) throw notFound('Rendez-vous introuvable');
+  if (appt.patient.userId !== userId) throw forbidden('Ce rendez-vous ne vous appartient pas');
+  if (appt.status === 'CANCELLED' || appt.status === 'COMPLETED') throw badRequest('Ce rendez-vous ne peut plus être payé');
+  if (appt.payment) throw badRequest('Ce rendez-vous a déjà un paiement associé');
+  return appt;
+}
+
+async function lockPayableAppointment(tx: Prisma.TransactionClient, userId: string, appointmentId: string) {
+  await tx.$queryRaw`SELECT id FROM appointments WHERE id = ${appointmentId} FOR UPDATE`;
+  return payableAppointment(tx, userId, appointmentId);
+}
+
+async function lockActivePayer(tx: Prisma.TransactionClient, userId: string) {
+  await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId} FOR SHARE`;
+  const user = await tx.user.findUnique({ where: { id: userId }, select: { status: true } });
+  if (user?.status !== 'ACTIVE') throw forbidden('Compte actif requis pour le paiement');
 }
 
 /**
@@ -151,19 +182,7 @@ export async function initiate(app: FastifyInstance, userId: string, input: Init
 
   if (input.type === 'CONSULTATION') {
     if (!input.appointmentId) throw badRequest('Un rendez-vous (appointmentId) est requis pour payer une consultation');
-    const appt = await app.prisma.appointment.findUnique({
-      where: { id: input.appointmentId },
-      select: {
-        patient: { select: { userId: true } },
-        doctor: { select: { consultFee: true } },
-        payment: { select: { id: true } },
-      },
-    });
-    if (!appt) throw notFound('Rendez-vous introuvable');
-    // IDOR : on ne peut payer QUE son propre rendez-vous.
-    if (appt.patient.userId !== userId) throw forbidden('Ce rendez-vous ne vous appartient pas');
-    // Anti double-paiement (aussi garanti par l'unicité de Payment.appointmentId).
-    if (appt.payment) throw badRequest('Ce rendez-vous a déjà un paiement associé');
+    const appt = await payableAppointment(app.prisma, userId, input.appointmentId);
     // Montant AUTORITATIF serveur : tarif du médecin, la valeur client est ignorée.
     amount = appt.doctor.consultFee.toNumber();
   } else if (input.appointmentId) {
@@ -197,6 +216,8 @@ export async function initiate(app: FastifyInstance, userId: string, input: Init
     }
 
     const result = await app.prisma.$transaction(async (trx) => {
+      await lockActivePayer(trx, userId);
+      if (input.type === 'CONSULTATION') await lockPayableAppointment(trx, userId, input.appointmentId!);
       const debited = await wallet.debit(
         app,
         userId,
@@ -222,7 +243,7 @@ export async function initiate(app: FastifyInstance, userId: string, input: Init
       await writeAuditWithin(trx, { action: 'PAYMENT_CONFIRMED', actorId: userId,
         targetId: created.id, meta: { type: input.type, method: 'WALLET', source: 'wallet', reference: debited.reference } });
       return { payment: created, balance: debited.balance, reference: debited.reference };
-    });
+    }, PAYMENT_TX);
 
     return {
       payment: result.payment,
@@ -257,19 +278,25 @@ export async function initiate(app: FastifyInstance, userId: string, input: Init
       : null,
   });
 
-  const payment = await app.prisma.payment.create({
-    data: {
-      userId,
-      appointmentId: input.appointmentId,
-      type: input.type,
-      method: input.method,
-      amount: new Prisma.Decimal(amount),
-      currency: 'XOF',
-      status: 'PENDING',
-      fedapayId: tx.fedapayId,
-    },
-    select: { id: true, fedapayId: true, amount: true, status: true },
-  });
+  // Réseau hors verrou : si le RDV est annulé entre-temps, aucune écriture locale
+  // ni checkout n'est rendu. La transaction amont impayée doit être rapprochée.
+  const payment = await app.prisma.$transaction(async (trx) => {
+    await lockActivePayer(trx, userId);
+    if (input.type === 'CONSULTATION') await lockPayableAppointment(trx, userId, input.appointmentId!);
+    return trx.payment.create({
+      data: {
+        userId,
+        appointmentId: input.appointmentId,
+        type: input.type,
+        method: input.method,
+        amount: new Prisma.Decimal(amount),
+        currency: 'XOF',
+        status: 'PENDING',
+        fedapayId: tx.fedapayId,
+      },
+      select: { id: true, fedapayId: true, amount: true, status: true },
+    });
+  }, PAYMENT_TX);
 
   return { payment, paymentUrl: tx.paymentUrl, commission, net };
 }

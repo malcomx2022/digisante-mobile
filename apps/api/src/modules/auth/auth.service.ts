@@ -11,7 +11,7 @@ import type { FastifyInstance } from 'fastify';
 
 import { writeAudit } from '@/lib/audit.js';
 import { env, refreshTtlSeconds } from '@/lib/env.js';
-import { tooManyRequests, unauthorized } from '@/lib/errors.js';
+import { forbidden, tooManyRequests, unauthorized } from '@/lib/errors.js';
 import {
   generateOtp,
   hashOtp,
@@ -350,7 +350,7 @@ export async function refresh(app: FastifyInstance, refreshToken: string) {
  * de l'allowlist Redis, et oublie le token push de l'appareil (`fcmToken`). Idempotent (aucune erreur si déjà absent/expiré) :
  * un token invalide est simplement ignoré côté révocation.
  */
-export async function logout(app: FastifyInstance, refreshToken: string): Promise<void> {
+export async function logout(app: FastifyInstance, refreshToken: string, expectedUserId: string): Promise<void> {
   let payload: { sub?: string; typ?: string; jti?: string };
   try {
     payload = app.jwt.verify(refreshToken);
@@ -359,11 +359,13 @@ export async function logout(app: FastifyInstance, refreshToken: string): Promis
     return;
   }
   if (payload.typ === 'refresh' && payload.jti) {
+    // Le cookie a pu changer de compte après l'envoi du JWT d'accès (onglet ou
+    // réponse tardive). Ne révoquer ni la session ni l'appareil d'un autre acteur.
+    // Le refus précède aussi l'effacement du cookie dans la route.
+    if (!payload.sub || payload.sub !== expectedUserId) throw forbidden('La session ne correspond pas au compte courant');
     await app.redis.del(refreshKey(payload.jti));
     // Appareil PARTAGÉ : sans purge, les notifications du compte (résultat de labo,
     // RDV…) continueraient d'arriver sur ce téléphone après la déconnexion (§4).
-    if (payload.sub) {
-      await app.prisma.user.updateMany({ where: { id: payload.sub }, data: { fcmToken: null } });
-    }
+    await app.prisma.user.updateMany({ where: { id: expectedUserId }, data: { fcmToken: null } });
   }
 }

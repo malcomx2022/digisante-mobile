@@ -31,6 +31,7 @@ jobs:
       REDIS_URL: redis://localhost:6379/1
       NODE_ENV: test
       JWT_SECRET: ci-secret
+      RECONCILE_TOKEN: ci-synthetic-service-token-at-least-32-characters
     steps:
       - uses: actions/checkout@v7
       # Version de pnpm lue depuis le champ "packageManager" du package.json
@@ -90,6 +91,7 @@ jobs:
       REDIS_URL: redis://localhost:6379/2
       NODE_ENV: test
       JWT_SECRET: e2e-secret-at-least-32-characters-long-xx
+      RECONCILE_TOKEN: ci-synthetic-service-token-at-least-32-characters
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -164,7 +166,11 @@ jobs:
             # Checkout de production sur l'hôte IONOS partagé (= APP_DIR du profil production).
             cd /var/www/digisante
             git fetch origin main
+            # Garde issue du main récupéré, même si la candidate est ancienne : son
+            # deploy.sh historique pourrait ignorer les protections ajoutées depuis.
+            MAIN_SHA="$(git rev-parse --verify 'origin/main^{commit}')"
+            printf 'Outillage de déploiement : main %s\n' "$MAIN_SHA"
             deploy_script=$(mktemp)
             trap 'rm -f "$deploy_script"' EXIT
-            git show '${{ github.sha }}:infra/deploy/scripts/deploy.sh' > "$deploy_script"
-            DEPLOY_REF='${{ github.sha }}' DEPLOY_ENVIRONMENT=production DEPLOY_MAINTENANCE_READY=1 bash "$deploy_script"
+            git show "$MAIN_SHA:infra/deploy/scripts/deploy.sh" > "$deploy_script"
+            DEPLOY_TOOLING_SHA="$MAIN_SHA" DEPLOY_REF='${{ github.sha }}' DEPLOY_ENVIRONMENT=production DEPLOY_MAINTENANCE_READY=1 bash "$deploy_script"

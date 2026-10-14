@@ -16,7 +16,9 @@ const STATUSES: LineStatus[] = ['DISPENSED', 'PARTIALLY_DISPENSED', 'UNAVAILABLE
 export default function PharmaciePage() {
   const { t } = useLocale();
   const [qr, setQr] = useState('');
-  const [result, setResult] = useState<ScanResult | null>(null);
+  // Le QR reste lié au résultat obtenu, même si la saisie change ensuite.
+  const [scanned, setScanned] = useState<{ result: ScanResult; qrCode: string } | null>(null);
+  const result = scanned?.result ?? null;
   const [lineStatus, setLineStatus] = useState<Record<string, LineStatus>>({});
   const [error, setError] = useState<string | null>(null);
   const [dispensed, setDispensed] = useState(false);
@@ -34,11 +36,11 @@ export default function PharmaciePage() {
     if (busy) return;
     setBusy(true);
     setError(null);
-    setResult(null);
+    setScanned(null);
     setDispensed(false);
     try {
       const r = await pharmacyApi.scan(code);
-      setResult(r);
+      setScanned({ result: r, qrCode: code });
       // Par défaut chaque ligne est marquée « délivrée » ; le pharmacien ajuste.
       setLineStatus(Object.fromEntries(r.items.map((it) => [it.id, 'DISPENSED' as LineStatus])));
     } catch (e) {
@@ -49,12 +51,15 @@ export default function PharmaciePage() {
   }
 
   async function dispense() {
-    if (!result || busy) return;
+    if (!scanned || !result || !result.authentic || result.expired || busy) return;
+    const items = result.items.filter((item) => item.status !== 'DISPENSED');
+    if (!items.length) return;
     setBusy(true);
     try {
       await pharmacyApi.dispense(
         result.id,
-        result.items.map((it) => ({ itemId: it.id, status: lineStatus[it.id] ?? 'DISPENSED' })),
+        items.map((it) => ({ itemId: it.id, status: lineStatus[it.id] ?? 'DISPENSED' })),
+        scanned.qrCode,
       );
       setDispensed(true);
     } catch (e) {
@@ -129,6 +134,7 @@ export default function PharmaciePage() {
                         <button
                           key={s}
                           type="button"
+                          disabled={busy || it.status === 'DISPENSED'}
                           aria-pressed={(lineStatus[it.id] ?? 'DISPENSED') === s}
                           onClick={() => setLineStatus((m) => ({ ...m, [it.id]: s }))}
                           className={cn(
@@ -157,7 +163,7 @@ export default function PharmaciePage() {
                       {t('pharmacie.expired')}
                     </p>
                   )}
-                  <button type="button" onClick={dispense} className="w-full bg-sante-600 text-white font-display font-extrabold card-pagne py-2.5 mt-1 disabled:opacity-50 pagne-focus" disabled={busy || result.expired}>
+                  <button type="button" onClick={dispense} className="w-full bg-sante-600 text-white font-display font-extrabold card-pagne py-2.5 mt-1 disabled:opacity-50 pagne-focus" disabled={busy || !result.authentic || result.expired || result.items.every((item) => item.status === 'DISPENSED')}>
                     {t('pharmacie.dispense')}
                   </button>
                 </>

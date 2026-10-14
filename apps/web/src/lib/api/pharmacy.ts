@@ -56,8 +56,8 @@ export interface AvailabilityItem {
 
 export const pharmacyApi = {
   scan: (qrCode: string) => postNow<ScanResult>('/pharmacy/scan', { qrCode }).then(online),
-  dispense: (prescriptionId: string, items: { itemId: string; status: LineStatus }[]) =>
-    postNow<{ prescriptionId: string; status: string }>(`/pharmacy/prescriptions/${prescriptionId}/dispense`, { items }).then(online),
+  dispense: (prescriptionId: string, items: { itemId: string; status: LineStatus }[], qrCode: string) =>
+    postNow<{ prescriptionId: string; status: string }>(`/pharmacy/prescriptions/${prescriptionId}/dispense`, { items, qrCode }).then(online),
   dispensations: () => get<Dispensation[]>('/pharmacy/dispensations'),
   // Stock (pharmacie) + disponibilité (patient).
   listStock: () => get<StockItem[]>('/pharmacy/stock'),

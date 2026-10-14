@@ -5,6 +5,9 @@
 > Référence de reprise : `CLAUDE.md` puis `docs/PLAYBOOK_Codage_DigiSante.md`.
 > Version documentaire : `docs/Plan_Implementations_Restantes_2026-10.docx`, générée depuis ce fichier par `scripts/docs/generate-implementation-plan.js`.
 
+
+> Reprise du **14 octobre 2026** sur `main` `b974080` : L10 outillage/provisioning IONOS et sonde S8 déjà intégrés ; les recettes cibles et fournisseurs restent ouvertes. Revue/corrections complémentaires sur `codex/full-review-2026-10-14` : voir `docs/REVUE_Complete_Codex_2026-10-14.md` et `docs/suivi/LOT_Revue_2026-10-14.md`. Ces changements sont candidats tant que la PR et sa CI ne sont pas acceptées. L9 humain et L11 restent ouverts ; aucune ouverture production déduite des tests locaux.
+
 ## I. Périmètre, état de départ et règles Claude Code
 
 ### 1. Objectif et limites
@@ -17,7 +20,7 @@ Les preuves opérationnelles des documents du 22 septembre restent historiques. 
 
 ### 2. Conventions à conserver
 
-- Stack : Next.js 14/App Router, Fastify, Prisma, PostgreSQL 16 **natif en production**, Redis, VPS Infomaniak ; Node 24 et pnpm du `package.json`.
+- Stack : Next.js 14/App Router, Fastify, Prisma, PostgreSQL 18.6 **natif sur le VPS IONOS partagé**, Valkey 6379, bases/rôles distincts et index /5 préproduction, /6 production ; Node 24 et pnpm du `package.json`. Dérogation porteur du 13 octobre 2026 : ports 3100/3101 et 3200/3201 ; PostgreSQL 16/Redis en conteneurs restent la pile de test.
 - Réutiliser les modules, helpers, composants et intégrations existants. Routes fines, métier dans les services, validation des entrées, erreurs normalisées, types/enums dans `@digisante/shared`.
 - Une fonctionnalité = une branche ; un lot peut comporter plusieurs PR cohérentes. Conventional Commits en anglais ; commentaires français possibles ; `main` doit rester déployable.
 - Schéma : migration versionnée, revue SQL et répétition sur données synthétiques avant livraison ; aucune réécriture d'une migration déjà appliquée, aucun `db push` en production.

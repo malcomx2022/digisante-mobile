@@ -25,13 +25,11 @@ const BAR: Record<string, string> = {
 // partage consenti actif (CLAUDE.md §4) : le médecin présente le jeton du patient
 // dans l'en-tête x-share-token. patientId + token sont fournis par le lien/QR de
 // partage (/pro/patient?patientId=...&token=...). AUCUNE donnée codée en dur.
-function Patient360Inner() {
+function Patient360Inner({ patientId, initialToken }: { patientId: string | null; initialToken: string }) {
   const { t } = useLocale();
   const router = useRouter();
-  const params = useSearchParams();
-  const patientId = params.get('patientId');
 
-  const [token, setToken] = useState(params.get('token') ?? '');
+  const [token, setToken] = useState(initialToken);
   const [linkInput, setLinkInput] = useState('');
   const [tokenInput, setTokenInput] = useState('');
   const [parseError, setParseError] = useState<string | null>(null);
@@ -223,10 +221,20 @@ function ConsentNote() {
   );
 }
 
+function Patient360Route() {
+  const params = useSearchParams();
+  const patientId = params.get('patientId');
+  const initialToken = params.get('token') ?? '';
+  // Next conserve la page lors d'une navigation entre deux liens de partage.
+  // Repartir de la paire courante évite de présenter le jeton ou les saisies du
+  // patient précédent, y compris au retour arrière ou à la suppression du lien.
+  return <Patient360Inner key={JSON.stringify([patientId, initialToken])} patientId={patientId} initialToken={initialToken} />;
+}
+
 export default function Patient360Page() {
   return (
     <Suspense fallback={null}>
-      <Patient360Inner />
+      <Patient360Route />
     </Suspense>
   );
 }

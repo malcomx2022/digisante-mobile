@@ -87,7 +87,7 @@ describe.skipIf(!HAS_INFRA)('Parcours de bout en bout (intégration)', () => {
     const scan = await app.inject({ method: 'POST', url: '/api/v1/pharmacy/scan', headers: auth(pharmaToken), payload: { qrCode } });
     expect(scan.json().authentic).toBe(true);
 
-    await app.inject({ method: 'POST', url: `/api/v1/pharmacy/prescriptions/${prescId}/dispense`, headers: auth(pharmaToken), payload: { items: [{ itemId, status: 'DISPENSED' }] } });
+    await app.inject({ method: 'POST', url: `/api/v1/pharmacy/prescriptions/${prescId}/dispense`, headers: auth(pharmaToken), payload: { qrCode, items: [{ itemId, status: 'DISPENSED' }] } });
 
     const mine = await app.inject({ method: 'GET', url: '/api/v1/prescriptions', headers: auth(patientToken) });
     expect(mine.json()[0].status).toBe('FULLY_DISPENSED');

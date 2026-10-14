@@ -8,6 +8,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { checkBackup, parseManifest } from './check-backup.mjs';
 const root=fileURLToPath(new URL('../../',import.meta.url));const sha='a'.repeat(40);
+const REAL_STAT=spawnSync('bash',['-c','command -v stat'],{encoding:'utf8'}).stdout.trim();
 // Identifiant de stockage opaque (format lib/filestore) du fichier synthétique du magasin.
 const STORE_ID='00000000-0000-4000-8000-000000000001';
 const ROOT_LIST=readFileSync(resolve(root,'infra/deploy/root-scripts.list'),'utf8').split('\n').map((l)=>/^(0755|0644) (\S+)$/.exec(l)).filter(Boolean).map((m)=>({mode:parseInt(m[1],8),path:m[2]}));
@@ -37,14 +38,23 @@ function writeRootManifest(lib,installedSha,environment='preproduction') {
 }
 function fixture() {
   const dir=mkdtempSync(join(tmpdir(),'digisante-l10-'));chmodSync(dir,0o755);const bin=join(dir,'bin');mkdirSync(bin);const lib=join(dir,'lib');copyTree(lib);
-  const env={...process.env,PATH:bin+':'+process.env.PATH,DIGISANTE_ENV:'preproduction',APP_DIR:join(dir,'app'),APP_USER:APP.user,JOBS_USER:JOBS.user,LOG_DIR:join(dir,'log'),TRACE:join(dir,'trace'),DB_NAME:'fixture_preprod',BACKUP_DIR:join(dir,'backups'),BACKUP_KEY_FILE:join(dir,'backup.key'),KYC_STORAGE_DIR:join(dir,'files'),ROOT_LIB:lib,ROOT_SCRIPTS_MANIFEST:join(lib,'root-scripts.manifest'),API_ENV_FILE:join(dir,'app/apps/api/.env')};
+  const env={...process.env,PATH:bin+':'+process.env.PATH,REAL_STAT,FAKE_ROOT_PARENT:dirname(dir),DIGISANTE_ENV:'preproduction',APP_DIR:join(dir,'app'),APP_USER:APP.user,JOBS_USER:JOBS.user,LOG_DIR:join(dir,'log'),TRACE:join(dir,'trace'),DB_NAME:'fixture_preprod',BACKUP_DIR:join(dir,'backups'),BACKUP_KEY_FILE:join(dir,'backup.key'),KYC_STORAGE_DIR:join(dir,'files'),ROOT_LIB:lib,ROOT_SCRIPTS_MANIFEST:join(lib,'root-scripts.manifest'),API_ENV_FILE:join(dir,'app/apps/api/.env')};
   for(const path of [env.APP_DIR,env.LOG_DIR,env.BACKUP_DIR,join(env.APP_DIR,'apps/api')]) mkdirSync(path,{recursive:true});
   appStore(env.KYC_STORAGE_DIR);
-  writeFileSync(join(env.APP_DIR,'apps/api/.env'),'NODE_ENV=production\n');chmodSync(join(env.APP_DIR,'apps/api/.env'),0o600);
+  // Le script de déploiement contrôle le profil complet ; les services synthétiques
+  // ne doivent pas hériter des URLs NODE_ENV=test de la CI qui lance cette suite.
+  delete env.DATABASE_URL; delete env.REDIS_URL; env.NODE_ENV='production';
+  writeFileSync(join(env.APP_DIR,'apps/api/.env'),'NODE_ENV=production\nDATABASE_URL=postgresql://digisante_preprod:synthetic@127.0.0.1:5432/digisante_preprod?schema=public\nREDIS_URL=redis://:synthetic@127.0.0.1:6379/5\n');chmodSync(join(env.APP_DIR,'apps/api/.env'),0o600);
   writeFileSync(env.BACKUP_KEY_FILE,'SYNTHETIC TEST KEY');chmodSync(env.BACKUP_KEY_FILE,0o600);
   writeFileSync(env.TRACE,'');chmodSync(env.TRACE,0o666);
   writeFileSync(join(env.KYC_STORAGE_DIR,`${STORE_ID}.bin`),'SYNTHETIC ENCRYPTED FILE');own(env.KYC_STORAGE_DIR);
   const command=(name,body)=>{const path=join(bin,name);writeFileSync(path,'#!/bin/bash\nset -euo pipefail\n'+body+'\n');chmodSync(path,0o755);};
+  // Certains exécuteurs mappent root vers nobody pour / et /tmp. Normaliser ces
+  // deux ancêtres extérieurs à la fixture, sans changer leurs modes ni les fichiers testés.
+  command('stat',`p="\u0024{@: -1}"
+if [[ "$1" == -c && "$2" == '%u %a' && ( "$p" == / || "$p" == "$FAKE_ROOT_PARENT" ) ]]; then
+  printf '0 %s\\n' "$("$REAL_STAT" -c %a -- "$p")"
+else exec "$REAL_STAT" "$@"; fi`);
   command('git',`echo "git $*" >> "$TRACE"
 if [[ "$1" == -C ]]; then shift 2; fi
 case "$1" in
@@ -342,6 +352,7 @@ test('déploiement préproduction : arrête SEULEMENT digisante-preprod-*, readi
 });
 test('déploiement production : arrête digisante-api/web (jamais la préproduction), readiness 127.0.0.1:3201',()=>{
   const f=fixture();try{
+    writeFileSync(f.env.API_ENV_FILE,'NODE_ENV=production\nDATABASE_URL=postgresql://digisante:synthetic@127.0.0.1:5432/digisante?schema=public\nREDIS_URL=redis://:synthetic@127.0.0.1:6379/6\n');
     const r=f.run('deploy.sh',{...deployEnv,DEPLOY_ENVIRONMENT:'production',DIGISANTE_ENV:'',OLD_WRITERS:'1',OLD_API:'digisante-api',OLD_WEB:'digisante-web',OTHER_ENV:'{"name":"digisante-preprod-api","pm2_env":{"status":"online"}}'});
     assert.equal(r.status,0,r.stderr+r.stdout);const t=f.trace();
     assert.match(t,/^pm2 stop digisante-api digisante-web$/m);assert.doesNotMatch(t,/^pm2 stop .*preprod/m);

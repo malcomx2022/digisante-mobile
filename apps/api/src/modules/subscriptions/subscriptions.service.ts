@@ -23,15 +23,22 @@ async function doctorFor(app: FastifyInstance, userId: string) {
 export async function current(app: FastifyInstance, userId: string) {
   const doctor = await doctorFor(app, userId);
   const now = new Date();
-  const [active, tail, pending] = await Promise.all([
-    app.prisma.subscriptionOrder.findFirst({ where: { doctorId: doctor.id, revokedAt: null, startsAt: { lte: now }, endsAt: { gt: now }, payment: { status: 'COMPLETED' } }, orderBy: { startsAt: 'asc' } }),
-    app.prisma.subscriptionOrder.findFirst({ where: { doctorId: doctor.id, revokedAt: null, endsAt: { gt: now }, payment: { status: 'COMPLETED' } }, orderBy: { endsAt: 'desc' } }),
+  const [paid, pending] = await Promise.all([
+    app.prisma.subscriptionOrder.findMany({ where: { doctorId: doctor.id, revokedAt: null, startsAt: { not: null }, endsAt: { gt: now }, payment: { status: 'COMPLETED' } },
+      orderBy: { startsAt: 'asc' }, select: { startsAt: true, endsAt: true } }),
     app.prisma.subscriptionOrder.findFirst({ where: { doctorId: doctor.id, revokedAt: null, payment: { status: { in: [...pendingStatuses] } } }, include: { payment: { select: { status: true } } } }),
   ]);
+  const active = paid.find((order) => order.startsAt && order.startsAt <= now);
+  let currentPeriodEnd = active?.endsAt ?? null;
+  // Un renouvellement futur ne masque jamais le trou laissé par un remboursement.
+  for (const order of paid) {
+    if (!currentPeriodEnd || !order.startsAt || !order.endsAt || order.startsAt > currentPeriodEnd) break;
+    if (order.endsAt > currentPeriodEnd) currentPeriodEnd = order.endsAt;
+  }
   return {
     subscriptionPlan: active ? 'PRO' : 'FREE',
     subscriptionStatus: active ? 'ACTIVE' : doctor.subscriptionPlan !== 'FREE' ? 'EXPIRED' : 'ACTIVE',
-    currentPeriodStart: active?.startsAt ?? null, currentPeriodEnd: active ? tail?.endsAt ?? active.endsAt : null,
+    currentPeriodStart: active?.startsAt ?? null, currentPeriodEnd,
     cancelAtPeriodEnd: Boolean(active && doctor.subscriptionCancelledAt), autoRenew: false,
     rights: active ? offer.rights : DOCTOR_SUBSCRIPTION_CATALOG.plans[0].rights,
     pending: pending ? { id: pending.id, paymentId: pending.paymentId, status: pending.payment.status, amount: pending.amount.toString(), currency: pending.currency } : null,
