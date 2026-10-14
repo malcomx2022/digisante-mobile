@@ -224,16 +224,42 @@ root_schedules() {
   crontab -l 2>/dev/null | sed '/^[[:space:]]*#/d' || true
   for f in "$(F /etc/crontab)" "$(F /etc/cron.d)"/*; do
     [[ -f "$f" ]] || continue
-    awk '/^[[:space:]]*(#|$)/ || /^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=/ { next }
-         $1 ~ /^@/ { if ($2 == "root") print; next } { if ($6 == "root") print }' "$f"
+    # Affectations (J=/chemin, puis `root $J …`) gardées pour tout fichier qui a une ligne root.
+    awk '/^[[:space:]]*(#|$)/ { next } /^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=/ { vars = vars $0 "\n"; next }
+         $1 ~ /^@/ { if ($2 == "root") { print; r = 1 } next } $6 == "root" { print; r = 1 }
+         END { if (r) printf "%s", vars }' "$f"
   done | sed -E 's/(^|[[:space:]])(API_ENV_FILE|API_DIR)=[^[:space:]]*//g'
   for f in "$(F /etc/cron.hourly)"/* "$(F /etc/cron.daily)"/* "$(F /etc/cron.weekly)"/* "$(F /etc/cron.monthly)"/*; do
     if [[ -f "$f" ]]; then sed '/^[[:space:]]*#/d' "$f"; fi
   done
 }
-# Nginx : `listen` d'un fichier sur un port, et `default_server` explicite sur ce port.
-listens_on() { grep -hE '^[[:space:]]*listen[[:space:]]' -- "$2" 2>/dev/null | grep -Eq "([[:space:]]|:)${1}([[:space:]]|;)"; }
-default_on() { grep -hE '^[[:space:]]*listen[[:space:]]' -- "$2" 2>/dev/null | grep -Eq "([[:space:]]|:)${1}[[:space:]][^;]*default(_server)?([[:space:]]|;)"; }
+# Nginx : écoute générique d'un port par famille (v4 : « PORT », « *:PORT », « 0.0.0.0:PORT » ;
+# v6 : « [::]:PORT »), TCP seulement (QUIC = UDP). Une écoute liée à une adresse précise
+# (127.0.0.1:443…) n'est jamais le serveur de repli de l'adresse générique.
+listen_lines() { grep -hE '^[[:space:]]*listen[[:space:]]' -- "$1" 2>/dev/null | grep -vE '[[:space:]]quic([[:space:];]|$)' || true; }
+listen_addr() { if [[ "$1" == v6 ]]; then printf '%s' '\[::\]:'; else printf '%s' '((\*|0\.0\.0\.0):)?'; fi; }
+listens_on() { local a; a="$(listen_addr "$1")"; listen_lines "$3" | grep -Eq "^[[:space:]]*listen[[:space:]]+${a}${2}([[:space:]]|;)"; }
+default_on() { local a; a="$(listen_addr "$1")"; listen_lines "$3" | grep -Eq "^[[:space:]]*listen[[:space:]]+${a}${2}[[:space:]][^;]*default(_server)?([[:space:]]|;)"; }
+# Fichiers chargés par Nginx, dans l'ordre : marqueurs « # configuration file » de `nginx -T`
+# (lecture seule ; rien d'autre n'est conservé ni affiché). Repli : nginx.conf, conf.d, sites-enabled.
+nginx_load_order() {
+  local out f
+  out="$(nginx -T 2>/dev/null | sed -n 's/^# configuration file \(.*\):$/\1/p' || true)"
+  if [[ -n "$out" ]]; then printf '%s\n' "$out"; return; fi
+  printf '%s\n' "${NGINX_DIR}/nginx.conf"
+  for f in "$(F "${NGINX_DIR}/conf.d")"/*.conf; do if [[ -f "$f" ]]; then printf '%s\n' "${f#"$TROOT"}"; fi; done | LC_ALL=C sort
+  for f in "$(F "${NGINX_DIR}/sites-enabled")"/*; do if [[ -e "$f" ]]; then printf '%s\n' "${f#"$TROOT"}"; fi; done | LC_ALL=C sort
+}
+# Ordre du glob de Nginx (octets, locale C).
+sorts_after() { local LC_ALL=C; [[ "$1" > "$2" ]]; }
+# Domicile réel du compte applicatif (clés SSH, PM2) ; /home/<compte> s'il n'existe pas encore.
+app_home() { local h; h="$(getent passwd "$APP_USER" 2>/dev/null | cut -d: -f6 || true)"; printf '%s' "${h:-/home/${APP_USER}}"; }
+# Lignes de clés autorisées SANS l'option `restrict` (options = champs avant le type de clé).
+unrestricted_keys() {
+  awk '/^[[:space:]]*(#|$)/ { next }
+    { o = ""; for (i = 1; i <= NF; i++) { if ($i ~ /^(ssh-(ed25519|rsa|dss)|ecdsa-sha2-nistp(256|384|521)|sk-(ssh-ed25519|ecdsa-sha2-nistp256)@openssh[.]com)$/) break; o = o $i " " }
+      if (o !~ /(^|,)restrict(,|[[:space:]])/) print }' "$1"
+}
 # Comptes : autorisation sudo réelle (règles d'utilisateur, de groupe, alias), lue par sudo lui-même.
 sudo_allowed() { LC_ALL=C sudo -n -l -U "$1" 2>/dev/null | grep -q 'may run the following commands'; }
 # pg_hba : la PREMIÈRE règle applicable décide. Sonde de connexion SANS mot de passe vers
@@ -424,13 +450,19 @@ guard_nginx() {
   done < <(grep -RlE 'limit_req_zone[^;]*zone=digisante_rl_|log_format[[:space:]]+digisante_noquery' "$(F "${NGINX_DIR}/nginx.conf")" "$(F "${NGINX_DIR}/conf.d")" "$(F "${NGINX_DIR}/sites-enabled")" "$(F "${NGINX_DIR}/snippets")" 2>/dev/null || true)
   # Fichiers communs aux deux environnements : la copie root de CET environnement (SHA
   # peut-être différent) ne réécrit jamais ceux qu'utilise l'autre environnement actif.
-  local other_site src dest
+  local other_site other_src src dest
   if [[ "$SITE" == digisante ]]; then other_site=digisante-preprod; else other_site=digisante; fi
   if [[ -e "$(F "${NGINX_DIR}/sites-enabled/${other_site}")" ]]; then
     for src in rate-limit.conf:conf.d/digisante-rate-limit.conf digisante-headers.conf:snippets/digisante-headers.conf hsts-after-tls.conf:snippets/digisante-hsts.conf; do
       dest="$(F "${NGINX_DIR}/${src#*:}")"
-      if [[ -e "$dest" ]] && ! same_file "${SRC_NGINX}/${src%%:*}" "$dest"; then
-        fail "${NGINX_DIR}/${src#*:} diffère de la copie root ${DIGISANTE_ENV} alors que ${other_site} est actif : aligner les deux copies root (même SHA, install_root_scripts.sh) — jamais écrasé"
+      if [[ ! -e "$dest" ]] || same_file "${SRC_NGINX}/${src%%:*}" "$dest"; then continue; fi
+      # Mise à jour d'un fichier commun : seulement si la copie root de l'AUTRE environnement (de
+      # confiance) porte la même source — les deux environnements passent alors ensemble au nouveau fichier.
+      other_src="$(F "/usr/local/lib/${other_site}")/infra/deploy/nginx/${src%%:*}"
+      if [[ -f "$other_src" ]] && trusted_path "$other_src" && same_file "${SRC_NGINX}/${src%%:*}" "$other_src"; then
+        note "${NGINX_DIR}/${src#*:} mis à jour pour les deux environnements (copies root alignées)"
+      else
+        fail "${NGINX_DIR}/${src#*:} diffère de la copie root ${DIGISANTE_ENV} alors que ${other_site} est actif et que sa copie root n'est pas alignée : installer le même SHA dans les deux copies root (install_root_scripts.sh) — jamais écrasé sinon"
       fi
     done
   fi
@@ -451,31 +483,48 @@ guard_nginx() {
 }
 
 guard_default_server() { # guard_default_server <port>
-  local port="$1" f name first="" foreign=""
-  for f in "$(F "${NGINX_DIR}/nginx.conf")" "$(F "${NGINX_DIR}/conf.d")"/*.conf "$(F "${NGINX_DIR}/sites-enabled")"/*; do
-    [[ -f "$f" ]] || continue
-    if default_on "$port" "$f"; then pass "Nginx :${port} : default_server explicite (${f#"$TROOT"}) — DigiSanté jamais serveur de repli"; return; fi
-  done
-  # Ordre de chargement, ${SITE} compris (son vhost écoute 80 et 443).
-  while IFS= read -r f; do
-    name="$(basename -- "$f")"
-    case "$name" in
-      "$SITE") ;;
-      digisante|digisante-preprod) listens_on "$port" "$f" || continue ;;
-      *) listens_on "$port" "$f" || continue; [[ -n "$foreign" ]] || foreign="${f#"$TROOT"}" ;;
-    esac
-    [[ -n "$first" ]] || first="$name"
-  # (`if` plutôt que `&&` : sous pipefail, un dernier élément absent ferait échouer la liste.)
-  done < <({ for f in "$(F "${NGINX_DIR}/conf.d")"/*.conf; do if [[ -f "$f" ]]; then printf '%s\n' "$f"; fi; done | LC_ALL=C sort
-    { for f in "$(F "${NGINX_DIR}/sites-enabled")"/*; do if [[ -f "$f" ]]; then printf '%s\n' "$f"; fi; done
-      printf '%s\n' "$(F "${NGINX_DIR}/sites-enabled/${SITE}")"; } | LC_ALL=C sort -u; })
-  if [[ -z "$foreign" ]]; then
-    note "Nginx :${port} : aucun autre serveur ; ${first} serait le serveur de repli"
-  elif [[ "$first" == digisante || "$first" == digisante-preprod ]]; then
-    fail "Nginx :${port} : aucun default_server explicite et ${first} serait chargé avant ${foreign} : DigiSanté deviendrait le serveur de repli de l'hôte (accès par IP, sans SNI) — faire déclarer « listen ${port} … default_server » par l'administrateur de l'hôte (jamais par ce script)"
-  else
-    pass "Nginx :${port} : serveur de repli inchangé (${first})"
+  local port="$1" f name fam label first foreign dflt site_path="${NGINX_DIR}/sites-enabled/${SITE}"
+  local -a order=() placed=()
+  mapfile -t order < <(nginx_load_order)
+  # ${SITE} à sa place s'il n'est pas encore actif : avant la première entrée de sites-enabled qui
+  # le suit dans le tri du glob, sinon après la dernière.
+  if [[ " ${order[*]} " != *" ${site_path} "* ]]; then
+    local inserted=0 last=-1 i
+    for f in "${order[@]}"; do
+      if (( ! inserted )) && [[ "$f" == "${NGINX_DIR}/sites-enabled/"* ]] && sorts_after "$(basename -- "$f")" "$SITE"; then placed+=("$site_path"); inserted=1; fi
+      placed+=("$f")
+      if [[ "$f" == "${NGINX_DIR}/sites-enabled/"* ]]; then last=$(( ${#placed[@]} - 1 )); fi
+    done
+    if (( ! inserted )); then
+      if (( last >= 0 )); then placed=("${placed[@]:0:last+1}" "$site_path" "${placed[@]:last+1}"); else placed+=("$site_path"); fi
+    fi
+    order=("${placed[@]}")
   fi
+  for fam in v4 v6; do
+    if [[ "$fam" == v4 ]]; then label="$port"; else label="[::]:${port}"; fi
+    first=""; foreign=""; dflt=""
+    for f in "${order[@]}"; do
+      if [[ "$f" == "$site_path" ]]; then [[ -n "$first" ]] || first="$SITE"; continue; fi
+      [[ -f "$(F "$f")" ]] || continue
+      if default_on "$fam" "$port" "$(F "$f")"; then dflt="$f"; break; fi
+      listens_on "$fam" "$port" "$(F "$f")" || continue
+      name="$(basename -- "$f")"
+      if [[ "$f" == "${NGINX_DIR}/sites-enabled/digisante" || "$f" == "${NGINX_DIR}/sites-enabled/digisante-preprod" ]]; then [[ -n "$first" ]] || first="$name"; continue; fi
+      [[ -n "$foreign" ]] || foreign="$f"
+      [[ -n "$first" ]] || first="$name"
+    done
+    if [[ -n "$dflt" ]]; then
+      pass "Nginx :${label} : default_server explicite (${dflt}) — DigiSanté jamais serveur de repli"
+    elif [[ -z "$foreign" && "$fam" == v6 ]]; then
+      note "Nginx :${label} : aucun voisin n'y écoute — DigiSanté y serait le serveur de repli IPv6 (un voisin publié en AAAA sans écoute IPv6 recevrait le certificat DigiSanté) : à constater (README §1.b, point 6)"
+    elif [[ -z "$foreign" ]]; then
+      note "Nginx :${label} : aucun autre serveur ; ${first} serait le serveur de repli"
+    elif [[ "$first" == digisante || "$first" == digisante-preprod ]]; then
+      fail "Nginx :${label} : aucun default_server explicite et ${first} serait chargé avant ${foreign} : DigiSanté deviendrait le serveur de repli de l'hôte (accès par IP, sans SNI) — faire déclarer « listen ${label} … default_server » par l'administrateur de l'hôte (jamais par ce script)"
+    else
+      pass "Nginx :${label} : serveur de repli inchangé (${first})"
+    fi
+  done
 }
 
 guard_cron() {
@@ -532,14 +581,17 @@ step_users() {
     [[ "$DEPLOY_SSH_PUBKEY" =~ ^(ssh-ed25519|ecdsa-sha2-nistp256|ssh-rsa)\ [A-Za-z0-9+/=]{40,}(\ [[:graph:]]{1,64})?$ ]] || die "DEPLOY_SSH_PUBKEY : clé PUBLIQUE OpenSSH sur une ligne attendue"
     # `restrict` : commandes seulement (déploiement) — ni redirection de ports vers Valkey/PG/3000/3001
     # de l'hôte partagé, ni agent, ni X11, ni PTY, si la clé de CI fuitait.
-    local home key_line; home="/home/${APP_USER}"; key_line="restrict ${DEPLOY_SSH_PUBKEY}"
-    if grep -qxF -- "$key_line" "$(F "${home}/.ssh/authorized_keys")" 2>/dev/null; then
-      pass "clé de déploiement présente (restrict)"
-    elif grep -qF -- "$(cut -d ' ' -f 1,2 <<<"$DEPLOY_SSH_PUBKEY")" "$(F "${home}/.ssh/authorized_keys")" 2>/dev/null; then
-      fail "clé de déploiement déjà présente SANS restrict dans ${home}/.ssh/authorized_keys : retirer cette ligne à la main (sshd retient la première)"
+    local keys core key_line; keys="$(app_home)/.ssh/authorized_keys"; key_line="restrict ${DEPLOY_SSH_PUBKEY}"
+    core="$(cut -d ' ' -f 1,2 <<<"$DEPLOY_SSH_PUBKEY")"
+    if grep -qF -- "$core" "$(F "$keys")" 2>/dev/null; then
+      if grep -F -- "$core" "$(F "$keys")" | unrestricted_keys /dev/stdin | grep -q .; then
+        fail "clé de déploiement déjà présente SANS restrict dans ${keys} : retirer cette ligne à la main (sshd retient la première)"
+      else
+        pass "clé de déploiement présente (restrict)"
+      fi
     else
-      # shellcheck disable=SC2016 # variables évaluées par le shell de l'utilisateur, à dessein
-      act "clé publique de déploiement (restrict) ajoutée à ${home}/.ssh/authorized_keys" as_user "$APP_USER" sh -c 'umask 077; mkdir -p "$HOME/.ssh" && printf "%s\n" "$1" >> "$HOME/.ssh/authorized_keys"' _ "$key_line"
+      # shellcheck disable=SC2016 # "$1"/"$2" évalués par sh -c, à dessein
+      act "clé publique de déploiement (restrict) ajoutée à ${keys}" as_user "$APP_USER" sh -c 'umask 077; mkdir -p "${1%/*}" && printf "%s\n" "$2" >> "$1"' _ "$(F "$keys")" "$key_line"
     fi
   else
     note "DEPLOY_SSH_PUBKEY absent : clé de déploiement GitHub à ajouter (README, étape SSH)"
@@ -632,7 +684,7 @@ step_runtime() {
   if systemctl is-enabled "pm2-${APP_USER}" >/dev/null 2>&1; then
     pass "service pm2-${APP_USER} activé"
   else
-    act "démarrage PM2 au boot pour ${APP_USER} (service pm2-${APP_USER})" clean_env pm2 startup systemd -u "$APP_USER" --hp "/home/${APP_USER}" --service-name "pm2-${APP_USER}"
+    act "démarrage PM2 au boot pour ${APP_USER} (service pm2-${APP_USER})" clean_env pm2 startup systemd -u "$APP_USER" --hp "$(app_home)" --service-name "pm2-${APP_USER}"
   fi
 }
 
@@ -831,9 +883,9 @@ verify_all() {
     if id "$u" >/dev/null 2>&1 && sudo_allowed "$u"; then fail "${u} autorisé par sudoers"; fi
   done
   if id "$JOBS_USER" >/dev/null 2>&1 && id "$APP_USER" >/dev/null 2>&1 && [[ "$(id -u "$JOBS_USER")" != "$(id -u "$APP_USER")" && "$(id -g "$JOBS_USER")" != "$(id -g "$APP_USER")" ]]; then pass "${JOBS_USER} distinct de ${APP_USER} (uid/gid)"; else fail "${JOBS_USER} absent ou confondu avec ${APP_USER}"; fi
-  local keys; keys="$(F "/home/${APP_USER}/.ssh/authorized_keys")"
-  if [[ -f "$keys" ]]; then
-    if grep -vE '^[[:space:]]*(#|$)' -- "$keys" | grep -qvE '^restrict[, ]'; then fail "${keys#"$TROOT"} : clé sans restrict (redirection de ports vers les services de l'hôte possible)"; else pass "clés SSH de ${APP_USER} toutes restreintes (restrict)"; fi
+  local keys; keys="$(app_home)/.ssh/authorized_keys"
+  if [[ -f "$(F "$keys")" ]]; then
+    if unrestricted_keys "$(F "$keys")" | grep -q .; then fail "${keys} : clé sans restrict (redirection de ports vers les services de l'hôte possible)"; else pass "clés SSH de ${APP_USER} toutes restreintes (restrict)"; fi
   fi
   check_dir "$APP_DIR" "$APP_USER" 0750; check_dir "$APP_LOG_DIR" "$APP_USER" 0750; check_dir "$STORE_DIR" "$APP_USER" 0700
   check_dir "$CRON_LOG_DIR" root 0750; check_dir "$ETC_DIR" root 0700; check_dir "$BACKUP_DIR" root 0700
@@ -848,7 +900,7 @@ verify_all() {
   if [[ -n "${VALKEY_PASSWORD:-}" ]]; then
     if [[ "$(valkey_cli -n "$VALKEY_DB" GET digisante:owner 2>/dev/null)" == "$DIGISANTE_ENV" ]]; then pass "Valkey index ${VALKEY_DB} → ${DIGISANTE_ENV}"; else fail "Valkey index ${VALKEY_DB} sans marqueur ${DIGISANTE_ENV}"; fi
     valkey_eviction_check
-  else note "VALKEY_PASSWORD absent : index Valkey non vérifié"; fi
+  else fail "VALKEY_PASSWORD absent : marqueur et éviction Valkey NON vérifiés (read -rs VALKEY_PASSWORD; export VALKEY_PASSWORD)"; fi
   # Runtime.
   # Node du COMPTE applicatif (PM2, deploy.sh) : un Node réservé à root (nvm sous /root) ne lui sert à rien.
   if [[ "$(as_user "$APP_USER" node -v 2>/dev/null | sed -n 's/^v\([0-9]*\)\..*/\1/p')" == "$NODE_MAJOR" ]]; then pass "Node ${NODE_MAJOR} (compte ${APP_USER})"; else fail "Node ${NODE_MAJOR} introuvable pour ${APP_USER} (Node de root seulement ?)"; fi
@@ -936,7 +988,7 @@ rollback_all() {
   [[ -e "$(F "/etc/logrotate.d/${SITE}")" ]] && act "retrait de /etc/logrotate.d/${SITE}" rm -f -- "$(F "/etc/logrotate.d/${SITE}")"
   if systemctl is-enabled "pm2-${APP_USER}" >/dev/null 2>&1; then
     act "arrêt des processus PM2 de ${APP_USER}" as_user "$APP_USER" pm2 kill
-    act "retrait du service pm2-${APP_USER}" pm2 unstartup systemd -u "$APP_USER" --hp "/home/${APP_USER}" --service-name "pm2-${APP_USER}"
+    act "retrait du service pm2-${APP_USER}" clean_env pm2 unstartup systemd -u "$APP_USER" --hp "$(app_home)" --service-name "pm2-${APP_USER}"
   fi
   note "conservés (décision humaine, sauvegarde préalable) : comptes ${APP_USER}/${JOBS_USER}, base/rôle ${DB_NAME}, index Valkey ${VALKEY_DB}, ${STORE_DIR}, ${ETC_DIR}, ${BACKUP_DIR}, certificat ${CERT_NAME} (certbot delete --cert-name ${CERT_NAME})"
 }

@@ -60,11 +60,15 @@ if [[ "$1" == -C ]]; then shift 2; fi
 case "$1" in
 status) [[ "\u0024{DIRTY:-0}" == 0 ]] || echo ' M synthetic';;
 rev-parse) echo '${sha}';;
+show) echo '{"packageManager":"pnpm@9.12.0"}';;
 merge-base) [[ "\u0024{WRONG_BRANCH:-0}" == 0 ]];;
 esac`);
-  command('pnpm',`echo "pnpm $*" >> "$TRACE"; if [[ "\u0024{BUILD_FAIL:-0}" == 1 && "$1" == build ]]; then exit 9; fi`);
-  // deploy.sh : `corepack pnpm …` (version épinglée) ; la simulation délègue au pnpm simulé.
-  command('corepack','echo "corepack $*" >> "$TRACE"; [[ "$1" == pnpm ]] || exit 2; shift; exec pnpm "$@"');
+  // Script racine `build` = `pnpm -r build` : l'appel imbriqué passe par le PATH (shim de deploy.sh).
+  command('pnpm',`echo "pnpm $*" >> "$TRACE"; if [[ "\u0024{BUILD_FAIL:-0}" == 1 && "$1" == build ]]; then exit 9; fi; if [[ "$1" == build ]]; then pnpm -r build; fi`);
+  // deploy.sh : shim \`pnpm\` → \`corepack pnpm …\` (version épinglée) ; \`corepack pnpm@x.y.z --version\` prépare
+  // la version de la cible. Délègue au pnpm simulé par chemin absolu (le shim est en tête du PATH).
+  command('corepack',`if [[ "$1" == pnpm@* && "$2" == --version ]]; then echo "corepack $*" >> "$TRACE"; echo "\u0024{FAKE_COREPACK_VERSION:-\u0024{1#pnpm@}}"; exit 0; fi
+echo "corepack $*" >> "$TRACE"; [[ "$1" == pnpm ]] || exit 2; shift; exec "$(dirname "$0")/pnpm" "$@"`);
   command('pm2',`echo "pm2 $*" >> "$TRACE"
 case "$1" in
 jlist) other='{"name":"digisante-api","pm2_env":{"status":"online"}},{"name":"digisante-web","pm2_env":{"status":"online"}}'; other="\u0024{OTHER_ENV:-$other}"
@@ -104,7 +108,7 @@ test('déploiement : SHA/maintenance/env production/change opérateur/branche ex
   const f=fixture();try {writeFileSync(join(f.env.APP_DIR,'apps/api/.env'),'NODE_ENV=test\n');assert.notEqual(f.run('deploy.sh',deployEnv).status,0);assert.doesNotMatch(f.trace(),/pnpm |pm2 /);}finally{f.clean();}
 });
 test('déploiement : anciens writers arrêtés, SHA détaché, build avant migrate, succès tracé',()=>{
-  const f=fixture();try {const r=f.run('deploy.sh',{...deployEnv,OLD_WRITERS:'1'});assert.equal(r.status,0,r.stderr+r.stdout);const t=f.trace();assert.ok(t.indexOf('pm2 stop')<t.indexOf('git switch --detach'));assert.ok(t.indexOf('pnpm build')<t.indexOf('prisma migrate deploy'));assert.ok(t.indexOf('prisma migrate deploy')<t.indexOf('pm2 startOrReload'));assert.match(t,/^corepack pnpm install --frozen-lockfile$/m,'pnpm épinglé (corepack), jamais le pnpm global de l’hôte');assert.match(readFileSync(join(f.env.LOG_DIR,'deploy_history.log'),'utf8'),/status=SUCCESS/);}finally{f.clean();}
+  const f=fixture();try {const r=f.run('deploy.sh',{...deployEnv,OLD_WRITERS:'1'});assert.equal(r.status,0,r.stderr+r.stdout);const t=f.trace();assert.ok(t.indexOf('pm2 stop')<t.indexOf('git switch --detach'));assert.ok(t.indexOf('pnpm build')<t.indexOf('prisma migrate deploy'));assert.ok(t.indexOf('prisma migrate deploy')<t.indexOf('pm2 startOrReload'));assert.match(t,/^corepack pnpm install --frozen-lockfile$/m,'pnpm épinglé (corepack), jamais le pnpm global de l’hôte');assert.match(t,/^corepack pnpm -r build$/m,'appel imbriqué du script racine build : pnpm épinglé aussi');assert.ok(t.indexOf('corepack pnpm@9.12.0 --version')<t.indexOf('pm2 stop'),'version pnpm de la cible préparée avant l’arrêt PM2');assert.match(readFileSync(join(f.env.LOG_DIR,'deploy_history.log'),'utf8'),/status=SUCCESS/);}finally{f.clean();}
 });
 test('déploiement B3 : rappel non bloquant si les scripts root installés ne sont pas au SHA déployé',()=>{
   const f=fixture();try {
@@ -114,6 +118,9 @@ test('déploiement B3 : rappel non bloquant si les scripts root installés ne so
 });
 test('déploiement : PM2 illisible/arrêt échoué/build échoué bloque migrations, échec conservé',()=>{
   for(const change of [{PM2_BROKEN:'1'},{OLD_WRITERS:'1',STOP_FAIL:'1'},{BUILD_FAIL:'1'}]) {const f=fixture();try{const r=f.run('deploy.sh',{...deployEnv,...change});assert.notEqual(r.status,0);assert.doesNotMatch(f.trace(),/prisma migrate deploy/);assert.match(readFileSync(join(f.env.LOG_DIR,'deploy_history.log'),'utf8'),/status=FAILED/);}finally{f.clean();}}
+});
+test('déploiement : pnpm de la cible indisponible via corepack ⇒ refus AVANT tout arrêt PM2 ou checkout',()=>{
+  const f=fixture();try{const r=f.run('deploy.sh',{...deployEnv,OLD_WRITERS:'1',FAKE_COREPACK_VERSION:'9.11.0'});assert.notEqual(r.status,0);assert.match(r.stdout+r.stderr,/pnpm 9\.12\.0 indisponible via corepack/);assert.doesNotMatch(f.trace(),/pm2 stop|git switch|pnpm install/);}finally{f.clean();}
 });
 test('déploiement : HTML 200 ne vaut pas readiness, aucun ancien code promis',()=>{
   const f=fixture();try{const r=f.run('deploy.sh',{...deployEnv,BAD_READY:'1'});assert.notEqual(r.status,0);assert.doesNotMatch(r.stdout,/code précédent reste actif/);assert.match(readFileSync(join(f.env.LOG_DIR,'deploy_history.log'),'utf8'),/status=FAILED stage=readiness/);}finally{f.clean();}

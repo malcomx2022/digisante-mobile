@@ -54,7 +54,10 @@ LISTEN 0 4096 127.0.0.1:3001 0.0.0.0:* users:((\\"grafana\\",pid=4200,fd=8))}"`,
   ps: `pid="\${@: -1}"; printf '%s\\n' "\${FAKE_PS:-4100:immipro;4200:grafana}" | tr ';' '\\n' | sed -n "s/^$pid://p"`,
   // sudo -l -U <compte> : autorisation sudoers simulée (FAKE_SUDO_ALLOWED, liste de comptes).
   sudo: `if [[ " $* " == *" -l "* ]]; then u="\${@: -1}"; if [[ ",\${FAKE_SUDO_ALLOWED:-}," == *",$u,"* ]]; then echo "User $u may run the following commands on host:"; else echo "User $u is not allowed to run sudo on host."; fi; exit 0; fi
-args=(); while [[ "$1" == -* && "$1" != -- ]]; do case "$1" in -u) echo "sudo-as $2" >> "$TRACE"; shift 2;; *) shift;; esac; done; [[ "$1" == -- ]] && shift; exec "$@"`,
+u=""; h=0; while [[ "$1" == -* && "$1" != -- ]]; do case "$1" in -u) echo "sudo-as $2" >> "$TRACE"; u="$2"; shift 2;; -H) h=1; shift;; *) shift;; esac; done; [[ "$1" == -- ]] && shift
+# -H : domicile du compte cible, DANS la racine de test (jamais celui du lanceur).
+if ((h)) && [[ -n "$u" ]]; then export HOME="$PROVISION_TEST_ROOT/home/$u"; fi
+exec "$@"`,
   // Sonde pg_hba (-w, conninfo 127.0.0.1) : FAKE_PG_HBA = password (défaut) | trust | none.
   psql: `if [[ " $* " == *" -w "* ]]; then
   echo "psql-probe $* pw=\${PG_APP_PASSWORD:+set}\${PGPASSWORD:+set} passfile=\${PGPASSFILE:-}" >> "$TRACE"
@@ -105,15 +108,22 @@ esac`,
   node: `if [[ "$1" == -v ]]; then echo "\${FAKE_NODE_VERSION:-v24.21.0}"; exit 0; fi; exec "$REAL_NODE" "$@"`,
   npm: `case "$1" in root) echo /usr/lib/node_modules;; *) echo "npm-write $*" >> "$TRACE"; echo "npm-env secrets=\${PG_APP_PASSWORD:+pg}\${VALKEY_PASSWORD:+valkey}" >> "$TRACE";; esac`,
   // nginx -t : échec global (FAKE_NGINX_T) ou seulement quand un fichier contient un motif (configuration refusée).
-  nginx: `if [[ "$1" == -t ]]; then
+  // nginx -T : marqueurs « # configuration file » dans l'ordre de chargement (nginx.conf, conf.d,
+  // sites-enabled, puis FAKE_NGINX_T_EXTRA : fichiers inclus ailleurs), chemins sans la racine de test.
+  nginx: `if [[ "$1" == -T ]]; then
+  r="$PROVISION_TEST_ROOT"; [[ "\${FAKE_NGINX_T_FAIL:-0}" == 1 ]] && exit 1
+  for f in "$r/etc/nginx/nginx.conf" "$r"/etc/nginx/conf.d/*.conf "$r"/etc/nginx/sites-enabled/* \${FAKE_NGINX_T_EXTRA:-}; do [[ -e "$f" ]] && echo "# configuration file \${f#"$r"}:"; done
+  exit 0
+fi
+if [[ "$1" == -t ]]; then
   if [[ -n "\${FAKE_NGINX_REJECT:-}" ]] && grep -qsF -- "$FAKE_NGINX_REJECT_PATTERN" "$FAKE_NGINX_REJECT"; then exit 1; fi
   exit "\${FAKE_NGINX_T:-0}"
 fi; echo "nginx-write $*" >> "$TRACE"`,
   systemctl: `case "$1" in is-enabled) [[ "\${FAKE_PM2_ENABLED:-0}" == 1 ]];; *) echo "systemctl-write $*" >> "$TRACE";; esac`,
   crontab: `[[ "$1" == -l ]] && { printf '%s\\n' "\${FAKE_ROOT_CRONTAB:-}"; exit 0; }; echo "crontab-write $*" >> "$TRACE"`,
-  corepack: `if [[ "$1 $2" == "pnpm --version" ]]; then echo "\${FAKE_PNPM_VERSION:-9.12.0}"; exit 0; fi; echo "corepack-write $*" >> "$TRACE"`,
+  corepack: `if [[ "$1 $2" == "pnpm --version" ]]; then echo "\${FAKE_PNPM_VERSION:-9.12.0}"; exit 0; fi; echo "corepack-write $*" >> "$TRACE"; echo "corepack-env secrets=\${PG_APP_PASSWORD:+pg}\${VALKEY_PASSWORD:+valkey}" >> "$TRACE"`,
 };
-for (const name of ['useradd', 'usermod', 'adduser', 'createdb', 'certbot', 'pm2', 'openssl']) FAKES[name] = `echo "${name}-write $*" >> "$TRACE"`;
+for (const name of ['useradd', 'usermod', 'adduser', 'createdb', 'certbot', 'pm2', 'openssl']) FAKES[name] = `echo "${name}-write $*" >> "$TRACE"; echo "${name}-env secrets=\${PG_APP_PASSWORD:+pg}\${VALKEY_PASSWORD:+valkey}\${PG_APP_VERIFIER:+verifier}" >> "$TRACE"`;
 // Application simulée : copie/dossiers réels DANS la racine de test, propriétaires ignorés.
 const FAKE_INSTALL = `echo "install-write $*" >> "$TRACE"; dir=0; mode=""; files=()
 while (($#)); do case "$1" in -d) dir=1; shift;; -o|-g) shift 2;; -m) mode="$2"; shift 2;; --) shift;; *) files+=("$1"); shift;; esac; done
@@ -140,13 +150,13 @@ function fixture(env = 'preproduction', { osVersion = '26.04', fakeInstall = fal
   writeFileSync(t('etc/nginx/sites-available/default'), 'server {\n    listen 80 default_server;\n    listen [::]:80 default_server;\n    server_name _;\n    root /var/www/html;\n}\n');
   symlinkSync(t('etc/nginx/sites-available/default'), t('etc/nginx/sites-enabled/default'));
   // Fichiers temporaires du script DANS l'arborescence observée (aucun reste toléré).
-  mkdirSync(t('tmp'), { mode: 0o700 });
+  mkdirSync(t('tmp'), { mode: 0o700 }); mkdirSync(t('root-home'), { mode: 0o700 });
   const bin = t('bin'); mkdirSync(bin);
   const fakes = { ...FAKES, ...(fakeInstall ? { install: FAKE_INSTALL } : {}) };
   for (const [name, body] of Object.entries(fakes)) { writeFileSync(join(bin, name), `#!/bin/bash\nset -uo pipefail\n${body}\n`); chmodSync(join(bin, name), 0o755); }
   const trace = t('trace.log'); writeFileSync(trace, '');
   const baseEnv = {
-    PATH: `${bin}:${process.env.PATH}`, HOME: process.env.HOME ?? '/root', TRACE: trace, REAL_NODE: process.execPath,
+    PATH: `${bin}:${process.env.PATH}`, HOME: t('root-home'), TRACE: trace, REAL_NODE: process.execPath,
     REAL_STAT, FAKE_ROOT_PARENT: dirname(dir),
     PROVISION_TEST_ROOT: dir, DIGISANTE_ENV: env, VALKEY_PASSWORD: VALKEY_SECRET, FAKE_VALKEY_PASS: VALKEY_SECRET,
     PG_APP_PASSWORD: PG_SECRET, LETSENCRYPT_EMAIL: 'ops@example.invalid', FAKE_APP_DB: e.db, TMPDIR: t('tmp'),
@@ -170,6 +180,8 @@ function fixture(env = 'preproduction', { osVersion = '26.04', fakeInstall = fal
   return { dir, t, e, run, tree, trace: () => readFileSync(trace, 'utf8'), clean: () => rmSync(dir, { recursive: true, force: true }) };
 }
 
+/** Présence SANS suivre les liens (un lien sites-enabled vise /etc/nginx/… hors de la racine de test). */
+const present = (p) => { try { lstatSync(p); return true; } catch { return false; } };
 const MUTATING = /^(useradd|usermod|adduser|createdb|certbot|pm2|openssl|corepack|install|npm|nginx|systemctl|crontab)-write|^valkey-write|^psql-(c|stdin)/m;
 
 test('dry-run préproduction : gardes vertes, plan complet, AUCUNE écriture ni commande modifiante, secrets jamais affichés', () => {
@@ -473,7 +485,8 @@ test('--apply Nginx : vhost refusé par nginx -t ⇒ version précédente restau
     assert.equal(r.status, 1); assert.match(r.stderr, /nginx -t refuse le vhost TLS digisante-preprod : fichiers Nginx DigiSanté restaurés à l'état d'avant \(nginx -t vert\)/);
     assert.equal(readFileSync(f.t('etc/nginx/sites-available/digisante-preprod'), 'utf8'), '# version précédente\n');
     // Tout ce que ce passage avait ajouté est retiré : lien, fichiers communs, HSTS.
-    for (const p of ['etc/nginx/sites-enabled/digisante-preprod', 'etc/nginx/conf.d/digisante-rate-limit.conf', 'etc/nginx/snippets/digisante-headers.conf', 'etc/nginx/snippets/digisante-hsts.conf']) assert.ok(!existsSync(f.t(p)), p);
+    for (const p of ['etc/nginx/sites-enabled/digisante-preprod', 'etc/nginx/conf.d/digisante-rate-limit.conf', 'etc/nginx/snippets/digisante-headers.conf', 'etc/nginx/snippets/digisante-hsts.conf']) assert.ok(!present(f.t(p)), p);
+    assert.deepEqual(readdirSync(f.t('tmp')), [], 'instantané Nginx laissé dans TMPDIR');
     assert.deepEqual(readFileSync(f.t('etc/nginx/sites-available/immipro')), immipro);
     assert.match(f.trace(), /^certbot-write renew --cert-name preprod\.digisantemobile\.app --dry-run$/m);
     assert.doesNotMatch(f.trace(), /certbot-write certonly/, 'certificat présent : aucune émission');
@@ -526,7 +539,8 @@ test('--apply Nginx : amorçage ACME ou fichiers communs refusés par nginx -t �
     const r = f.run(['--apply', '--only', 'nginx'], { FAKE_NGINX_REJECT: f.t('etc/nginx/conf.d/digisante-rate-limit.conf'), FAKE_NGINX_REJECT_PATTERN: 'limit_req_zone' });
     assert.equal(r.status, 1);
     assert.match(r.stderr, /nginx -t refuse les fichiers communs ou l'amorçage ACME de digisante-preprod : fichiers Nginx DigiSanté restaurés à l'état d'avant/);
-    for (const p of ['etc/nginx/sites-available/digisante-preprod', 'etc/nginx/sites-enabled/digisante-preprod', 'etc/nginx/conf.d/digisante-rate-limit.conf', 'etc/nginx/snippets/digisante-headers.conf', 'etc/nginx/snippets/digisante-hsts.conf']) assert.ok(!existsSync(f.t(p)), p);
+    for (const p of ['etc/nginx/sites-available/digisante-preprod', 'etc/nginx/sites-enabled/digisante-preprod', 'etc/nginx/conf.d/digisante-rate-limit.conf', 'etc/nginx/snippets/digisante-headers.conf', 'etc/nginx/snippets/digisante-hsts.conf']) assert.ok(!present(f.t(p)), p);
+    assert.deepEqual(readdirSync(f.t('tmp')), [], 'instantané Nginx laissé dans TMPDIR');
     assert.deepEqual(readFileSync(f.t('etc/nginx/sites-available/immipro')), immipro);
     assert.doesNotMatch(f.trace(), /certbot-write/);
   } finally { f.clean(); }
@@ -555,6 +569,8 @@ test('--apply Nginx après --rollback (certificat conservé) : amorçage ACME AV
     assert.ok(hsts > renew, 'HSTS seulement après le renouvellement validé');
     assert.doesNotMatch(f.trace(), /certbot-write certonly/, 'certificat présent : aucune émission');
     assert.equal(readFileSync(f.t('etc/nginx/sites-available/digisante-preprod'), 'utf8'), readFileSync(resolve(ROOT, 'infra/deploy/nginx/digisante-preprod.conf'), 'utf8'));
+    assert.deepEqual(readdirSync(f.t('tmp')), [], 'instantané Nginx laissé dans TMPDIR');
+    assert.match(f.trace(), /^certbot-env secrets=$/m, 'certbot sans les secrets de la session root');
   } finally { f.clean(); }
 });
 
@@ -584,6 +600,8 @@ test('--apply runtime : npm et pm2 ne reçoivent jamais les secrets de la sessio
     assert.equal(r.status, 0, r.stdout + r.stderr);
     assert.match(f.trace(), /^npm-write install --global pm2@7\.0\.4$/m);
     assert.match(f.trace(), /^npm-env secrets=$/m);
+    assert.match(f.trace(), /^pm2-env secrets=$/m); assert.match(f.trace(), /^corepack-env secrets=$/m);
+    assert.doesNotMatch(f.trace(), /-env secrets=\S/, 'secret transmis à un outil tiers');
   } finally { f.clean(); }
 });
 
@@ -614,9 +632,12 @@ test('B3 : variantes de chemin vers APP_DIR (//, /./, ..) dans le modèle ou la 
       chmodSync(cron, 0o644); writeFileSync(cron, `${readFileSync(cron, 'utf8')}${line}\n`);
       const r = f.run();
       assert.equal(r.status, 1, line); assert.match(r.stderr, /B3 : le modèle de crontab exécute un chemin sous \/var\/www\/digisante-preprod/, line);
-      const r2 = f.run(['--only', 'users'], { FAKE_ROOT_CRONTAB: line });
-      assert.equal(r2.status, 1, line);
     } finally { f.clean(); }
+    const g = fixture();
+    try {
+      const r2 = g.run(['--only', 'cron'], { FAKE_ROOT_CRONTAB: line });
+      assert.equal(r2.status, 1, line); assert.match(r2.stderr, /B3 : une planification root .* lance un chemin sous \/var\/www\/digisante-preprod/, line);
+    } finally { g.clean(); }
   }
   // Chemin voisin (autre application) ou « .. » qui n'y mène pas : jamais confondu avec APP_DIR.
   const f = fixture();
@@ -703,9 +724,11 @@ test('pg_hba : première règle trust (accès sans mot de passe) ⇒ FAIL ; sond
   try {
     const r = f.run(['--only', 'pg'], { FAKE_PG_HBA: 'trust' });
     assert.equal(r.status, 1); assert.match(r.stdout, /FAIL  pg_hba : 127\.0\.0\.1 → digisante_preprod@digisante_preprod ACCEPTÉ SANS mot de passe/);
-    const ok = f.run(['--only', 'pg']);
+    const ok = f.run(['--only', 'pg'], { PGPASSWORD: 'SYNTHETIC_PGPASSWORD_operator' });
     assert.equal(ok.status, 0, ok.stdout + ok.stderr); assert.match(ok.stdout, /PASS  pg_hba : 127\.0\.0\.1 → digisante_preprod@digisante_preprod exige un mot de passe/);
     assert.match(f.trace(), /^psql-probe .*host=127\.0\.0\.1 port=5432 dbname=digisante_preprod user=digisante_preprod.* pw= passfile=\/dev\/null$/m);
+    // Même avec PGPASSWORD exporté par l'opérateur : aucune sonde ne transmet de mot de passe.
+    assert.doesNotMatch(f.trace(), /^psql-probe .* pw=set/m);
   } finally { f.clean(); }
 });
 
@@ -809,13 +832,14 @@ test('--rollback --apply : artefacts de l’environnement retirés ; fichiers co
         const immipro = readFileSync(f.t('etc/nginx/sites-available/immipro'));
         const r = f.run(['--rollback', '--apply'], { FAKE_PM2_ENABLED: '1' });
         assert.equal(r.status, 0, r.stdout + r.stderr);
-        for (const p of own) assert.ok(!existsSync(f.t(p)), `${env} : ${p} conservé`);
-        for (const p of shared) assert.equal(existsSync(f.t(p)), otherActive, `${env} autre=${otherActive} : ${p}`);
+        for (const p of own) assert.ok(!present(f.t(p)), `${env} : ${p} conservé`);
+        for (const p of shared) assert.equal(present(f.t(p)), otherActive, `${env} autre=${otherActive} : ${p}`);
         if (otherActive) assert.equal(readFileSync(f.t(`etc/nginx/sites-enabled/${other}`), 'utf8'), '# autre\n');
         assert.deepEqual(readFileSync(f.t('etc/nginx/sites-available/immipro')), immipro);
         assert.ok(existsSync(f.t(`etc/${f.e.site}/backup.key`)), 'configuration root conservée');
         const t = f.trace();
         assert.match(t, /^systemctl-write reload nginx$/m); assert.match(t, new RegExp(`^pm2-write unstartup systemd -u ${f.e.app} `, 'm'));
+        assert.doesNotMatch(t, /-env secrets=\S/, 'secret transmis à pm2');
         assert.doesNotMatch(t, /^(psql-(c|stdin)|valkey-write|useradd-write|createdb-write|certbot-write)/m);
         assert.equal(f.run(['--rollback', '--apply'], { FAKE_PM2_ENABLED: '1' }).status, 0, 'rejeu idempotent');
       } finally { f.clean(); }
@@ -866,6 +890,97 @@ test('secrets : reconcile.token planifié en dry-run (aucune écriture), posé 0
     assert.match(f.run(['--only', 'secrets'], users).stdout, /PASS  reconcile\.token = RECONCILE_TOKEN du \.env/);
     for (const out of [r.stdout + r.stderr, f.trace()]) assert.ok(!out.includes(token), 'jeton affiché');
     assert.deepEqual(readdirSync(f.t('tmp')), [], 'fichier temporaire laissé');
+  } finally { f.clean(); }
+});
+
+test('B3 : affectation de variable (J=/var/www/… puis $J) dans /etc/cron.d ou /etc/crontab ⇒ refus ; --verify FAIL puis PASS', () => {
+  for (const [path, body] of [['etc/cron.d/digisante-old', 'J=/var/www/digisante-preprod/infra/deploy/scripts/internal_job.sh\n*/5 * * * * root $J /api/v1/reminders/generate\n'], ['etc/crontab', 'D=/var/www/digisante-preprod/infra/deploy/scripts\n30 2 * * * root ${D}/fedapay_reconcile.sh\n']]) {
+    const f = fixture();
+    try {
+      writeFileSync(f.t(path), body);
+      const r = f.run(['--only', 'cron']);
+      assert.equal(r.status, 1, path); assert.match(r.stderr, /B3 : une planification root .* lance un chemin sous \/var\/www\/digisante-preprod/, path);
+      const v = f.run(['--verify'], { FAKE_USERS: 'digisante-preprod:1001:1001:digisante-preprod sshusers' });
+      assert.match(v.stdout, /FAIL  B3 : une planification root/, path);
+      rmSync(f.t(path));
+      assert.match(f.run(['--verify'], { FAKE_USERS: 'digisante-preprod:1001:1001:digisante-preprod sshusers' }).stdout, /PASS  B3 : aucune planification root sous \/var\/www\/digisante-preprod/);
+    } finally { f.clean(); }
+  }
+});
+
+test('Nginx serveur de repli : default_server lié à une adresse (127.0.0.1) ou QUIC ne compte pas ; vhost inclus hors sites-enabled vu par nginx -T ; IPv6 sans voisin signalé', () => {
+  const tls = (listen) => `server {\n    ${listen}\n    server_name x.app;\n}\n`;
+  for (const extra of ['listen 127.0.0.1:443 ssl default_server;', 'listen 443 quic reuseport default_server;']) {
+    const f = fixture();
+    try {
+      writeFileSync(f.t('etc/nginx/sites-available/immipro'), tls('listen 443 ssl;'));
+      writeFileSync(f.t('etc/nginx/sites-enabled/zz-status'), tls(extra));
+      const r = f.run(['--only', 'nginx']);
+      assert.equal(r.status, 1, extra); assert.match(r.stdout, /FAIL  Nginx :443 : aucun default_server explicite et digisante-preprod serait chargé avant \/etc\/nginx\/sites-enabled\/immipro/, extra);
+    } finally { f.clean(); }
+  }
+  let f = fixture();
+  try {
+    mkdirSync(f.t('etc/nginx/vhosts')); writeFileSync(f.t('etc/nginx/vhosts/immipro.conf'), tls('listen 443 ssl;'));
+    const r = f.run(['--only', 'nginx'], { FAKE_NGINX_T_EXTRA: f.t('etc/nginx/vhosts/immipro.conf') });
+    assert.equal(r.status, 1); assert.match(r.stdout, /FAIL  Nginx :443 : .* avant \/etc\/nginx\/vhosts\/immipro\.conf/);
+    // nginx -T indisponible : repli sur conf.d puis sites-enabled (le vhost inclus ailleurs n'est alors pas vu).
+    assert.equal(f.run(['--only', 'nginx'], { FAKE_NGINX_T_FAIL: '1' }).status, 0);
+  } finally { f.clean(); }
+  f = fixture();
+  try {
+    writeFileSync(f.t('etc/nginx/sites-available/beninlink'), tls('listen 443 ssl;'));
+    symlinkSync(f.t('etc/nginx/sites-available/beninlink'), f.t('etc/nginx/sites-enabled/beninlink'));
+    const r = f.run(['--only', 'nginx']);
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stdout, /PASS  Nginx :443 : serveur de repli inchangé \(beninlink\)/);
+    assert.match(r.stdout, /NOTE  Nginx :\[::\]:443 : aucun voisin n'y écoute — DigiSanté y serait le serveur de repli IPv6/);
+  } finally { f.clean(); }
+});
+
+test('Nginx : fichier commun mis à jour quand les DEUX copies root sont alignées (autre environnement actif) ; non alignées ⇒ FAIL', () => {
+  const f = fixture();
+  try {
+    copyRootTree(f.t('usr/local/lib/digisante'));
+    writeFileSync(f.t('etc/nginx/sites-enabled/digisante'), readFileSync(resolve(ROOT, 'infra/deploy/nginx/digisante.conf')));
+    writeFileSync(f.t('etc/nginx/conf.d/digisante-rate-limit.conf'), '# ancienne version installée (SHA précédent)\n');
+    let r = f.run(['--only', 'nginx']);
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stdout, /NOTE  \/etc\/nginx\/conf\.d\/digisante-rate-limit\.conf mis à jour pour les deux environnements \(copies root alignées\)/);
+    assert.match(r.stdout, /\[plan\] installation de \/etc\/nginx\/conf\.d\/digisante-rate-limit\.conf/);
+    const other = f.t('usr/local/lib/digisante/infra/deploy/nginx/rate-limit.conf'); chmodSync(other, 0o644); writeFileSync(other, '# copie root production à un autre SHA\n');
+    r = f.run(['--only', 'nginx']);
+    assert.equal(r.status, 1); assert.match(r.stdout, /FAIL  \/etc\/nginx\/conf\.d\/digisante-rate-limit\.conf diffère .* sa copie root n'est pas alignée/);
+  } finally { f.clean(); }
+});
+
+test('clé de déploiement --apply : écrite « restrict » chez le compte, DANS la racine de test ; options supplémentaires reconnues', () => {
+  const key = `ssh-ed25519 ${'B'.repeat(68)} deploy@ci`;
+  const f = fixture('preproduction', { fakeInstall: true });
+  try {
+    const users = { FAKE_USERS: 'digisante-preprod:1001:1001:digisante-preprod sshusers;digisante-preprod-jobs:1002:1002:digisante-preprod-jobs' };
+    const keys = f.t('home/digisante-preprod/.ssh/authorized_keys');
+    let r = f.run(['--apply', '--only', 'users'], { ...users, DEPLOY_SSH_PUBKEY: key });
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.equal(readFileSync(keys, 'utf8'), `restrict ${key}\n`);
+    assert.ok(!existsSync(f.t('root-home/.ssh')), 'écrit chez le lanceur');
+    r = f.run(['--apply', '--only', 'users'], { ...users, DEPLOY_SSH_PUBKEY: key });
+    assert.match(r.stdout, /PASS  clé de déploiement présente \(restrict\)/); assert.equal(readFileSync(keys, 'utf8'), `restrict ${key}\n`, 'clé dupliquée');
+    for (const line of [`restrict,from="203.0.113.0/24" ${key}`, `from="203.0.113.0/24",restrict ${key}`]) {
+      writeFileSync(keys, `${line}\n`);
+      assert.match(f.run(['--only', 'users'], { ...users, DEPLOY_SSH_PUBKEY: key }).stdout, /PASS  clé de déploiement présente \(restrict\)/, line);
+      assert.match(f.run(['--verify'], users).stdout, /PASS  clés SSH de digisante-preprod toutes restreintes/, line);
+    }
+    writeFileSync(keys, `from="203.0.113.0/24" ${key}\n`);
+    assert.match(f.run(['--verify'], users).stdout, /FAIL  \/home\/digisante-preprod\/\.ssh\/authorized_keys : clé sans restrict/);
+  } finally { f.clean(); }
+});
+
+test('--verify sans VALKEY_PASSWORD ⇒ FAIL (marqueur et éviction non vérifiés), jamais un vert implicite', () => {
+  const f = fixture();
+  try {
+    const r = f.run(['--verify'], { VALKEY_PASSWORD: '', FAKE_USERS: 'digisante-preprod:1001:1001:digisante-preprod sshusers' });
+    assert.notEqual(r.status, 0); assert.match(r.stdout, /FAIL  VALKEY_PASSWORD absent : marqueur et éviction Valkey NON vérifiés/);
   } finally { f.clean(); }
 });
 

@@ -83,7 +83,7 @@ toujours depuis la copie root de l'environnement (B3). Un environnement par exé
 | `dirs` | checkout `/var/www/digisante[-preprod]` et journaux (utilisateur, 0750), magasin `/var/lib/digisante[-preprod]-files` (utilisateur, **0700**, B4), `/etc/digisante[-preprod]` et `/var/backups/digisante[-preprod]` (root **0700**), journaux cron root 0750, webroot ACME `/var/www/digisante-acme` |
 | `pg` | rôle `LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`, base `UTF8`/`template0` dont il est propriétaire, `CONNECT` retiré à `PUBLIC`. Mot de passe : seul un **vérificateur SCRAM-SHA-256 calculé sur l'hôte** (Node) part au serveur, par `\getenv` — le mot de passe en clair n'atteint jamais PostgreSQL (journaux, `pg_stat_statements`, `pg_stat_activity`) ni `ps`. **Ne modifie jamais `pg_hba.conf`** ni un rôle/une base existants |
 | `valkey` | réserve l'index (`SET digisante:owner <env> NX`) — aucune autre écriture, **jamais `FLUSHDB`/`FLUSHALL`** ; mot de passe par `REDISCLI_AUTH`, jamais affiché |
-| `runtime` | PM2 `7.0.4` global (seulement s'il est absent), pnpm `9.12.0` mis en **cache corepack** de l'utilisateur — `deploy.sh` lance `corepack pnpm` (version du `packageManager`), jamais le pnpm global 12.x de l'hôte —, service `pm2-<utilisateur>` au démarrage. Node **jamais** réinstallé (24 exigé). npm/pm2/certbot ne reçoivent jamais les secrets de la session root |
+| `runtime` | PM2 `7.0.4` global (seulement s'il est absent), pnpm `9.12.0` mis en **cache corepack** de l'utilisateur — `deploy.sh` place en tête du PATH un shim `pnpm` → `corepack pnpm` (version du `packageManager`, appels imbriqués comme `pnpm -r build` compris), jamais le pnpm global 12.x de l'hôte —, service `pm2-<utilisateur>` au démarrage. Node **jamais** réinstallé (24 exigé). npm/pm2/certbot ne reçoivent jamais les secrets de la session root |
 | `secrets` | `backup.key` générée sur l'hôte (0400, jamais affichée), `reconcile.token` aligné sur le `RECONCILE_TOKEN` du `.env` (0400), modèle `alert.conf` |
 | `nginx` | `nginx -t` vert exigé **avant** toute écriture ; instantané des fichiers DigiSanté (communs + vhost + lien) ; fichiers communs préfixés `digisante` (`conf.d/digisante-rate-limit.conf`, `snippets/digisante-{headers,hsts}.conf`, jamais réécrits si l'autre environnement est actif et qu'ils diffèrent) ; vhost HTTP d'amorçage ACME **chaque fois que le site n'est pas actif** (premier passage ou après `--rollback`) ; certificat par `certbot certonly --webroot` (**`--dry-run` Let's Encrypt d'abord**, `--cert-name` dédié, jamais `--nginx` : Certbot ne réécrit aucun vhost) ; `certbot renew --cert-name … --dry-run` ; puis HSTS et vhost TLS complet, `reload`. Tout refus de `nginx -t` **restaure l'instantané** (fichiers absents avant ⇒ retirés) puis recharge |
 | `cron` | `/etc/cron.d/digisante[-preprod]` (sauvegarde 02:00 en production / 01:30 en préproduction — travaux lourds décalés, réconciliation FedaPay 02:30, healthwatch toutes les 5 min, générateurs/dispatch, renouvellement TLS limité au `--cert-name`) et `/etc/logrotate.d/digisante[-preprod]`, depuis la copie root (B3 : aucun chemin sous le checkout) |
@@ -103,9 +103,12 @@ joignable, index **vide ou déjà marqué pour cet environnement**, l'autre inde
 éviction** (`noeviction` ou `maxmemory 0`, sinon FAIL : les verrous OTP et sessions DigiSanté seraient évincés par
 la charge des voisins ; CONFIG refusé par ACL ⇒ NOTE à constater) ; Nginx et **Certbot** présents ; domaine non
 déclaré par un autre vhost (liens de `sites-enabled` suivis), zones/format `digisante_*` non redéfinis ailleurs,
-fichiers communs identiques à cette copie root si l'autre environnement est actif ; **serveur de repli** : sans
-`default_server` explicite sur 443 (ou 80), DigiSanté ne doit pas être chargé avant un vhost voisin (sinon FAIL :
-il deviendrait le site servi pour un accès par IP ou sans SNI) ; DNS A = `31.70.148.167` et aucun AAAA vers un
+fichiers communs identiques à cette copie root si l'autre environnement est actif (mis à jour seulement si la
+copie root de l'autre environnement porte la même source : les deux passent ensemble) ; **serveur de repli**, par
+famille d'adresses (`443`/`80` et `[::]:443`/`[::]:80`, ordre de chargement réel lu par `nginx -T`) : sans
+`default_server` explicite générique (une écoute liée à une adresse ou QUIC ne compte pas), DigiSanté ne doit pas
+être chargé avant un vhost voisin (sinon FAIL : il deviendrait le site servi pour un accès par IP ou sans SNI) ;
+aucun voisin en IPv6 ⇒ NOTE (DigiSanté y serait le repli IPv6, point 6) ; DNS A = `31.70.148.167` et aucun AAAA vers un
 autre hôte (`HOST_PUBLIC_IP6` si un AAAA vise cet hôte) ; aucune planification root (crontab root, `/etc/crontab`,
 `/etc/cron.d/*`, `/etc/cron.{hourly,daily,weekly,monthly}`) ne lance un chemin du checkout (B3, chemins normalisés).
 En `--apply`, `PG_APP_PASSWORD` (si le rôle est à créer : **24 à 256 caractères ASCII imprimables, sans
@@ -134,12 +137,15 @@ Le dry-run les évalue, mais elles exigent l'accès à l'hôte et ne sont **pas*
 5. **Certbot** : version et chemin (`command -v certbot` ; snap ⇒ `/snap/bin`, présent dans le PATH des crons),
    `systemctl list-timers certbot.timer` (le timer système renouvelle aussi ce certificat ; le hook de rechargement
    est enregistré dans `/etc/letsencrypt/renewal/<nom>.conf`), et **`ls -l /etc/letsencrypt/renewal-hooks/{pre,post,deploy}`** :
-   les hooks globaux des autres applications s'exécutent à chaque `certbot renew --dry-run` du script (comme au
-   vrai renouvellement) — les relire avant, et prévenir leurs responsables.
+   les hooks globaux `pre`/`post` des autres applications s'exécutent à chaque `certbot renew --dry-run` du script ;
+   les hooks `deploy` seulement au premier vrai renouvellement du certificat DigiSanté (cron ou `certbot.timer`) —
+   les relire avant, et prévenir leurs responsables.
 6. **Nginx** : `include /etc/nginx/conf.d/*.conf` et `sites-enabled/*` présents dans `nginx.conf` ; aucun vhost
    existant ne déclare les domaines DigiSanté ; un **`default_server` explicite** sur 443 (et le site `default`
-   d'Ubuntu sur 80), sinon le dry-run échoue si DigiSanté devenait le serveur de repli ; `nginx -t` vert AVANT
-   intervention.
+   d'Ubuntu sur 80), sinon le dry-run échoue si DigiSanté devenait le serveur de repli ; en IPv6 (`[::]:443`), si
+   aucun voisin n'y écoute, DigiSanté y deviendrait le repli : vérifier qu'aucun voisin n'est publié en AAAA sans
+   écoute IPv6 (il recevrait le certificat DigiSanté), sinon `default_server` IPv6 par l'administrateur ; `nginx -t`
+   vert AVANT intervention.
 7. **Ports** : `ss -ltnp` — 3100/3101/3200/3201 libres ; 3000 (ImmiPro) et 3001 (Grafana) jamais touchés.
    **Node 24** installé pour tout l'hôte (`/usr/bin/node`, pas un `nvm` réservé à root) : PM2 et `deploy.sh`
    tournent sous le compte applicatif (`--verify` le contrôle sous ce compte).
@@ -180,7 +186,8 @@ sudo -u digisante${SUFFIX} git clone https://github.com/malcomx2022/digisante-mo
 # … .env de l'API et du web depuis .env.preprod.example / .env.prod.example (§2), RECONCILE_TOKEN compris
 bash "$P" --apply --only secrets    # backup.key (copie HORS VPS) + reconcile.token aligné sur le .env
 
-# 4) VÉRIFICATION post-provisioning (lecture seule) — à relancer après le premier déploiement (§3)
+# 4) VÉRIFICATION post-provisioning (lecture seule) — à relancer après le premier déploiement (§3) ;
+#    VALKEY_PASSWORD exigé à chaque --verify (sans lui : FAIL, marqueur/éviction non vérifiés)
 bash "$P" --verify
 unset VALKEY_PASSWORD
 ```
@@ -193,7 +200,8 @@ unset VALKEY_PASSWORD
 - PostgreSQL : rôle sans privilège ni appartenance, base du rôle, `PUBLIC` sans `CONNECT`, `pg_hba` exigeant un
   mot de passe (sonde sans mot de passe refusée) ;
 - Valkey : marqueur `digisante:owner` = environnement sur son index ; aucune éviction ;
-- Node 24, service `pm2-<utilisateur>` activé ; `corepack pnpm --version` = 9.12.0 dans le checkout, hors ligne ;
+- Node 24 **pour le compte applicatif**, service `pm2-<utilisateur>` activé ; `corepack pnpm --version` = 9.12.0 dans
+  le checkout, hors ligne (cache de la version utilisée par le shim de `deploy.sh`) ;
 - Nginx : `nginx -t`, vhost activé et **identique** à la copie root, certificat présent, maintenance signalée
   (NOTE active/inactive) ;
 - cron : `/etc/cron.d/…` identique à la copie root et **sans chemin sous le checkout (B3)**, aucune autre
@@ -282,14 +290,15 @@ restent servis ; les tâches cron appellent l'API en local (127.0.0.1), hors Ngi
 403/503 pendant la fenêtre (retries FedaPay puis réconciliation 02:30).
 
 ```bash
-M=/etc/nginx/snippets/digisante${SUFFIX}-maintenance.conf
-# Recette : seule l'IP de recette (et l'IP publique de l'hôte, pour verify_deploy.sh) passent.
-printf 'allow %s;\nallow 31.70.148.167;\ndeny all;\n' '<IP_RECETTE>' | sudo install -o root -g root -m 0644 /dev/stdin "$M"
-#   (fermeture totale : printf 'return 503;\n' | sudo install … /dev/stdin "$M")
+MAINT=/etc/nginx/snippets/digisante${SUFFIX}-maintenance.conf
+# Recette : seule l'IP de recette (et l'IP publique de l'hôte, pour verify_deploy.sh) passent ; si un AAAA
+# vise cet hôte (HOST_PUBLIC_IP6), ajouter aussi « allow <IPv6 de l'hôte>; » (sinon verify_deploy.sh : 403).
+printf 'allow %s;\nallow 31.70.148.167;\ndeny all;\n' '<IP_RECETTE>' | sudo install -o root -g root -m 0644 /dev/stdin "$MAINT"
+#   (fermeture totale : printf 'return 503;\n' | sudo install … /dev/stdin "$MAINT")
 sudo nginx -t && sudo systemctl reload nginx
 curl -sI https://<domaine>/ | head -1        # depuis une autre IP : 403 (ou 503)
 # Levée, après vérification cible et autorisation d'ouverture :
-sudo rm -f "$M" && sudo nginx -t && sudo systemctl reload nginx
+sudo rm -f "$MAINT" && sudo nginx -t && sudo systemctl reload nginx
 ```
 
 ```bash
@@ -428,7 +437,7 @@ Secrets à définir dans **Settings → Secrets and variables → Actions** :
 | `VPS_FINGERPRINT` | empreinte SHA256 de la clé d’hôte SSH (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`) — obligatoire, le job échoue sans |
 | `VPS_SSH_PORT` | port SSH si ≠ 22 (optionnel) |
 
-La clé publique correspondante doit être dans `~digisante/.ssh/authorized_keys` (prod ; préprod : `~digisante-preprod/.ssh/authorized_keys`, secrets `PREPROD_VPS_*`),
+La clé publique correspondante est installée par `provision-ionos.sh --apply --only users` (`DEPLOY_SSH_PUBKEY`), écrite **`restrict <clé>`** dans `~digisante/.ssh/authorized_keys` (prod ; préprod : `~digisante-preprod/.ssh/authorized_keys`, secrets `PREPROD_VPS_*`) ; ajoutée à la main, elle doit porter l'option `restrict` (sinon `--verify` : FAIL),
 et l'utilisateur de l'environnement doit pouvoir lancer `pm2`/`prisma` sans mot de passe.
 
 Le job `deploy` de `ci.yml` et le workflow `preproduction.yml` partagent le groupe de concurrence
@@ -474,7 +483,7 @@ openssl enc -d -aes-256-cbc -pbkdf2 -pass file:/etc/digisante-preprod/backup.key
 
 ## Préproduction L10 — reprise (8 octobre 2026)
 
-Base main a3f80a1 après #189 ; préparer uniquement l’outillage, accès fournis ultérieurement par le porteur. Lire contrat/suivi/revue L10, inventaire de secrets et dossier `docs/preproduction/L10`. Base et cache restent **natifs sur cible** (sur l'hôte IONOS : PostgreSQL 18.6 et Valkey partagés, cf. addendum ci-dessous). Utiliser `DB_NAME=digisante_preprod` au provisioning et la crontab **crontab.preproduction.example**, installée en `/etc/cron.d/digisante-preprod` (son `DIGISANTE_ENV=preproduction` fixe base, chemins et ports pour la sauvegarde ET les diagnostics). Ne pas installer la crontab prod par erreur. API.env privé NODE_ENV=production ; Firebase public/VAPID au build. Les smoke tests ordinaires ne sont jamais autorisés sur cette cible ; la configuration smoke indépendante ne purge plus Redis.
+Base main a3f80a1 après #189 ; préparer uniquement l’outillage, accès fournis ultérieurement par le porteur. Lire contrat/suivi/revue L10, inventaire de secrets et dossier `docs/preproduction/L10`. Base et cache restent **natifs sur cible** (sur l'hôte IONOS : PostgreSQL 18.6 et Valkey partagés, cf. addendum ci-dessous). Provisioning : `DIGISANTE_ENV=preproduction` (base `digisante_preprod` fixée par le profil ; `DB_NAME` hérité ignoré) et la crontab **crontab.preproduction.example**, installée en `/etc/cron.d/digisante-preprod` (son `DIGISANTE_ENV=preproduction` fixe base, chemins et ports pour la sauvegarde ET les diagnostics). Ne pas installer la crontab prod par erreur. API.env privé NODE_ENV=production ; Firebase public/VAPID au build. Les smoke tests ordinaires ne sont jamais autorisés sur cette cible ; la configuration smoke indépendante ne purge plus Redis.
 
 Les archives DB ET fichiers sont nécessaires à la restauration. `sudo node $ROOT_LIB/scripts/preproduction/check-backup.mjs <manifest>` contrôle les deux SHA256 et la complétude du magasin (`files_count` ≥ `files_expected`, `files_missing=0`, B4) ; healthwatch lit seulement les métadonnées (dont la complétude). Dump et compteurs partagent le snapshot DB ; DB et filestore ne sont pas une transaction commune. Verrou anti-concurrence, permissions privées, aucune purge sur préparation en échec, marqueur complet = manifeste. Clé/copie hors VPS et restauration réelle séparée en L11 ; exemple DB seul ci-dessus incomplet pour la restauration du DMP. `verify_deploy.sh` sans option ne lance aucun générateur/dispatch ; `--run-jobs` exige préproduction et peut envoyer aux destinataires synthétiques autorisés. Observations cron réelles et preuves fournisseurs restent à recueillir.
 

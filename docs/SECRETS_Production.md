@@ -90,8 +90,9 @@
 ## Build et déploiement de production
 
 Jamais à la main : `infra/deploy/scripts/deploy.sh` (README §3) arrête d'abord les workers PM2 **de cet
-environnement**, puis checkout du SHA qualifié → `corepack pnpm install --frozen-lockfile` (version du
-`packageManager`, jamais le pnpm global de l'hôte) → `prisma generate` → `pnpm build` → **`prisma migrate deploy`
+environnement** (après avoir préparé par corepack la version pnpm de la cible), puis checkout du SHA qualifié →
+`pnpm install --frozen-lockfile` par un shim `pnpm` → `corepack pnpm` en tête du PATH (version du `packageManager`,
+appels imbriqués compris, jamais le pnpm global de l'hôte) → `prisma generate` → `pnpm build` → **`prisma migrate deploy`
 après le build** → démarrage homogène `DIGISANTE_ENV=production pm2 startOrReload ecosystem.config.cjs` → readiness.
 
 `ecosystem.config.cjs` (racine) : `digisante-api` (cluster ×2, `--env-file=<checkout>/apps/api/.env`, chemin

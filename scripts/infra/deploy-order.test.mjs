@@ -31,7 +31,8 @@ function fixture() {
   git(seed, 'config', 'user.name', 'Synthetic deploy test');
   git(seed, 'config', 'user.email', 'deploy@example.invalid');
   writeFileSync(join(seed, '.gitignore'), 'apps/api/.env\n');
-  git(seed, 'add', '.gitignore');
+  writeFileSync(join(seed, 'package.json'), '{"private":true,"packageManager":"pnpm@9.12.0"}\n');
+  git(seed, 'add', '.gitignore', 'package.json');
   git(seed, 'commit', '--quiet', '-m', 'bootstrap');
   const first = git(seed, 'rev-parse', 'HEAD');
   git(seed, 'commit', '--quiet', '--allow-empty', '-m', 'older qualified candidate');
@@ -57,8 +58,10 @@ function fixture() {
   mkdirSync(log); mkdirSync(bin); writeFileSync(trace, '');
   for (const [name, body] of Object.entries({
     pnpm: 'printf "pnpm %s\\n" "$*" >> "$TRACE"',
-    // deploy.sh : `corepack pnpm …` (version épinglée) ; la simulation délègue au pnpm simulé.
-    corepack: '[[ "$1" == pnpm ]] || exit 2; shift; exec pnpm "$@"',
+    // deploy.sh : shim `pnpm` → `corepack pnpm …` (version épinglée) ; `corepack pnpm@x.y.z --version`
+    // prépare la version de la cible. La simulation délègue au pnpm simulé (chemin absolu : le shim
+    // est en tête du PATH).
+    corepack: 'if [[ "$1" == pnpm@* && "$2" == --version ]]; then echo "${FAKE_COREPACK_VERSION:-${1#pnpm@}}"; exit 0; fi; [[ "$1" == pnpm ]] || exit 2; shift; exec "$(dirname "$0")/pnpm" "$@"',
     pm2: 'printf "pm2 %s\\n" "$*" >> "$TRACE"; [[ "$1" != jlist ]] || printf "[]\\n"',
     curl: 'printf "curl %s\\n" "$*" >> "$TRACE"; printf \'{"status":"ready","db":"up","redis":"up"}\\n\'',
   })) {
