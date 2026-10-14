@@ -121,13 +121,14 @@ distante ; E2E par la CI `main`. Aucune preuve enregistrée : `evidence.json` re
 ## Requalification après #205 (14/10/2026)
 
 Contrôles sur le SHA `main` exact `626c6fdb8de2dffb7dde7a400391b11fff81cbff` (fusion de #205 sur `23b49eb`), worktree
-détaché, PostgreSQL 16 et Redis locaux, bases neuves, `NODE_ENV=test` ; aucune cible distante. Aucune preuve
-enregistrée : `evidence.json` reste vide (`records: 0`, `candidate: null`). Contre-vérification indépendante des
-éléments ci-dessous par deux auditeurs (CI et local), sans écart constaté.
+détaché, PostgreSQL 16 et Redis locaux, bases PostgreSQL neuves (Redis …/1 purgé par la suite de tests ; Redis …/2
+de l'E2E **non purgé** lors de ce rejeu), `NODE_ENV=test` ; aucune cible distante. Aucune preuve enregistrée :
+`evidence.json` reste vide (`records: 0`, `candidate: null`). Contre-vérification indépendante par deux auditeurs (CI
+et local), sans écart constaté ; trois imprécisions relevées ensuite par l'audit de #207 sont corrigées ci-dessous.
 
 | Candidate | Origine | Qualification CI | Contrôles locaux | Gates |
 |---|---|---|---|---|
-| `626c6fdb8de2dffb7dde7a400391b11fff81cbff` | `main` après #199 à #205 (IONOS, revue complémentaire, campagne L9) | run 38647967804 (`push`, `main`, tentative 1) : `build-and-test` + `e2e` réussis, `deploy` ignoré ; logique de `preprod:qualify` (`verify-candidate.mjs`) appliquée aux données de l'API GitHub lues par le connecteur, `gh` étant indisponible dans cette session | rejeu des étapes de `ci.yml` : install gelé, `prisma generate`, `migrate deploy` (34 migrations), `lint`, `typecheck`, `test:scripts` 206/206, i18n EN 1098/1098, `validation:check` (snapshot L9 `3e061d52…` inchangé), `validation:campaign:check`, `preprod:check` 100 cas (source `f150e70c…`, `preprod:prepare` sans écart), validations DOCX (plan et dossier L9), `bash -n`, `test` (689 API / 91 fichiers + 142 web / 16 fichiers), `build`, build E2E proxifié puis `test:e2e` 35/35, `metrics:check` | `preprod:gate --expected-sha 626c6fd…` code 1 : 101 points ouverts ; `validation:gate` code 1 : 15 points ouverts |
+| `626c6fdb8de2dffb7dde7a400391b11fff81cbff` | `main` après #199 à #205 (IONOS, revue complémentaire, campagne L9) | run 38647967804 (`push`, `main`, tentative 1) : `build-and-test` + `e2e` réussis, `deploy` ignoré ; `CANDIDATE_SHA=626c6fd… pnpm preprod:qualify` exécuté le 14/10 après #206 : « CI qualifiée : SHA 626c6fd…, run 38647967804 », code 0 (première qualification faite en appliquant la même logique aux données lues par le connecteur, `gh` ayant été jugé à tort indisponible) | rejeu des étapes de `ci.yml` : install gelé, `prisma generate`, `migrate deploy` (34 migrations), `lint`, `typecheck`, `test:scripts` 206/206, i18n EN 1098/1098, `validation:check` (snapshot L9 `3e061d52…` inchangé), `validation:campaign:check`, `preprod:check` 100 cas (source `f150e70c…`, `preprod:prepare` sans écart), validations DOCX (plan et dossier L9), `bash -n`, `test` (689 API / 91 fichiers + 142 web / 16 fichiers), `build`, build E2E proxifié puis `test:e2e` 35/35 (Redis …/2 non purgé) ; hors `ci.yml` : `metrics:check` | `preprod:gate --expected-sha 626c6fd…` code 1 : 101 points ouverts ; `validation:gate` code 1 : 15 points ouverts |
 
 - **`626c6fd` était la candidate qualifiée avant #206** (instantané inchangé depuis : voir « Requalification après
   #206 » ci-dessous). `ffa4372` est invalidée : entre les deux, l'instantané L10
@@ -151,18 +152,24 @@ enregistrée : `evidence.json` reste vide (`records: 0`, `candidate: null`). Con
 ## Requalification après #206 (14/10/2026)
 
 Contrôles sur le SHA `main` exact `ab75c4d67ccc14f8c2f608af1558ac3b5b8eecdf` (fusion de #206 sur `626c6fd`), même
-environnement que ci-dessus (worktree détaché, PostgreSQL 16 et Redis locaux, bases neuves, `NODE_ENV=test`) ; aucune
-cible distante. Aucune preuve enregistrée : `evidence.json` reste vide (`records: 0`, `candidate: null`).
+environnement que ci-dessus (worktree détaché, PostgreSQL 16 et Redis locaux, bases PostgreSQL neuves, `NODE_ENV=test`,
+E2E rejoué avec Redis …/2 purgé) ; aucune cible distante. Aucune preuve enregistrée : `evidence.json` reste vide
+(`records: 0`, `candidate: null`).
 
 | Candidate | Origine | Qualification CI | Contrôles locaux | Gates |
 |---|---|---|---|---|
-| `ab75c4d67ccc14f8c2f608af1558ac3b5b8eecdf` | `main` après #206 (fiche de requalification seule) | run 38650759155 (`push`, `main`, tentative 1) : `build-and-test` + `e2e` réussis, `deploy` ignoré ; logique de `preprod:qualify` (`verify-candidate.mjs`) appliquée aux données de l'API GitHub lues par le connecteur, `gh` étant indisponible dans cette session | rejeu des étapes de `ci.yml` : install gelé, `prisma generate`, `migrate deploy` (34 migrations), `lint`, `typecheck`, `test:scripts` 206/206, i18n EN 1098/1098, `validation:check` (snapshot L9 `3e061d52…` inchangé), `validation:campaign:check`, `preprod:check` 100 cas (source `f150e70c…`, `preprod:prepare` sans écart), validations DOCX (plan et dossier L9), `bash -n`, `test` (689 API / 91 fichiers + 142 web / 16 fichiers), `build`, build E2E proxifié puis `test:e2e` 35/35, `metrics:check` | `preprod:gate --expected-sha ab75c4d…` code 1 : 101 points ouverts ; `validation:gate` code 1 : 15 points ouverts |
+| `ab75c4d67ccc14f8c2f608af1558ac3b5b8eecdf` | `main` après #206 (fiche de requalification seule) | run 38650759155 (`push`, `main`, tentative 1) : `build-and-test` + `e2e` réussis, `deploy` ignoré ; `CANDIDATE_SHA=ab75c4d… pnpm preprod:qualify` : « CI qualifiée : SHA ab75c4d…, run 38650759155, build-and-test + e2e réussis ; aucun déploiement déduit. », code 0 ; contrôle négatif sur la tête de PR `27fdde9` : « Aucune CI main réussie sur le SHA candidat exact », code 1 | rejeu des étapes de `ci.yml` : install gelé, `prisma generate`, `migrate deploy` (34 migrations), `lint`, `typecheck`, `test:scripts` 206/206, i18n EN 1098/1098, `validation:check` (snapshot L9 `3e061d52…` inchangé), `validation:campaign:check`, `preprod:check` 100 cas (source `f150e70c…`, `preprod:prepare` sans écart), validations DOCX (plan et dossier L9), `bash -n`, `test` (689 API / 91 fichiers + 142 web / 16 fichiers), `build`, build E2E proxifié puis `test:e2e` 35/35 (premier rejeu, Redis …/2 non purgé), puis job `e2e` rejoué dans un worktree détaché neuf au même SHA avec PostgreSQL et Redis …/2 purgés (132 clés avant, 0 après), comme le conteneur CI : `test:e2e` 35/35, aucun échec ni reprise ; hors `ci.yml` : `metrics:check` | `preprod:gate --expected-sha ab75c4d…` code 1 : 101 points ouverts ; `validation:gate` code 1 : 15 points ouverts |
 
 - **`ab75c4d` est la candidate qualifiée à ce jour** (tête de `main`). Entre `626c6fd` et `ab75c4d`, seul
   `docs/suivi/LOT_L10.md` change ; ce fichier est hors instantané L10 : empreinte source `f150e70c…` et snapshot L9
   `3e061d52…` identiques. `626c6fd` n'est donc pas invalidée, mais le contrat (`CONTRAT_Preproduction_L10.md` §2)
   qualifie le SHA `main` **à déployer**, et le déploiement production part de la tête de `main`.
 - L'arbre de `ab75c4d` est identique à celui de la tête de PR `27fdde9` (CI de PR #206 réussie, run 38650299132).
+- Contre-vérification indépendante par trois auditeurs (CI, journaux locaux, fiche) : run, jobs, absence d'autre
+  tentative, arbre, comptes, instantanés et gates confirmés. Trois corrections appliquées aux deux sections :
+  `gh api` fonctionne via le proxy de la session (`gh auth status` signale pourtant un `GH_TOKEN` invalide), d'où la
+  qualification réelle ci-dessus ; `metrics:check` ne fait pas partie de `ci.yml` ; Redis …/2 n'était pas purgé lors
+  du premier rejeu E2E (rejoué à neuf pour `ab75c4d`, dont le code est identique à celui de `626c6fd`).
 - La fusion de cette fiche créera un nouveau SHA `main` de documentation seule : l'empreinte ne changera pas, mais
   ce SHA devra lui aussi passer `CANDIDATE_SHA=<SHA> pnpm preprod:qualify` (CI `main` exacte) avant d'être déclaré
   candidate ou déployé.
