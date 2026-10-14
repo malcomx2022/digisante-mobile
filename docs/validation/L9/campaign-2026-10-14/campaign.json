@@ -1,0 +1,506 @@
+{
+  "schemaVersion": 1,
+  "campaignId": "L9-2026-10-14",
+  "status": "PREPARED_FOR_REVIEW",
+  "baseCommitSha": "3e2eb7f2f72d9b5d9d4aee2a74d4b7f16ec7c620",
+  "sourceSnapshotSha256": "3e061d5232d7bc11fe4dc92134a1b2e8d0dc1753b503c38ba261365b514944ed",
+  "scopes": [
+    {
+      "scope": "triage",
+      "contentSha256": "83ed770617f7b17d57d35336ba4d3b21662a356a614781f9e68ebf6a49c7c8a0",
+      "professionalProfile": "Médecin habilité compétent en urgences/soins primaires, avec expertise pédiatrie/PCIME et santé maternelle pour les motifs correspondants.",
+      "reviewQuestions": [
+        "Quel référentiel local daté couvre chaque motif, âge, signe, priorité et délai de recours ?",
+        "Comment traiter une réponse manquante, incertaine ou incomprise sans la transformer en NON ?",
+        "Les conseils de surveillance et le recours proposé conviennent-ils à tous les publics couverts ?",
+        "La compréhension des questions, de la négation, des urgences et des pictogrammes est-elle établie sur les appareils cibles ?"
+      ]
+    },
+    {
+      "scope": "pev",
+      "contentSha256": "b64007bc080114abc8b49cbaff6fb2dc5bbdbbb67cee15befceb17ecb45a9f5c",
+      "professionalProfile": "Professionnel compétent en vaccination et référent du PEV national/structure compétente ; médecin pour les arbitrages cliniques nécessaires.",
+      "reviewQuestions": [
+        "Quel calendrier national daté et applicable à la cible remplace ou confirme les données embarquées ?",
+        "La définition des âges, mois, dates civiles et retards est-elle explicitement confirmée ?",
+        "Comment présenter les doses déclarées par le patient, les retards et le besoin de rattrapage par un professionnel ?",
+        "Les références MenA, paludisme 2024/2025 et HPV sont-elles applicables à la cible et à la période ? Aucun ajout automatique n’est proposé."
+      ]
+    },
+    {
+      "scope": "maternity",
+      "contentSha256": "e30f235879dcce44ebb8652a906e3bb10a8216a63d03bc34598f1440cf19a953",
+      "professionalProfile": "Sage-femme habilitée, obstétricien ou clinicien maternel qualifié pour la portée revue.",
+      "reviewQuestions": [
+        "Le calendrier des huit contacts et chacun des huit objectifs sont-ils approuvés sur la version exacte ?",
+        "Comment traiter DDR incertaine, future, ancienne, présentation tardive ou grossesse nécessitant adaptation clinique ?",
+        "Le terme estimé, les semaines révolues et les mentions de retard sont-ils compris sans être présentés comme diagnostic ?",
+        "Les signes de danger et les délais de recours sont-ils confirmés par un professionnel compétent ?"
+      ]
+    },
+    {
+      "scope": "phrasebook",
+      "contentSha256": "9074f3609161295f7469b5bba2196f81088ee8e617f92148eec7defebd881e55",
+      "professionalProfile": "Clinicien habilité en soins primaires ; deux relecteurs natifs distincts par langue pour le phrasier et les écoutes.",
+      "reviewQuestions": [
+        "Chaque phrase FR/EN puis FON/YOR conserve-t-elle intention, négation, degré d’urgence et contexte ?",
+        "Les consignes générales restent-elles compréhensibles sans induire une instruction de traitement hors contexte ?",
+        "La langue effectivement prononcée et la compréhension des écoutes sont-elles vérifiées sur les appareils cibles ?"
+      ]
+    },
+    {
+      "scope": "prescriptions",
+      "contentSha256": "e3ddb136e4bb84ad7dfe33147eca508d1ef4d7d4dca193acea48ad3868085c01",
+      "professionalProfile": "Médecin prescripteur habilité et pharmacien pour fidélité de posologie, unités, formes, allergies, pictogrammes et audio.",
+      "reviewQuestions": [
+        "Chaque représentation conserve-t-elle exactement quantité, teneur, forme, voie, unité, fréquence, durée, repas et conditions du prescripteur ?",
+        "Faut-il retirer les pictogrammes et audio dérivés pour toute entrée ou seulement pour un sous-ensemble explicitement confirmé ?",
+        "Comment demander clarification d’une prescription contradictoire ou ambiguë sans choisir son interprétation ?",
+        "Comment présenter la limite de recherche textuelle des allergies, l’absence d’alerte et l’override du prescripteur ?"
+      ]
+    },
+    {
+      "scope": "vitals",
+      "contentSha256": "54e69b4abc8cb9ce68fc1d0f8022f73080b2ca14dc3e7bf840278dfb102a694e",
+      "professionalProfile": "Clinicien habilité compétent en suivi des maladies chroniques, avec infirmier ou infirmière formé à la mesure.",
+      "reviewQuestions": [
+        "Quels champs, unités, paires de mesures, contexte et horodatage doivent être recueillis et affichés ?",
+        "Quels contrôles de plausibilité et comportement de correction faut-il fournir explicitement, sans seuil inventé par le développeur ?",
+        "Les mesures partielles et décimales sont-elles conservées et comprises sur les appareils cibles ?",
+        "L’absence de consigne de recours ou d’alerte automatique correspond-elle à la portée réellement annoncée ?"
+      ]
+    },
+    {
+      "scope": "education",
+      "contentSha256": "5f91e4a5cf52905039758d375b6ffcb1edfeb56935b4e772b7849889aa9af235",
+      "professionalProfile": "Clinicien habilité compétent dans chaque thème publié ; relecteurs natifs pour les traductions des articles réels.",
+      "reviewQuestions": [
+        "Quel inventaire privé complet couvre les articles effectivement publiés en base et leurs textes par langue ?",
+        "Chaque contenu publié possède-t-il une version, une empreinte et un retour clinique adaptés à son thème ?",
+        "Les traductions et écoutes réelles ont-elles été relues, sans considérer le seed ou le statut applicatif comme contreseing ?"
+      ]
+    }
+  ],
+  "nativeScopes": [
+    {
+      "locale": "fon",
+      "scope": "ui",
+      "contentSha256": "cfc511f183545e2d1a1823a835429f4e01d7cbf44308915248ef4756852a683f"
+    },
+    {
+      "locale": "fon",
+      "scope": "phrasebook-native",
+      "contentSha256": "63790be5481b1f503337d62989a12d5454a923bbc7c0cb962eed601c269c34bc"
+    },
+    {
+      "locale": "yor",
+      "scope": "ui",
+      "contentSha256": "f88df286002302b6933df000c8e384e5e6650e2701be1742a1aadc2f0b653749"
+    },
+    {
+      "locale": "yor",
+      "scope": "phrasebook-native",
+      "contentSha256": "63790be5481b1f503337d62989a12d5454a923bbc7c0cb962eed601c269c34bc"
+    }
+  ],
+  "additionalRecipeSources": [
+    {
+      "path": "apps/web/src/lib/speech.ts",
+      "sha256": "6ebffabc73341d94de9524c653f1caeb4bdd59127c22558e5d2b080cf8bb0276"
+    },
+    {
+      "path": "apps/web/src/components/chat/PhrasebookPanel.tsx",
+      "sha256": "cee543d328acae41c19e4e221e7060f5c9ebd47629f0ee769171a5091d9984c9"
+    }
+  ],
+  "generatorSources": [
+    {
+      "path": "scripts/validation/prepare-review-campaign.mjs",
+      "sha256": "92465ab80eb01fc20e0bc7cdac96dbcf7e1c604e57d5a02113d5eb9b60a24bc0"
+    },
+    {
+      "path": "scripts/validation/clinical-review.mjs",
+      "sha256": "a1f27989f241c7e5eb46e66e8c73a53004462112dab64f54fb316bb6728181a2"
+    },
+    {
+      "path": "scripts/validation/linguistic-review.mjs",
+      "sha256": "537497395ac2db050342c8456fe179d3d6b3748f0a6293434a1782a2c508376b"
+    },
+    {
+      "path": "scripts/validation/review-references.mjs",
+      "sha256": "3ec48df95ca7b8aea1079ca09c6a34a137c2b60358a593b6c96a644008afbd4b"
+    },
+    {
+      "path": "scripts/docs/generate-l9-review-kit.cjs",
+      "sha256": "9856f27160833796ec23e6ee2276fbb046b045cd8964a6502c37113b94796de0"
+    }
+  ],
+  "stats": {
+    "ui": {
+      "total": 1098,
+      "critical": 47,
+      "placeholderKeys": 46,
+      "clinicalKeys": 180,
+      "priorities": {
+        "P0": 47,
+        "P1": 250,
+        "P2": 156,
+        "P3": 645
+      }
+    },
+    "locales": {
+      "fon": {
+        "present": 866,
+        "missing": 232,
+        "missingCritical": 6,
+        "sameAsFrench": 24,
+        "phrasebookMissing": 27,
+        "priorities": {
+          "P0": {
+            "total": 47,
+            "present": 41,
+            "missing": 6
+          },
+          "P1": {
+            "total": 250,
+            "present": 186,
+            "missing": 64
+          },
+          "P2": {
+            "total": 156,
+            "present": 55,
+            "missing": 101
+          },
+          "P3": {
+            "total": 645,
+            "present": 584,
+            "missing": 61
+          }
+        }
+      },
+      "yor": {
+        "present": 866,
+        "missing": 232,
+        "missingCritical": 6,
+        "sameAsFrench": 17,
+        "phrasebookMissing": 27,
+        "priorities": {
+          "P0": {
+            "total": 47,
+            "present": 41,
+            "missing": 6
+          },
+          "P1": {
+            "total": 250,
+            "present": 186,
+            "missing": 64
+          },
+          "P2": {
+            "total": 156,
+            "present": 55,
+            "missing": 101
+          },
+          "P3": {
+            "total": 645,
+            "present": 584,
+            "missing": 61
+          }
+        }
+      }
+    },
+    "phrasebook": {
+      "total": 27,
+      "priorities": {
+        "Q0": 2,
+        "Q1": 17,
+        "Q2": 8
+      }
+    }
+  },
+  "sourceQuestions": [
+    {
+      "id": "SQ01",
+      "keys": [
+        "posology.form.INHALER"
+      ],
+      "issue": "Le français désigne une inhalation ; l’anglais désigne un inhalateur.",
+      "reviewQuestion": "Le libellé doit-il désigner un geste, une forme ou un dispositif ? Faire confirmer le concept clinique avant traduction."
+    },
+    {
+      "id": "SQ02",
+      "keys": [
+        "maternity.weeks_val",
+        "maternity.lmp"
+      ],
+      "issue": "Le français utilise SA, l’anglais wks ; les textes natifs actuels conservent SA.",
+      "reviewQuestion": "Comment préserver et expliquer l’unité de suivi gestationnel, sa référence aux dernières règles et le nombre interpolé ?"
+    },
+    {
+      "id": "SQ03",
+      "keys": [
+        "maternity.objective.2"
+      ],
+      "issue": "Les abréviations TPI-SP et VAT deviennent IPTp-SP et TT en anglais.",
+      "reviewQuestion": "Faire confirmer les concepts et leur formulation compréhensible par le patient ; ne pas développer les abréviations par supposition."
+    },
+    {
+      "id": "SQ04",
+      "keys": [
+        "maternity.objective.4"
+      ],
+      "issue": "L’anglais précise third-trimester, absent du texte français.",
+      "reviewQuestion": "Cette précision fait-elle partie du sens à communiquer ? Demander une décision explicite sur l’équivalence des sources."
+    },
+    {
+      "id": "SQ05",
+      "keys": [
+        "sos.sms",
+        "offline.sos_active",
+        "vault.network_only"
+      ],
+      "issue": "La mention hors ligne pour le SMS peut confondre absence d’Internet et absence de couverture téléphonique.",
+      "reviewQuestion": "Le lecteur comprend-il quelles connexions sont nécessaires pour chaque action et quoi faire si elles manquent ?"
+    },
+    {
+      "id": "SQ06",
+      "keys": [
+        "sos.sent"
+      ],
+      "issue": "Le texte annonce un envoi aux secours sans préciser les étapes de livraison ou de prise en charge.",
+      "reviewQuestion": "Que croit le lecteur avoir été fait ? Vérifier le sens autorisé par le comportement réel avant de valider la formulation."
+    },
+    {
+      "id": "SQ07",
+      "keys": [
+        "sos.im_ok",
+        "sos.false_alarm",
+        "sos.status.RESOLVED",
+        "sos.status.FALSE_ALARM"
+      ],
+      "issue": "Des libellés proches désignent une action sur l’alerte ou un état de l’historique.",
+      "reviewQuestion": "Le lecteur distingue-t-il le bouton, ses effets et le statut affiché ? La clôture technique ne doit pas être interprétée comme une résolution clinique."
+    },
+    {
+      "id": "SQ08",
+      "keys": [
+        "labo.order"
+      ],
+      "issue": "Le libellé expose l’identifiant technique orderId.",
+      "reviewQuestion": "Le destinataire sait-il de quelle demande il s’agit et où trouver son identifiant ? Confirmer le contexte affiché."
+    },
+    {
+      "id": "SQ09",
+      "keys": [
+        "subscriptions.rights"
+      ],
+      "issue": "Les sources décrivent l’accès aux revenus comme une livraison future du lot 7.",
+      "reviewQuestion": "Faire confirmer les droits réellement disponibles et la formulation produit avant traduction ; conserver les conditions de soins déjà engagés."
+    },
+    {
+      "id": "SQ10",
+      "keys": [
+        "triage.q.diarrhea_sunkeneyes"
+      ],
+      "issue": "Deux signes sont juxtaposés dans une seule question à réponse Oui ou Non.",
+      "reviewQuestion": "Le lecteur pense-t-il devoir observer un signe ou les deux ? Faire arbitrer le sens clinique exact avant toute reformulation."
+    },
+    {
+      "id": "SQ11",
+      "keys": [
+        "triage.q.diarrhea_vomiting"
+      ],
+      "issue": "Le français précise ce que la personne prend ; l’anglais dit everything.",
+      "reviewQuestion": "Vérifier que le sujet et le sens de ce qui est ingéré sont conservés, sans ajouter de consigne médicale."
+    },
+    {
+      "id": "SQ12",
+      "keys": [
+        "labo.check_msg"
+      ],
+      "issue": "Le message associe limites physiologiques, vérification de saisie et alerte critique irréversible.",
+      "reviewQuestion": "Le lecteur distingue-t-il ces notions et l’action demandée ? Tout raccourci clinique nécessite une revue explicite."
+    },
+    {
+      "id": "SQ13",
+      "keys": [
+        "prescribe.dosage",
+        "prescribe.frequency",
+        "prescribe.duration"
+      ],
+      "issue": "Le champ français Posologie correspond au champ anglais Dosage, avec fréquence et durée séparées.",
+      "reviewQuestion": "Le champ désigne-t-il la quantité, la dose ou le schéma complet ? Faire confirmer le concept et les unités en contexte."
+    }
+  ],
+  "clinicalCases": 45,
+  "reserves": [
+    {
+      "id": "RES-POSOLOGIE",
+      "scope": "prescriptions",
+      "priority": "BLOCKER",
+      "summary": "Fractions, unités, négation, fréquence, durée et doses variables produisent des interprétations divergentes ; arbitrage et correction explicites requis."
+    },
+    {
+      "id": "RES-TRIAGE",
+      "scope": "triage",
+      "priority": "BLOCKER",
+      "summary": "Questionnaire incomplet assimilé à réponses négatives ; priorités et délais par public à confirmer."
+    },
+    {
+      "id": "RES-PEV",
+      "scope": "pev",
+      "priority": "BLOCKER",
+      "summary": "Référentiel national courant, vaccins concernés, âges/dates, retards et rattrapage non contre-signés."
+    },
+    {
+      "id": "RES-CPN",
+      "scope": "maternity",
+      "priority": "BLOCKER",
+      "summary": "Huit contacts/objectifs, estimation et limites de DDR restent à faire contre-signer."
+    },
+    {
+      "id": "RES-VITALS",
+      "scope": "vitals",
+      "priority": "BLOCKER",
+      "summary": "Unités, plausibilité, données partielles et horodatage restent à définir et à relire."
+    },
+    {
+      "id": "RES-ALLERGIES",
+      "scope": "prescriptions",
+      "priority": "BLOCKER",
+      "summary": "Recherche textuelle limitée ; aucun moteur de classe ou absence de risque clinique ne peut être déduit."
+    },
+    {
+      "id": "RES-PHRASIER",
+      "scope": "phrasebook",
+      "priority": "BLOCKER",
+      "summary": "Phrases cliniques et traductions natives à relire ; aucune signature fournie par cette préparation."
+    },
+    {
+      "id": "RES-AUDIO",
+      "scope": "phrasebook",
+      "priority": "BLOCKER",
+      "summary": "FON/YOR transmis avec fr-FR ; écoute/compréhension sur appareils cibles non établie."
+    },
+    {
+      "id": "RES-EDUCATION",
+      "scope": "education",
+      "priority": "BLOCKER",
+      "summary": "Inventaire des articles réellement publiés inconnu ; seed distinct du corpus de production."
+    }
+  ],
+  "references": [
+    {
+      "id": "REF-MENA",
+      "publisher": "Ministère de la Santé du Bénin",
+      "published": "2022-01-27",
+      "title": "Introduction du vaccin MenA dans le PEV de routine",
+      "url": "https://sante.gouv.bj/article/actualites/sante-des-enfants-introduction-du-vaccin-mena-dans-le-pev-de-routine-703",
+      "relevance": "Introduction à 9 mois ; demander le calendrier national consolidé actuel.",
+      "consultedOn": "2026-10-14"
+    },
+    {
+      "id": "REF-MALARIA-2024",
+      "publisher": "OMS Afrique / Bénin",
+      "published": "2024-04-30",
+      "title": "Introduction du vaccin contre le paludisme dans le PEV",
+      "url": "https://www.afro.who.int/fr/countries/benin/news/le-benin-introduit-le-vaccin-contre-le-paludisme-dans-son-programme-elargi-de-vaccination-pev",
+      "relevance": "Introduction le 25 avril 2024 ; calendrier et territoires actuels à confirmer.",
+      "consultedOn": "2026-10-14"
+    },
+    {
+      "id": "REF-MALARIA-2025",
+      "publisher": "OMS Afrique / Bénin",
+      "published": "2025-05-08",
+      "title": "Un an après l’introduction du vaccin contre le paludisme",
+      "url": "https://afro.who.int/fr/countries/benin/news/un-apres-lintroduction-du-vaccin-contre-le-paludisme-moins-de-cas-de-consultations-liees-la-maladie",
+      "relevance": "Quatre administrations, premières à 6 et 7 mois et déploiement progressif ; ne prouve pas la couverture territoriale en octobre 2026.",
+      "consultedOn": "2026-10-14"
+    },
+    {
+      "id": "REF-HPV",
+      "publisher": "UNICEF Bénin",
+      "published": "2025-12-03",
+      "title": "Lancement officiel de la vaccination contre le HPV",
+      "url": "https://www.unicef.org/benin/communiqu%C3%A9s-de-presse/le-b%C3%A9nin-lance-officiellement-la-vaccination-contre-le-hpv-pour-prot%C3%A9ger-les",
+      "relevance": "Campagne filles de 9 à 14 ans puis routine à 9 ans ; hors périmètre naissance–15 mois actuel, arbitrage de périmètre requis.",
+      "consultedOn": "2026-10-14"
+    },
+    {
+      "id": "REF-ANC-2016",
+      "publisher": "OMS",
+      "published": "2016-11-28",
+      "title": "WHO recommendations on antenatal care for a positive pregnancy experience",
+      "url": "https://www.who.int/publications/i/item/9789241549912/",
+      "relevance": "Modèle de huit contacts ; première consultation dans les 12 premières semaines.",
+      "consultedOn": "2026-10-14"
+    },
+    {
+      "id": "REF-ANC-CONTACTS",
+      "publisher": "OMS",
+      "published": "2016-11-07",
+      "title": "Pregnant women must be able to access the right care at the right time",
+      "url": "https://www.who.int/news/item/07-11-2016-pregnant-women-must-be-able-to-access-the-right-care-at-the-right-time-says-who",
+      "relevance": "Puis contacts à 20, 26, 30, 34, 36, 38 et 40 semaines ; adaptation locale et objectifs à faire relire.",
+      "consultedOn": "2026-10-14"
+    },
+    {
+      "id": "REF-ANC-2022",
+      "publisher": "OMS",
+      "published": "2022-03-28",
+      "title": "Maternal and fetal assessment update: imaging ultrasound before 24 weeks of pregnancy",
+      "url": "https://www.who.int/publications/i/item/9789240046009",
+      "relevance": "Actualisation spécifique, pas validation globale de nos objectifs CPN.",
+      "consultedOn": "2026-10-14"
+    },
+    {
+      "id": "REF-IMCI-2014",
+      "publisher": "OMS / UNICEF",
+      "published": "2014-03",
+      "title": "IMCI chart booklet",
+      "url": "https://cdn.who.int/media/docs/default-source/mca-documents/9789241506823_chartbook_eng.pdf?download=true&sfvrsn=cccea3a6_1",
+      "relevance": "Page imprimée 1 / PDF 5 : vomit tout = signe général de danger ; population 2 mois à moins de 5 ans. Guide professionnel à adapter explicitement à une interface patient.",
+      "consultedOn": "2026-10-14"
+    },
+    {
+      "id": "REF-INFANT-2019",
+      "publisher": "OMS",
+      "published": "2019-07-22",
+      "title": "Management of the sick young infant aged up to 2 months",
+      "url": "https://www.who.int/publications/i/item/9789241516365",
+      "relevance": "Remplace la partie nourrisson du livret 2014 ; populations et limites du triage à expliciter.",
+      "consultedOn": "2026-10-14"
+    },
+    {
+      "id": "REF-INFANT-2024",
+      "publisher": "OMS",
+      "published": "2024-12-08",
+      "title": "Recommendations for management of serious bacterial infections in infants aged 0–59 days",
+      "url": "https://www.who.int/publications/i/item/9789240102903/",
+      "relevance": "Cadre professionnel récent ; ne pas transposer une règle ou un traitement automatiquement.",
+      "consultedOn": "2026-10-14"
+    },
+    {
+      "id": "REF-MEDICATION",
+      "publisher": "OMS",
+      "published": "2016-12-13",
+      "title": "Medication errors: technical series on safer primary care",
+      "url": "https://www.who.int/publications-detail-redirect/9789241511643",
+      "relevance": "Sécurité de communication des prescriptions ; aucune dose recommandée par ce kit.",
+      "consultedOn": "2026-10-14"
+    },
+    {
+      "id": "REF-BP",
+      "publisher": "OMS",
+      "published": "2020-04-20",
+      "title": "Technical specifications for automated non-invasive blood pressure measuring devices with cuff",
+      "url": "https://www.who.int/publications/i/item/9789240002654",
+      "relevance": "Dispositif et méthode de mesure à examiner ; ne fournit pas à lui seul des bornes de saisie pour notre produit.",
+      "consultedOn": "2026-10-14"
+    }
+  ],
+  "humanApprovals": [],
+  "runtimeEducationInventory": {
+    "status": "NOT_PROVIDED",
+    "reference": ""
+  }
+}

@@ -51,6 +51,7 @@ jobs:
           pnpm test:scripts
           node scripts/i18n/check-coverage.mjs --require-complete=en
           pnpm validation:check
+          pnpm validation:campaign:check
           pnpm preprod:check
           python scripts/docs/validate-implementation-plan.py
           for script in infra/deploy/scripts/*.sh; do bash -n "$script"; done

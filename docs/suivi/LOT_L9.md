@@ -1,5 +1,7 @@
 # Lot L9 — préparation des relectures natives et clinique
 
+Campagne complémentaire du 14 octobre : [kit pour les relecteurs identifiés](CAMPAGNE_L9_2026-10-14.md), formulaires et grilles vierges sur le snapshot courant. Les preuves historiques ci-dessous restent celles de leur livraison ; aucune validation humaine ajoutée.
+
 > 8 octobre 2026, Africa/Lagos. Branche `feat/l9-native-clinical-validation`.
 > Base main `4fc62c1a3a6487a8b42fa7c77a8770b01016fa78`, PR #188 fusionnée à 06:50:09 Africa/Lagos. CI main [37734382622](https://github.com/malcomx2022/digisante-mobile/actions/runs/37734382622) réussie sur ce SHA exact, build-and-test/e2e réussis et deploy ignoré.
 > Statut : **CANDIDATE TECHNIQUE VALIDÉE LOCALEMENT — L9 humain ouvert**. Retours validés annoncés par le porteur ; leurs références seront communiquées ultérieurement. Aucune pièce reçue, import ou signature attestés. Livraison et CI finale sur la PR ; aucune fusion ou mise en production automatique.

@@ -2,6 +2,8 @@
 
 Ces fichiers sont une **préparation technique**, pas des retours approuvés. Le porteur fournira les références ultérieurement. Dictionnaires et phrasier sont des contenus statiques, sans donnée patient ; signatures et pièces personnelles restent hors dépôt public.
 
+La campagne [du 14 octobre 2026](campaign-2026-10-14/README.md) fournit un guide DOCX, des formulaires d'avis vierges, des grilles de langue complètes, des cas synthétiques prioritaires et un ZIP à remettre aux relecteurs identifiés. `pnpm validation:campaign:check` vérifie les modèles ; leur présence ne ferme aucune validation. Les retours remplis restent dans le circuit privé. La génération refuse de réécrire un dossier existant ou d'utiliser un snapshot différent : nouvelle copie de cette campagne avec `pnpm validation:campaign --output-dir <nouveau-dossier>`. Une future version exige un nouvel identifiant, une base et des références actualisées, et un snapshot fixé explicitement.
+
 Lire `docs/CONTRAT_Validation_L9.md`. Régénérer l’instantané avec `pnpm validation:prepare`, puis le nouveau DOCX avec `node scripts/docs/generate-l9-dossier.cjs`. Ne jamais remplacer une pièce déjà signée : conserver la version exacte, appliquer le retour dans une PR et demander un nouveau contreseing si contenu corrigé. Ne pas modifier le dossier clinique historique en circulation.
 
 CSV : `current_fon/current_yor` est le texte existant (présence, pas validation) ; la colonne `fon/yor` reste vierge pour le retour. Toutes les 1 098 clés et les 27 phrases sont exposées, y compris les traductions présentes à relire. Les namespaces critiques utilisent la définition unique de `check-coverage.mjs`. Les CSV du phrasier nécessitent une PR dédiée, pas l’importeur UI.
