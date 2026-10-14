@@ -124,7 +124,8 @@ Contrôles sur le SHA `main` exact `626c6fdb8de2dffb7dde7a400391b11fff81cbff` (f
 détaché, PostgreSQL 16 et Redis locaux, bases PostgreSQL neuves (Redis …/1 purgé par la suite de tests ; Redis …/2
 de l'E2E **non purgé** lors de ce rejeu), `NODE_ENV=test` ; aucune cible distante. Aucune preuve enregistrée :
 `evidence.json` reste vide (`records: 0`, `candidate: null`). Contre-vérification indépendante par deux auditeurs (CI
-et local), sans écart constaté ; trois imprécisions relevées ensuite par l'audit de #207 sont corrigées ci-dessous.
+et local), sans écart constaté ; trois imprécisions relevées ensuite par l'audit de la requalification de `ab75c4d`
+sont corrigées ici et ci-dessous.
 
 | Candidate | Origine | Qualification CI | Contrôles locaux | Gates |
 |---|---|---|---|---|
@@ -160,7 +161,7 @@ E2E rejoué avec Redis …/2 purgé) ; aucune cible distante. Aucune preuve enre
 |---|---|---|---|---|
 | `ab75c4d67ccc14f8c2f608af1558ac3b5b8eecdf` | `main` après #206 (fiche de requalification seule) | run 38650759155 (`push`, `main`, tentative 1) : `build-and-test` + `e2e` réussis, `deploy` ignoré ; `CANDIDATE_SHA=ab75c4d… pnpm preprod:qualify` : « CI qualifiée : SHA ab75c4d…, run 38650759155, build-and-test + e2e réussis ; aucun déploiement déduit. », code 0 ; contrôle négatif sur la tête de PR `27fdde9` : « Aucune CI main réussie sur le SHA candidat exact », code 1 | rejeu des étapes de `ci.yml` : install gelé, `prisma generate`, `migrate deploy` (34 migrations), `lint`, `typecheck`, `test:scripts` 206/206, i18n EN 1098/1098, `validation:check` (snapshot L9 `3e061d52…` inchangé), `validation:campaign:check`, `preprod:check` 100 cas (source `f150e70c…`, `preprod:prepare` sans écart), validations DOCX (plan et dossier L9), `bash -n`, `test` (689 API / 91 fichiers + 142 web / 16 fichiers), `build`, build E2E proxifié puis `test:e2e` 35/35 (premier rejeu, Redis …/2 non purgé), puis job `e2e` rejoué dans un worktree détaché neuf au même SHA avec PostgreSQL et Redis …/2 purgés (132 clés avant, 0 après), comme le conteneur CI : `test:e2e` 35/35, aucun échec ni reprise ; hors `ci.yml` : `metrics:check` | `preprod:gate --expected-sha ab75c4d…` code 1 : 101 points ouverts ; `validation:gate` code 1 : 15 points ouverts |
 
-- **`ab75c4d` est la candidate qualifiée à ce jour** (tête de `main`). Entre `626c6fd` et `ab75c4d`, seul
+- **`ab75c4d` était la candidate qualifiée jusqu'à la fusion de #207** (tête de `main` à cette date). Entre `626c6fd` et `ab75c4d`, seul
   `docs/suivi/LOT_L10.md` change ; ce fichier est hors instantané L10 : empreinte source `f150e70c…` et snapshot L9
   `3e061d52…` identiques. `626c6fd` n'est donc pas invalidée, mais le contrat (`CONTRAT_Preproduction_L10.md` §2)
   qualifie le SHA `main` **à déployer**, et le déploiement production part de la tête de `main`.
@@ -170,9 +171,14 @@ E2E rejoué avec Redis …/2 purgé) ; aucune cible distante. Aucune preuve enre
   `gh api` fonctionne via le proxy de la session (`gh auth status` signale pourtant un `GH_TOKEN` invalide), d'où la
   qualification réelle ci-dessus ; `metrics:check` ne fait pas partie de `ci.yml` ; Redis …/2 n'était pas purgé lors
   du premier rejeu E2E (rejoué à neuf pour `ab75c4d`, dont le code est identique à celui de `626c6fd`).
-- La fusion de cette fiche créera un nouveau SHA `main` de documentation seule : l'empreinte ne changera pas, mais
-  ce SHA devra lui aussi passer `CANDIDATE_SHA=<SHA> pnpm preprod:qualify` (CI `main` exacte) avant d'être déclaré
-  candidate ou déployé.
+- La fusion de cette fiche (#207, à partir de `173f79b`) a créé le SHA `main` de documentation seule
+  `f771e6ecbb290c2d504ccc7728a3445b413a6b99`. Seul `docs/suivi/LOT_L10.md` diffère de `ab75c4d` (instantané L10
+  identique) ; les contrôles locaux de `ab75c4d` valent donc pour son code. `CANDIDATE_SHA=f771e6e… pnpm
+  preprod:qualify` : « CI qualifiée : SHA f771e6e…, run 38652778709, build-and-test + e2e réussis ; aucun déploiement
+  déduit. », code 0 (run unique, tentative 1, `deploy` ignoré). **`f771e6e` est la candidate qualifiée à ce jour.**
+- Les corrections ci-dessus, issues de l'audit, ont été poussées après la fusion de #207 et passent par une PR
+  distincte. Sa fusion créera à son tour un SHA de documentation seule, soumis à la même règle : `preprod:qualify` sur
+  ce SHA exact avant de le déclarer candidate ou de le déployer.
 - Limites de l'environnement local, commandes des gates et éléments **non prouvés** : inchangés par rapport à
   « Requalification après #205 » ci-dessus (Node 22 local, Chromium préinstallé pour les E2E, checkout traversable
   par `nobody` ; aucun déploiement, aucune écriture sur l'hôte IONOS, aucune variable GitHub activée, aucun appel
