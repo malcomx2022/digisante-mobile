@@ -90,7 +90,7 @@ distante ; E2E par la CI `main`. Aucune preuve enregistrée : `evidence.json` re
 
 - `c2b5cb6` est **invalidée** par #195 (instantané L10 modifié : `ecosystem`, scripts, crontabs, workflows).
 - `c9b7191` est **invalidée** par #198 (B3 : scripts, crontabs et instantané L10 modifiés).
-- **`ffa4372` est la candidate qualifiée à ce jour.** Les commits de documentation hors instantané (dont celui-ci)
+- **`ffa4372` était la candidate qualifiée au 13/10/2026** (invalidée depuis : voir « Requalification après #205 » ci-dessous). Les commits de documentation hors instantané (dont celui-ci)
   ne changent pas l'empreinte ; toute modification de code, configuration ou recette impose `preprod:prepare` et
   une nouvelle requalification du SHA `main` obtenu.
 - État B1–B5 et tests rouges sur l'ancien code : `docs/REVUE_Independante_L0-L10_2026-10.md` §8.
@@ -117,3 +117,32 @@ distante ; E2E par la CI `main`. Aucune preuve enregistrée : `evidence.json` re
   (`apps/api/src/test/fedapay-s8-options.ts`) et vérifié en CI.
 - **Non fait** : aucune exécution contre FedaPay (pas de clé bac à sable dans cette session). `FEDAPAY-S8` reste
   ouvert ; l'instantané L10 change (nouvelle sonde, recette) : préparation + requalification du SHA `main` après fusion.
+
+## Requalification après #205 (14/10/2026)
+
+Contrôles sur le SHA `main` exact `626c6fdb8de2dffb7dde7a400391b11fff81cbff` (fusion de #205 sur `23b49eb`), worktree
+détaché, PostgreSQL 16 et Redis locaux, bases neuves, `NODE_ENV=test` ; aucune cible distante. Aucune preuve
+enregistrée : `evidence.json` reste vide (`records: 0`, `candidate: null`). Contre-vérification indépendante des
+éléments ci-dessous par deux auditeurs (CI et local), sans écart constaté.
+
+| Candidate | Origine | Qualification CI | Contrôles locaux | Gates |
+|---|---|---|---|---|
+| `626c6fdb8de2dffb7dde7a400391b11fff81cbff` | `main` après #199 à #205 (IONOS, revue complémentaire, campagne L9) | run 38647967804 (`push`, `main`, tentative 1) : `build-and-test` + `e2e` réussis, `deploy` ignoré ; logique de `preprod:qualify` (`verify-candidate.mjs`) appliquée aux données de l'API GitHub lues par le connecteur, `gh` étant indisponible dans cette session | rejeu des étapes de `ci.yml` : install gelé, `prisma generate`, `migrate deploy` (34 migrations), `lint`, `typecheck`, `test:scripts` 206/206, i18n EN 1098/1098, `validation:check` (snapshot L9 `3e061d52…` inchangé), `validation:campaign:check`, `preprod:check` 100 cas (source `f150e70c…`, `preprod:prepare` sans écart), validations DOCX (plan et dossier L9), `bash -n`, `test` (689 API / 91 fichiers + 142 web / 16 fichiers), `build`, build E2E proxifié puis `test:e2e` 35/35, `metrics:check` | `preprod:gate --expected-sha 626c6fd…` code 1 : 101 points ouverts ; `validation:gate` code 1 : 15 points ouverts |
+
+- **`626c6fd` est la candidate qualifiée à ce jour.** `ffa4372` est invalidée : entre les deux, l'instantané L10
+  passe de 47 à 52 sources (5 ajoutées, 22 modifiées : sonde S8 #200, provisioning IONOS #201/#205, revue #203,
+  `package.json`/CI #204) et le cas `FEDAPAY-S8` change. Les SHA `main` intermédiaires (#199 à #204) ont chacun une
+  CI `main` réussie, mais n'ont pas été requalifiés un par un : `626c6fd` les inclut tous.
+- L'arbre de `626c6fd` est identique à celui de la tête de PR `2587991` (CI de PR #205 réussie, run 38647377634).
+- **Limites de l'environnement local** (sans effet sur la CI, qui fait foi pour le moteur Node) : Node 22 local au lieu
+  de 24 (avertissement `engines`) ; E2E lancés avec le Chromium préinstallé de la machine
+  (`PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium pnpm test:e2e`, prévu par `playwright.config.ts`), le
+  binaire de la révision épinglée y étant absent ; `test:scripts` exige un checkout traversable par `nobody` (le test
+  « installateur refusé hors root » échoue sinon, comme déjà noté pour `c2b5cb6`). Gates lancés par
+  `node scripts/preproduction/check-l10-gate.mjs --expected-sha <SHA>` et `node scripts/validation/check-l9-gate.mjs`.
+- **Non prouvé** : aucun déploiement, aucune écriture sur l'hôte IONOS, aucune variable GitHub activée, aucun appel
+  fournisseur réel (S8–S10 FedaPay, D19–D21 Daily ouverts). Avant `--apply` : vérifications de l'hôte
+  (`infra/deploy/README.md` §1.b) ; avant GO production : décisions du porteur consignées dans les résiduels du
+  README (rôle PostgreSQL d'exécution non propriétaire de l'audit, isolement Valkey, capacité de l'hôte). Gates
+  déclaratifs rouges attendus ; L9 humain et L11 (recette 7 rôles, restauration par un tiers, rollback, pentest,
+  PV GO/NO-GO) restent ouverts.
