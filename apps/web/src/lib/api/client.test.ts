@@ -6,11 +6,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ApiRequestError,
   RefreshUnavailableError,
+  SessionChangedError,
   get,
+  getAccessToken,
+  invalidateSessionRequests,
   post,
+  postNow,
+  refreshAccessToken,
   setAccessToken,
   setRefreshHandler,
   setSessionExpiredHandler,
+  withAuthCookieLock,
 } from './client';
 
 /** Réponse fetch minimale (le client ne lit que status/ok/json). */
@@ -23,6 +29,13 @@ function res(status: number, body: unknown = {}) {
   } as Response;
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((resolveValue, rejectValue) => { resolve = resolveValue; reject = rejectValue; });
+  return { promise, resolve, reject };
+}
+
 const fetchMock = vi.fn();
 
 beforeEach(() => {
@@ -31,6 +44,7 @@ beforeEach(() => {
   // hors-ligne au lieu du réseau, et ces tests ne testeraient rien.
   vi.stubGlobal('navigator', { onLine: true });
   fetchMock.mockReset();
+  invalidateSessionRequests();
   setAccessToken('jeton-initial');
   setRefreshHandler(null);
   setSessionExpiredHandler(null);
@@ -132,14 +146,131 @@ describe('client API — intercepteur de refresh', () => {
   });
 
   // ── Les routes d'auth sont exclues, sinon /auth/refresh se rafraîchirait lui-même ──
-  it('n’intercepte PAS les routes d’authentification', async () => {
+  it.each(['/auth/refresh', '/auth/register', '/auth/otp/request', '/auth/otp/verify', '/auth/logout'])('n’intercepte PAS %s', async (path) => {
     fetchMock.mockResolvedValue(res(401));
     const refresh = vi.fn(async () => 'jeton-neuf');
     setRefreshHandler(refresh);
 
-    await expect(post('/auth/refresh')).rejects.toThrow();
+    await expect(post(path)).rejects.toThrow();
     expect(refresh).not.toHaveBeenCalled();
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('client API — isolation des sessions en cours de requête', () => {
+  it('une transaction cookie invalidée pendant l’attente du verrou ne démarre pas', async () => {
+    const acquire = deferred<void>();
+    const locking = deferred<void>();
+    const request = vi.fn(async (_name: string, operation: () => Promise<unknown>) => {
+      locking.resolve(); await acquire.promise; return operation();
+    });
+    vi.stubGlobal('navigator', { onLine: true, locks: { request } });
+    const operation = vi.fn(async () => { await postNow('/auth/logout'); });
+    const rejected = expect(withAuthCookieLock(operation)).rejects.toBeInstanceOf(SessionChangedError);
+    await locking.promise;
+    invalidateSessionRequests(); setAccessToken('token-B'); acquire.resolve();
+    await rejected;
+    expect(request).toHaveBeenCalledWith('digisante.auth-cookie', expect.any(Function));
+    expect(operation).not.toHaveBeenCalled(); expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('le repli sans Web Locks attend aussi la publication complète de la transaction précédente', async () => {
+    const firstStarted = deferred<void>(); const publication = deferred<void>();
+    const events: string[] = [];
+    const first = withAuthCookieLock(async () => {
+      events.push('headers-A'); firstStarted.resolve(); await publication.promise; events.push('published-A');
+    });
+    await firstStarted.promise;
+    const second = withAuthCookieLock(async () => { events.push('headers-B'); events.push('published-B'); });
+    await Promise.resolve();
+    expect(events).toEqual(['headers-A']);
+    publication.resolve(); await Promise.all([first, second]);
+    expect(events).toEqual(['headers-A', 'published-A', 'headers-B', 'published-B']);
+  });
+
+  it('un refresh invalidé avant sa microtâche ne démarre pas sous la nouvelle session', async () => {
+    const handler = vi.fn(async () => 'token-A');
+    setRefreshHandler(handler);
+    const rejected = expect(refreshAccessToken()).rejects.toBeInstanceOf(SessionChangedError);
+    invalidateSessionRequests(); setAccessToken('token-B');
+    await rejected;
+    expect(handler).not.toHaveBeenCalled();
+    expect(getAccessToken()).toBe('token-B');
+  });
+
+  it.each(['success', 'absent', 'refused', 'network'] as const)('ancien refresh %s : préserve la nouvelle session sans rejeu', async (outcome) => {
+    const started = deferred<void>();
+    const refresh = deferred<string | null>();
+    const expired = vi.fn();
+    fetchMock.mockResolvedValue(res(401));
+    setSessionExpiredHandler(expired);
+    setRefreshHandler(async () => { started.resolve(); return refresh.promise; });
+    const oldRequest = get('/users/me');
+    const rejected = expect(oldRequest).rejects.toBeInstanceOf(SessionChangedError);
+    await started.promise;
+    invalidateSessionRequests();
+    setAccessToken('nouvelle-session');
+    if (outcome === 'refused') refresh.reject(new ApiRequestError(401, { code: 'UNAUTHORIZED', message: 'Ancienne session révoquée' }));
+    else if (outcome === 'network') refresh.reject(new TypeError('ancienne requête interrompue'));
+    else refresh.resolve(outcome === 'success' ? 'ancien-token-renouvelé' : null);
+    await rejected;
+    expect(getAccessToken()).toBe('nouvelle-session');
+    expect(expired).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it.each(['GET', 'POST'] as const)('ancien %s reçoit 401 après connexion B : aucun refresh ni envoi sous B', async (method) => {
+    const response = deferred<Response>();
+    const refresh = vi.fn(async () => 'token-B');
+    const expired = vi.fn();
+    fetchMock.mockReturnValue(response.promise);
+    setRefreshHandler(refresh); setSessionExpiredHandler(expired);
+    const oldRequest = method === 'GET' ? get('/users/me') : postNow('/prescriptions', { patientId: 'patient-A' });
+    const rejected = expect(oldRequest).rejects.toBeInstanceOf(SessionChangedError);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    invalidateSessionRequests(); setAccessToken('token-B');
+    response.resolve(res(401));
+    await rejected;
+    expect(refresh).not.toHaveBeenCalled(); expect(expired).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls[0][1].headers.authorization).toBe('Bearer jeton-initial');
+  });
+
+  it('un ancien GET interrompu ne profite pas du retry réseau pour partir sous B', async () => {
+    const response = deferred<Response>();
+    fetchMock.mockReturnValue(response.promise);
+    const rejected = expect(get('/users/me')).rejects.toBeInstanceOf(SessionChangedError);
+    invalidateSessionRequests(); setAccessToken('token-B'); response.reject(new TypeError('network'));
+    await rejected; expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it('une ancienne réponse JSON reçue après changement de compte reste inaccessible', async () => {
+    const body = deferred<unknown>();
+    const parsing = deferred<void>();
+    fetchMock.mockResolvedValue({ ...res(200), json: () => { parsing.resolve(); return body.promise; } });
+    const rejected = expect(get('/users/me')).rejects.toBeInstanceOf(SessionChangedError);
+    await parsing.promise;
+    invalidateSessionRequests(); setAccessToken('token-B'); body.resolve({ medical: 'patient-A-only' });
+    await rejected; expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it('la fin du refresh A conserve le refresh B unique en cours', async () => {
+    const firstStarted = deferred<void>(); const first = deferred<string | null>();
+    setRefreshHandler(async () => { firstStarted.resolve(); return first.promise; });
+    const oldRejected = expect(refreshAccessToken()).rejects.toBeInstanceOf(SessionChangedError);
+    await firstStarted.promise;
+    invalidateSessionRequests(); setAccessToken('token-B');
+    const secondStarted = deferred<void>(); const second = deferred<string | null>();
+    const refreshB = vi.fn(async () => { secondStarted.resolve(); return second.promise; });
+    setRefreshHandler(refreshB);
+    const currentRefresh = refreshAccessToken();
+    await secondStarted.promise;
+    first.resolve(null); await oldRejected;
+    const sharedRefresh = refreshAccessToken();
+    expect(sharedRefresh).toBe(currentRefresh);
+    second.resolve('token-B-renouvelé');
+    await expect(Promise.all([currentRefresh, sharedRefresh])).resolves.toEqual(['token-B-renouvelé', 'token-B-renouvelé']);
+    expect(refreshB).toHaveBeenCalledOnce();
   });
 });
 

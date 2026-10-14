@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import { flushQueue, refreshAccessToken, RefreshUnavailableError, setAccessToken, setRefreshHandler, setSessionExpiredHandler } from '@/lib/api/client';
+import { flushQueue, invalidateSessionRequests, refreshAccessToken, RefreshUnavailableError, setAccessToken, setRefreshHandler, setSessionExpiredHandler, withAuthCookieLock } from '@/lib/api/client';
 import { authApi, type AuthUser, type OtpInfo, type RegisterBody } from '@/lib/api/auth';
 import { isOnline } from '@/lib/offline/online';
 import { installLocalGuards, lockVault } from '@/lib/offline/vault';
@@ -30,16 +30,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [cleanupFailed, setCleanupFailed] = useState(false);
   useEffect(() => { try { setCleanupFailed(sessionStorage.getItem('digisante.cleanupFailed') === '1'); } catch { /* état mémoire disponible */ } }, []);
   const sessionEpoch = useRef(0);
+  const sessionOwner = useRef<string | null>(null);
+  const cleanupInFlight = useRef<Promise<void> | null>(null);
+  const loginInFlight = useRef<number | null>(null);
   useEffect(() => installLocalGuards(), []);
 
   // Purge complète de la session (utilisée par logout ET par l'expiration de session).
   const clearSession = useCallback(() => {
+    const owner = sessionOwner.current;
+    sessionOwner.current = null;
     sessionEpoch.current += 1;
+    invalidateSessionRequests();
     setQueueOwner(null);
     setAccessToken(null);
     setUser(null);
     setStatus('anon');
-    try { sessionCache.clear(); } catch { setCleanupFailed(true); }
+    try { if (owner && sessionCache.get()?.id === owner) sessionCache.clear(); } catch { setCleanupFailed(true); }
   }, []);
 
   // ── Intercepteur de refresh (point 1) : branché sur le client API ───────────
@@ -49,17 +55,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setRefreshHandler(async () => {
       const epoch = sessionEpoch.current;
-      // Le refresh est lu dans le cookie HttpOnly côté serveur (aucun jeton en JS).
-      const { accessToken, user } = await authApi.refresh();
-      if (epoch !== sessionEpoch.current) return null;
-      setAccessToken(accessToken);
-      sessionCache.set(user);
-      setQueueOwner(user.id);
-      setUser(user);
-      return accessToken;
+      const cachedId = sessionCache.get()?.id;
+      if (sessionOwner.current && sessionOwner.current !== cachedId) {
+        clearSession();
+        return null;
+      }
+      return withAuthCookieLock(async () => {
+        if (epoch !== sessionEpoch.current || cachedId !== sessionCache.get()?.id) return null;
+        // Le refresh est lu dans le cookie HttpOnly côté serveur (aucun jeton en JS).
+        const { accessToken, user } = await authApi.refresh();
+        if (epoch !== sessionEpoch.current) return null;
+        if (cachedId && cachedId !== user.id) {
+          // Le cookie partagé peut désormais désigner un autre compte : accepter
+          // sa session sans rejouer les requêtes construites pour le profil ancien.
+          sessionEpoch.current += 1;
+          invalidateSessionRequests();
+        }
+        setAccessToken(accessToken);
+        sessionCache.set(user);
+        sessionOwner.current = user.id;
+        setQueueOwner(user.id);
+        setUser(user);
+        return accessToken;
+      });
     });
     setSessionExpiredHandler(() => clearSession());
     return () => {
+      sessionEpoch.current += 1;
+      invalidateSessionRequests();
       setRefreshHandler(null);
       setSessionExpiredHandler(null);
     };
@@ -79,6 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (active) setStatus('anon');
         return;
       }
+      sessionOwner.current = cached.id;
       // Optimiste : afficher l'app immédiatement avec le profil en cache.
       if (active) {
         setQueueOwner(isOnline() ? null : cached.id);
@@ -113,9 +137,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const changed = (e: StorageEvent) => {
       if (e.key !== 'digisante.session') return;
       lockVault();
+      // Une connexion explicite attend éventuellement la fin du logout/refresh
+      // de l'autre onglet sous le verrou cookie. Sa publication vient ensuite.
+      if (loginInFlight.current === sessionEpoch.current) return;
       // Ne pas effacer la nouvelle session de l'autre onglet.
       const next = sessionCache.get();
       if (!next || next.id !== getQueueOwner()) {
+        sessionOwner.current = null;
+        invalidateSessionRequests();
         sessionEpoch.current += 1; setAccessToken(null); setQueueOwner(null); setUser(null); setStatus('anon');
       }
     };
@@ -128,34 +157,70 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const verifyOtp = useCallback<AuthContextValue['verifyOtp']>(async (phone, code) => {
     const epoch = ++sessionEpoch.current;
-    const res = await authApi.verifyOtp({ phone, code });
-    if (epoch !== sessionEpoch.current) throw new Error('Session changée');
-    setAccessToken(res.accessToken); // le refresh est posé en cookie HttpOnly par le serveur
-    sessionCache.set(res.user);
-    setQueueOwner(res.user.id);
-    setUser(res.user);
-    void flushQueue();
-    setStatus('authed');
-    // Enregistrement du token push après connexion (best-effort, non bloquant).
-    void registerPushDevice({ prompt: true });
-    return res.user;
-  }, []);
+    invalidateSessionRequests();
+    loginInFlight.current = epoch;
+    try {
+      return await withAuthCookieLock(async () => {
+        if (epoch !== sessionEpoch.current) throw new Error('Session changée');
+        // Une purge déjà commencée termine avant toute publication de la session B.
+        try { await cleanupInFlight.current; }
+        catch {
+          if (epoch === sessionEpoch.current) {
+            setCleanupFailed(true);
+            try { sessionStorage.setItem('digisante.cleanupFailed', '1'); } catch { /* avertissement mémoire */ }
+            clearSession();
+          }
+          throw new Error('Purge locale échouée');
+        }
+        if (epoch !== sessionEpoch.current) throw new Error('Session changée');
+        const res = await authApi.verifyOtp({ phone, code });
+        if (epoch !== sessionEpoch.current) throw new Error('Session changée');
+        setAccessToken(res.accessToken); // le refresh est posé en cookie HttpOnly par le serveur
+        sessionCache.set(res.user);
+        sessionOwner.current = res.user.id;
+        setQueueOwner(res.user.id);
+        setUser(res.user);
+        void flushQueue();
+        setStatus('authed');
+        // Enregistrement du token push après connexion (best-effort, non bloquant).
+        void registerPushDevice({ prompt: true });
+        return res.user;
+      });
+    } finally { if (loginInFlight.current === epoch) loginInFlight.current = null; }
+  }, [clearSession]);
 
   const logout = useCallback<AuthContextValue['logout']>(async () => {
-    sessionEpoch.current += 1;
+    const epoch = ++sessionEpoch.current;
+    const logoutOwner = sessionOwner.current;
+    invalidateSessionRequests();
     setQueueOwner(null); // bloque le rejeu dès le début de la déconnexion
-    // 1) Révocation serveur (le refresh est lu dans le cookie) — best-effort.
-    try {
-      await authApi.logout();
-    } catch {
-      /* hors-ligne ou token déjà révoqué : on purge quand même localement */
-    }
-    // 2) Purge de la file hors-ligne : ses corps (constantes, messages…) ne doivent
-    //    pas rester en clair sur un appareil partagé après une déconnexion (§4).
-    try { await purgeAll(); setCleanupFailed(false); try { sessionStorage.removeItem('digisante.cleanupFailed'); } catch { /* purge déjà confirmée */ } }
-    catch { setCleanupFailed(true); try { sessionStorage.setItem('digisante.cleanupFailed', '1'); } catch { /* avertissement mémoire */ } clearSession(); throw new Error('Purge locale échouée'); }
-    // 3) Purge locale + redirection (assurée par la garde Protected → /onboarding).
-    clearSession();
+    return withAuthCookieLock(async () => {
+      if (epoch !== sessionEpoch.current) return;
+      if (sessionCache.get()?.id !== logoutOwner) { clearSession(); return; }
+      // 1) Révocation serveur (le refresh est lu dans le cookie) — best-effort.
+      try {
+        await authApi.logout();
+      } catch {
+        /* hors-ligne ou token déjà révoqué : on purge quand même localement */
+      }
+      if (epoch !== sessionEpoch.current || sessionCache.get()?.id !== logoutOwner) return;
+      // 2) Purge de la file hors-ligne : ses corps (constantes, messages…) ne doivent
+      //    pas rester en clair sur un appareil partagé après une déconnexion (§4).
+      const cleanup = purgeAll();
+      cleanupInFlight.current = cleanup;
+      try { await cleanup; }
+      catch {
+        if (epoch !== sessionEpoch.current || sessionCache.get()?.id !== logoutOwner) return;
+        setCleanupFailed(true);
+        try { sessionStorage.setItem('digisante.cleanupFailed', '1'); } catch { /* avertissement mémoire */ }
+        clearSession(); throw new Error('Purge locale échouée');
+      } finally { if (cleanupInFlight.current === cleanup) cleanupInFlight.current = null; }
+      if (epoch !== sessionEpoch.current || sessionCache.get()?.id !== logoutOwner) return;
+      setCleanupFailed(false);
+      try { sessionStorage.removeItem('digisante.cleanupFailed'); } catch { /* purge déjà confirmée */ }
+      // 3) Purge locale + redirection (assurée par la garde Protected → /onboarding).
+      clearSession();
+    });
   }, [clearSession]);
 
   const value = useMemo<AuthContextValue>(

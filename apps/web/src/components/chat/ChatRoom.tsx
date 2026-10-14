@@ -8,7 +8,6 @@ import { Empty, ErrorState, Loading } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { cn } from '@/lib/cn';
 import { chatApi, type ChatMessage, type ChatThread } from '@/lib/api/chat';
-import { useOnline } from '@/lib/offline/online';
 import { openChatSocket } from '@/lib/realtime/chatSocket';
 
 type Theme = 'patient' | 'pro';
@@ -42,9 +41,10 @@ const POLL_MS = 25000;
  * `counterpartParam` = nom du paramètre d'URL portant l'id du correspondant à
  * ouvrir automatiquement (`doctor` côté patient, `patient` côté médecin).
  */
-export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpartParam: 'doctor' | 'patient' }) {
+interface ChatRoomProps { theme: Theme; counterpartParam: 'doctor' | 'patient' }
+
+function ChatRoomInner({ theme, counterpartParam }: ChatRoomProps) {
   const { t, lang } = useLocale();
-  const online = useOnline();
   const params = useSearchParams();
   const ui = THEME[theme];
 
@@ -57,6 +57,18 @@ export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpar
   const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const selectedIdRef = useRef<string | null>(null);
+  const conversationEpoch = useRef(0);
+  useEffect(() => () => { conversationEpoch.current += 1; selectedIdRef.current = null; }, []);
+
+  function selectThread(threadId: string | null) {
+    conversationEpoch.current += 1;
+    selectedIdRef.current = threadId;
+    setSelectedId(threadId);
+    setMessages([]);
+    setText('');
+    setError(null);
+    setShowPhrasebook(false);
+  }
 
   const refreshThreads = useCallback(async () => {
     try {
@@ -69,13 +81,14 @@ export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpar
   /** Charge les messages d'un fil (garde anti-course : ignore si le fil a changé). */
   const loadMessages = useCallback(
     async (threadId: string, markRead: boolean) => {
+      const epoch = conversationEpoch.current;
       try {
         const msgs = await chatApi.listMessages(threadId);
-        if (selectedIdRef.current !== threadId) return;
+        if (selectedIdRef.current !== threadId || conversationEpoch.current !== epoch) return;
         setMessages(msgs);
         if (markRead) chatApi.markRead(threadId).then(refreshThreads).catch(() => {});
       } catch (e) {
-        if (selectedIdRef.current === threadId) {
+        if (selectedIdRef.current === threadId && conversationEpoch.current === epoch) {
           setError(e instanceof Error ? e.message : t('auth.error'));
         }
       }
@@ -94,11 +107,11 @@ export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpar
         const threadParam = params.get('thread');
         const counterpartId = params.get(counterpartParam);
         if (threadParam) {
-          setSelectedId(threadParam);
+          selectThread(threadParam);
         } else if (counterpartId) {
           const opened = await chatApi.openThread(counterpartId);
           if (!active) return;
-          setSelectedId(opened.id);
+          selectThread(opened.id);
           setThreads((cur) => (cur.some((c) => c.id === opened.id) ? cur : [opened, ...cur]));
         }
       } catch (e) {
@@ -140,12 +153,15 @@ export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpar
 
   // Envoi (ou renvoi) d'un message optimiste identifié par une clé stable et unique.
   async function deliver(threadId: string, value: string, optimisticId: string) {
+    const epoch = conversationEpoch.current;
     try {
       const res = await chatApi.sendMessage(threadId, value);
+      if (selectedIdRef.current !== threadId || conversationEpoch.current !== epoch) return;
       if (res && typeof res === 'object' && 'queued' in res) return; // hors-ligne : reste « en attente »
       void loadMessages(threadId, false);
       void refreshThreads();
     } catch (e) {
+      if (selectedIdRef.current !== threadId || conversationEpoch.current !== epoch) return;
       // Échec d'envoi : on marque le message optimiste comme ÉCHOUÉ (renvoi possible).
       setMessages((m) => m.map((msg) => (msg.id === optimisticId ? { ...msg, pending: false, failed: true } : msg)));
       setError(e instanceof Error ? e.message : t('auth.error'));
@@ -154,7 +170,7 @@ export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpar
 
   async function send() {
     const value = text.trim();
-    if (!value || !selectedId) return;
+    if (!value || !selectedId || selectedIdRef.current !== selectedId) return;
     setText('');
     const optimisticId = crypto.randomUUID();
     const optimistic: LocalMessage = {
@@ -163,7 +179,7 @@ export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpar
       mine: true,
       readAt: null,
       createdAt: new Date(0).toISOString(),
-      pending: !online,
+      pending: true,
     };
     setMessages((m) => [...m, optimistic]);
     await deliver(selectedId, value, optimisticId);
@@ -172,7 +188,7 @@ export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpar
   // Renvoi d'un message en échec : on le repasse « en attente » puis on retente.
   async function resend(m: LocalMessage) {
     if (!selectedId) return;
-    setMessages((cur) => cur.map((msg) => (msg.id === m.id ? { ...msg, failed: false, pending: !online } : msg)));
+    setMessages((cur) => cur.map((msg) => (msg.id === m.id ? { ...msg, failed: false, pending: true } : msg)));
     await deliver(selectedId, m.body, m.id);
   }
 
@@ -188,7 +204,7 @@ export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpar
           <button
             key={th.id}
             type="button"
-            onClick={() => setSelectedId(th.id)}
+            onClick={() => selectThread(th.id)}
             className="w-full text-left bg-white card-pagne border border-stone-200 px-4 py-3 flex items-center gap-3"
           >
             <div className="flex-1 min-w-0">
@@ -214,7 +230,7 @@ export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpar
     <div className="flex-1 flex flex-col min-h-0">
       <button
         type="button"
-        onClick={() => setSelectedId(null)}
+        onClick={() => selectThread(null)}
         aria-label={t('common.back')}
         className="self-start text-[0.8125rem] text-stone-500 mb-2"
       >
@@ -287,4 +303,12 @@ export function ChatRoom({ theme, counterpartParam }: { theme: Theme; counterpar
       </div>
     </div>
   );
+}
+
+export function ChatRoom(props: ChatRoomProps) {
+  const params = useSearchParams();
+  // L'URL change sans rechargement : le nouveau destinataire repart sans
+  // brouillon, messages ou réponse asynchrone appartenant au fil précédent.
+  const key = JSON.stringify([props.theme, props.counterpartParam, params.get('thread'), params.get(props.counterpartParam)]);
+  return <ChatRoomInner key={key} {...props} />;
 }

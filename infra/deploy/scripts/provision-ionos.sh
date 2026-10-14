@@ -160,7 +160,7 @@ SRC_LOGROTATE="${SELF_ROOT}/infra/deploy/logrotate/${SITE}"
 FILESTORE_MODULE="${SELF_ROOT}/scripts/preproduction/filestore-dir.mjs"
 
 as_user() { local u="$1"; shift; sudo -u "$u" -H -- "$@"; }
-pg_ro() { sudo -u postgres -H -- psql -X -A -t -q -v ON_ERROR_STOP=1 -d postgres -c "$1"; }
+pg_ro() { sudo -u postgres -H -- psql -X -A -t -q -v ON_ERROR_STOP=1 -d "${2:-postgres}" -c "$1"; }
 valkey_cli() {
   local cli=valkey-cli
   command -v valkey-cli >/dev/null 2>&1 || cli=redis-cli
@@ -635,10 +635,11 @@ verify_all() {
 }
 
 # B4 : KYC_STORAGE_DIR absolu dans le .env, résolu comme l'API et la sauvegarde, puis
-# fichiers référencés par la base (identifiants du magasin) comparés aux fichiers présents.
+# chaque référence distincte de la base applicative doit désigner un fichier ordinaire
+# du magasin. Des fichiers orphelins ne compensent jamais une référence manquante.
 verify_store() {
   if [[ ! -f "$(F "$ENV_FILE")" ]]; then note "${ENV_FILE} absent : magasin KYC (B4) non vérifié"; return; fi
-  local raw store expected present uid
+  local raw store tables refs ref uid expected=0 missing=0
   if ! raw="$(env_value KYC_STORAGE_DIR)"; then fail "B4 : KYC_STORAGE_DIR absent du .env"; return; fi
   [[ "$raw" == /* ]] || { fail "B4 : KYC_STORAGE_DIR doit être un chemin ABSOLU"; return; }
   uid="$(id -u "$APP_USER" 2>/dev/null || echo 0)"
@@ -646,10 +647,23 @@ verify_store() {
     fail "B4 : magasin KYC refusé (propriétaire ${APP_USER}, 0700, nom sûr requis — cf. filestore-dir.mjs)"; return
   fi
   pass "B4 : magasin KYC ${raw} (absolu, ${APP_USER}, résolu comme l'API)"
-  expected="$(pg_ro "SELECT count(*) FROM (SELECT \"encryptedUrl\" AS ref FROM documents UNION SELECT \"fileUrl\" FROM kyc_documents) AS refs WHERE ref ~ '^[0-9a-f-]{36}\$'" 2>/dev/null | head -1 || true)"
-  if [[ ! "$expected" =~ ^[0-9]+$ ]]; then note "B4 : base sans tables applicatives (avant migration) : comparaison des fichiers reportée"; return; fi
-  present="$(find "$store" -maxdepth 1 -type f -name '*.bin' 2>/dev/null | grep -Ec '/[0-9a-f-]{36}\.bin$' || true)"
-  if (( present >= expected )); then pass "B4 : files_count=${present} ≥ références=${expected}"; else fail "B4 : ${expected} fichiers référencés, ${present} présents dans le magasin"; fi
+  if ! tables="$(pg_ro "SELECT (to_regclass('public.documents') IS NOT NULL)::int + (to_regclass('public.kyc_documents') IS NOT NULL)::int" "$DB_NAME" 2>/dev/null)"; then
+    fail "B4 : lecture des tables applicatives impossible dans ${DB_NAME}"; return
+  fi
+  if [[ "$tables" == 0 ]]; then note "B4 : base ${DB_NAME} sans tables applicatives (avant migration) : comparaison des fichiers reportée"; return; fi
+  if [[ "$tables" != 2 ]]; then fail "B4 : tables applicatives incomplètes dans ${DB_NAME}"; return; fi
+  if ! refs="$(pg_ro "SELECT ref FROM (SELECT \"encryptedUrl\" AS ref FROM public.documents UNION SELECT \"fileUrl\" FROM public.kyc_documents) AS refs WHERE ref ~ '^[0-9a-f-]{36}\$'" "$DB_NAME" 2>/dev/null)"; then
+    fail "B4 : lecture des références de fichiers impossible dans ${DB_NAME}"; return
+  fi
+  while IFS= read -r ref; do
+    [[ -n "$ref" ]] || continue
+    # Même définition du magasin que la sauvegarde/restauration ; aucune URL seed ni
+    # donnée SQL inattendue ne devient un chemin. Aucun identifiant affiché dans le bilan.
+    if [[ ! "$ref" =~ ^[0-9a-f-]{36}$ ]]; then fail "B4 : résultat des références de fichiers invalide dans ${DB_NAME}"; return; fi
+    expected=$((expected + 1))
+    if [[ ! -f "$store/${ref}.bin" || -L "$store/${ref}.bin" ]]; then missing=$((missing + 1)); fi
+  done <<<"$refs"
+  if (( missing == 0 )); then pass "B4 : ${expected} référence(s) du magasin vérifiée(s), aucun fichier manquant"; else fail "B4 : ${missing} fichier(s) référencé(s) absent(s) ou non ordinaire(s) sur ${expected}"; fi
 }
 
 # ═════════════════════════════════════════════════════════════

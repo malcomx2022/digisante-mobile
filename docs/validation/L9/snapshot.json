@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceSnapshotSha256": "4a8a1596f460665a8f4c877a4b4031916ccb0a5a5ba5fcf52f263e000d2cbeea",
+  "sourceSnapshotSha256": "3e061d5232d7bc11fe4dc92134a1b2e8d0dc1753b503c38ba261365b514944ed",
   "sources": [
     {
       "path": "apps/web/src/i18n/messages.ts",
@@ -52,7 +52,7 @@
     },
     {
       "path": "apps/web/src/components/chat/ChatRoom.tsx",
-      "sha256": "1b97945471eb61d3f7e57e6ad5cc68caa9aa03db51bf51b378309669d9244634"
+      "sha256": "76977c9cd93a49c715746fdd7b7594cbafb23795e4c553785f66ade50ee6de75"
     },
     {
       "path": "packages/shared/src/posology.ts",

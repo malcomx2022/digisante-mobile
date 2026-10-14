@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { forbidden, notFound } from '@/lib/errors.js';
 import { requireRole } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
+import { registerDevice } from './users.devices.service.js';
 
 const deviceSchema = z.object({
   fcmToken: z.string().trim().min(1).max(512),
@@ -81,12 +82,7 @@ export default async function usersRoutes(app: FastifyInstance) {
   // Sans cet endpoint, aucune notification push ne peut être délivrée.
   app.post('/me/device', { preHandler: [app.authenticate] }, async (request) => {
     const { fcmToken } = zParse(deviceSchema, request.body);
-    const updated = await app.prisma.user.update({
-      where: { id: request.user.sub },
-      data: { fcmToken },
-      select: { id: true, role: true, fcmToken: true },
-    });
-    return updated;
+    return registerDevice(app, request.user.sub, fcmToken);
   });
 
   const patientOnly = { preHandler: [app.authenticate, requireRole('PATIENT')] };

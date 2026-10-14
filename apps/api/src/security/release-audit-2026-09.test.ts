@@ -246,7 +246,7 @@ describe.skipIf(!HAS_INFRA)('Audit de release 2026-09 (intégration)', () => {
     expect(presc.statusCode).toBe(201);
     const prescId = presc.json().id as string;
     await app.prisma.prescription.update({ where: { id: prescId }, data: { status: 'FULLY_DISPENSED' } });
-    const again = await app.inject({ method: 'POST', url: `/api/v1/pharmacy/prescriptions/${prescId}/dispense`, headers: auth(tokens.pharma), payload: { items: [{ itemId: presc.json().items[0].id, status: 'DISPENSED' }] } });
+    const again = await app.inject({ method: 'POST', url: `/api/v1/pharmacy/prescriptions/${prescId}/dispense`, headers: auth(tokens.pharma), payload: { qrCode: presc.json().qrCode, items: [{ itemId: presc.json().items[0].id, status: 'DISPENSED' }] } });
     expect(again.statusCode).toBe(400);
     expect(await app.prisma.dispensation.count({ where: { prescriptionId: prescId } })).toBe(0);
   });

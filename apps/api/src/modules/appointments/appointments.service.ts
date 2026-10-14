@@ -9,6 +9,7 @@ import type { FastifyInstance } from 'fastify';
 
 import { badRequest, conflict, forbidden, notFound } from '@/lib/errors.js';
 import * as payments from '@/modules/payments/payments.service.js';
+import { lockFinance } from '@/modules/payments/finance.effects.js';
 import { isFuture, overlaps } from './appointments.rules.js';
 
 const fullName = (p: { firstName: string; lastName: string } | null | undefined) =>
@@ -156,8 +157,8 @@ export async function generateReminders(app: FastifyInstance) {
 }
 
 /** Charge un RDV en vérifiant que l'utilisateur en est un participant. */
-async function loadParticipantAppointment(app: FastifyInstance, user: { sub: string; role: string }, id: string) {
-  const appt = await app.prisma.appointment.findUnique({
+async function loadParticipantAppointment(app: FastifyInstance, user: { sub: string; role: string }, id: string, tx?: Prisma.TransactionClient) {
+  const appt = await (tx ?? app.prisma).appointment.findUnique({
     where: { id },
     include: { doctor: { select: { userId: true } }, patient: { select: { userId: true } } },
   });
@@ -191,32 +192,29 @@ export async function cancel(
   reason: string,
   ip?: string | null,
 ) {
-  const appt = await loadParticipantAppointment(app, user, id);
-  if (['CANCELLED', 'COMPLETED'].includes(appt.status)) {
-    throw badRequest('Ce rendez-vous ne peut plus être annulé');
-  }
-
-  // Transition conditionnelle : une clôture concurrente (COMPLETED) n'est jamais
-  // écrasée, et le remboursement « annulation médecin » ne suit qu'une annulation gagnée.
-  const cancelled = await app.prisma.appointment.updateMany({
-    where: { id, status: { notIn: ['CANCELLED', 'COMPLETED'] } },
-    data: { status: 'CANCELLED', cancelReason: reason },
-  });
-  if (cancelled.count !== 1) throw badRequest('Ce rendez-vous ne peut plus être annulé');
-  const updated = await app.prisma.appointment.findUniqueOrThrow({ where: { id } });
-
-  // Annulation côté médecin : rembourse automatiquement le paiement confirmé
-  // éventuel (reversal interne — la couture « Phase 4 » est désormais branchée).
-  if (appt.doctor.userId === user.sub) {
-    const paid = await app.prisma.payment.findFirst({
-      where: { appointmentId: id, status: 'COMPLETED' },
-      select: { id: true },
+  await loadParticipantAppointment(app, user, id);
+  // Budget cohérent avec les 25 s de souscription qui peuvent tenir User/Doctor.
+  return app.prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM users WHERE id = ${user.sub} FOR SHARE`;
+    const actor = await tx.user.findUnique({ where: { id: user.sub }, select: { status: true, role: true } });
+    if (actor?.status !== 'ACTIVE' || actor.role !== user.role) throw forbidden('Participant actif requis');
+    // Même ordre que le refund public : finance avant RDV/paiement/wallet/audit.
+    await lockFinance(tx);
+    await tx.$queryRaw`SELECT id FROM appointments WHERE id = ${id} FOR UPDATE`;
+    const appt = await loadParticipantAppointment(app, user, id, tx);
+    const cancelled = await tx.appointment.updateMany({
+      where: { id, status: { notIn: ['CANCELLED', 'COMPLETED'] } },
+      data: { status: 'CANCELLED', cancelReason: reason },
     });
-    if (paid) {
-      await payments.refund(app, paid.id, { actorId: user.sub, ip, reason: 'doctor_cancel' });
+    if (cancelled.count !== 1) throw badRequest('Ce rendez-vous ne peut plus être annulé');
+    // Un échec du crédit/ledger/audit annule aussi l'annulation ; les paiements
+    // encore en attente restent à rapprocher s'ils sont confirmés plus tard.
+    if (appt.doctor.userId === user.sub) {
+      const paid = await tx.payment.findFirst({ where: { appointmentId: id, status: 'COMPLETED' }, select: { id: true } });
+      if (paid) await payments.refundWithin(tx, paid.id, { actorId: user.sub, ip, reason: 'doctor_cancel' });
     }
-  }
-  return updated;
+    return tx.appointment.findUniqueOrThrow({ where: { id } });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted, timeout: 30_000 });
 }
 
 /** Agenda du médecin sur une plage de dates. */

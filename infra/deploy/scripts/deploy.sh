@@ -38,13 +38,15 @@ digisante_profile() {
 # <<< digisante_profile
 
 BRANCH="${DEPLOY_BRANCH:-main}"
-# ROLLBACK : `DEPLOY_REF=<SHA complet> DEPLOY_ENVIRONMENT=preproduction DEPLOY_MAINTENANCE_READY=1 bash deploy.sh` redéploie une version précise au lieu
-# de la tête de branche. Les SHA déployés sont tracés dans ${LOG_DIR}/deploy_history.log.
+# ROLLBACK explicite : ajouter DEPLOY_ALLOW_ROLLBACK=1 pour redéployer un ancêtre
+# du checkout courant. Sans cet opt-in, une ancienne CI ne peut pas revenir en arrière.
+# Les SHA déployés sont tracés dans ${LOG_DIR}/deploy_history.log.
 # ⚠️ Les migrations sont À SENS UNIQUE : revenir avant une migration appliquée exige
 # une restauration de base (SUIVI_B5), pas seulement un rollback de code.
 DEPLOY_REF="${DEPLOY_REF:?Définir DEPLOY_REF (SHA complet qualifié)}"
 DEPLOY_ENVIRONMENT="${DEPLOY_ENVIRONMENT:?Définir DEPLOY_ENVIRONMENT (preproduction ou production)}"
 [[ "$DEPLOY_REF" =~ ^[0-9a-f]{40}$ ]] || { echo "SHA complet de 40 caractères requis" >&2; exit 1; }
+[[ -z "${DEPLOY_TOOLING_SHA:-}" || "$DEPLOY_TOOLING_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "SHA de l'outillage invalide" >&2; exit 1; }
 [[ "$DEPLOY_ENVIRONMENT" == "preproduction" || "$DEPLOY_ENVIRONMENT" == "production" ]] || { echo "Environnement de déploiement invalide" >&2; exit 1; }
 [[ "${DEPLOY_MAINTENANCE_READY:-}" == "1" ]] || { echo "Maintenance cible à confirmer avec DEPLOY_MAINTENANCE_READY=1 ; anciens writers à arrêter." >&2; exit 1; }
 # Un seul environnement par déploiement : DIGISANTE_ENV hérité d'un autre contexte refusé.
@@ -71,10 +73,41 @@ fi
 # Ne pas écraser les changements d'un opérateur ni dériver vers la tête de main.
 [[ -z "$(git status --porcelain --untracked-files=normal)" ]] || { log "ERREUR : checkout modifié ; préserver le diff avant déploiement."; exit 1; }
 [[ -d "$LOG_DIR" && -w "$LOG_DIR" ]] || { log "ERREUR : répertoire de journal non accessible."; exit 1; }
-node - "$ENV_FILE" <<'JS'
+# Sérialiser aussi les invocations manuelles : deux candidats ne doivent pas comparer
+# leur ascendance au même ancien HEAD puis se déployer dans l'ordre inverse.
+exec 9>"$LOG_DIR/deploy.lock"
+flock -n 9 || { log "ERREUR : un déploiement de cet environnement est déjà en cours."; exit 1; }
+node - "$ENV_FILE" "$DEPLOY_ENVIRONMENT" <<'JS'
 const fs = require('node:fs'); const { parseEnv } = require('node:util');
 const env = parseEnv(fs.readFileSync(process.argv[2], 'utf8'));
-if (env.NODE_ENV !== 'production') { console.error('NODE_ENV=production requis dans le fichier API ; aucune migration lancée.'); process.exit(1); }
+const profile = process.argv[3] === 'preproduction'
+  ? { database: 'digisante_preprod', redis: '/5' }
+  : { database: 'digisante', redis: '/6' };
+const refuse = (message) => { fs.writeSync(2, `${message} ; aucun processus arrêté ni migration lancée.\n`); process.exit(1); };
+if (env.NODE_ENV !== 'production') refuse('NODE_ENV=production requis dans le fichier API');
+// Prisma et Node --env-file gardent les variables héritées : contrôler aussi cette
+// priorité, sinon le .env vérifié pourrait différer de la base réellement migrée.
+for (const key of ['NODE_ENV', 'DATABASE_URL', 'REDIS_URL']) {
+  if (process.env[key] !== undefined && process.env[key] !== env[key]) refuse(`${key} hérité différent du fichier API`);
+}
+const parsed = (key, protocols, port) => {
+  const raw = env[key];
+  if (!raw || raw !== raw.trim() || /[\s\\\u0000-\u001f\u007f]/.test(raw)) refuse(`${key} invalide`);
+  let value;
+  try { value = new URL(raw); } catch { refuse(`${key} invalide`); }
+  if (!protocols.includes(value.protocol) || !['127.0.0.1', 'localhost', '[::1]'].includes(value.hostname)
+    || (value.port && value.port !== port) || !value.password || value.hash) refuse(`${key} doit cibler le service local du profil`);
+  return value;
+};
+const db = parsed('DATABASE_URL', ['postgresql:', 'postgres:'], '5432');
+let database, role;
+try { database = decodeURIComponent(db.pathname.slice(1)); role = decodeURIComponent(db.username); }
+catch { refuse('DATABASE_URL invalide'); }
+if (database !== profile.database || role !== profile.database
+  || db.searchParams.getAll('schema').some((schema) => schema !== 'public')
+  || db.searchParams.has('host')) refuse('DATABASE_URL ne correspond pas à la base, au rôle ou au schéma du profil');
+const redis = parsed('REDIS_URL', ['redis:'], '6379');
+if (redis.pathname !== profile.redis || redis.search) refuse('REDIS_URL ne correspond pas à l’index du profil');
 JS
 PREVIOUS_SHA="$(git rev-parse HEAD)"
 git check-ref-format --branch "$BRANCH" >/dev/null
@@ -83,8 +116,13 @@ git fetch origin --prune --tags
 TARGET_SHA="$(git rev-parse --verify "${DEPLOY_REF}^{commit}")"
 [[ "$TARGET_SHA" == "$DEPLOY_REF" ]] || { log "ERREUR : SHA cible non résolu exactement."; exit 1; }
 git merge-base --is-ancestor "$TARGET_SHA" "origin/$BRANCH" || { log "ERREUR : SHA absent de la branche cible."; exit 1; }
+if ! git merge-base --is-ancestor "$PREVIOUS_SHA" "$TARGET_SHA"; then
+  [[ "${DEPLOY_ALLOW_ROLLBACK:-}" == "1" ]] || { log "ERREUR : SHA cible antérieur ou divergent du checkout courant ; rollback explicite requis (DEPLOY_ALLOW_ROLLBACK=1), schéma et sauvegarde à vérifier."; exit 1; }
+  git merge-base --is-ancestor "$TARGET_SHA" "$PREVIOUS_SHA" || { log "ERREUR : rollback refusé ; la cible n'est pas un ancêtre du checkout courant."; exit 1; }
+  log "Rollback explicite ${PREVIOUS_SHA} → ${TARGET_SHA} ; aucune migration appliquée n'est annulée."
+fi
 STAGE=maintenance
-record() { printf '%s %s -> %s environment=%s status=%s stage=%s\n' "$(date -Is)" "$PREVIOUS_SHA" "$TARGET_SHA" "$DEPLOY_ENVIRONMENT" "$1" "$STAGE" >> "$LOG_DIR/deploy_history.log"; }
+record() { printf '%s %s -> %s environment=%s status=%s stage=%s tooling=%s\n' "$(date -Is)" "$PREVIOUS_SHA" "$TARGET_SHA" "$DEPLOY_ENVIRONMENT" "$1" "$STAGE" "${DEPLOY_TOOLING_SHA:-manual}" >> "$LOG_DIR/deploy_history.log"; }
 on_error() { local code=$?; trap - ERR; record FAILED || true; log "ERREUR au stade ${STAGE} : état PM2 et schéma à vérifier ; aucun rollback automatique ni ancien code garanti."; exit "$code"; }
 trap on_error ERR
 # Une reload rolling mélange anciens/nouveaux writers lors des migrations.

@@ -47,18 +47,28 @@ async function balance(tx: Prisma.TransactionClient, doctorId: string) {
 }
 
 export async function stats(app: FastifyInstance, userId: string, period: Period) {
-  return app.prisma.$transaction(async (tx) => {
-    const doctorId = await doctorGuard(tx, userId); const range = periodBounds(period);
-    const revenue = await journalTotals(tx, doctorId, range);
-    const appointments = await tx.appointment.groupBy({ by: ['status'], where: { doctorId, scheduledAt: range }, _count: { _all: true } });
-    const reviews = await tx.doctorReview.aggregate({ where: { doctorId, createdAt: range }, _count: { _all: true }, _avg: { rating: true } });
-    const paid = await tx.financeOperation.aggregate({ where: { doctorId, kind: 'PAYOUT', state: 'EXECUTED', executedAt: range }, _sum: { amount: true } });
-    const [legacy] = await tx.$queryRaw<{ count: number }[]>`SELECT count(*)::int AS count FROM payments p JOIN appointments a ON a.id = p."appointmentId" WHERE a."doctorId" = ${doctorId} AND p.type = 'CONSULTATION' AND p.status IN ('COMPLETED', 'REFUNDED') AND NOT EXISTS (SELECT 1 FROM finance_entries e WHERE e."paymentId" = p.id AND e.kind = 'CAPTURE')`;
-    const total = appointments.reduce((s, a) => s + a._count._all, 0);
-    const cancelled = appointments.find((a) => a.status === 'CANCELLED')?._count._all ?? 0;
-    return { period: { ...period, timeZone: 'Africa/Lagos' }, currency: 'XOF', revenue, paidInPeriod: (paid._sum.amount ?? 0).toString(), balance: await balance(tx, doctorId),
-      activity: { scheduled: total, completed: appointments.find((a) => a.status === 'COMPLETED')?._count._all ?? 0, cancelled, cancellationRate: total ? cancelled / total : null }, satisfaction: { count: reviews._count._all, average: reviews._avg.rating }, legacyUnproven: legacy?.count ?? 0 };
-  }, { isolationLevel: 'RepeatableRead' });
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await app.prisma.$transaction(async (tx) => {
+        const doctorId = await doctorGuard(tx, userId); const range = periodBounds(period);
+        const revenue = await journalTotals(tx, doctorId, range);
+        const appointments = await tx.appointment.groupBy({ by: ['status'], where: { doctorId, scheduledAt: range }, _count: { _all: true } });
+        const reviews = await tx.doctorReview.aggregate({ where: { doctorId, createdAt: range }, _count: { _all: true }, _avg: { rating: true } });
+        const paid = await tx.financeOperation.aggregate({ where: { doctorId, kind: 'PAYOUT', state: 'EXECUTED', executedAt: range }, _sum: { amount: true } });
+        const [legacy] = await tx.$queryRaw<{ count: number }[]>`SELECT count(*)::int AS count FROM payments p JOIN appointments a ON a.id = p."appointmentId" WHERE a."doctorId" = ${doctorId} AND p.type = 'CONSULTATION' AND p.status IN ('COMPLETED', 'REFUNDED') AND NOT EXISTS (SELECT 1 FROM finance_entries e WHERE e."paymentId" = p.id AND e.kind = 'CAPTURE')`;
+        const total = appointments.reduce((s, a) => s + a._count._all, 0);
+        const cancelled = appointments.find((a) => a.status === 'CANCELLED')?._count._all ?? 0;
+        return { period: { ...period, timeZone: 'Africa/Lagos' }, currency: 'XOF', revenue, paidInPeriod: (paid._sum.amount ?? 0).toString(), balance: await balance(tx, doctorId),
+          activity: { scheduled: total, completed: appointments.find((a) => a.status === 'COMPLETED')?._count._all ?? 0, cancelled, cancellationRate: total ? cancelled / total : null }, satisfaction: { count: reviews._count._all, average: reviews._avg.rating }, legacyUnproven: legacy?.count ?? 0 };
+      }, { isolationLevel: 'RepeatableRead' });
+    } catch (error) {
+      // FOR SHARE peut observer un médecin modifié après le snapshot ; reprendre
+      // toute cette lecture conserve la cohérence des agrégats sans rejouer d'effet.
+      const serializationFailure = error instanceof Prisma.PrismaClientKnownRequestError &&
+        (error.code === 'P2034' || (error.code === 'P2010' && error.meta?.code === '40001'));
+      if (!serializationFailure || attempt >= 2) throw error;
+    }
+  }
 }
 
 /** Neutralisation des formules tableur, y compris préfixes invisibles. */
@@ -194,6 +204,7 @@ export async function anomalies(app: FastifyInstance, page: number, pageSize: nu
     SELECT p.id, p.amount, p.currency, p.status, p.type, p.method, p."fedapayId" AS "providerReference", a."doctorId"
     FROM payments p LEFT JOIN appointments a ON a.id = p."appointmentId"
     WHERE (p.type = 'CONSULTATION' AND p.status IN ('COMPLETED', 'REFUNDED') AND NOT EXISTS (SELECT 1 FROM finance_entries e WHERE e."paymentId" = p.id AND e.kind = 'CAPTURE'))
+    OR (p.type = 'CONSULTATION' AND p.status = 'COMPLETED' AND a.status = 'CANCELLED' AND NOT EXISTS (SELECT 1 FROM finance_entries e WHERE e."paymentId" = p.id AND e.kind = 'REFUND'))
     OR (p.status = 'REFUNDED' AND p.method <> 'WALLET' AND NOT EXISTS (SELECT 1 FROM finance_operation_items i JOIN finance_operations o ON o.id = i."operationId" WHERE i."paymentId" = p.id AND o.kind = 'REFUND'))
     ORDER BY p."createdAt", p.id LIMIT ${pageSize + 1} OFFSET ${(page - 1) * pageSize}`;
   return { data: rows.slice(0, pageSize), hasMore: rows.length > pageSize, page };

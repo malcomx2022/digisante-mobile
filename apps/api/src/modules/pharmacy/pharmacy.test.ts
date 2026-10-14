@@ -75,7 +75,7 @@ describe.skipIf(!HAS_INFRA)('Pharmacie & Laboratoire (intégration)', () => {
       method: 'POST',
       url: `/api/v1/pharmacy/prescriptions/${prescId}/dispense`,
       headers: auth(pharmacistToken),
-      payload: { items: [{ itemId, status: 'DISPENSED' }] },
+      payload: { qrCode, items: [{ itemId, status: 'DISPENSED' }] },
     });
     expect(dispense.statusCode).toBe(200);
     expect(dispense.json().status).toBe('FULLY_DISPENSED');
@@ -111,7 +111,7 @@ describe.skipIf(!HAS_INFRA)('Pharmacie & Laboratoire (intégration)', () => {
       method: 'POST',
       url: `/api/v1/pharmacy/prescriptions/${prescId}/dispense`,
       headers: auth(pharmacistToken),
-      payload: { items: [{ itemId: a.id, status: 'DISPENSED' }, { itemId: b.id, status: 'UNAVAILABLE' }] },
+      payload: { qrCode: presc.json().qrCode, items: [{ itemId: a.id, status: 'DISPENSED' }, { itemId: b.id, status: 'UNAVAILABLE' }] },
     });
     expect(dispense.statusCode).toBe(200);
     expect(dispense.json().status).toBe('PARTIALLY_DISPENSED');

@@ -79,7 +79,7 @@ export default async function authRoutes(app: FastifyInstance) {
   // Déconnexion → révoque le refresh (Redis) et efface le cookie. PROTÉGÉ (JWT d'accès).
   app.post('/logout', { preHandler: app.authenticate }, async (request, reply) => {
     const token = readRefreshCookie(request);
-    if (token) await authService.logout(app, token);
+    if (token) await authService.logout(app, token, request.user.sub);
     clearRefreshCookie(reply);
     return reply.code(204).send();
   });

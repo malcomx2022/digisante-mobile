@@ -30,10 +30,8 @@ const BAR: Record<Referral['status'], string> = {
  * Le `patientId` arrive de la vue 360° (`/pro/referrals?patientId=…`), seul
  * endroit où le médecin dispose de l'identifiant du patient (via son partage).
  */
-function ReferralsInner() {
+function ReferralsInner({ patientId }: { patientId: string | null }) {
   const { t } = useLocale();
-  const params = useSearchParams();
-  const patientId = params.get('patientId');
 
   const [tick, setTick] = useState(0);
   const [reason, setReason] = useState('');
@@ -233,10 +231,16 @@ function ReferralsInner() {
   );
 }
 
+function ReferralsRoute() {
+  const params = useSearchParams();
+  const patientId = params.get('patientId');
+  return <ReferralsInner key={patientId ?? ''} patientId={patientId} />;
+}
+
 export default function ReferralsPage() {
   return (
     <Suspense fallback={null}>
-      <ReferralsInner />
+      <ReferralsRoute />
     </Suspense>
   );
 }

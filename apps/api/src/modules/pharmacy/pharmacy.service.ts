@@ -62,59 +62,58 @@ export async function dispense(
   pharmacyId: string,
   prescriptionId: string,
   lines: DispenseLine[],
+  qrCode: string,
 ) {
-  const presc = await app.prisma.prescription.findUnique({
-    where: { id: prescriptionId },
-    include: {
-      items: { select: { id: true, medicationName: true } },
-      patient: { select: { userId: true } },
-      doctor: { select: { userId: true } },
-    },
+  return app.prisma.$transaction(async (tx) => {
+    // Deux pharmacies/onglets voient un seul état courant, puis un effet complet.
+    await tx.$queryRaw`SELECT id FROM prescriptions WHERE id = ${prescriptionId} FOR UPDATE`;
+    const presc = await tx.prescription.findUnique({
+      where: { id: prescriptionId },
+      include: {
+        items: { select: { id: true, medicationName: true, status: true } },
+        patient: { select: { userId: true } },
+        doctor: { select: { userId: true, licenseNumber: true } },
+      },
+    });
+    if (!presc) throw notFound('Ordonnance introuvable');
+    // La connaissance des IDs ne prouve jamais la présentation de l'ordonnance.
+    if (!qrCode || presc.qrCode !== qrCode || !verifySignature(presc.id, presc.doctor.licenseNumber, qrCode)) {
+      throw forbidden('QR authentique de cette ordonnance requis');
+    }
+    if (presc.validUntil.getTime() <= Date.now()) throw badRequest('Ordonnance expirée');
+    if (presc.status !== 'ACTIVE' && presc.status !== 'PARTIALLY_DISPENSED') {
+      throw badRequest('Ordonnance non délivrable (déjà délivrée, annulée ou expirée)');
+    }
+    if (!lines.length || new Set(lines.map((line) => line.itemId)).size !== lines.length) {
+      throw badRequest('Chaque ligne ne peut être présentée qu’une fois');
+    }
+    const byId = new Map(presc.items.map((item) => [item.id, item]));
+    for (const line of lines) {
+      const item = byId.get(line.itemId);
+      if (!item) throw badRequest('Une ligne ne correspond pas à cette ordonnance');
+      if (item.status === 'DISPENSED') throw badRequest('Cette ligne a déjà été délivrée');
+    }
+    for (const line of lines) {
+      await tx.prescriptionItem.update({ where: { id: line.itemId }, data: { status: line.status } });
+    }
+    const items = await tx.prescriptionItem.findMany({ where: { prescriptionId }, select: { status: true } });
+    const status = computeDispenseStatus(items.map((item) => item.status));
+    await tx.prescription.update({ where: { id: prescriptionId }, data: { status } });
+    await tx.dispensation.create({
+      data: { prescriptionId, pharmacyId, status, lines: lines.map((line) => ({ medicationName: byId.get(line.itemId)!.medicationName, status: line.status })) },
+    });
+    await tx.notification.createMany({
+      data: [presc.patient.userId, presc.doctor.userId].map((recipientId) => ({
+        recipientId,
+        type: 'PRESCRIPTION_READY' as const,
+        channel: 'IN_APP' as const,
+        title: 'Ordonnance délivrée',
+        body: `Statut de délivrance : ${status}`,
+        status: 'PENDING' as const,
+      })),
+    });
+    return { prescriptionId, status };
   });
-  if (!presc) throw notFound('Ordonnance introuvable');
-  if (presc.validUntil.getTime() < Date.now()) throw badRequest('Ordonnance expirée');
-  // Une ordonnance entièrement délivrée, annulée ou expirée ne se délivre plus.
-  if (presc.status !== 'ACTIVE' && presc.status !== 'PARTIALLY_DISPENSED') {
-    throw badRequest('Ordonnance non délivrable (déjà délivrée, annulée ou expirée)');
-  }
-
-  const byId = new Map(presc.items.map((i) => [i.id, i.medicationName]));
-  if (!lines.every((l) => byId.has(l.itemId))) {
-    throw badRequest('Une ligne ne correspond pas à cette ordonnance');
-  }
-
-  await app.prisma.$transaction(
-    lines.map((l) =>
-      app.prisma.prescriptionItem.update({ where: { id: l.itemId }, data: { status: l.status } }),
-    ),
-  );
-
-  const items = await app.prisma.prescriptionItem.findMany({
-    where: { prescriptionId },
-    select: { status: true },
-  });
-  const status = computeDispenseStatus(items.map((i) => i.status));
-  await app.prisma.prescription.update({ where: { id: prescriptionId }, data: { status } });
-
-  // Journal de dispensation (privacy-safe : rattaché à cette pharmacie uniquement).
-  const snapshot = lines.map((l) => ({ medicationName: byId.get(l.itemId), status: l.status }));
-  await app.prisma.dispensation.create({
-    data: { prescriptionId, pharmacyId, status, lines: snapshot },
-  });
-
-  // Notifie patient + médecin (envoi réel multicanal en P4.2).
-  await app.prisma.notification.createMany({
-    data: [presc.patient.userId, presc.doctor.userId].map((recipientId) => ({
-      recipientId,
-      type: 'PRESCRIPTION_READY' as const,
-      channel: 'IN_APP' as const,
-      title: 'Ordonnance délivrée',
-      body: `Statut de délivrance : ${status}`,
-      status: 'PENDING' as const,
-    })),
-  });
-
-  return { prescriptionId, status };
 }
 
 /** Journal des délivrances effectuées par la pharmacie courante (les siennes uniquement). */

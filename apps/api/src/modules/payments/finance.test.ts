@@ -39,8 +39,9 @@ describe.skipIf(!HAS_INFRA)('L7 — revenus et opérations intégrées', () => {
   const buy = (id: string) => app.inject({ method: 'POST', url: '/api/v1/subscriptions', headers: auth(id), payload: { plan: 'PRO', method: 'WALLET', requestId: randomUUID() } });
   const appointment = (id = doctorId, status: 'COMPLETED' | 'CONFIRMED' = 'COMPLETED') => app.prisma.appointment.create({ data: { patientId, doctorId: id, type: 'PHYSICAL', status, scheduledAt: new Date() } });
   async function paid(id = doctorId, status: 'COMPLETED' | 'CONFIRMED' = 'COMPLETED') {
-    const appt = await appointment(id, status);
+    const appt = await appointment(id, 'CONFIRMED');
     const result = await payments.initiate(app, patientUser, { type: 'CONSULTATION', method: 'WALLET', appointmentId: appt.id });
+    if (status === 'COMPLETED') await app.prisma.appointment.update({ where: { id: appt.id }, data: { status } });
     return result.payment.id;
   }
   beforeAll(async () => { const { buildServer } = await import('@/server.js'); app = await buildServer(); await app.ready(); });

@@ -12,8 +12,21 @@ const BASE = process.env.NEXT_PUBLIC_API_URL ?? '';
 const PREFIX = '/api/v1';
 
 /** Endpoints d'auth exclus de l'intercepteur de refresh (évite toute boucle). */
-const AUTH_PATHS = ['/auth/login', '/auth/refresh', '/auth/register'];
-const isAuthPath = (path: string) => AUTH_PATHS.some((p) => path.startsWith(p));
+const AUTH_PATHS = ['/auth/login', '/auth/refresh', '/auth/register', '/auth/otp/request', '/auth/otp/verify', '/auth/logout'];
+const isAuthPath = (path: string) => AUTH_PATHS.some((p) => path === p || path.startsWith(`${p}?`));
+let authCookieFlight: Promise<unknown> = Promise.resolve();
+/** Sérialise cookie, réponse et publication locale de la transaction d'auth. */
+export async function withAuthCookieLock<T>(operation: () => Promise<T>): Promise<T> {
+  const generation = sessionGeneration;
+  const send = () => { assertSession(generation); return operation(); };
+  if (typeof navigator !== 'undefined' && navigator.locks?.request) {
+    return await navigator.locks.request('digisante.auth-cookie', send);
+  }
+  // Repli pour navigateurs sans Web Locks : ordre garanti dans cet onglet seul.
+  const result = authCookieFlight.catch(() => undefined).then(send);
+  authCookieFlight = result;
+  return result;
+}
 
 export class ApiRequestError extends Error {
   constructor(
@@ -28,9 +41,21 @@ export class ApiRequestError extends Error {
 export class RefreshUnavailableError extends Error {
   constructor() { super('Renouvellement de session temporairement indisponible'); this.name = 'RefreshUnavailableError'; }
 }
+/** Une réponse ancienne ne doit ni agir sous le nouveau compte ni le déconnecter. */
+export class SessionChangedError extends Error {
+  constructor() { super('Session changée pendant la requête'); this.name = 'SessionChangedError'; }
+}
 
 /** Jeton d'accès courant (injecté par la couche auth en P5.4). */
 let accessToken: string | null = null;
+let sessionGeneration = 0;
+/** Nouvelle connexion, déconnexion ou changement inter-onglets, pas une rotation JWT. */
+export function invalidateSessionRequests(): void {
+  sessionGeneration += 1;
+}
+function assertSession(generation: number): void {
+  if (generation !== sessionGeneration) throw new SessionChangedError();
+}
 export function setAccessToken(token: string | null): void {
   accessToken = token;
 }
@@ -56,7 +81,7 @@ export function setSessionExpiredHandler(fn: (() => void) | null): void {
 }
 
 // Single-flight : un SEUL refresh en vol, partagé par toutes les requêtes 401.
-let refreshInFlight: Promise<string | null> | null = null;
+let refreshInFlight: { generation: number; promise: Promise<string | null> } | null = null;
 
 /**
  * Force un refresh du jeton (single-flight partagé avec l'intercepteur 401).
@@ -69,19 +94,27 @@ export function refreshAccessToken(): Promise<string | null> {
 }
 
 /** Lance (ou réutilise) le refresh en cours. Renvoie le nouveau token ou null. */
-function refreshOnce(): Promise<string | null> {
+function refreshOnce(generation = sessionGeneration): Promise<string | null> {
+  assertSession(generation);
   if (!refreshHandler) return Promise.resolve(null);
-  if (!refreshInFlight) {
-    refreshInFlight = refreshHandler()
+  if (!refreshInFlight || refreshInFlight.generation !== generation) {
+    const handler = refreshHandler;
+    const flight = { generation, promise: Promise.resolve<string | null>(null) };
+    flight.promise = Promise.resolve().then(() => { assertSession(generation); return handler(); })
+      .then((token) => { assertSession(generation); return token; })
       .catch((error) => {
+        assertSession(generation);
+        if (error instanceof SessionChangedError) throw error;
         if (error instanceof ApiRequestError && [401, 403].includes(error.status)) return null;
         throw new RefreshUnavailableError();
       })
       .finally(() => {
-        refreshInFlight = null;
+        // Une réponse de l'ancienne session ne termine pas le refresh de la nouvelle.
+        if (refreshInFlight === flight) refreshInFlight = null;
       });
+    refreshInFlight = flight;
   }
-  return refreshInFlight;
+  return refreshInFlight.promise;
 }
 
 /**
@@ -123,12 +156,18 @@ export interface GetOptions {
  * refresh puis rejoue la requête UNE seule fois (single-flight, point 1).
  * `build` reçoit le jeton courant et construit l'objet Request à (re)jouer.
  */
-async function withAuthRetry(path: string, build: () => Promise<Response>): Promise<Response> {
-  let res = await build();
+async function withAuthRetry(path: string, build: () => Promise<Response>, generation = sessionGeneration): Promise<Response> {
+  const send = async () => {
+    assertSession(generation);
+    try { return await build(); }
+    finally { assertSession(generation); }
+  };
+  let res = await send();
   if (res.status === 401 && !isAuthPath(path) && refreshHandler) {
-    const newToken = await refreshOnce();
+    const newToken = await refreshOnce(generation);
+    assertSession(generation);
     if (newToken) {
-      res = await build(); // rejeu unique avec le jeton rafraîchi
+      res = await send(); // rejeu unique avec le jeton rafraîchi
     } else {
       // Refresh impossible/échoué → session expirée : on purge côté auth.
       sessionExpiredHandler?.();
@@ -139,15 +178,19 @@ async function withAuthRetry(path: string, build: () => Promise<Response>): Prom
 
 /** GET typé avec un retry léger (réseau instable 2G/3G) et en-têtes par requête. */
 export async function get<T>(path: string, opts: number | GetOptions = {}): Promise<T> {
+  const generation = sessionGeneration;
   const { retries = 1, headers: extra } =
     typeof opts === 'number' ? { retries: opts, headers: undefined } : opts;
   try {
     const res = await withAuthRetry(path, () =>
       fetch(`${BASE}${PREFIX}${path}`, { headers: headers(extra), credentials: 'include', cache: 'no-store' }),
-    );
-    return await parse<T>(res);
+    generation);
+    const result = await parse<T>(res);
+    assertSession(generation);
+    return result;
   } catch (err) {
-    if (retries > 0 && !(err instanceof ApiRequestError)) {
+    assertSession(generation);
+    if (retries > 0 && !(err instanceof ApiRequestError) && !(err instanceof SessionChangedError)) {
       return get<T>(path, { retries: retries - 1, headers: extra });
     }
     throw err;
@@ -159,11 +202,14 @@ export async function get<T>(path: string, opts: number | GetOptions = {}): Prom
  * hors-ligne ; les fichiers sont servis par endpoint authentifié uniquement (§4).
  */
 export async function getBlob(path: string): Promise<Blob> {
+  const generation = sessionGeneration;
   const res = await withAuthRetry(path, () =>
     fetch(`${BASE}${PREFIX}${path}`, { headers: headers(), credentials: 'include', cache: 'no-store' }),
-  );
+  generation);
   if (!res.ok) throw new ApiRequestError(res.status, { code: 'HTTP_ERROR', message: `HTTP ${res.status}` });
-  return res.blob();
+  const blob = await res.blob();
+  assertSession(generation);
+  return blob;
 }
 
 type MutationMethod = QueuedMutation['method'];
@@ -209,6 +255,7 @@ export async function mutate<T>(
   body?: unknown,
   opts: { queue?: boolean } = {},
 ): Promise<T | { queued: true }> {
+  const generation = sessionGeneration;
   const covered = isQueueable(path, method);
   if (!isOnline() && (opts.queue === false || !covered)) throw new OfflineError();
   if (covered && opts.queue !== false && !getQueueOwner()) throw new Error('Session requise pour cette mutation');
@@ -242,9 +289,11 @@ export async function mutate<T>(
         method, cache: 'no-store', headers: headers(key ? { 'Idempotency-Key': key } : undefined, body !== undefined),
         credentials: 'include', body: body === undefined ? undefined : JSON.stringify(body),
       });
-    });
+    }, generation);
     const result = await parse<T>(res);
+    assertSession(generation);
     if (pending) await remove(pending.id);
+    assertSession(generation);
     return result;
   } catch (error) {
     if (pending && definitiveRejection(error)) {

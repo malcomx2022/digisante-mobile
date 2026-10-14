@@ -23,7 +23,7 @@
 - [ ] Vérifications de l'hôte AVANT `--apply` (README §1.b, lecture seule, aucun secret affiché) : index Valkey **5/6 libres** et non utilisés par ImmiPro/BeninLink/Grafana, `CONFIG GET databases` ≥ 7 ; règle `pg_hba` `host <base> <rôle> 127.0.0.1/32 scram-sha-256` (+ `::1/128`) ajoutée **à la main** ; groupe `sshusers` / `AllowGroups` ; DNS A → 31.70.148.167 ; `certbot.timer` ; `nginx -t` vert ; ports 3100–3201 libres ; sauvegarde de `/etc/nginx`, `/etc/cron.d`, `/etc/logrotate.d` et des rôles PG ; fenêtre convenue avec les autres applications.
 - [ ] **`provision-ionos.sh`** depuis la copie root, shell root, secrets par `read -rs` (jamais en argument) : `bash $P` (**dry-run** : gardes + plan, aucune écriture, relu intégralement) → `bash $P --apply --only users,dirs,pg,valkey,runtime` → `--only nginx` → `--only cron`. Jamais `provision.sh` (ancien VPS 22.04, refuse cet OS).
 - [ ] Checkout `/var/www/digisante${SUFFIX}` cloné **par** `digisante${SUFFIX}` (données seulement), `.env` créés (§2), puis `bash $P --apply --only secrets`.
-- [ ] `bash $P --verify` → **0 FAIL** (comptes, modes, rôle/base, marqueur Valkey, PM2 au boot, vhost/certificat, cron B3, logrotate, `backup.key`, **B4** `KYC_STORAGE_DIR` absolu + `files_count ≥ références`) ; relancé après le premier déploiement.
+- [ ] `bash $P --verify` → **0 FAIL** (comptes, modes, rôle/base, marqueur Valkey, PM2 au boot, vhost/certificat, cron B3, logrotate, `backup.key`, **B4** `KYC_STORAGE_DIR` absolu + présence du fichier ordinaire exact de chaque référence dans la base du profil) ; relancé après le premier déploiement.
 - [ ] Rollback préparé : `bash $P --rollback` (dry-run) retire vhost/cron/rotation/service PM2 seulement ; base, rôle, index Valkey, magasin, comptes, certificat **conservés** (suppression = décision humaine après sauvegarde, jamais `FLUSHDB`/`FLUSHALL`).
 - [ ] Fuseau : `timedatectl` de l'hôte partagé à constater ; tout changement est une décision porteur (dérogation I2, L11) — il affecte aussi ImmiPro/BeninLink.
 
@@ -98,7 +98,7 @@
 ---
 
 **Contrôles techniques actuels ; ouverture pilote non attestée.** Le code (backend **28 modules** / **182 endpoints REST + 1 WS**
-+ frontend **7 espaces**, **67 pages**) est testé (**763 tests verts** — 637 API + 126 web, + 24 e2e
++ frontend **7 espaces**, **67 pages**) est testé (**801 tests verts** — 670 API + 131 web (déclarations statiques, résultats d’exécution détaillés dans LOT_Revue_2026-10-14), + 24 e2e
 Playwright — preuves du 7 octobre 2026 dans LOT_L4), l'infra scriptée. Restent la livraison L7 et la finalisation L8–L11, la validation humaine et l'exécution sur
 le VPS réel (étapes ci-dessus).
 

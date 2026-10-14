@@ -24,6 +24,7 @@ const availabilityQuery = z.object({
   lng: z.coerce.number().min(-180).max(180).optional(),
 });
 const dispenseSchema = z.object({
+  qrCode: z.string().min(16).max(128),
   items: z
     .array(
       z.object({
@@ -31,7 +32,8 @@ const dispenseSchema = z.object({
         status: z.enum(['DISPENSED', 'PARTIALLY_DISPENSED', 'UNAVAILABLE']),
       }),
     )
-    .min(1),
+    .min(1)
+    .refine((items) => new Set(items.map((item) => item.itemId)).size === items.length, 'Chaque ligne ne peut être présentée qu’une fois'),
 });
 
 export default async function pharmacyRoutes(app: FastifyInstance) {
@@ -44,9 +46,9 @@ export default async function pharmacyRoutes(app: FastifyInstance) {
 
   app.post('/prescriptions/:id/dispense', pharmacist, async (request) => {
     const { id } = zParse(idParams, request.params);
-    const { items } = zParse(dispenseSchema, request.body);
+    const { items, qrCode } = zParse(dispenseSchema, request.body);
     const pharmacyId = await pharmacy.pharmacyIdOf(app, request.user.sub);
-    return pharmacy.dispense(app, pharmacyId, id, items);
+    return pharmacy.dispense(app, pharmacyId, id, items, qrCode);
   });
 
   // Journal des délivrances de la pharmacie courante (historique privacy-safe).
