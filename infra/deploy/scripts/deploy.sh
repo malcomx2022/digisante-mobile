@@ -73,6 +73,17 @@ fi
 # Ne pas écraser les changements d'un opérateur ni dériver vers la tête de main.
 [[ -z "$(git status --porcelain --untracked-files=normal)" ]] || { log "ERREUR : checkout modifié ; préserver le diff avant déploiement."; exit 1; }
 [[ -d "$LOG_DIR" && -w "$LOG_DIR" ]] || { log "ERREUR : répertoire de journal non accessible."; exit 1; }
+# pnpm de la version épinglée (packageManager du dépôt) via corepack, jamais le pnpm global de
+# l'hôte partagé (autre version, celle des autres applications). Shim `pnpm` en tête du PATH : il
+# sert AUSSI aux appels imbriqués (script racine `build` = `pnpm -r build`). Version de la cible
+# préparée et contrôlée plus bas, AVANT l'arrêt PM2.
+command -v corepack >/dev/null 2>&1 || { log "ERREUR : corepack absent (Node 24) : pnpm épinglé introuvable."; exit 1; }
+PNPM_SHIM_DIR="$(mktemp -d)"
+trap 'rm -rf -- "$PNPM_SHIM_DIR"' EXIT
+# shellcheck disable=SC2016 # "$@" évalué par le shim, à dessein
+printf '#!/bin/sh\nCOREPACK_ENABLE_DOWNLOAD_PROMPT=0 exec corepack pnpm "$@"\n' > "$PNPM_SHIM_DIR/pnpm"
+chmod 0755 "$PNPM_SHIM_DIR/pnpm"
+export PATH="$PNPM_SHIM_DIR:$PATH"
 # Sérialiser aussi les invocations manuelles : deux candidats ne doivent pas comparer
 # leur ascendance au même ancien HEAD puis se déployer dans l'ordre inverse.
 exec 9>"$LOG_DIR/deploy.lock"
@@ -121,6 +132,12 @@ if ! git merge-base --is-ancestor "$PREVIOUS_SHA" "$TARGET_SHA"; then
   git merge-base --is-ancestor "$TARGET_SHA" "$PREVIOUS_SHA" || { log "ERREUR : rollback refusé ; la cible n'est pas un ancêtre du checkout courant."; exit 1; }
   log "Rollback explicite ${PREVIOUS_SHA} → ${TARGET_SHA} ; aucune migration appliquée n'est annulée."
 fi
+# pnpm de la CIBLE (packageManager à TARGET_SHA) préparé AVANT l'arrêt PM2 : un cache absent, un
+# réseau coupé ou une version inattendue ne laissent jamais l'environnement arrêté.
+PNPM_TARGET="$(git show "${TARGET_SHA}:package.json" | node -e 'let d="";process.stdin.on("data",(c)=>d+=c).on("end",()=>{let m=null;try{m=/^pnpm@(\d+\.\d+\.\d+)$/.exec(String(JSON.parse(d).packageManager).split("+")[0]);}catch{}if(!m)process.exit(1);process.stdout.write(m[1]);})')" \
+  || { log "ERREUR : packageManager pnpm@x.y.z illisible dans la cible."; exit 1; }
+[[ "$(COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack "pnpm@${PNPM_TARGET}" --version 2>/dev/null | tail -n 1)" == "$PNPM_TARGET" ]] \
+  || { log "ERREUR : pnpm ${PNPM_TARGET} indisponible via corepack (cache, réseau) : aucun processus arrêté."; exit 1; }
 STAGE=maintenance
 record() { printf '%s %s -> %s environment=%s status=%s stage=%s tooling=%s\n' "$(date -Is)" "$PREVIOUS_SHA" "$TARGET_SHA" "$DEPLOY_ENVIRONMENT" "$1" "$STAGE" "${DEPLOY_TOOLING_SHA:-manual}" >> "$LOG_DIR/deploy_history.log"; }
 on_error() { local code=$?; trap - ERR; record FAILED || true; log "ERREUR au stade ${STAGE} : état PM2 et schéma à vérifier ; aucun rollback automatique ni ancien code garanti."; exit "$code"; }

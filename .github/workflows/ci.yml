@@ -118,10 +118,11 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
-  # ── Déploiement VPS Infomaniak (SSH) ──
-  # Opt-in : ne s'exécute QUE si la variable de dépôt DEPLOY_ENABLED == 'true'
-  # (Settings → Secrets and variables → Actions → Variables). Tant qu'elle est
-  # absente, main reste verte. Activer une fois le VPS prêt + les secrets posés.
+  # ── Déploiement production, VPS IONOS partagé (SSH) ──
+  # Opt-in : ne s'exécute QUE si les variables de dépôt DEPLOY_ENABLED == 'true' ET
+  # DEPLOY_MAINTENANCE_READY == 'true' (Settings → Secrets and variables → Actions →
+  # Variables). Tant qu'elles sont absentes, main reste verte. Activer seulement dans une
+  # fenêtre autorisée, maintenance Nginx vérifiée, VPS prêt et secrets posés.
   # Secrets requis : VPS_HOST · VPS_USER · VPS_SSH_KEY (clé privée) · VPS_FINGERPRINT (empreinte SHA256 de la clé d’hôte) · VPS_SSH_PORT (optionnel)
   deploy:
     # Les e2e gardent aussi la porte : inutile de déployer une application dont

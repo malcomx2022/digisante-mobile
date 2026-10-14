@@ -1,6 +1,6 @@
 # Secrets & variables de production — DigiSanté Mobile
 
-> Liste des variables à définir **sur le VPS Infomaniak** (jamais commitées). À renseigner dans
+> Liste des variables à définir **sur le VPS IONOS partagé** (`srv1.immipro.app`, dérogation du 13/10/2026 ; jamais commitées). Modèles par environnement : `.env.prod.example` / `.env.preprod.example`. À renseigner dans
 > `apps/api/.env` (chargé par PM2 via `--env-file`) et `apps/web/.env.production` (lu au build Next.js).
 > Modèle complet : `.env.example` à la racine.
 
@@ -8,12 +8,12 @@
 
 | Variable | Obligatoire | Note |
 |---|---|---|
-| `DATABASE_URL` | ✅ | `postgresql://digisante:<pwd>@localhost:5432/digisante?schema=public` (Postgres 16 natif) |
-| `REDIS_URL` | ✅ | `redis://:<pwd>@localhost:6379/6` (Valkey partagé : index **/6** production, /5 préproduction ; jamais l'index 0 des autres projets) |
+| `DATABASE_URL` | ✅ | `postgresql://digisante:<pwd>@127.0.0.1:5432/digisante?schema=public` (PostgreSQL 18 natif partagé ; rôle et base créés par `provision-ionos.sh`) |
+| `REDIS_URL` | ✅ | `redis://:<pwd>@127.0.0.1:6379/6` (Valkey partagé : index **/6** production, /5 préproduction ; jamais l'index d'un autre projet ; isolement d'accès : README résiduel 2) |
 | `NODE_ENV` | ✅ | `production` (désactive l'exposition du `devCode` OTP) |
 | `JWT_SECRET` | ✅ | **≥ 32 caractères aléatoires** — `openssl rand -base64 48` |
 | `JWT_ACCESS_TTL` / `JWT_REFRESH_TTL` | — | défauts `15m` / `30d` |
-| `CORS_ORIGIN` | ✅ | `https://digisante.example.bj` (domaine réel) |
+| `CORS_ORIGIN` | ✅ | `https://digisantemobile.app` |
 | `HEALTH_ENCRYPTION_KEY` | ✅ | **chiffrement santé AES-256 (§4)** — `openssl rand -base64 48`. Sauvegarder hors VPS. |
 | `RECONCILE_TOKEN` | ✅ | jeton des crons internes (réconciliation / dispatch) — `openssl rand -hex 32` ; **doit correspondre** à `/etc/digisante/reconcile.token` |
 | `FEDAPAY_SECRET_KEY` / `FEDAPAY_PUBLIC_KEY` / `FEDAPAY_WEBHOOK_SECRET` | ✅ paiements | sans clé résolue → 502 en production ; le webhook ne valide pas sans `FEDAPAY_WEBHOOK_SECRET` |
@@ -70,7 +70,7 @@
 
 | Variable | Note |
 |---|---|
-| `NEXT_PUBLIC_API_URL` | **figé au build** — `https://digisante.example.bj` |
+| `NEXT_PUBLIC_API_URL` | **figé au build** — **vide** (appels relatifs, même origine : Nginx sert web + API sous le même domaine) |
 | `NEXT_PUBLIC_SOS_NUMBER` | numéro d'urgence (repli SMS SOS) |
 
 > ⚠️ `NEXT_PUBLIC_*` est inliné au `next build`. Toute modification nécessite un **rebuild** du web.
@@ -85,17 +85,15 @@
 ## Secrets GitHub Actions (déploiement SSH)
 
 `VPS_HOST` · `VPS_USER` · `VPS_SSH_KEY` (clé privée) · `VPS_FINGERPRINT` (empreinte d’hôte, obligatoire) · `VPS_SSH_PORT` (si ≠ 22)
-\+ **variable** `DEPLOY_ENABLED=true` pour activer le job `deploy`.
+\+ **variables** `DEPLOY_ENABLED=true` **et** `DEPLOY_MAINTENANCE_READY=true` pour activer le job `deploy`, seulement dans une fenêtre autorisée, maintenance Nginx vérifiée.
 
-## Build de production (rappel)
+## Build et déploiement de production
 
-```bash
-pnpm install --frozen-lockfile
-pnpm --filter @digisante/api prisma generate
-pnpm --filter @digisante/api prisma migrate deploy
-pnpm build            # shared → api (tsc + tsc-alias) → web (next build)
-DIGISANTE_ENV=production pm2 startOrReload ecosystem.config.cjs --update-env   # api cluster ×2 + web (DIGISANTE_ENV obligatoire)
-```
+Jamais à la main : `infra/deploy/scripts/deploy.sh` (README §3) arrête d'abord les workers PM2 **de cet
+environnement** (après avoir préparé par corepack la version pnpm de la cible), puis checkout du SHA qualifié →
+`pnpm install --frozen-lockfile` par un shim `pnpm` → `corepack pnpm` en tête du PATH (version du `packageManager`,
+appels imbriqués compris, jamais le pnpm global de l'hôte) → `prisma generate` → `pnpm build` → **`prisma migrate deploy`
+après le build** → démarrage homogène `DIGISANTE_ENV=production pm2 startOrReload ecosystem.config.cjs` → readiness.
 
 `ecosystem.config.cjs` (racine) : `digisante-api` (cluster ×2, `--env-file=<checkout>/apps/api/.env`, chemin
 absolu) + `digisante-web` (`next start -H 127.0.0.1`), ports 3201/3200 en production (3101/3100 et noms

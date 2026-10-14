@@ -18,11 +18,11 @@
 # aucun chemin sous /var/www. Journaux dans /var/log/digisante-preprod-cron (root:root 0750) :
 # jamais dans le répertoire de l'utilisateur applicatif (lien symbolique).
 #
-# Fuseau : régler l'horloge serveur sur Africa/Porto-Novo (UTC+1) :
-#   sudo timedatectl set-timezone Africa/Porto-Novo
+# Fuseau : hôte PARTAGÉ (ImmiPro, BeninLink) — constater `timedatectl` (verify_deploy.sh attend
+#   Africa/Porto-Novo, UTC+1) ; tout changement de fuseau est une décision du porteur (README, résiduel 3).
 # ─────────────────────────────────────────────────────────────
 SHELL=/bin/bash
-PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin
 DIGISANTE_ENV=preproduction
 
 # Jeton de service interne : AUCUN secret dans ce fichier. `internal_job.sh` et
@@ -74,7 +74,7 @@ J=/usr/local/lib/digisante-preprod/infra/deploy/scripts/internal_job.sh
 # Renouvellement SSL Certbot — deux fois par jour (no-op si pas dû) ; décalé de la
 # production (verrou certbot : deux renouvellements simultanés, un seul passe). --cert-name :
 # SEUL le certificat DigiSanté ; jamais ceux des autres applications de l'hôte partagé.
-45 3,15 * * * root certbot renew --quiet --cert-name preprod.digisantemobile.app --deploy-hook "systemctl reload nginx"
+45 3,15 * * * root certbot renew --quiet --cert-name preprod.digisantemobile.app --deploy-hook "systemctl reload nginx" >> /var/log/digisante-preprod-cron/certbot.log 2>&1
 
 # L3 : reçus chiffrés conservés 14 jours, mutations acceptées au plus 7 jours.
 10 3 * * * root $J /api/v1/sync/receipts/prune >> /var/log/digisante-preprod-cron/sync_receipts.log 2>&1
