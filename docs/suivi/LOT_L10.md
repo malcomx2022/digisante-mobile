@@ -129,7 +129,8 @@ enregistrée : `evidence.json` reste vide (`records: 0`, `candidate: null`). Con
 |---|---|---|---|---|
 | `626c6fdb8de2dffb7dde7a400391b11fff81cbff` | `main` après #199 à #205 (IONOS, revue complémentaire, campagne L9) | run 38647967804 (`push`, `main`, tentative 1) : `build-and-test` + `e2e` réussis, `deploy` ignoré ; logique de `preprod:qualify` (`verify-candidate.mjs`) appliquée aux données de l'API GitHub lues par le connecteur, `gh` étant indisponible dans cette session | rejeu des étapes de `ci.yml` : install gelé, `prisma generate`, `migrate deploy` (34 migrations), `lint`, `typecheck`, `test:scripts` 206/206, i18n EN 1098/1098, `validation:check` (snapshot L9 `3e061d52…` inchangé), `validation:campaign:check`, `preprod:check` 100 cas (source `f150e70c…`, `preprod:prepare` sans écart), validations DOCX (plan et dossier L9), `bash -n`, `test` (689 API / 91 fichiers + 142 web / 16 fichiers), `build`, build E2E proxifié puis `test:e2e` 35/35, `metrics:check` | `preprod:gate --expected-sha 626c6fd…` code 1 : 101 points ouverts ; `validation:gate` code 1 : 15 points ouverts |
 
-- **`626c6fd` est la candidate qualifiée à ce jour.** `ffa4372` est invalidée : entre les deux, l'instantané L10
+- **`626c6fd` était la candidate qualifiée avant #206** (instantané inchangé depuis : voir « Requalification après
+  #206 » ci-dessous). `ffa4372` est invalidée : entre les deux, l'instantané L10
   passe de 47 à 52 sources (5 ajoutées, 22 modifiées : sonde S8 #200, provisioning IONOS #201/#205, revue #203,
   `package.json`/CI #204) et le cas `FEDAPAY-S8` change. Les SHA `main` intermédiaires (#199 à #204) ont chacun une
   CI `main` réussie, mais n'ont pas été requalifiés un par un : `626c6fd` les inclut tous.
@@ -146,3 +147,26 @@ enregistrée : `evidence.json` reste vide (`records: 0`, `candidate: null`). Con
   README (rôle PostgreSQL d'exécution non propriétaire de l'audit, isolement Valkey, capacité de l'hôte). Gates
   déclaratifs rouges attendus ; L9 humain et L11 (recette 7 rôles, restauration par un tiers, rollback, pentest,
   PV GO/NO-GO) restent ouverts.
+
+## Requalification après #206 (14/10/2026)
+
+Contrôles sur le SHA `main` exact `ab75c4d67ccc14f8c2f608af1558ac3b5b8eecdf` (fusion de #206 sur `626c6fd`), même
+environnement que ci-dessus (worktree détaché, PostgreSQL 16 et Redis locaux, bases neuves, `NODE_ENV=test`) ; aucune
+cible distante. Aucune preuve enregistrée : `evidence.json` reste vide (`records: 0`, `candidate: null`).
+
+| Candidate | Origine | Qualification CI | Contrôles locaux | Gates |
+|---|---|---|---|---|
+| `ab75c4d67ccc14f8c2f608af1558ac3b5b8eecdf` | `main` après #206 (fiche de requalification seule) | run 38650759155 (`push`, `main`, tentative 1) : `build-and-test` + `e2e` réussis, `deploy` ignoré ; logique de `preprod:qualify` (`verify-candidate.mjs`) appliquée aux données de l'API GitHub lues par le connecteur, `gh` étant indisponible dans cette session | rejeu des étapes de `ci.yml` : install gelé, `prisma generate`, `migrate deploy` (34 migrations), `lint`, `typecheck`, `test:scripts` 206/206, i18n EN 1098/1098, `validation:check` (snapshot L9 `3e061d52…` inchangé), `validation:campaign:check`, `preprod:check` 100 cas (source `f150e70c…`, `preprod:prepare` sans écart), validations DOCX (plan et dossier L9), `bash -n`, `test` (689 API / 91 fichiers + 142 web / 16 fichiers), `build`, build E2E proxifié puis `test:e2e` 35/35, `metrics:check` | `preprod:gate --expected-sha ab75c4d…` code 1 : 101 points ouverts ; `validation:gate` code 1 : 15 points ouverts |
+
+- **`ab75c4d` est la candidate qualifiée à ce jour** (tête de `main`). Entre `626c6fd` et `ab75c4d`, seul
+  `docs/suivi/LOT_L10.md` change ; ce fichier est hors instantané L10 : empreinte source `f150e70c…` et snapshot L9
+  `3e061d52…` identiques. `626c6fd` n'est donc pas invalidée, mais le contrat (`CONTRAT_Preproduction_L10.md` §2)
+  qualifie le SHA `main` **à déployer**, et le déploiement production part de la tête de `main`.
+- L'arbre de `ab75c4d` est identique à celui de la tête de PR `27fdde9` (CI de PR #206 réussie, run 38650299132).
+- La fusion de cette fiche créera un nouveau SHA `main` de documentation seule : l'empreinte ne changera pas, mais
+  ce SHA devra lui aussi passer `CANDIDATE_SHA=<SHA> pnpm preprod:qualify` (CI `main` exacte) avant d'être déclaré
+  candidate ou déployé.
+- Limites de l'environnement local, commandes des gates et éléments **non prouvés** : inchangés par rapport à
+  « Requalification après #205 » ci-dessus (Node 22 local, Chromium préinstallé pour les E2E, checkout traversable
+  par `nobody` ; aucun déploiement, aucune écriture sur l'hôte IONOS, aucune variable GitHub activée, aucun appel
+  fournisseur réel ; décisions du porteur avant GO production ; L9 humain et L11 ouverts).
