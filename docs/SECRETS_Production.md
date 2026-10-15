@@ -93,7 +93,9 @@ Jamais à la main : `infra/deploy/scripts/deploy.sh` (README §3) arrête d'abor
 environnement** (après avoir préparé par corepack la version pnpm de la cible), puis checkout du SHA qualifié →
 `pnpm install --frozen-lockfile` par un shim `pnpm` → `corepack pnpm` en tête du PATH (version du `packageManager`,
 appels imbriqués compris, jamais le pnpm global de l'hôte) → `prisma generate` → `pnpm build` → **`prisma migrate deploy`
-après le build** → démarrage homogène `DIGISANTE_ENV=production pm2 startOrReload ecosystem.config.cjs` → readiness.
+après le build** → `pm2 delete` des apps de cet environnement (déjà arrêtées) puis démarrage homogène
+`DIGISANTE_ENV=production pm2 startOrReload ecosystem.config.cjs` → readiness (un port du profil encore à l'écoute
+hors PM2 est refusé avant les migrations).
 
 `ecosystem.config.cjs` (racine) : `digisante-api` (cluster ×2, entrée `dist/main.js` ; `apps/api/.env` du checkout
 chargé par l'API elle-même, sans `node_args`) + `digisante-web` (`next start -H 127.0.0.1`), ports 3201/3200 en production (3101/3100 et noms

@@ -129,6 +129,8 @@ test('ecosystem.config.cjs : DIGISANTE_ENV obligatoire, noms/ports/journaux = pr
     assert.equal(api.exec_mode, 'cluster');
     // .env chargé par l'API elle-même : aucun argument Node requis de PM2.
     assert.equal(api.node_args, undefined);
+    // Échec de démarrage (base pas prête au reboot) : relance à délai croissant, jamais `errored`.
+    assert.equal(api.exp_backoff_restart_delay, 100);
     for (const app of config.apps) {
       assert.ok(app.error_file.startsWith(`${p.APP_LOG_DIR}/`) && app.out_file.startsWith(`${p.APP_LOG_DIR}/`), `${env} : journaux ${app.name}`);
     }
@@ -150,13 +152,26 @@ test('API : entrée PM2 sans garde process.argv, .env chargé par l’API depuis
   // est fausse ⇒ API « online » muette (préprod 15/10/2026). L'entrée démarre toujours.
   const main = read('apps/api/src/main.ts').replace(/^\s*\/\/.*$/gm, '');
   assert.doesNotMatch(main, /process\.argv|import\.meta\.url/, 'aucune garde de lancement dans l’entrée');
-  assert.match(main, /^import '@\/lib\/env\.js';\nimport \{ start \} from '@\/server\.js';\n\s*void start\(\);\s*$/m);
+  // Configuration puis serveur importés DANS le try (erreur d'évaluation couverte), puis start() ;
+  // tout échec sort en code 1 — PM2 (cluster) avale les promesses rejetées sans arrêter le worker.
+  const body = main.replace(/\s+/g, ' ');
+  assert.match(body, /try \{ await import\('@\/lib\/env\.js'\); const \{ start \} = await import\('@\/server\.js'\); await start\(\); \} catch \(err\) \{/);
+  // Sortie en code 1 APRÈS écriture effective (rappel de process.stderr.write), filet minuté.
+  assert.match(body, /catch \(err\) \{ process\.exitCode = 1; const exit = \(\) => process\.exit\(1\);/);
+  assert.match(body, /process\.stderr\.write\(`❌ Démarrage de l'API impossible : \$\{describeBootError\(err\)\}\\n`, \(\) => \{ clearTimeout\(fallback\); exit\(\); \}\);/);
+  // env.ts LÈVE (plus de process.exit) : seule l'entrée décide de la sortie, journal vidé.
+  assert.doesNotMatch(read('apps/api/src/lib/env.ts').replace(/^\s*\/\/.*$/gm, ''), /process\.exit/);
+  assert.doesNotMatch(main, /void start\(\)|import \{ start \} from/, 'aucun démarrage hors du try');
   const pkg = JSON.parse(read('apps/api/package.json'));
   assert.equal(pkg.scripts.start, 'node dist/main.js');
   assert.equal(pkg.scripts.dev, 'tsx watch src/main.ts');
   // Le .env est résolu depuis le module (src/lib ou dist/lib → apps/api/.env), jamais depuis le cwd,
   // et chargé AVANT la validation.
-  assert.match(read('apps/api/src/lib/env-file.ts'), /resolve\(dirname\(fileURLToPath\(import\.meta\.url\)\), '\.\.\/\.\.\/\.env'\)/);
+  const envFile = read('apps/api/src/lib/env-file.ts');
+  assert.match(envFile, /resolve\(dirname\(fileURLToPath\(import\.meta\.url\)\), '\.\.\/\.\.\/\.env'\)/);
+  assert.match(envFile, /file: string = API_ENV_FILE,/, 'fichier par défaut = constante du module, jamais le cwd');
+  // Jamais chargé sous Vitest, même avec un NODE_ENV exporté (sinon les tests visent la base du .env).
+  assert.match(envFile, /if \(target\.NODE_ENV === 'test' \|\| target\.VITEST\) return 'skipped';/);
   const envTs = read('apps/api/src/lib/env.ts');
   assert.ok(envTs.indexOf('loadApiEnvFile();') > 0 && envTs.indexOf('loadApiEnvFile();') < envTs.indexOf('envSchema.safeParse(process.env)'));
 });

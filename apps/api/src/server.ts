@@ -179,8 +179,10 @@ export async function start() {
     await app.listen({ port: env.API_PORT, host: env.API_HOST });
     app.log.info(`🌿 DigiSanté API prête sur ${env.API_HOST}:${env.API_PORT}`);
   } catch (err) {
-    app.log.error(err);
-    process.exit(1);
+    // Remontée à main.ts, qui sort en code 1 après avoir vidé son journal (port occupé…).
+    app.log.error({ err }, 'écoute impossible');
+    await app.close().catch(() => undefined);
+    throw err;
   }
 }
 
