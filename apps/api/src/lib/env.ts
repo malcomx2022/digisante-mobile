@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { loadApiEnvFile } from './env-file.js';
+
 /** TTL explicite en secondes/minutes/heures/jours, borné à 90 jours. */
 export function refreshTtlSeconds(ttl: string): number {
   const match = /^(\d+)(s|m|h|d)$/.exec(ttl);
@@ -92,6 +94,10 @@ export const envSchema = z.object({
       });
     }
   });
+
+// apps/api/.env chargé par l'API elle-même (indépendant du lanceur), sans remplacer les
+// variables déjà posées par l'environnement du processus — cf. lib/env-file.ts.
+loadApiEnvFile();
 
 const parsed = envSchema.safeParse(process.env);
 if (!parsed.success) {

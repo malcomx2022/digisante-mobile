@@ -1,7 +1,7 @@
 # Secrets & variables de production — DigiSanté Mobile
 
 > Liste des variables à définir **sur le VPS IONOS partagé** (`srv1.immipro.app`, dérogation du 13/10/2026 ; jamais commitées). Modèles par environnement : `.env.prod.example` / `.env.preprod.example`. À renseigner dans
-> `apps/api/.env` (chargé par PM2 via `--env-file`) et `apps/web/.env.production` (lu au build Next.js).
+> `apps/api/.env` (chargé par l'API elle-même, `apps/api/src/lib/env-file.ts`) et `apps/web/.env.production` (lu au build Next.js).
 > Modèle complet : `.env.example` à la racine.
 
 ## API (`/var/www/digisante/apps/api/.env` — production, hôte IONOS partagé)
@@ -95,8 +95,8 @@ environnement** (après avoir préparé par corepack la version pnpm de la cible
 appels imbriqués compris, jamais le pnpm global de l'hôte) → `prisma generate` → `pnpm build` → **`prisma migrate deploy`
 après le build** → démarrage homogène `DIGISANTE_ENV=production pm2 startOrReload ecosystem.config.cjs` → readiness.
 
-`ecosystem.config.cjs` (racine) : `digisante-api` (cluster ×2, `--env-file=<checkout>/apps/api/.env`, chemin
-absolu) + `digisante-web` (`next start -H 127.0.0.1`), ports 3201/3200 en production (3101/3100 et noms
+`ecosystem.config.cjs` (racine) : `digisante-api` (cluster ×2, entrée `dist/main.js` ; `apps/api/.env` du checkout
+chargé par l'API elle-même, sans `node_args`) + `digisante-web` (`next start -H 127.0.0.1`), ports 3201/3200 en production (3101/3100 et noms
 `digisante-preprod-*` en préproduction). Logs sous `/var/log/digisante/` (préproduction : `/var/log/digisante-preprod/`).
 
 ## Mise à jour L8 — 7 octobre 2026

@@ -120,12 +120,15 @@ test('ecosystem.config.cjs : DIGISANTE_ENV obligatoire, noms/ports/journaux = pr
     assert.equal(api.max_memory_restart, '512M', `${env} : plafond API`);
     assert.equal(web.max_memory_restart, '512M', `${env} : plafond web`);
     assert.equal(web.args, `start -p ${p.WEB_PORT} -H 127.0.0.1`);
-    // Chemins ABSOLUS du checkout : PM2 (cluster) ne transmet pas le cwd aux node_args, et
-    // `pm2 resurrect` démarre depuis `/` — un `.env` relatif n'était jamais trouvé.
+    // Chemins ABSOLUS du checkout (`pm2 resurrect` démarre depuis `/`).
     assert.equal(api.cwd, join(ROOT, 'apps/api'));
     assert.equal(web.cwd, join(ROOT, 'apps/web'));
-    assert.equal(api.node_args, `--env-file=${join(ROOT, 'apps/api/.env')}`);
-    assert.doesNotMatch(api.node_args, /\s/, 'PM2 découpe node_args sur les espaces');
+    // PM2 importe le script depuis ProcessContainer(Fork).js : l'entrée doit démarrer sans
+    // garde process.argv (dist/server.js restait « online » sans écouter, préprod 15/10/2026).
+    assert.equal(api.script, 'dist/main.js');
+    assert.equal(api.exec_mode, 'cluster');
+    // .env chargé par l'API elle-même : aucun argument Node requis de PM2.
+    assert.equal(api.node_args, undefined);
     for (const app of config.apps) {
       assert.ok(app.error_file.startsWith(`${p.APP_LOG_DIR}/`) && app.out_file.startsWith(`${p.APP_LOG_DIR}/`), `${env} : journaux ${app.name}`);
     }
@@ -141,6 +144,22 @@ function body(text) {
 }
 const logSfx0 = (env) => (env === 'production' ? '' : '-preprod');
 const toProduction = (text, pairs) => pairs.reduce((t, [re, to]) => t.replace(re, to), text);
+
+test('API : entrée PM2 sans garde process.argv, .env chargé par l’API depuis son propre checkout', () => {
+  // Sous PM2, process.argv[1] = ProcessContainer(Fork).js : toute garde « lancé directement »
+  // est fausse ⇒ API « online » muette (préprod 15/10/2026). L'entrée démarre toujours.
+  const main = read('apps/api/src/main.ts').replace(/^\s*\/\/.*$/gm, '');
+  assert.doesNotMatch(main, /process\.argv|import\.meta\.url/, 'aucune garde de lancement dans l’entrée');
+  assert.match(main, /^import '@\/lib\/env\.js';\nimport \{ start \} from '@\/server\.js';\n\s*void start\(\);\s*$/m);
+  const pkg = JSON.parse(read('apps/api/package.json'));
+  assert.equal(pkg.scripts.start, 'node dist/main.js');
+  assert.equal(pkg.scripts.dev, 'tsx watch src/main.ts');
+  // Le .env est résolu depuis le module (src/lib ou dist/lib → apps/api/.env), jamais depuis le cwd,
+  // et chargé AVANT la validation.
+  assert.match(read('apps/api/src/lib/env-file.ts'), /resolve\(dirname\(fileURLToPath\(import\.meta\.url\)\), '\.\.\/\.\.\/\.env'\)/);
+  const envTs = read('apps/api/src/lib/env.ts');
+  assert.ok(envTs.indexOf('loadApiEnvFile();') > 0 && envTs.indexOf('loadApiEnvFile();') < envTs.indexOf('envSchema.safeParse(process.env)'));
+});
 
 test('Nginx : vhost préproduction = production hors marqueurs ; upstreams/ports = profil ; noms globaux préfixés', () => {
   const prod = read('infra/deploy/nginx/digisante.conf');

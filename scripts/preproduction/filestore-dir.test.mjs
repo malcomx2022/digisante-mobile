@@ -36,11 +36,12 @@ test('B4 : même règle que resolveStorageDir de l’API (vide/blanc ⇒ storage
   assert.equal(apiStorageDir('/var/lib/digisante-files/', api), '/var/lib/digisante-files');
   // Non-dérive : si l'API ou PM2 changent leur règle, ce miroir doit être revu.
   assert.match(readFileSync(resolve(root, 'apps/api/src/lib/filestore.ts'), 'utf8'), /return resolve\(configured\?\.trim\(\) \|\| 'storage\/kyc'\);/);
-  // cwd PM2 de l'API = apps/api du checkout (absolu), .env lu au même endroit (absolu).
+  // cwd PM2 de l'API = apps/api du checkout (absolu) ; .env = apps/api/.env du même checkout,
+  // chargé par l'API elle-même (résolu depuis son module, src/lib ou dist/lib → ../../.env).
   const pm2 = readFileSync(resolve(root, 'ecosystem.config.cjs'), 'utf8');
   assert.match(pm2, /const API_DIR = path\.join\(__dirname, 'apps\/api'\);/);
   assert.match(pm2, /cwd: API_DIR,/);
-  assert.match(pm2, /node_args: `--env-file=\$\{path\.join\(API_DIR, '\.env'\)\}`/);
+  assert.match(readFileSync(resolve(root, 'apps/api/src/lib/env-file.ts'), 'utf8'), /resolve\(dirname\(fileURLToPath\(import\.meta\.url\)\), '\.\.\/\.\.\/\.env'\)/);
 });
 
 test('B4 : .env lu comme données (guillemets, export, commentaires), valeur explicite prioritaire', () => {

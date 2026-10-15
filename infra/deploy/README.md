@@ -9,7 +9,7 @@ GitHub Actions (push main, gates) ──SSH──▶ deploy.sh
                                       ├─ pnpm install --frozen-lockfile
                                       ├─ pnpm build
                                       ├─ prisma migrate deploy   (jamais db push)
-                                      └─ pm2 startOrReload ecosystem.config.cjs
+                                      └─ pm2 delete (apps arrêtées) + startOrReload ecosystem.config.cjs
 
 Nginx (reverse proxy + SSL Certbot)
   Préprod `preprod.digisantemobile.app` :
@@ -247,7 +247,7 @@ cd /var/www/digisante-preprod                                  # prod : /var/www
 sudo -u digisante-preprod install -m 0600 .env.preprod.example apps/api/.env   # prod : .env.prod.example
 sudo -u digisante-preprod nano apps/api/.env
 # API_PORT/API_HOST du .env sont SANS EFFET en exploitation : ecosystem.config.cjs impose le port de
-# l'environnement et 127.0.0.1 (l'environnement PM2 prime sur --env-file ; l'API lit API_PORT, pas PORT).
+# l'environnement et 127.0.0.1 (l'environnement PM2 prime sur le .env ; l'API lit API_PORT, pas PORT).
 # 0600 : lisible par l'utilisateur de l'environnement SEUL (deploy.sh le vérifie).
 
 # Magasin de fichiers (KYC + pièces jointes DMP = données de santé) : KYC_STORAGE_DIR de ce
@@ -455,6 +455,11 @@ Deux variables obligatoires : `DEPLOY_ENABLED=true` et `DEPLOY_MAINTENANCE_READY
 ```bash
 pm2 status                       # état des process
 pm2 logs digisante-preprod-api   # logs API préprod (prod : digisante-api)
+# Démarrage MANUEL (hors deploy.sh) : `pm2 startOrReload` ne met à jour ni `script` ni `node_args`
+# d'une app existante — la recréer depuis l'ecosystem du checkout (entrée API = dist/main.js) :
+pm2 delete digisante-preprod-api digisante-preprod-web   # si présentes ; prod : digisante-api digisante-web
+DIGISANTE_ENV=preproduction pm2 start ecosystem.config.cjs && pm2 save
+curl -fsS http://127.0.0.1:3101/api/v1/ready                # {"status":"ready","db":"up","redis":"up"} ; prod : 3201
 sudo DIGISANTE_ENV=preproduction DOMAIN=preprod.digisantemobile.app \
      /usr/local/lib/digisante-preprod/infra/deploy/scripts/verify_deploy.sh   # sondes sans tâches métier
 # prod : sudo DIGISANTE_ENV=production DOMAIN=digisantemobile.app /usr/local/lib/digisante/infra/deploy/scripts/verify_deploy.sh

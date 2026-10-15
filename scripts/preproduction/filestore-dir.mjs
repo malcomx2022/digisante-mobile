@@ -4,7 +4,8 @@
 // résolu pour la sauvegarde EXACTEMENT comme l'API le résout :
 //   • apps/api/src/lib/filestore.ts : resolve(KYC_STORAGE_DIR?.trim() || 'storage/kyc'),
 //     relatif au répertoire courant du processus API ;
-//   • ecosystem.config.cjs : cwd PM2 = apps/api, `node --env-file=.env` (dans ce cwd).
+//   • ecosystem.config.cjs : cwd PM2 = apps/api ; apps/api/.env chargé par l'API elle-même
+//     (apps/api/src/lib/env-file.ts, même analyseur et même priorité que `--env-file`).
 // Priorité : KYC_STORAGE_DIR NON VIDE dans l'environnement de l'appelant (crontab root),
 // sinon la valeur du .env de l'API, lue comme DONNÉES par `util.parseEnv` — le même
 // analyseur que `--env-file` ; jamais `source`, jamais exécutée. Exige ensuite un
