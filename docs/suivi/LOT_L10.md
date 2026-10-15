@@ -186,3 +186,19 @@ E2E rejoué avec Redis …/2 purgé) ; aucune cible distante. Aucune preuve enre
   « Requalification après #205 » ci-dessus (Node 22 local, Chromium préinstallé pour les E2E, checkout traversable
   par `nobody` ; aucun déploiement, aucune écriture sur l'hôte IONOS, aucune variable GitHub activée, aucun appel
   fournisseur réel ; décisions du porteur avant GO production ; L9 humain et L11 ouverts).
+
+## Requalification après #209/#210/#211 (15/10/2026)
+
+Contrôles L10 sur le SHA `main` exact `bc16c4ccd467f02a67597471f66ca12786ef3677` (fusion de #211 sur `20f1ec1`), worktree
+détaché sur le VPS IONOS (répertoire temporaire, checkout de déploiement non touché), web préprod arrêté le temps des
+tests puis redémarré (200 sur 3100) ; aucune cible distante, aucune preuve enregistrée : `evidence.json` reste vide
+(`records: 0`, `candidate: null`).
+
+| Candidate | Origine | Qualification CI | Contrôles locaux | Gates |
+|---|---|---|---|---|
+| `bc16c4ccd467f02a67597471f66ca12786ef3677` | `main` après #209/#210/#211 (démarrage API sous PM2 : entrée `dist/main.js`, `.env` chargé par l'API, exit 1 sur échec de démarrage, garde deploy.sh ports 3100/3101, procédures manuelles alignées) | Run `main` sur `bc16c4c` à confirmer via `CANDIDATE_SHA=bc16c4c… pnpm preprod:qualify` avant fusion de cette fiche (`gh` absent sur le VPS ; CI des PR #209/#210/#211 rapportée verte, à contre-vérifier) | `pnpm install --frozen-lockfile`, `prisma generate`, `test:scripts` 202/208 (6 skipped, 0 fail), `lint`, `typecheck`, `preprod:check` 100 cas (source `d6bfcba2…`), `validation:check` (6 artefacts, 1098 clés UI, 27 phrases, snapshot L9 `3e061d52…` inchangé), `metrics:check` (16 compteurs, 30 mentions), `preprod:prepare` 100 cas (source `d6bfcba2…`, sans écart) | `preprod:gate --expected-sha bc16c4c…` code 1 : 101 points ouverts |
+
+- Les contrôles L10 qualifient `bc16c4c` ; la qualification CI `main` sur `bc16c4c` reste à confirmer via `preprod:qualify` avant fusion de cette fiche. Entre `f771e6e` et `bc16c4c`, le code change (#209/#210/#211) : l'empreinte source L10 passe de `f150e70c…` à `d6bfcba2…` ; les contrôles L10 ont donc été rejoués sur `bc16c4c` lui-même (et non réutilisés depuis `f771e6e`). Le snapshot L9 `3e061d52…` est inchangé.
+- La première tentative de requalification a échoué sur `test:scripts` (3 tests `deploy-order`) parce que le web préprod écoutait sur 3100 : la garde #210 de `deploy.sh` (refus de migrer si 3100/3101 occupés) a bloqué les tests, comme prévu. Rejoué avec le web préprod arrêté (ports libres) : 202/208, 0 échec. Le web a été redémarré après (200 sur 3100).
+- Limites de l'environnement : VPS IONOS (Node 24, pnpm 9.12.0), checkout temporaire, web préprod arrêté le temps des tests ; aucun déploiement, aucune écriture sur le checkout de déploiement, aucune variable GitHub activée, aucun appel fournisseur réel. Le rejeu complet des étapes de `ci.yml` (`test`, `build`, `test:e2e`) n'a pas été refait localement ; la CI `main` sur `bc16c4c` fait foi pour le moteur, à confirmer via `preprod:qualify` avant fusion.
+- **Non prouvé** : aucun déploiement, aucune variable GitHub activée, aucun appel fournisseur réel (S8–S10 FedaPay, D19–D21 Daily ouverts). Gates déclaratifs rouges attendus ; L9 humain et L11 (recette 7 rôles, restauration par un tiers, rollback, pentest, PV GO/NO-GO) restent ouverts.
