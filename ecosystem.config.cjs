@@ -16,8 +16,14 @@
 // environnement). infra/deploy/scripts/deploy.sh le dérive de DEPLOY_ENVIRONMENT ; les
 // noms et ports ci-dessous sont repris À L'IDENTIQUE par le profil `digisante_profile`
 // des scripts d'exploitation (test de cohérence scripts/infra/environments.test.mjs).
-// Lancement / reload (depuis le checkout de l'environnement) :
-//   DIGISANTE_ENV=preproduction pm2 startOrReload ecosystem.config.cjs --update-env
+// Déploiement normal : infra/deploy/scripts/deploy.sh (supprime puis recrée les apps de
+// l'environnement). À la main, SOUS LE COMPTE DE L'ENVIRONNEMENT et avec ce fichier du checkout :
+//   sudo -u digisante-preprod pm2 delete digisante-preprod-api digisante-preprod-web   # si présentes
+//   sudo -u digisante-preprod env DIGISANTE_ENV=preproduction pm2 start /var/www/digisante-preprod/ecosystem.config.cjs
+//   sudo -u digisante-preprod pm2 save
+//   (prod : compte digisante, /var/www/digisante, apps digisante-api digisante-web, DIGISANTE_ENV=production)
+// ⚠️ `pm2 start`/`pm2 startOrReload [--update-env]` sur une app EXISTANTE gardent son ancien
+// script, ses node_args et son exec_mode (vérifié PM2 7.0.4) : toujours `pm2 delete` avant.
 //
 // L'API lit API_PORT/API_HOST (apps/api/src/lib/env.ts), PAS `PORT` : ils sont posés ici,
 // et l'environnement PM2 prime sur apps/api/.env (l'API ne remplace jamais une variable
@@ -75,6 +81,10 @@ module.exports = {
       instances: 2,
       exec_mode: 'cluster',
       max_memory_restart: '512M',
+      // Échec de démarrage (base ou Valkey pas encore prêts au redémarrage de l'hôte) : main.ts
+      // sort en code 1, PM2 relance avec un délai croissant (100 ms → 15 s) au lieu de marquer
+      // l'app `errored` après 15 redémarrages rapides — l'API reprend seule quand la base revient.
+      exp_backoff_restart_delay: 100,
       env: {
         NODE_ENV: 'production',
         API_PORT: CONF.apiPort,

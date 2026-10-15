@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { loadApiEnvFile } from './env-file.js';
+import { API_ENV_FILE, loadApiEnvFile } from './env-file.js';
 
 /** TTL explicite en secondes/minutes/heures/jours, borné à 90 jours. */
 export function refreshTtlSeconds(ttl: string): number {
@@ -97,12 +97,19 @@ export const envSchema = z.object({
 
 // apps/api/.env chargé par l'API elle-même (indépendant du lanceur), sans remplacer les
 // variables déjà posées par l'environnement du processus — cf. lib/env-file.ts.
-loadApiEnvFile();
+const envFileOutcome = loadApiEnvFile();
 
 const parsed = envSchema.safeParse(process.env);
 if (!parsed.success) {
-  console.error("❌ Variables d'environnement invalides :", parsed.error.flatten().fieldErrors);
-  process.exit(1);
+  // Erreur LEVÉE (plus de process.exit ici) : main.ts l'écrit puis sort en code 1 une fois le
+  // journal vidé — sous PM2 cluster, un exit immédiat perdait la dernière ligne écrite.
+  // Message sûr : noms de variables et messages de validation, jamais leurs valeurs ; fichier
+  // attendu nommé quand il manque (comme `node --env-file` : « <chemin>: not found »).
+  const fields = Object.entries(parsed.error.flatten().fieldErrors).map(([key, issues]) => `${key} : ${(issues ?? []).join(', ')}`);
+  const missingFile = envFileOutcome === 'absent' ? ` — fichier d'environnement de l'API absent : ${API_ENV_FILE}` : '';
+  throw Object.assign(new Error(`Variables d'environnement invalides (${fields.join(' ; ')})${missingFile}`), {
+    code: 'API_ENV_INVALID',
+  });
 }
 
 export const env = parsed.data;

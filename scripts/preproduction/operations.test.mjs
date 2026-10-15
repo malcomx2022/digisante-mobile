@@ -79,6 +79,8 @@ stop) [[ "\u0024{STOP_FAIL:-0}" == 0 ]] || exit 2; touch "$APP_DIR/stopped";;
 delete) touch "$APP_DIR/deleted";;
 startOrReload) echo "pm2-env DIGISANTE_ENV=\u0024{DIGISANTE_ENV:-absent}" >> "$TRACE";;
 esac`);
+  // ss synthétique : ports du profil libres, sauf PORT_BUSY=1 (écouteur hors des apps PM2 du profil).
+  command('ss',`echo "ss $*" >> "$TRACE"; if [[ "\u0024{PORT_BUSY:-0}" == 1 ]]; then echo 'LISTEN 0 511 127.0.0.1:3101 0.0.0.0:*'; fi`);
   command('curl',`echo "curl $*" >> "$TRACE"; if [[ "\u0024{BAD_READY:-0}" == 1 ]]; then echo '<html>wrong backend</html>'; else echo '{"status":"ready","db":"up","redis":"up"}'; fi`);
   command('sleep',':');
   // psql synthétique : relevé du snapshot avec fichiers référencés (FILES_EXPECTED / REFS).
@@ -371,6 +373,16 @@ test('déploiement production : arrête digisante-api/web (jamais la préproduct
     assert.match(t,/^pm2 stop digisante-api digisante-web$/m);assert.doesNotMatch(t,/^pm2 stop .*preprod/m);
     assert.match(t,/^pm2 delete digisante-api digisante-web$/m);assert.doesNotMatch(t,/^pm2 delete .*preprod/m);
     assert.match(t,/^pm2-env DIGISANTE_ENV=production$/m);assert.match(t,/^curl .*http:\/\/127\.0\.0\.1:3201\/api\/v1\/ready$/m);
+  }finally{f.clean();}
+});
+test('déploiement : port du profil encore à l’écoute après l’arrêt PM2 ⇒ refus avant checkout et migration',()=>{
+  const f=fixture();try{
+    const r=f.run('deploy.sh',{...deployEnv,OLD_WRITERS:'1',PORT_BUSY:'1'});assert.notEqual(r.status,0);const t=f.trace();
+    assert.match(r.stdout+r.stderr,/port 3101 ou 3100 encore à l'écoute hors des apps PM2 de preproduction/);
+    assert.ok(t.indexOf('pm2 stop')<t.indexOf('ss -Htln'),'contrôle APRÈS l’arrêt des apps du profil');
+    assert.match(t,/^ss -Htln \( sport = :3101 or sport = :3100 \)$/m);
+    assert.doesNotMatch(t,/git switch|prisma migrate deploy|pm2 delete|pm2 startOrReload/);
+    assert.match(readFileSync(join(f.env.LOG_DIR,'deploy_history.log'),'utf8'),/status=FAILED stage=maintenance/);
   }finally{f.clean();}
 });
 test('déploiement : DIGISANTE_ENV hérité ≠ DEPLOY_ENVIRONMENT refusé avant tout effet',()=>{

@@ -163,6 +163,11 @@ let d=""; process.stdin.on("data",c=>d+=c).on("end",()=>{try {
 const l=JSON.parse(d); const names=[process.env.PM2_API,process.env.PM2_WEB];
 if(!Array.isArray(l) || l.some(p=>names.includes(p.name)&&p.pm2_env?.status!=="stopped")) throw new Error();
 } catch { console.error("Anciens processus encore actifs ou état PM2 inconnu : arrêt avant migration.");process.exit(1)}})'
+# Ports du profil LIBRES : un écouteur hors des apps PM2 du profil (autre nom, autre démon,
+# wrapper de diagnostic) resterait un writer pendant les migrations et répondrait à la
+# readiness à la place de la nouvelle API (faux SUCCESS). Contrôle sans privilège ni valeur.
+busy_ports="$(ss -Htln "( sport = :${API_PORT} or sport = :${WEB_PORT} )")"
+[[ -z "$busy_ports" ]] || { log "ERREUR : port ${API_PORT} ou ${WEB_PORT} encore à l'écoute hors des apps PM2 de ${DIGISANTE_ENV} : aucune migration lancée."; false; }
 STAGE=checkout
 git switch --detach "$TARGET_SHA"
 STAGE=install

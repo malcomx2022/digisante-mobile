@@ -9,8 +9,10 @@
 // déjà présente dans l'environnement du processus n'est JAMAIS remplacée (PM2 pose
 // NODE_ENV/API_PORT/API_HOST ; deploy.sh vérifie NODE_ENV/DATABASE_URL/REDIS_URL hérités).
 // Fichier absent : rien n'est chargé, la validation de env.ts signale ce qui manque.
-// NODE_ENV=test (Vitest, CI) : rien n'est chargé — un .env de développement ne doit pas
-// modifier les tests. Aucun secret n'est journalisé ici.
+// Sous Vitest (VITEST=true, quel que soit NODE_ENV : Vitest garde un NODE_ENV exporté) ou en
+// NODE_ENV=test (CI) : rien n'est chargé — sinon un `export NODE_ENV=development` suffisait à
+// lancer les suites d'intégration contre la base et le Redis nommés par le .env.
+// Aucun secret n'est journalisé ici (le chemin du fichier n'en est pas un).
 // ─────────────────────────────────────────────────────────────
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -26,14 +28,17 @@ export function loadApiEnvFile(
   file: string = API_ENV_FILE,
   target: NodeJS.ProcessEnv = process.env,
 ): EnvFileOutcome {
-  if (target.NODE_ENV === 'test') return 'skipped';
+  if (target.NODE_ENV === 'test' || target.VITEST) return 'skipped';
   let text: string;
   try {
     text = readFileSync(file, 'utf8');
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return 'absent';
     // Illisible (droits, répertoire…) : échec explicite plutôt qu'un démarrage sans config.
-    throw new Error(`Fichier d'environnement de l'API illisible : ${file}`);
+    // Message sûr (chemin seul) : main.ts l'affiche tel quel grâce à son code.
+    throw Object.assign(new Error(`Fichier d'environnement de l'API illisible : ${file}`), {
+      code: 'API_ENV_FILE_UNREADABLE',
+    });
   }
   for (const [key, value] of Object.entries(parseEnv(text))) {
     if (target[key] === undefined && value !== undefined) target[key] = value;
