@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceSnapshotSha256": "010a205499d18b7cf03e787c6818834a5555898e2a58ec0b893ef10f653dc705",
+  "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d",
   "sources": {
     ".github/workflows/ci.yml": "b2dd66e634f137fe14200fc302536a4f5510182814f3c6996c3aaa101260526d",
     ".github/workflows/preproduction.yml": "055bf59c9c4b40c4acd8a5ddf53b94b7caafb050f37f754006b077d9d98d384c",
@@ -12,7 +12,7 @@
     "apps/api/src/services/twilio.smoke.test.ts": "3a9b5e95ea72d145d6f798436ebfce672cbb48f9899a63a9639a5cf85bbd29b9",
     "apps/api/vitest.smoke.config.ts": "bde25a6e35a520dd45ed945f544c9f77c79f867cfbe669e359d59b49fa6196c8",
     "apps/api/vitest.smoke.setup.ts": "c9d496b7f7261735ef27db198892d339d4b0a7a7580b76784c1eb764142a7d5f",
-    "docs/CONTRAT_Preproduction_L10.md": "e90eae555259aefea6b8863b6c1a6c3c066486e433601b8b70a80c51eac892df",
+    "docs/CONTRAT_Preproduction_L10.md": "1dbf026ee2d60e05648c1ac8aa58770f2615304e6db8457cb7f3e53215a6769b",
     "docs/RECETTE_Abonnements_L6.md": "c22fb2d31b8068cbfbe3b31b1930e0e15b47d1da17c058ed0ad1fee85fea9b73",
     "docs/RECETTE_Daily_Teleconsultation.md": "7d5a39df8ac395b8870cd5afeb23688faf5b4388904fe1cbf734c6cf0065b1a4",
     "docs/RECETTE_FedaPay_Sandbox.md": "651bd37cc6676da00509406e1c1484d5e99617de5ec92780ac118fb169384ea2",
@@ -22,8 +22,8 @@
     "docs/RECETTE_Twilio_SMS.md": "f804e27a508cc5eb5118148f40b5976fa2a01b7a7530d33d206241580eedd535",
     "docs/SECRETS_Preproduction_L10.md": "3eb5e78edb1903ad94fffe9b36aec9186872bca3eee565de561081fbd7d8dd1b",
     "docs/preproduction/L10/README.md": "2eeccbcd070065cdd2c9dc52beaf464fe7d555466cdede038882a9ccc4bf6545",
-    "ecosystem.config.cjs": "ba67d5724b6782dd41eb43343da9a48b52648e02875615f1f282daaf15abe4e4",
-    "infra/deploy/README.md": "5e7823d6d628831f1c5c93882894c705098ce3cdd7d08f002e27081577164bab",
+    "ecosystem.config.cjs": "a996b16426977334b0c8c763e32c362c6f2386d117560fb117a71fc632946f49",
+    "infra/deploy/README.md": "a8ea657e167c83b19db0559020e46c8fd517bb417cbbf0fa8a3186a9e9cd9431",
     "infra/deploy/crontab.example": "33a47525c6b3694d3b0df4a8128f5b6d30d09587c3bc0ea7cf030dc852755dac",
     "infra/deploy/crontab.preproduction.example": "3328721a08abca7dd92aca8ad5a04125272c48026b0bc19595367626851a7885",
     "infra/deploy/logrotate/digisante": "a362fa41a87444e0d80ba3a13ce44c7cad6035fd3222c989e7c6106e94291aaf",
