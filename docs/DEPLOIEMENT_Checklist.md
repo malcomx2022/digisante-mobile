@@ -99,7 +99,7 @@
 ---
 
 **Contrôles techniques actuels ; ouverture pilote non attestée.** Le code (backend **28 modules** / **182 endpoints REST + 1 WS**
-+ frontend **7 espaces**, **67 pages**) est testé (**801 tests verts** — 670 API + 131 web (déclarations statiques, résultats d’exécution détaillés dans LOT_Revue_2026-10-14), + 24 e2e
++ frontend **7 espaces**, **67 pages**) est testé (**807 tests verts** — 676 API + 131 web (déclarations statiques, résultats d’exécution détaillés dans LOT_Revue_2026-10-14), + 24 e2e
 Playwright — preuves du 7 octobre 2026 dans LOT_L4), l'infra scriptée. Restent la livraison L7 et la finalisation L8–L11, la validation humaine et l'exécution sur
 le VPS réel (étapes ci-dessus).
 

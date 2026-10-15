@@ -20,21 +20,25 @@
 //   DIGISANTE_ENV=preproduction pm2 startOrReload ecosystem.config.cjs --update-env
 //
 // L'API lit API_PORT/API_HOST (apps/api/src/lib/env.ts), PAS `PORT` : ils sont posés ici,
-// et l'environnement PM2 prime sur `--env-file` (Node ne remplace jamais une variable déjà
-// définie) — l'API_PORT=3001 d'un .env copié de .env.example ne s'applique donc pas.
+// et l'environnement PM2 prime sur apps/api/.env (l'API ne remplace jamais une variable
+// déjà définie) — l'API_PORT=3001 d'un .env copié de .env.example ne s'applique donc pas.
 // Écoute sur 127.0.0.1 uniquement : seul Nginx (même hôte) est un client légitime.
 //
-// Les SECRETS ne sont JAMAIS ici (cf. CLAUDE.md §3/§4) : ils sont lus
-// depuis les fichiers .env présents sur le VPS, chargés par Node via
-// --env-file (API) et par Next.js automatiquement (web).
-// Chemins ABSOLUS (__dirname = checkout de l'environnement) : en mode cluster, PM2 passe
-// node_args aux workers SANS leur cwd ; un `--env-file=.env` relatif était cherché dans le
-// répertoire du démon PM2 (checkout, ou `/` après `pm2 resurrect` au démarrage de l'hôte)
-// ⇒ « .env: not found », API jamais démarrée (reproduit avec PM2 5.4.3 et 7.0.4).
+// Les SECRETS ne sont JAMAIS ici (cf. CLAUDE.md §3/§4) : ils sont lus depuis les fichiers
+// .env présents sur le VPS — chargés par l'API ELLE-MÊME (apps/api/src/lib/env-file.ts :
+// apps/api/.env de son propre checkout, même analyseur que --env-file) et par Next.js
+// automatiquement (web). Plus de node_args `--env-file` : rien ne dépend de ce que PM2
+// transmet aux workers, ni du répertoire du démon après `pm2 resurrect`.
 //   - API préprod : /var/www/digisante-preprod/apps/api/.env
 //   - Web préprod : /var/www/digisante-preprod/apps/web/.env.production
 //   - API prod : /var/www/digisante/apps/api/.env
 //   - Web prod : /var/www/digisante/apps/web/.env.production
+//
+// Point d'entrée API = dist/main.js, qui démarre TOUJOURS. Jamais dist/server.js : PM2
+// importe le script depuis ProcessContainer(Fork).js, la garde `process.argv[1]` de
+// server.ts y est fausse ⇒ workers « online » sans écoute ni journal (préprod 15/10/2026,
+// reproduit avec PM2 7.0.4 en cluster et en fork). La ligne de commande affichée
+// (`node …/dist/server.js`) est le process.title posé par PM2, pas les vrais arguments.
 // ─────────────────────────────────────────────────────────────
 const ENV = process.env.DIGISANTE_ENV ?? '';
 const CONFS = {
@@ -66,9 +70,8 @@ module.exports = {
       // ── API Fastify — clustering ×2 (partage du port via cluster Node) ──
       name: CONF.apiName,
       cwd: API_DIR,
-      script: 'dist/server.js',
-      // Node 24 charge apps/api/.env de CE checkout au démarrage de chaque worker.
-      node_args: `--env-file=${path.join(API_DIR, '.env')}`,
+      // Entrée qui démarre toujours ; apps/api/.env de CE checkout chargé par l'API elle-même.
+      script: 'dist/main.js',
       instances: 2,
       exec_mode: 'cluster',
       max_memory_restart: '512M',

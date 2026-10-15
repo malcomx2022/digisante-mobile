@@ -173,7 +173,7 @@ export async function buildServer() {
   return app;
 }
 
-async function start() {
+export async function start() {
   const app = await buildServer();
   try {
     await app.listen({ port: env.API_PORT, host: env.API_HOST });
@@ -184,7 +184,10 @@ async function start() {
   }
 }
 
-// Démarrage uniquement si lancé directement (pas en import de test).
+// Compatibilité `node dist/server.js` seulement : le point d'entrée de production est
+// src/main.ts (PM2, `pnpm start`, `pnpm dev`). Cette garde est FAUSSE dès qu'un lanceur
+// importe le script : sous PM2 (cluster ET fork), process.argv[1] vaut ProcessContainer*.js
+// ⇒ l'API restait « online » sans jamais écouter, journaux vides (préprod 15/10/2026).
 // Comparaison cross-platform (Windows/Linux) via pathToFileURL.
 const entry = process.argv[1] ? pathToFileURL(process.argv[1]).href : '';
 if (import.meta.url === entry) {

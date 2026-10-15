@@ -73,8 +73,10 @@ echo "corepack $*" >> "$TRACE"; [[ "$1" == pnpm ]] || exit 2; shift; exec "$(dir
 case "$1" in
 jlist) other='{"name":"digisante-api","pm2_env":{"status":"online"}},{"name":"digisante-web","pm2_env":{"status":"online"}}'; other="\u0024{OTHER_ENV:-$other}"
   old='{"name":"'"\u0024{OLD_API:-digisante-preprod-api}"'","pm2_env":{"status":"online"}},{"name":"'"\u0024{OLD_WEB:-digisante-preprod-web}"'","pm2_env":{"status":"online"}}'
-  if [[ "\u0024{PM2_BROKEN:-0}" == 1 ]]; then echo invalid; elif [[ "\u0024{OLD_WRITERS:-0}" == 1 && ! -f "$APP_DIR/stopped" ]]; then echo "[$old,$other]"; else echo "[$other]"; fi;;
+  if [[ "\u0024{PM2_BROKEN:-0}" == 1 ]]; then echo invalid; elif [[ "\u0024{OLD_WRITERS:-0}" == 1 && ! -f "$APP_DIR/stopped" ]]; then echo "[$old,$other]";
+  elif [[ "\u0024{OLD_WRITERS:-0}" == 1 && ! -f "$APP_DIR/deleted" ]]; then echo "[\u0024{old//online/stopped},$other]"; else echo "[$other]"; fi;;
 stop) [[ "\u0024{STOP_FAIL:-0}" == 0 ]] || exit 2; touch "$APP_DIR/stopped";;
+delete) touch "$APP_DIR/deleted";;
 startOrReload) echo "pm2-env DIGISANTE_ENV=\u0024{DIGISANTE_ENV:-absent}" >> "$TRACE";;
 esac`);
   command('curl',`echo "curl $*" >> "$TRACE"; if [[ "\u0024{BAD_READY:-0}" == 1 ]]; then echo '<html>wrong backend</html>'; else echo '{"status":"ready","db":"up","redis":"up"}'; fi`);
@@ -108,7 +110,7 @@ test('déploiement : SHA/maintenance/env production/change opérateur/branche ex
   const f=fixture();try {writeFileSync(join(f.env.APP_DIR,'apps/api/.env'),'NODE_ENV=test\n');assert.notEqual(f.run('deploy.sh',deployEnv).status,0);assert.doesNotMatch(f.trace(),/pnpm |pm2 /);}finally{f.clean();}
 });
 test('déploiement : anciens writers arrêtés, SHA détaché, build avant migrate, succès tracé',()=>{
-  const f=fixture();try {const r=f.run('deploy.sh',{...deployEnv,OLD_WRITERS:'1'});assert.equal(r.status,0,r.stderr+r.stdout);const t=f.trace();assert.ok(t.indexOf('pm2 stop')<t.indexOf('git switch --detach'));assert.ok(t.indexOf('pnpm build')<t.indexOf('prisma migrate deploy'));assert.ok(t.indexOf('prisma migrate deploy')<t.indexOf('pm2 startOrReload'));assert.match(t,/^corepack pnpm install --frozen-lockfile$/m,'pnpm épinglé (corepack), jamais le pnpm global de l’hôte');assert.match(t,/^corepack pnpm -r build$/m,'appel imbriqué du script racine build : pnpm épinglé aussi');assert.ok(t.indexOf('corepack pnpm@9.12.0 --version')<t.indexOf('pm2 stop'),'version pnpm de la cible préparée avant l’arrêt PM2');assert.match(readFileSync(join(f.env.LOG_DIR,'deploy_history.log'),'utf8'),/status=SUCCESS/);}finally{f.clean();}
+  const f=fixture();try {const r=f.run('deploy.sh',{...deployEnv,OLD_WRITERS:'1'});assert.equal(r.status,0,r.stderr+r.stdout);const t=f.trace();assert.ok(t.indexOf('pm2 stop')<t.indexOf('git switch --detach'));assert.ok(t.indexOf('pnpm build')<t.indexOf('prisma migrate deploy'));assert.ok(t.indexOf('prisma migrate deploy')<t.indexOf('pm2 startOrReload'));assert.ok(t.indexOf('prisma migrate deploy')<t.indexOf('pm2 delete')&&t.indexOf('pm2 delete')<t.indexOf('pm2 startOrReload'),'apps arrêtées recréées depuis l’ecosystem (startOrReload ne change ni script ni node_args)');assert.match(t,/^corepack pnpm install --frozen-lockfile$/m,'pnpm épinglé (corepack), jamais le pnpm global de l’hôte');assert.match(t,/^corepack pnpm -r build$/m,'appel imbriqué du script racine build : pnpm épinglé aussi');assert.ok(t.indexOf('corepack pnpm@9.12.0 --version')<t.indexOf('pm2 stop'),'version pnpm de la cible préparée avant l’arrêt PM2');assert.match(readFileSync(join(f.env.LOG_DIR,'deploy_history.log'),'utf8'),/status=SUCCESS/);}finally{f.clean();}
 });
 test('déploiement B3 : rappel non bloquant si les scripts root installés ne sont pas au SHA déployé',()=>{
   const f=fixture();try {
@@ -355,6 +357,8 @@ test('déploiement préproduction : arrête SEULEMENT digisante-preprod-*, readi
     const r=f.run('deploy.sh',{...deployEnv,OLD_WRITERS:'1'});assert.equal(r.status,0,r.stderr+r.stdout);const t=f.trace();
     assert.match(t,/^pm2 stop digisante-preprod-api digisante-preprod-web$/m);
     assert.doesNotMatch(t,/^pm2 stop .*\bdigisante-(api|web)\b/m,'processus de production jamais arrêtés');
+    assert.match(t,/^pm2 delete digisante-preprod-api digisante-preprod-web$/m);
+    assert.doesNotMatch(t,/^pm2 delete .*\bdigisante-(api|web)\b/m,'définitions de production jamais supprimées');
     assert.match(t,/^pm2-env DIGISANTE_ENV=preproduction$/m);
     assert.match(t,/^curl .*http:\/\/127\.0\.0\.1:3101\/api\/v1\/ready$/m);assert.doesNotMatch(t,/127\.0\.0\.1:300[01]/);
   }finally{f.clean();}
@@ -365,6 +369,7 @@ test('déploiement production : arrête digisante-api/web (jamais la préproduct
     const r=f.run('deploy.sh',{...deployEnv,DEPLOY_ENVIRONMENT:'production',DIGISANTE_ENV:'',OLD_WRITERS:'1',OLD_API:'digisante-api',OLD_WEB:'digisante-web',OTHER_ENV:'{"name":"digisante-preprod-api","pm2_env":{"status":"online"}}'});
     assert.equal(r.status,0,r.stderr+r.stdout);const t=f.trace();
     assert.match(t,/^pm2 stop digisante-api digisante-web$/m);assert.doesNotMatch(t,/^pm2 stop .*preprod/m);
+    assert.match(t,/^pm2 delete digisante-api digisante-web$/m);assert.doesNotMatch(t,/^pm2 delete .*preprod/m);
     assert.match(t,/^pm2-env DIGISANTE_ENV=production$/m);assert.match(t,/^curl .*http:\/\/127\.0\.0\.1:3201\/api\/v1\/ready$/m);
   }finally{f.clean();}
 });

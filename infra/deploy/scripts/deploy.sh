@@ -96,7 +96,7 @@ const profile = process.argv[3] === 'preproduction'
   : { database: 'digisante', redis: '/6' };
 const refuse = (message) => { fs.writeSync(2, `${message} ; aucun processus arrêté ni migration lancée.\n`); process.exit(1); };
 if (env.NODE_ENV !== 'production') refuse('NODE_ENV=production requis dans le fichier API');
-// Prisma et Node --env-file gardent les variables héritées : contrôler aussi cette
+// Prisma et l'API (lib/env-file.ts) gardent les variables héritées : contrôler aussi cette
 // priorité, sinon le .env vérifié pourrait différer de la base réellement migrée.
 for (const key of ['NODE_ENV', 'DATABASE_URL', 'REDIS_URL']) {
   if (process.env[key] !== undefined && process.env[key] !== env[key]) refuse(`${key} hérité différent du fichier API`);
@@ -145,11 +145,14 @@ trap on_error ERR
 # Une reload rolling mélange anciens/nouveaux writers lors des migrations.
 # La maintenance Nginx doit avoir été posée par l'opérateur avant cette commande.
 # Noms de CET environnement uniquement (profil) : jamais ceux de l'autre environnement.
-STOP_APPS="$(pm2 jlist | PM2_API="$PM2_API" PM2_WEB="$PM2_WEB" node -e '
+env_app_names() {
+  pm2 jlist | PM2_API="$PM2_API" PM2_WEB="$PM2_WEB" node -e '
 let d=""; process.stdin.on("data",c=>d+=c).on("end",()=>{try {
 const l=JSON.parse(d); if(!Array.isArray(l)) throw new Error(); const names=[process.env.PM2_API,process.env.PM2_WEB];
 console.log([...new Set(l.filter(p=>names.includes(p.name)).map(p=>p.name))].join(" "));
-} catch { console.error("État PM2 illisible (valeurs non affichées)");process.exit(1)}})')"
+} catch { console.error("État PM2 illisible (valeurs non affichées)");process.exit(1)}})'
+}
+STOP_APPS="$(env_app_names)"
 if [[ -n "$STOP_APPS" ]]; then
   read -r -a stop_names <<< "$STOP_APPS"
   pm2 stop "${stop_names[@]}"
@@ -179,6 +182,14 @@ log "Application des migrations (migrate deploy — jamais db push)…"
 pnpm --filter @digisante/api prisma migrate deploy
 STAGE=restart
 log "Démarrage homogène PM2 ${DIGISANTE_ENV} (maintenance conservée)…"
+# Apps de CET environnement (déjà arrêtées) supprimées puis recréées depuis l'ecosystem du
+# checkout : startOrReload ne met à jour NI `script` NI `node_args` d'une app existante
+# (vérifié avec PM2 7.0.4) — l'API serait restée sur dist/server.js, muette (15/10/2026).
+RESTART_APPS="$(env_app_names)"
+if [[ -n "$RESTART_APPS" ]]; then
+  read -r -a restart_names <<< "$RESTART_APPS"
+  pm2 delete "${restart_names[@]}"
+fi
 # DIGISANTE_ENV exporté : ecosystem.config.cjs refuse de démarrer sans lui.
 pm2 startOrReload "$APP_DIR/ecosystem.config.cjs" --update-env
 pm2 save
