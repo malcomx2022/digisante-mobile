@@ -19,9 +19,14 @@ Provision initial natif sur l'hôte IONOS partagé via `provision-ionos.sh` (jam
 Poser et vérifier une maintenance **Nginx** avant le script ; autoriser seulement l'IP de recette de l'opérateur (et l'IP publique de l'hôte, IPv4 et IPv6 si un AAAA la vise, pour `verify_deploy.sh`) pendant les sondes HTTPS : fichier root `snippets/digisante-preprod-maintenance.conf`, inclus par le vhost, posé puis retiré selon `infra/deploy/README.md` §3. La variable `DEPLOY_MAINTENANCE_READY=1` est une **déclaration**, le script ne pose/vérifie pas lui-même Nginx. Suspendre temporairement les crons mutateurs et éviter les sauvegardes concurrentes au déploiement. Consigner leur suspension/reprise ; sauvegarder la crontab actuelle avant modification. `deploy.sh` refuse les modifications Git de l'opérateur, le SHA non exact/hors branche, NODE_ENV autre que production et un `DIGISANTE_ENV` hérité différent de `DEPLOY_ENVIRONMENT`. Hôte partagé : `DEPLOY_ENVIRONMENT` fixe `DIGISANTE_ENV` (profil `digisante_profile`, obligatoire et sans défaut, aussi exigé par `ecosystem.config.cjs`), donc les noms PM2 `digisante-preprod-api/web`, le port de readiness 127.0.0.1:3101 et le checkout `/var/www/digisante-preprod`. Arrêt PM2 API/web **de cet environnement seulement** puis contrôle de l'arrêt **avant** checkout/install/build/migrations ; démarrage homogène, readiness JSON bornée, journal SHA/stade/succès ou échec. Pas de rolling reload pendant migration, pas de rollback automatique et aucune garantie que l'ancien code reste actif en cas d'échec.
 
 ```bash
-# Depuis /var/www/digisante-preprod, utilisateur digisante-preprod ; maintenance déjà vérifiée.
-DEPLOY_REF=<SHA_COMPLET_QUALIFIE> DEPLOY_ENVIRONMENT=preproduction \
-  DEPLOY_MAINTENANCE_READY=1 bash infra/deploy/scripts/deploy.sh
+# Maintenance déjà vérifiée. Outillage = deploy.sh de origin/main extrait HORS du checkout (comme les workflows), jamais celui
+# du checkout : bash relit le fichier ouvert même après `git switch` (README §3).
+sudo -u digisante-preprod bash -c 'cd /var/www/digisante-preprod && git fetch origin main \
+  && M="$(git rev-parse --verify "origin/main^{commit}")" && F="$(mktemp)" \
+  && git show "$M:infra/deploy/scripts/deploy.sh" > "$F" \
+  && DEPLOY_TOOLING_SHA="$M" DEPLOY_REF=<SHA_COMPLET_QUALIFIE> DEPLOY_ENVIRONMENT=preproduction \
+     DEPLOY_MAINTENANCE_READY=1 bash "$F"; rc=$?; rm -f "$F"; exit $rc'
+# Prod : compte digisante, /var/www/digisante, DEPLOY_ENVIRONMENT=production (même forme).
 # Scripts exécutés par root (B3) au MÊME SHA, depuis la copie root (jamais APP_DIR).
 sudo DIGISANTE_ENV=preproduction /usr/local/lib/digisante-preprod/infra/deploy/scripts/install_root_scripts.sh <SHA_COMPLET_QUALIFIE>
 # Sondes/configuration ; aucune tâche de notification exécutée par défaut.
