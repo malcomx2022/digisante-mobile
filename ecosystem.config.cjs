@@ -18,7 +18,8 @@
 // des scripts d'exploitation (test de cohérence scripts/infra/environments.test.mjs).
 // Déploiement normal : infra/deploy/scripts/deploy.sh (supprime puis recrée les apps de
 // l'environnement). À la main, SOUS LE COMPTE DE L'ENVIRONNEMENT et avec ce fichier du checkout :
-//   sudo -u digisante-preprod pm2 delete digisante-preprod-api digisante-preprod-web   # si présentes
+//   for a in digisante-preprod-api digisante-preprod-web; do sudo -u digisante-preprod pm2 delete "$a" || true; done
+//   (une suppression PAR app : `pm2 delete a b` s'arrête au premier nom absent)
 //   sudo -u digisante-preprod env DIGISANTE_ENV=preproduction pm2 start /var/www/digisante-preprod/ecosystem.config.cjs
 //   sudo -u digisante-preprod pm2 save
 //   (prod : compte digisante, /var/www/digisante, apps digisante-api digisante-web, DIGISANTE_ENV=production)

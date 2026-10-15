@@ -302,22 +302,20 @@ sudo rm -f "$MAINT" && sudo nginx -t && sudo systemctl reload nginx
 ```
 
 ```bash
-sudo -u digisante-preprod DEPLOY_REF=<SHA_COMPLET_QUALIFIE> DEPLOY_ENVIRONMENT=preproduction \
-  DEPLOY_MAINTENANCE_READY=1 bash infra/deploy/scripts/deploy.sh   # préprod, depuis /var/www/digisante-preprod
-# Prod (depuis /var/www/digisante) : sudo -u digisante DEPLOY_REF=<SHA> DEPLOY_ENVIRONMENT=production DEPLOY_MAINTENANCE_READY=1 bash infra/deploy/scripts/deploy.sh
+# Outillage = deploy.sh de origin/main extrait HORS du checkout (comme les workflows), jamais celui
+# du checkout : bash relit le fichier ouvert même après `git switch` (cf. ci-dessous).
+sudo -u digisante-preprod bash -c 'cd /var/www/digisante-preprod && git fetch origin main \
+  && M="$(git rev-parse --verify "origin/main^{commit}")" && F="$(mktemp)" \
+  && git show "$M:infra/deploy/scripts/deploy.sh" > "$F" \
+  && DEPLOY_TOOLING_SHA="$M" DEPLOY_REF=<SHA_COMPLET_QUALIFIE> DEPLOY_ENVIRONMENT=preproduction \
+     DEPLOY_MAINTENANCE_READY=1 bash "$F"; rc=$?; rm -f "$F"; exit $rc'
+# Prod : compte digisante, /var/www/digisante, DEPLOY_ENVIRONMENT=production (même forme).
 ```
 
-⚠️ **Toujours le `deploy.sh` du SHA déployé (ou de `main`), comme les workflows** — jamais celui du checkout courant :
-bash continue de lire le fichier ouvert même après `git switch`. Un checkout antérieur à #209 exécuterait l'ancien
-script (sans `pm2 delete`), l'app API garderait `dist/server.js` et resterait muette. Extraire puis lancer :
-
-```bash
-sudo -u digisante-preprod bash -c 'cd /var/www/digisante-preprod && git fetch origin && \
-  git show "<SHA_COMPLET_QUALIFIE>:infra/deploy/scripts/deploy.sh" > "$HOME/deploy-<SHA>.sh"'
-sudo -u digisante-preprod bash -c 'cd /var/www/digisante-preprod && DEPLOY_REF=<SHA_COMPLET_QUALIFIE> \
-  DEPLOY_ENVIRONMENT=preproduction DEPLOY_MAINTENANCE_READY=1 bash "$HOME/deploy-<SHA>.sh"'
-# prod : compte digisante, /var/www/digisante, DEPLOY_ENVIRONMENT=production
-```
+⚠️ **Toujours le `deploy.sh` de `main` extrait hors du checkout, comme les workflows** — jamais
+`bash infra/deploy/scripts/deploy.sh` depuis le checkout : bash continue de lire le fichier ouvert même après
+`git switch`. Un checkout antérieur à #209 exécuterait l'ancien script (sans `pm2 delete`) : migrations
+appliquées, puis app API restée sur `dist/server.js`, muette, readiness en échec.
 
 Le déploiement accepte le SHA courant ou un descendant de ce checkout. Une CI ancienne
 terminée après une version plus récente est refusée **avant l'arrêt PM2, le checkout et
@@ -336,8 +334,12 @@ appliquées, restaurer base **et** fichiers selon `docs/SUIVI_B5_Restauration_20
 La maintenance reste obligatoire et aucune migration n'est annulée par le script :
 
 ```bash
-sudo -u digisante-preprod DEPLOY_REF=<SHA_ANCESTRE_QUALIFIE> DEPLOY_ENVIRONMENT=preproduction \
-  DEPLOY_MAINTENANCE_READY=1 DEPLOY_ALLOW_ROLLBACK=1 bash infra/deploy/scripts/deploy.sh
+# Même forme que ci-dessus (outillage = deploy.sh de origin/main hors du checkout), cible ancêtre :
+sudo -u digisante-preprod bash -c 'cd /var/www/digisante-preprod && git fetch origin main \
+  && M="$(git rev-parse --verify "origin/main^{commit}")" && F="$(mktemp)" \
+  && git show "$M:infra/deploy/scripts/deploy.sh" > "$F" \
+  && DEPLOY_TOOLING_SHA="$M" DEPLOY_REF=<SHA_ANCESTRE_QUALIFIE> DEPLOY_ENVIRONMENT=preproduction \
+     DEPLOY_MAINTENANCE_READY=1 DEPLOY_ALLOW_ROLLBACK=1 bash "$F"; rc=$?; rm -f "$F"; exit $rc'
 ```
 
 Une cible divergente est refusée même avec `DEPLOY_ALLOW_ROLLBACK=1`. Les workflows CI
@@ -471,10 +473,14 @@ sudo -u digisante-preprod pm2 logs digisante-preprod-api   # prod : digisante-ap
 # Démarrage MANUEL (hors deploy.sh), maintenance posée : `pm2 start`/`startOrReload` sur une app EXISTANTE
 # gardent son ancien script et ses node_args — supprimer puis recréer depuis l'ecosystem du checkout
 # (entrée API = dist/main.js). Arrêter aussi tout écouteur de diagnostic resté sur 3101/3100.
-sudo -u digisante-preprod pm2 delete digisante-preprod-api digisante-preprod-web   # si présentes
+# Une suppression PAR app (`pm2 delete a b` s'arrête au premier nom absent et garde le suivant) :
+for a in digisante-preprod-api digisante-preprod-web; do sudo -u digisante-preprod pm2 delete "$a" || true; done
 sudo -u digisante-preprod env DIGISANTE_ENV=preproduction pm2 start /var/www/digisante-preprod/ecosystem.config.cjs
 sudo -u digisante-preprod pm2 save
 curl -fsS http://127.0.0.1:3101/api/v1/ready   # {"status":"ready","db":"up","redis":"up"}
+# « waiting restart » = échec de démarrage relancé à délai croissant (≤ 15 s) : cause dans les logs (base,
+# Valkey, .env) ; l'API repart seule. `pm2 restart`/`reload` ÉCHOUENT sur une instance dans cet état
+# (« Process with pid … already exists », PM2 7.0.4) : pour relancer tout de suite, `pm2 stop` puis `pm2 start`.
 # prod : compte digisante, /var/www/digisante/ecosystem.config.cjs, apps digisante-api/web, DIGISANTE_ENV=production, port 3201
 sudo DIGISANTE_ENV=preproduction DOMAIN=preprod.digisantemobile.app \
      /usr/local/lib/digisante-preprod/infra/deploy/scripts/verify_deploy.sh   # sondes sans tâches métier

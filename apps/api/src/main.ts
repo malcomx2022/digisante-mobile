@@ -23,8 +23,20 @@ function describeBootError(err: unknown): string {
   const e = err as { code?: unknown; errorCode?: unknown } | null;
   const code = typeof e?.code === 'string' ? e.code : typeof e?.errorCode === 'string' ? e.errorCode : undefined;
   if (code && SAFE_MESSAGE_CODES.has(code) && err instanceof Error) return err.message;
-  // Sinon jamais le message brut (il peut recopier une donnée ou un secret, §4) : type, code, pile.
-  return JSON.stringify({ ...serializeErrorForLog(err), ...(code ? { code } : {}) });
+  // Sinon jamais le message brut (il peut recopier une donnée ou un secret, §4) : type, code,
+  // lignes de pile seules (fichiers et fonctions, aucune valeur — comme pour Prisma) et, pour un
+  // module introuvable, son chemin. Message seul utile (FST_ERR_PLUGIN_TIMEOUT, SyntaxError de
+  // liaison) : relancer `node dist/server.js` sur une configuration synthétique pour le lire.
+  const frames = err instanceof Error
+    ? (err.stack ?? '').split('\n').filter((line) => line.trimStart().startsWith('at ')).slice(0, 8).join('\n')
+    : '';
+  const url = typeof (err as { url?: unknown } | null)?.url === 'string' ? (err as { url: string }).url : undefined;
+  return JSON.stringify({
+    ...serializeErrorForLog(err),
+    ...(frames ? { stack: frames } : {}),
+    ...(code ? { code } : {}),
+    ...(url ? { url } : {}),
+  });
 }
 
 try {

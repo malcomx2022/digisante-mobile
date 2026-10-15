@@ -63,6 +63,27 @@ describe('main.ts — entrée de l’API', () => {
     expect(written).not.toMatch(/SECRET|postgresql:\/\//);
   });
 
+  it('erreur de code (TypeError) : lignes de pile conservées, jamais le message', async () => {
+    start.mockRejectedValueOnce(new TypeError('Cannot read properties of undefined (reading "SECRET-42")'));
+    await import('./main.js');
+    expect(order).toEqual(['write', 'exit:1']);
+    expect(written).toMatch(/"type":"TypeError"/);
+    expect(written).toMatch(/at /);
+    expect(written).not.toMatch(/SECRET-42|Cannot read/);
+  });
+
+  it('module introuvable : chemin du module conservé (aucune valeur)', async () => {
+    start.mockRejectedValueOnce(
+      Object.assign(new Error("Cannot find module '/srv/app/apps/api/dist/x.js'"), {
+        code: 'ERR_MODULE_NOT_FOUND',
+        url: 'file:///srv/app/apps/api/dist/x.js',
+      }),
+    );
+    await import('./main.js');
+    expect(written).toMatch(/"code":"ERR_MODULE_NOT_FOUND"/);
+    expect(written).toMatch(/"url":"file:\/\/\/srv\/app\/apps\/api\/dist\/x\.js"/);
+  });
+
   it('configuration invalide ou .env illisible : message sûr affiché tel quel, code 1', async () => {
     start.mockRejectedValueOnce(
       Object.assign(new Error("Fichier d'environnement de l'API illisible : /srv/app/apps/api/.env"), {
