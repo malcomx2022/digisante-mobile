@@ -1,0 +1,68 @@
+{
+  "project": "DigiSanté Mobile",
+  "campaign": "Votre santé, plus proche de vous.",
+  "date": "2026-10-19",
+  "format": "9:16",
+  "videoCanvas": {
+    "width": 1080,
+    "height": 1920
+  },
+  "durationSeconds": 45,
+  "status": "CREATIVE_ASSETS_READY_FOR_EDITING",
+  "imagesAreGenerated": true,
+  "imagesAreAppScreenshots": false,
+  "assets": {
+    "images/01_votre_sante.png": {
+      "sha256": "79360ead711902edd07bc0024a3d5acf0e4876013e3669a32696d342cc507d97",
+      "bytes": 2181168,
+      "width": 941,
+      "height": 1672
+    },
+    "images/02_documents.png": {
+      "sha256": "e4cc25fc28c5ab11ed98507ec7f91b5fc1815d97066c08b4455532a49f8d8d2e",
+      "bytes": 1944686,
+      "width": 940,
+      "height": 1672
+    },
+    "images/03_professionnel.png": {
+      "sha256": "a395ec78ce1cd9366afb50fd944f9ab1b6b5e855ff8b48e56052de138ea06b41",
+      "bytes": 1741428,
+      "width": 941,
+      "height": 1672
+    },
+    "images/04_pharmacie.png": {
+      "sha256": "9fd4a0d8fa91bd8f034349e22f2362deb3e6f569eb6e016758daa6024fbe6b7b",
+      "bytes": 2052549,
+      "width": 941,
+      "height": 1672
+    },
+    "images/05_famille.png": {
+      "sha256": "4bc21cc00a985b73ec3ebc219fd923b4e47f427bb52b5c48564daabe8047dae1",
+      "bytes": 2552833,
+      "width": 941,
+      "height": 1672
+    },
+    "images/06_signature.png": {
+      "sha256": "1ccf8b07e692c6300dcc62674ec5bfb5cbd98a95f5933f8c608ec30e6fbce14d",
+      "bytes": 1866466,
+      "width": 940,
+      "height": 1672
+    },
+    "Script_Storyboard_DigiSante_45s.docx": {
+      "sha256": "05510ce01e3edb42731bde74862a5e8ea9a4ccfe399980c00e47a34de39a6b8b",
+      "bytes": 11653763
+    },
+    "Sous_titres_45s.srt": {
+      "sha256": "721de719269010ce6ad5e311fc85f6916e89a8ffd2331cd2261f08629dbf2768",
+      "bytes": 1013
+    },
+    "Logo_DigiSante_Officiel.svg": {
+      "sha256": "dca310acddf6072d9bd1bd61be940a9ee312971503444e53e32cac14dbca82fa",
+      "bytes": 710
+    },
+    "scenario.json": {
+      "sha256": "9d38e1c1625cb559ac9bd38ef680cca664e4ce3b386bce88ddf8fe16394f41ae",
+      "bytes": 8726
+    }
+  }
+}
