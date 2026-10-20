@@ -240,6 +240,15 @@
       "operator": "malcomx2022",
       "result": "PASS",
       "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FIREBASE-F7-ANDROID",
+      "evidenceRef": "Android : patient déconnecté depuis 16:47 (users.fcmToken NULL vérifié avant et après) ; campagne PUSH_FCM « Test recette F7 » (audience PATIENT, créée via l'UI) diffusée à 18:06:23 UTC — envoi déclenché par POST /api/v1/admin/campaigns/:id/send depuis la session admin de l'opérateur, la fenêtre de confirmation de l'UI étant défaillante sur ce build (finding consigné) ; notification traitée par le dispatch à 18:08:02 UTC : statut SENT et non DELIVERED, sentAt renseigné ; aucune notification reçue, confirmé par l'opérateur.",
+      "executedAt": "2026-10-20T18:08:02.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
     }
   ],
   "schemaVersion": 1
