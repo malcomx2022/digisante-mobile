@@ -249,6 +249,51 @@
       "operator": "malcomx2022",
       "result": "PASS",
       "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "RESEND-R1",
+      "evidenceRef": "Smoke Resend du contrat §3 en préprod (SMOKE_RESEND=1, destinataire boîte de recette du porteur) : [smoke:resend] destinataire masqué · message ••••6e9a · accepté=true ; 2 tests passés.",
+      "executedAt": "2026-10-20T18:24:41.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "RESEND-R2",
+      "evidenceRef": "Email de recette reçu dans Gmail : libellés INBOX et CATEGORY_UPDATES, absent des spams (lecture via le connecteur Gmail du porteur) ; pas de boîte Outlook de recette disponible.",
+      "executedAt": "2026-10-20T18:24:41.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "RESEND-R3",
+      "evidenceRef": "En-tête Authentication-Results de l'email reçu (mx.google.com) : dkim=pass (d=digisantemobile.app, s=resend), spf=pass (mailfrom @rsend.digisantemobile.app), dmarc=pass (p=NONE).",
+      "executedAt": "2026-10-20T18:24:41.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "RESEND-R4",
+      "evidenceRef": "Expéditeur de l'email de recette : notifications@digisantemobile.app (domaine vérifié chez Resend), et non l'expéditeur par défaut digisante.bj.",
+      "executedAt": "2026-10-20T18:24:41.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "RESEND-R5",
+      "evidenceRef": "Expéditeur temporairement réglé sur un domaine non vérifié : smoke → accepté=false, aucun envoi, aucune exception ; journal d'erreur masqué (destinataire d•••@gmail.com) avec resendError=upstream_error (HTTP 403 Resend) — écart d'étiquette par rapport au validation_error attendu par la recette, comportement d'échec propre conforme ; expéditeur ensuite restauré, test d'intégration de nouveau OK à 18:33 UTC.",
+      "executedAt": "2026-10-20T18:29:27.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
     }
   ],
   "schemaVersion": 1
