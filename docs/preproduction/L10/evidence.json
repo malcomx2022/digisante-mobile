@@ -1,5 +1,147 @@
 {
-  "schemaVersion": 1,
-  "candidate": null,
-  "records": []
+  "candidate": {
+    "ciRunId": 38783490296,
+    "dedicatedHostRef": "srv1.immipro.app (31.70.148.167), VPS IONOS partagé — dérogation porteur du 13/10/2026 ; cas I2 non conforme, arbitrage L11",
+    "domain": "preprod.digisantemobile.app",
+    "environment": "preproduction",
+    "sha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2"
+  },
+  "records": [
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "I1",
+      "evidenceRef": "GitHub Actions ci.yml run 38783490296 (run 463, main, push, SHA ec6b0dc) : build-and-test et e2e success, job deploy skipped (opt-in désactivé).",
+      "executedAt": "2026-10-15T19:00:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "I3",
+      "evidenceRef": "Déploiement préprod du 15/10/2026 : SHA exact ec6b0dc dans /var/www/digisante-preprod, 34 migrations appliquées, maintenance Nginx posée, processus PM2 digisante-preprod-api/web actifs, verify_deploy.sh PASS.",
+      "executedAt": "2026-10-15T20:00:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "I4",
+      "evidenceRef": "HTTPS/TLS préprod vérifiés (certificat valide au 12/01/2027), readiness HTTP 200 {status:ready, db:up, redis:up}, upgrade WebSocket 101 ; readiness revérifiée le 20/10/2026.",
+      "executedAt": "2026-10-15T20:30:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "I6",
+      "evidenceRef": "Journaux cron préprod du 16/10/2026 : quatre générateurs de notifications, dispatch et prune en HTTP 200 ; les HTTP 000 du 15/10 correspondent à la fenêtre avant mise en service.",
+      "executedAt": "2026-10-16T12:00:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "I7",
+      "evidenceRef": "Réconciliation cron préprod du 16/10/2026 à 02:30 (Africa/Porto-Novo) acceptée : HTTP 200, scanned=0, resolved=0, failed=0 ; diagnostics healthwatch verts.",
+      "executedAt": "2026-10-16T01:30:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FEDAPAY-S1",
+      "evidenceRef": "Deux recharges diaspora sandbox payées (FedaPay 524535 et 524536) : 2 paiements WALLET_TOPUP COMPLETED via webhook, wallet crédité une fois par paiement, 2 x 6 560 = 13 120 XOF, audits PAYMENT_CONFIRMED source=webhook ; crédit unique confirmé après renvoi des webhooks par le dashboard.",
+      "executedAt": "2026-10-16T11:33:58.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FEDAPAY-S2",
+      "evidenceRef": "Consultation MTN MoMo FedaPay 524566 COMPLETED 5 000 XOF, tarif médecin imposé côté serveur, RDV du 17/10/2026 07:00 passé CONFIRMED, audit PAYMENT_CONFIRMED source=webhook.",
+      "executedAt": "2026-10-16T12:47:23.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FEDAPAY-S3",
+      "evidenceRef": "RDV du 21/10/2026 08:00 payé par WALLET : CONSULTATION WALLET COMPLETED 5 000 XOF, fedapayId null (aucune transaction FedaPay), wallet patient débité une fois 10 000 vers 5 000 XOF, audit PAYMENT_CONFIRMED source=wallet, RDV CONFIRMED.",
+      "executedAt": "2026-10-16T13:11:07.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FEDAPAY-S4",
+      "evidenceRef": "Webhook à signature invalide envoyé en recette : HTTP 401 Signature de webhook invalide, audit AUTH_FAIL (bad_signature, fedapay_webhook), statuts des paiements inchangés.",
+      "executedAt": "2026-10-16T14:00:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FEDAPAY-S5",
+      "evidenceRef": "Réconciliation manuelle POST /api/v1/payments/reconcile : HTTP 200 {scanned:1, resolved:0, failed:0} ; le paiement SUBSCRIPTION toujours en attente chez FedaPay reste PROCESSING, aucun forçage de statut.",
+      "executedAt": "2026-10-16T14:30:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FEDAPAY-S6",
+      "evidenceRef": "Remboursement admin du paiement FedaPay 524536 via /admin/finance : COMPLETED vers REFUNDED, reversal wallet unique -6 560 XOF (13 120 vers 6 560), audit PAYMENT_REFUND ; l'idempotence du second remboursement est assurée par le contrôle de statut côté serveur.",
+      "executedAt": "2026-10-16T13:23:26.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FEDAPAY-S7",
+      "evidenceRef": "Rejeu côté serveur de 2 webhooks transaction.approved identiques et signés (paiement 524535) : 2 x HTTP 200 {idempotent:true, status:COMPLETED}, wallet diaspora inchangé à 6 560 XOF.",
+      "executedAt": "2026-10-16T15:00:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FEDAPAY-S8",
+      "evidenceRef": "Sonde SMOKE_FEDAPAY_S8 : verdict HOTE_AUTORISE, référence ds-recette-s8-20261016105336-24cf ; transaction sandbox (100 XOF, identifiant se terminant 4524) créée en HTTP 200 et jamais payée ; hôte observé sandbox-process.fedapay.com.",
+      "executedAt": "2026-10-16T10:53:36.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FEDAPAY-S9",
+      "evidenceRef": "Forme réelle du webhook observée dans le journal de livraison FedaPay : name=transaction.approved, entity.id numérique, entity.status texte, pas d'id à la racine ; réponses applicatives HTTP 200 processed (S1), idempotent (rejeu S7) et ignored pour un événement non transactionnel (customer.created).",
+      "executedAt": "2026-10-16T15:30:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FEDAPAY-S10",
+      "evidenceRef": "Recharge diaspora FedaPay 527039 refusée avec un numéro sandbox d'échec : webhook reçu, statut FAILED le 20/10/2026, aucun crédit ; repayée sur le même lien avec un numéro sandbox de succès : approbation tardive reçue par webhook (HTTP 200) et ignorée, statut resté FAILED, wallet diaspora inchangé à 13 120 XOF.",
+      "executedAt": "2026-10-20T11:11:35.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    }
+  ],
+  "schemaVersion": 1
 }
