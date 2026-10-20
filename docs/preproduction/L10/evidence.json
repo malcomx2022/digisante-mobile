@@ -71,6 +71,15 @@
       "evidenceRef": "Sauvegarde cible quotidienne (cron 01:30) : trio DB + fichiers + manifeste 20261020_013004 contrôlé par check-backup.mjs, archives et SHA256 conformes, magasin 0 fichier pour 0 référencé ; contrôle de restauration en base jetable du 16/10/2026 conforme au manifeste ; copie du trio 20261020_013004 conservée hors VPS sur le poste du porteur (téléchargée le 20/10/2026), clé de chiffrement conservée dans Bitwarden."
     },
     {
+      "caseId": "I9",
+      "result": "PASS",
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d",
+      "executedAt": "2026-10-20T12:38:14.000Z",
+      "operator": "malcomx2022",
+      "evidenceRef": "Vérifié le 20/10/2026 : configurations FedaPay et Firebase en base préprod, secrets chiffrés (secretsEnc, aucun clair), priorité DB établie (clés fournisseur du .env préprod toutes vides, intégrations résolues depuis la base) ; test intégré Firebase réussi (lastTestOk=true le 20/10/2026) ; configuration publique Firebase et clé VAPID (projet digisante-c6b2d) posées dans apps/web/.env.production avant reconstruction du web : projet, VAPID et sender id présents dans le build servi, processus web redémarré, readiness ready ; pas de devCode : NODE_ENV=production, aucun code OTP retourné par l'API en préprod (génération manuelle requise pendant les recettes)."
+    },
+    {
       "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
       "caseId": "FEDAPAY-S1",
       "evidenceRef": "Deux recharges diaspora sandbox payées (FedaPay 524535 et 524536) : 2 paiements WALLET_TOPUP COMPLETED via webhook, wallet crédité une fois par paiement, 2 x 6 560 = 13 120 XOF, audits PAYMENT_CONFIRMED source=webhook ; crédit unique confirmé après renvoi des webhooks par le dashboard.",
