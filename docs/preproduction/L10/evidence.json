@@ -35,6 +35,15 @@
       "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
     },
     {
+      "caseId": "I5",
+      "result": "PASS",
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d",
+      "executedAt": "2026-10-20T11:50:00.000Z",
+      "operator": "malcomx2022",
+      "evidenceRef": "Vérifié le 20/10/2026 : .env API en 0600 (propriétaire digisante-preprod), backup.key en 0400 root ; filestore KYC/DMP /var/lib/digisante-preprod-files en 700, propriétaire applicatif, hors checkout, vide (aucun document déposé en recette) ; backup.key et HEALTH_ENCRYPTION_KEY préprod conservées hors VPS dans Bitwarden (confirmé par le porteur) ; héritage audit intact : 12 entrées du 15/10 au 20/10/2026 (PAYMENT_CONFIRMED x6, AUTH_FAIL x2, INTEGRATION_UPDATE, PAYMENT_REFUND, FINANCE_REQUEST, DMP_ACCESS), aucune réécriture observée."
+    },
+    {
       "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
       "caseId": "I6",
       "evidenceRef": "Journaux cron préprod du 16/10/2026 : quatre générateurs de notifications, dispatch et prune en HTTP 200 ; les HTTP 000 du 15/10 correspondent à la fenêtre avant mise en service.",
@@ -51,6 +60,15 @@
       "operator": "malcomx2022",
       "result": "PASS",
       "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "caseId": "I8",
+      "result": "PASS",
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d",
+      "executedAt": "2026-10-20T11:50:00.000Z",
+      "operator": "malcomx2022",
+      "evidenceRef": "Sauvegarde cible quotidienne (cron 01:30) : trio DB + fichiers + manifeste 20261020_013004 contrôlé par check-backup.mjs, archives et SHA256 conformes, magasin 0 fichier pour 0 référencé ; contrôle de restauration en base jetable du 16/10/2026 conforme au manifeste ; copie du trio 20261020_013004 conservée hors VPS sur le poste du porteur (téléchargée le 20/10/2026), clé de chiffrement conservée dans Bitwarden."
     },
     {
       "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
