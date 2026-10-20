@@ -35,13 +35,13 @@
       "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
     },
     {
-      "caseId": "I5",
-      "result": "PASS",
       "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
-      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d",
+      "caseId": "I5",
+      "evidenceRef": "Vérifié le 20/10/2026 : .env API en 0600 (propriétaire digisante-preprod), backup.key en 0400 root ; filestore KYC/DMP /var/lib/digisante-preprod-files en 700, propriétaire applicatif, hors checkout, vide (aucun document déposé en recette) ; backup.key et HEALTH_ENCRYPTION_KEY préprod conservées hors VPS dans Bitwarden (confirmé par le porteur) ; héritage audit intact : 12 entrées du 15/10 au 20/10/2026 (PAYMENT_CONFIRMED x6, AUTH_FAIL x2, INTEGRATION_UPDATE, PAYMENT_REFUND, FINANCE_REQUEST, DMP_ACCESS), aucune réécriture observée.",
       "executedAt": "2026-10-20T11:50:00.000Z",
       "operator": "malcomx2022",
-      "evidenceRef": "Vérifié le 20/10/2026 : .env API en 0600 (propriétaire digisante-preprod), backup.key en 0400 root ; filestore KYC/DMP /var/lib/digisante-preprod-files en 700, propriétaire applicatif, hors checkout, vide (aucun document déposé en recette) ; backup.key et HEALTH_ENCRYPTION_KEY préprod conservées hors VPS dans Bitwarden (confirmé par le porteur) ; héritage audit intact : 12 entrées du 15/10 au 20/10/2026 (PAYMENT_CONFIRMED x6, AUTH_FAIL x2, INTEGRATION_UPDATE, PAYMENT_REFUND, FINANCE_REQUEST, DMP_ACCESS), aucune réécriture observée."
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
     },
     {
       "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
@@ -62,22 +62,22 @@
       "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
     },
     {
-      "caseId": "I8",
-      "result": "PASS",
       "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
-      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d",
+      "caseId": "I8",
+      "evidenceRef": "Sauvegarde cible quotidienne (cron 01:30) : trio DB + fichiers + manifeste 20261020_013004 contrôlé par check-backup.mjs, archives et SHA256 conformes, magasin 0 fichier pour 0 référencé ; contrôle de restauration en base jetable du 16/10/2026 conforme au manifeste ; copie du trio 20261020_013004 conservée hors VPS sur le poste du porteur (téléchargée le 20/10/2026), clé de chiffrement conservée dans Bitwarden.",
       "executedAt": "2026-10-20T11:50:00.000Z",
       "operator": "malcomx2022",
-      "evidenceRef": "Sauvegarde cible quotidienne (cron 01:30) : trio DB + fichiers + manifeste 20261020_013004 contrôlé par check-backup.mjs, archives et SHA256 conformes, magasin 0 fichier pour 0 référencé ; contrôle de restauration en base jetable du 16/10/2026 conforme au manifeste ; copie du trio 20261020_013004 conservée hors VPS sur le poste du porteur (téléchargée le 20/10/2026), clé de chiffrement conservée dans Bitwarden."
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
     },
     {
-      "caseId": "I9",
-      "result": "PASS",
       "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
-      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d",
+      "caseId": "I9",
+      "evidenceRef": "Vérifié le 20/10/2026 : configurations FedaPay et Firebase en base préprod, secrets chiffrés (secretsEnc, aucun clair), priorité DB établie (clés fournisseur du .env préprod toutes vides, intégrations résolues depuis la base) ; test intégré Firebase réussi (lastTestOk=true le 20/10/2026) ; configuration publique Firebase et clé VAPID (projet digisante-c6b2d) posées dans apps/web/.env.production avant reconstruction du web : projet, VAPID et sender id présents dans le build servi, processus web redémarré, readiness ready ; pas de devCode : NODE_ENV=production, aucun code OTP retourné par l'API en préprod (génération manuelle requise pendant les recettes).",
       "executedAt": "2026-10-20T12:38:14.000Z",
       "operator": "malcomx2022",
-      "evidenceRef": "Vérifié le 20/10/2026 : configurations FedaPay et Firebase en base préprod, secrets chiffrés (secretsEnc, aucun clair), priorité DB établie (clés fournisseur du .env préprod toutes vides, intégrations résolues depuis la base) ; test intégré Firebase réussi (lastTestOk=true le 20/10/2026) ; configuration publique Firebase et clé VAPID (projet digisante-c6b2d) posées dans apps/web/.env.production avant reconstruction du web : projet, VAPID et sender id présents dans le build servi, processus web redémarré, readiness ready ; pas de devCode : NODE_ENV=production, aucun code OTP retourné par l'API en préprod (génération manuelle requise pendant les recettes)."
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
     },
     {
       "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
@@ -165,6 +165,78 @@
       "caseId": "FEDAPAY-S10",
       "evidenceRef": "Recharge diaspora FedaPay 527039 refusée avec un numéro sandbox d'échec : webhook reçu, statut FAILED le 20/10/2026, aucun crédit ; repayée sur le même lien avec un numéro sandbox de succès : approbation tardive reçue par webhook (HTTP 200) et ignorée, statut resté FAILED, wallet diaspora inchangé à 13 120 XOF.",
       "executedAt": "2026-10-20T11:11:35.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FIREBASE-F1-ANDROID",
+      "evidenceRef": "Android (PWA installée) : connexion patient avec la permission notifications refusée au niveau de l'origine ; aucun appel /users/me/device, users.fcmToken resté NULL, application fonctionnelle (journal Nginx préprod + contrôle base du 20/10/2026).",
+      "executedAt": "2026-10-20T13:08:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FIREBASE-F2-ANDROID",
+      "evidenceRef": "Android : permission origine passée à « Autoriser », reconnexion patient : POST /api/v1/users/me/device 200 à 15:32:09 UTC ; token FCM enregistré en base (longueur 142, empreinte SHA-256 5293a44e).",
+      "executedAt": "2026-10-20T15:32:09.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FIREBASE-F3-ANDROID",
+      "evidenceRef": "Smoke FCM du contrat §3 (SMOKE_FCM=1, jeton lu en base) à 15:32:59 UTC : accepté=true, message masqué ; affichage au premier plan confirmé par l'opérateur.",
+      "executedAt": "2026-10-20T15:32:59.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FIREBASE-F4-ANDROID",
+      "evidenceRef": "Smoke FCM : accepté=true ; notification reçue avec l'application en arrière-plan, confirmée par l'opérateur.",
+      "executedAt": "2026-10-20T15:36:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FIREBASE-F5-ANDROID",
+      "evidenceRef": "Clic de l'opérateur sur la notification push : l'application revient au premier plan.",
+      "executedAt": "2026-10-20T15:37:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FIREBASE-F6-ANDROID",
+      "evidenceRef": "Android : effacement des données du site puis reconnexion : nouveau token enregistré (empreinte 77f60326, distincte de 5293a44e) ; contrôle négatif sur l'ancien token (SMOKE_FCM_EXPECT_REJECTED=1) : accepté=false, token invalide=true.",
+      "executedAt": "2026-10-20T15:42:03.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FIREBASE-F8-ANDROID",
+      "evidenceRef": "Android : réouverture sans reconnexion : POST /api/v1/users/me/device 200 à 15:37:47 UTC, aucun /otp/verify depuis la connexion initiale ; rafraîchissement silencieux du token (empreinte inchangée).",
+      "executedAt": "2026-10-20T15:37:47.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FIREBASE-F9",
+      "evidenceRef": "Préprod : pose des valeurs publiques NEXT_PUBLIC_FIREBASE_* (projet digisante-c6b2d) dans apps/web/.env.production, next build puis redémarrage PM2 web : valeurs présentes dans les chunks servis ; test d'intégration Firebase lastTestOk à 12:38:14 UTC (opération I9 du 20/10/2026).",
+      "executedAt": "2026-10-20T12:38:14.000Z",
       "operator": "malcomx2022",
       "result": "PASS",
       "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
