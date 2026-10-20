@@ -339,6 +339,42 @@
       "operator": "malcomx2022",
       "result": "PASS",
       "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "SUBSCRIPTION-A14",
+      "evidenceRef": "Remboursements externes complets des deux paiements d'abonnement sandbox FedaPay du médecin de recette, exécutés dans le dashboard FedaPay puis consignés avec preuve dans l'admin Finances : paiement 527427 (renouvellement) remboursé le 20/10/2026 (remboursement FedaPay n°188, preuve FEDAPAY-REFUND-188, opération exécutée à 22:17:40Z), puis paiement 527334 (premier achat) remboursé et consigné de même (opération exécutée à 22:31:52Z). Après le premier remboursement, les droits du médecin sont retombés sur la période restante (jusqu'au 20/11/2026) ; après le second, les deux commandes sont révoquées, les deux paiements REFUNDED, aucune période payée valide ne subsiste. Vérifié en base préprod : pour chaque cycle, audits FINANCE_REQUEST, PAYMENT_REFUND, FINANCE_EXECUTING, FINANCE_EXECUTED dans l'ordre.",
+      "executedAt": "2026-10-20T22:31:52.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "SUBSCRIPTION-A1",
+      "evidenceRef": "Médecin retombé en FREE effectif après révocation de ses deux périodes payées (cas A14) : démarrage d'une téléconsultation sur un rendez-vous TELECONSULTATION confirmé (21/10/2026 16:00 UTC) refusé par l'API — POST /api/v1/consultations → 403 « Un abonnement PRO payé et en cours est requis », déclenché depuis la session médecin de l'opérateur ; le bandeau de l'agenda médecin affiche le même message. Aucun droit accordé, aucune salle créée.",
+      "executedAt": "2026-10-20T22:51:59.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "SUBSCRIPTION-A9",
+      "evidenceRef": "Idempotence d'achat : trois POST /api/v1/subscriptions identiques (plan PRO, méthode MTN_MOMO, même requestId) depuis la session médecin → HTTP 200 trois fois avec le même orderId (cmvha5w6c00js8bxvcizp8vwj) et le même paiement ; une seule commande et un seul paiement créés en base préprod (montant 5 000 XOF), aucun doublon.",
+      "executedAt": "2026-10-20T22:54:18.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "SUBSCRIPTION-A4",
+      "evidenceRef": "Tentatives invalides refusées proprement depuis la session médecin : POST /api/v1/subscriptions sans méthode ni requestId → 400 « Méthode et requestId requis pour un plan payant » ; plan désactivé pendant le pilote (STARTER) → 400 « Plan indisponible pendant le pilote » ; le montant n'est jamais accepté du client (5 000 XOF imposés par le catalogue serveur, cf. réponses du cas A9) ; la signature de webhook invalide est déjà couverte par le cas S4. Aucune commande créée par ces tentatives, vérifié en base préprod.",
+      "executedAt": "2026-10-20T22:54:50.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
     }
   ],
   "schemaVersion": 1
