@@ -294,6 +294,51 @@
       "operator": "malcomx2022",
       "result": "PASS",
       "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "SUBSCRIPTION-A2",
+      "evidenceRef": "Catalogue vérifié dans le code livré (packages/shared/src/subscriptions.ts, version doctor-pilot-2026-10-v1 : FREE 0 XOF sans démarrage de téléconsultation, PRO 5 000 XOF pour 1 mois calendaire, autoRenew=false, plans STARTER/CLINIC désactivés) et confirmé visuellement par l'opérateur en session médecin FREE : page Revenus verrouillée sans PRO, mention « Renouvellement manuel uniquement. Aucun prélèvement automatique », offre « PRO · 5 000 FCFA / mois calendaire » ; aucun prélèvement automatique.",
+      "executedAt": "2026-10-20T18:58:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "SUBSCRIPTION-A5",
+      "evidenceRef": "Paiement PRO réel en sandbox FedaPay (transaction 527334, MTN MoMo, 5 000 XOF) : webhook signé reçu (HTTP 200), paiement COMPLETED, une seule période créée (2026-10-20T19:03:31Z vers 2026-11-20T19:03:31Z), un seul audit PAYMENT_CONFIRMED à 19:03:31Z ; médecin passé PRO/ACTIVE, vérifié en base préprod ; le retour navigateur seul n'a rien activé.",
+      "executedAt": "2026-10-20T19:03:31.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "SUBSCRIPTION-A7",
+      "evidenceRef": "Reprise de la commande d'abonnement laissée en PROCESSING depuis le 16/10/2026 (paiement cmvax61rl0009bsswtt6ktp9r, FedaPay 524545) : ancienne commande révoquée le 2026-10-20T19:02:09Z sans aucun débit (paiement jamais sorti de PROCESSING), remplacée par une nouvelle commande payée une seule fois (FedaPay 527334, 5 000 XOF) ; une seule période active ; aucun double débit, vérifié en base préprod.",
+      "executedAt": "2026-10-20T19:03:31.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "SUBSCRIPTION-A10",
+      "evidenceRef": "Renouvellement manuel pendant la période payée (déclenché par l'API depuis la session médecin, le bouton « Renouveler » de l'UI étant bloqué par le finding de la fenêtre de confirmation) : paiement sandbox FedaPay 527427 COMPLETED, nouvelle période chaînée exactement à la fin de la période payée (2026-11-20T19:03:31Z vers 2026-12-20T19:03:31Z, +1 mois calendaire), un seul audit PAYMENT_CONFIRMED ; vérifié en base préprod. Réserve : le sous-cas d'arithmétique « 31 janv. vers 28 févr. » n'est rejouable qu'à cette date calendaire ; l'enchaînement +1 mois calendaire est vérifié deux fois (20 vers 20).",
+      "executedAt": "2026-10-20T21:43:41.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "SUBSCRIPTION-A12",
+      "evidenceRef": "« Passer à FREE à l'échéance » confirmé dans l'UI médecin (« Arrêt demandé à l'échéance de la période payée ») : subscriptionCancelledAt=2026-10-20T21:48:22Z en base, plan PRO et statut ACTIVE conservés, périodes payées intactes jusqu'au 2026-12-20T19:03:31Z, aucun nouveau débit ; renouvellement manuel uniquement, aucun prélèvement automatique.",
+      "executedAt": "2026-10-20T21:48:22.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
     }
   ],
   "schemaVersion": 1
