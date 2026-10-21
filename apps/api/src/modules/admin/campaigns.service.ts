@@ -20,12 +20,16 @@ export interface CampaignText {
 /** Table des traductions ; FR obligatoire (source de vérité). */
 export type CampaignTranslations = { FR: CampaignText } & Partial<Record<Lang, CampaignText>>;
 
+/** Canaux de diffusion d'une campagne (tous traités par le dispatch des Notification). */
+export const CAMPAIGN_CHANNELS = ['IN_APP', 'SMS_TWILIO', 'PUSH_FCM', 'EMAIL'] as const;
+export type CampaignChannel = (typeof CAMPAIGN_CHANNELS)[number];
+
 export interface CampaignInput {
   category: string;
   translations: CampaignTranslations;
   audienceRole?: string | null;
   audienceLang?: string | null;
-  channel?: 'IN_APP' | 'SMS_TWILIO' | 'PUSH_FCM' | 'EMAIL';
+  channel?: CampaignChannel;
 }
 
 const campaignSelect = {
@@ -46,11 +50,17 @@ function pickText(translations: CampaignTranslations, lang: Lang): CampaignText 
   return translations[lang] ?? translations.FR;
 }
 
-/** Clause d'audience : uniquement les comptes ACTIFS, filtrés rôle/langue. */
-function audienceWhere(audienceRole: string | null, audienceLang: string | null): Prisma.UserWhereInput {
+/**
+ * Clause d'audience : uniquement les comptes ACTIFS, filtrés rôle/langue. Pour le
+ * canal EMAIL, seuls les comptes ayant une adresse e-mail : sans elle le dispatch
+ * ne peut rien envoyer, et compter ces comptes gonflerait la portée annoncée.
+ * Le rôle ADMIN est une audience comme une autre (message non médical, §4).
+ */
+function audienceWhere(audienceRole: string | null, audienceLang: string | null, channel: string = 'IN_APP'): Prisma.UserWhereInput {
   const where: Prisma.UserWhereInput = { status: 'ACTIVE' };
   if (audienceRole) where.role = audienceRole as Prisma.UserWhereInput['role'];
   if (audienceLang) where.lang = audienceLang as Prisma.UserWhereInput['lang'];
+  if (channel === 'EMAIL') where.email = { not: null };
   return where;
 }
 
@@ -65,8 +75,13 @@ export async function getCampaign(app: FastifyInstance, id: string) {
 }
 
 /** Nombre de destinataires que la campagne toucherait (aperçu avant diffusion). */
-export async function previewAudience(app: FastifyInstance, audienceRole: string | null, audienceLang: string | null) {
-  const count = await app.prisma.user.count({ where: audienceWhere(audienceRole, audienceLang) });
+export async function previewAudience(
+  app: FastifyInstance,
+  audienceRole: string | null,
+  audienceLang: string | null,
+  channel: CampaignChannel = 'IN_APP',
+) {
+  const count = await app.prisma.user.count({ where: audienceWhere(audienceRole, audienceLang, channel) });
   return { audienceCount: count };
 }
 
@@ -129,7 +144,7 @@ export async function sendCampaign(
   if (!translations?.FR?.title || !translations.FR.body) throw badRequest('Traduction FR (titre + corps) obligatoire');
 
   const recipients = await app.prisma.user.findMany({
-    where: audienceWhere(campaign.audienceRole, campaign.audienceLang),
+    where: audienceWhere(campaign.audienceRole, campaign.audienceLang, campaign.channel),
     select: { id: true, lang: true },
   });
 

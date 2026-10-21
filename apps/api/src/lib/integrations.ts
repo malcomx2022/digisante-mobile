@@ -13,6 +13,8 @@ import type { FastifyInstance } from 'fastify';
 
 import { openSecret, sealSecret } from './crypto.js';
 import { env } from './env.js';
+import { normalizeDailyDomain } from './daily-domain.js';
+import { AppError } from './errors.js';
 
 export type { IntegrationProvider };
 export type Secrets = Record<string, string | undefined>;
@@ -174,6 +176,31 @@ export async function setIntegration(
 }
 
 /**
+ * Relit la ligne ÉCRITE en base (sans cache) et vérifie qu'elle porte exactement
+ * le jeu de secrets saisi. Recette L10, I2 (21/10/2026) : deux enregistrements du
+ * domaine Daily depuis le formulaire n'ont pas modifié la valeur stockée sans
+ * qu'aucune erreur ne s'affiche. Une sauvegarde non confirmée par relecture
+ * échoue désormais BRUYAMMENT (500), avant l'audit ; aucune valeur n'est citée.
+ */
+export async function verifyIntegrationWrite(app: FastifyInstance, provider: IntegrationProvider, expected: Secrets): Promise<void> {
+  const row = await app.prisma.integrationConfig.findUnique({ where: { provider }, select: { secretsEnc: true } });
+  let stored: Secrets | null = null;
+  try {
+    stored = row?.secretsEnc ? (openSecret(row.secretsEnc) as Secrets) : null;
+  } catch {
+    stored = null;
+  }
+  const keys = Object.keys(expected).sort();
+  const same = stored !== null
+    && JSON.stringify(Object.keys(stored).sort()) === JSON.stringify(keys)
+    && keys.every((k) => stored![k] === expected[k]);
+  if (!same) {
+    app.log.error({ provider }, 'Intégration : la relecture ne correspond pas à la valeur écrite');
+    throw new AppError('INTEGRATION_WRITE_UNVERIFIED', `Enregistrement ${provider} non confirmé par relecture : rien n’est garanti, recommencer puis vérifier`, 500);
+  }
+}
+
+/**
  * Contrôles de FORME des secrets saisis (erreurs de copier-coller les plus probables),
  * avant tout enregistrement. Renvoie des messages SANS la valeur. Volontairement
  * limité aux providers dont un format erroné échoue en silence plus tard :
@@ -192,6 +219,12 @@ export function validateSecretsShape(provider: IntegrationProvider, secrets: Sec
     }
     if (projectId !== undefined && !/^[a-z][a-z0-9-]{4,29}$/.test(projectId)) {
       errors.push('projectId : identifiant de projet Firebase attendu (minuscules, chiffres, tirets)');
+    }
+  }
+  if (provider === 'DAILY') {
+    // Une URL complète collée était acceptée puis refusée à la première salle (502).
+    if (secrets.domain !== undefined && normalizeDailyDomain(secrets.domain) === null) {
+      errors.push('domain : sous-domaine Daily attendu (« equipe » ou « equipe.daily.co »), sans https:// ni chemin');
     }
   }
   if (provider === 'RESEND') {

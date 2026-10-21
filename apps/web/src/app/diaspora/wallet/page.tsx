@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Button, CardPagne, Nkyinkyim } from '@/components/ui';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
@@ -29,6 +29,11 @@ export default function WalletPage() {
   const [msg, setMsg] = useState<string | null>(null);
   // Garde front-only contre la double-soumission (double recharge) — §5 : aucune logique de paiement modifiée.
   const [busy, setBusy] = useState(false);
+  // FAB « Recharger » (`#topup`) : amener le focus sur le montant à recharger.
+  const amountRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (window.location.hash === '#topup') amountRef.current?.focus();
+  }, []);
 
   const xof = Math.round((Number(eur) || 0) * EUR_XOF);
 
@@ -88,6 +93,8 @@ export default function WalletPage() {
           <Nkyinkyim className="my-3 opacity-50" />
           <div className="flex items-center gap-2">
             <input
+              id="topup"
+              ref={amountRef}
               value={eur}
               onChange={(e) => setEur(e.target.value.replace(/[^\d.]/g, ''))}
               inputMode="decimal"

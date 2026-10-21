@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 import { useLocale } from '@/i18n/LocaleProvider';
 import { Button } from './Button';
@@ -10,6 +11,12 @@ import { CardPagne } from './CardPagne';
  * Dialogue de confirmation stylé « Wax & Terre » — remplace `window.confirm()`
  * (natif, non traduit, non thématisé). Contrôlé : la page gère l'ouverture.
  * A11y : `role=dialog`, fermeture Échap + clic backdrop, focus initial sur l'action.
+ *
+ * Rendu dans un PORTAIL sous `document.body` (recette L10, 20/10/2026) : posé dans
+ * une `card-pagne`, le fond `fixed` restait piégé dans la carte — `clip-path`
+ * rogne tous les descendants, et un ancêtre `transform` (rotations « fait main »)
+ * ou `overflow` redéfinit le repère de `position: fixed`. Le panneau n'apparaissait
+ * jamais (diffusion de campagne impossible). Ne pas revenir à un rendu en place.
  */
 export function ConfirmDialog({
   open,
@@ -39,6 +46,9 @@ export function ConfirmDialog({
 }) {
   const { t } = useLocale();
   const confirmRef = useRef<HTMLButtonElement>(null);
+  // Le portail exige le DOM : rien au rendu serveur ni avant l'hydratation.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (!open) return;
@@ -48,11 +58,11 @@ export function ConfirmDialog({
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open, busy, onCancel]);
+  }, [open, busy, onCancel, mounted]);
 
-  if (!open) return null;
+  if (!open || !mounted) return null;
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-nuit/60 px-4 py-6"
       role="dialog"
@@ -83,6 +93,7 @@ export function ConfirmDialog({
           </button>
         </div>
       </CardPagne>
-    </div>
+    </div>,
+    document.body,
   );
 }

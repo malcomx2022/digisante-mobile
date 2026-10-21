@@ -4,6 +4,7 @@ import { randomBytes } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 
 import { badGateway, badRequest } from '@/lib/errors.js';
+import { normalizeDailyDomain } from '@/lib/daily-domain.js';
 import { resolveConfiguredSecrets } from '@/lib/integrations.js';
 
 export const ROOM_TTL_SECONDS = 4 * 60 * 60;
@@ -58,9 +59,9 @@ interface DailyCreds { apiKey: string; domain: string }
 async function resolveCreds(app: FastifyInstance): Promise<DailyCreds | null> {
   const secrets = await resolveConfiguredSecrets(app, 'DAILY');
   if (!secrets) return null;
-  // L'admin historique accepte le sous-domaine ou le nom complet.
-  const domain = secrets.domain!.replace(/\.daily\.co$/i, '').toLowerCase();
-  if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(domain)) throw badGateway('Configuration Daily invalide');
+  // L'admin historique accepte le sous-domaine ou le nom complet (règle partagée).
+  const domain = normalizeDailyDomain(secrets.domain!);
+  if (!domain) throw badGateway('Configuration Daily invalide');
   return { apiKey: secrets.apiKey!, domain };
 }
 

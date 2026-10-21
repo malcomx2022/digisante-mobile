@@ -3,9 +3,9 @@ import { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { writeAuditWithin } from '@/lib/audit.js';
 import { openSecret, sealSecret } from '@/lib/crypto.js';
-import { env } from '@/lib/env.js';
 import { badGateway, badRequest, conflict, forbidden, notFound } from '@/lib/errors.js';
 import { resolveConfiguredSecrets } from '@/lib/integrations.js';
+import { paymentCallbackUrl } from '@/lib/payment-return.js';
 import * as wallet from '@/modules/wallet/wallet.service.js';
 import { createTransaction } from '@/services/fedapay.js';
 import { activateWithin } from './subscriptions.effects.js';
@@ -104,7 +104,7 @@ export async function subscribe(app: FastifyInstance, userId: string, input: { p
       await writeAuditWithin(tx, { action: 'PAYMENT_CONFIRMED', actorId: userId, targetId: payment.id, meta: { type: 'SUBSCRIPTION', method, source: 'wallet', orderId: order.id } });
     } else {
       const upstream = await createTransaction({ amount: offer.amount, method, description: 'Abonnement médecin PRO — 1 mois', log: app.log, secretKey: cfg!.secretKey,
-        callbackUrl: `${env.CORS_ORIGIN.split(',')[0]}/pro/stats`, merchantReference: payment.id,
+        callbackUrl: paymentCallbackUrl('SUBSCRIPTION'), merchantReference: payment.id,
         customer: { firstname: owner.profile?.firstName, lastname: owner.profile?.lastName, phone: owner.phone, email: owner.email ?? undefined }, timeoutMs: 8000 });
       if (!isFedapayCheckoutUrl(upstream.paymentUrl)) throw badGateway('Lien FedaPay invalide');
       await tx.payment.update({ where: { id: payment.id }, data: { fedapayId: upstream.fedapayId } });

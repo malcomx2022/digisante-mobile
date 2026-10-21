@@ -8,9 +8,9 @@ import { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
 import { writeAudit, writeAuditWithin } from '@/lib/audit.js';
-import { env } from '@/lib/env.js';
 import { badRequest, forbidden, notFound, unauthorized } from '@/lib/errors.js';
 import { resolveConfiguredSecrets } from '@/lib/integrations.js';
+import { paymentCallbackUrl } from '@/lib/payment-return.js';
 import * as wallet from '@/modules/wallet/wallet.service.js';
 import { activateWithin, revokeWithin } from '@/modules/subscriptions/subscriptions.effects.js';
 import {
@@ -262,8 +262,10 @@ export async function initiate(app: FastifyInstance, userId: string, input: Init
     description: `${input.type} (${amount} XOF)`,
     log: app.log,
     secretKey: cfg?.secretKey ?? null,
-    // Retour du payeur après la page hébergée FedaPay (même origine que le web).
-    callbackUrl: env.CORS_ORIGIN ? `${env.CORS_ORIGIN.split(',')[0]}/patient/appointments` : null,
+    // Retour du payeur après la page hébergée FedaPay (même origine que le web),
+    // propre au type de paiement (recette L10 C5 : la recharge diaspora retombait
+    // sur une page patient). Navigation seule : aucun effet sur la confirmation.
+    callbackUrl: paymentCallbackUrl(input.type),
     // Référence lisible dans le tableau de bord FedaPay pour le rapprochement.
     // On n'a pas encore l'id du paiement local à ce stade (il est créé après la
     // transaction amont) : le RDV est la seule référence stable disponible ici.

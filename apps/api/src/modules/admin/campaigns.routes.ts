@@ -28,17 +28,22 @@ const translationsSchema = z
   })
   .strict();
 
+// EMAIL (recette L10, C3) : envoi par Resend via le dispatch existant ; seuls les
+// comptes ACTIFS ayant une adresse e-mail sont ciblés (cf. `audienceWhere`).
+const CHANNELS = campaigns.CAMPAIGN_CHANNELS;
+
 const campaignSchema = z.object({
   category: z.enum(CONTENT_CATEGORIES),
   translations: translationsSchema,
   audienceRole: z.enum(ROLES).nullish(),
   audienceLang: z.enum(LANGS).nullish(),
-  channel: z.enum(['IN_APP', 'SMS_TWILIO', 'PUSH_FCM']).default('IN_APP'),
+  channel: z.enum(CHANNELS).default('IN_APP'),
 });
 
 const previewQuery = z.object({
   audienceRole: z.enum(ROLES).optional(),
   audienceLang: z.enum(LANGS).optional(),
+  channel: z.enum(CHANNELS).optional(),
 });
 
 export default async function adminCampaignsRoutes(app: FastifyInstance) {
@@ -51,7 +56,7 @@ export default async function adminCampaignsRoutes(app: FastifyInstance) {
   // Aperçu de la portée (nombre de destinataires) avant diffusion.
   app.get('/campaigns/audience', withScope, async (request) => {
     const q = zParse(previewQuery, request.query);
-    return campaigns.previewAudience(app, q.audienceRole ?? null, q.audienceLang ?? null);
+    return campaigns.previewAudience(app, q.audienceRole ?? null, q.audienceLang ?? null, q.channel ?? 'IN_APP');
   });
 
   app.get('/campaigns/:id', withScope, async (request) => {

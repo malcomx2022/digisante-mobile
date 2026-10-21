@@ -29,6 +29,17 @@ export interface CompletedPayment {
   type: string;
   createdAt: string;
 }
+/** Ligne de la liste des paiements, tous statuts (recette L10 C6). */
+export interface AdminPayment {
+  id: string;
+  amount: string | number;
+  currency: string;
+  method: string;
+  type: string;
+  status: string;
+  fedapayId: string | null;
+  createdAt: string;
+}
 export interface FinanceOverview {
   periodDays: number;
   currency: string;
@@ -60,6 +71,8 @@ export interface Paginated<T> {
 export const financeApi = {
   overview: (days = 30) => get<FinanceOverview>(`/admin/finance/overview?days=${days}`),
   webhooks: (page = 1, pageSize = 20) => get<Paginated<WebhookEntry>>(`/admin/finance/webhooks?page=${page}&pageSize=${pageSize}`),
+  payments: (status: string | null, page = 1, pageSize = 10) =>
+    get<Paginated<AdminPayment>>(`/admin/finance/payments?page=${page}&pageSize=${pageSize}${status ? `&status=${encodeURIComponent(status)}` : ''}`),
   refund: (id: string, reason?: string) => postNow<{ status: string }>(`/admin/finance/payments/${id}/refund`, { reason }),
 };
 

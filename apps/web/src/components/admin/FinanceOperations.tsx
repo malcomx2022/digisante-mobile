@@ -5,6 +5,7 @@ import { ErrorState, SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { formatDateTime, formatNumber } from '@/i18n/format';
 import { get, postNow } from '@/lib/api/client';
+import { apiErrorMessage } from '@/lib/api/errors';
 import { type EligiblePayments, type FinanceOperation, type Paginated } from '@/lib/api/finance';
 import { useApi } from '@/lib/api/useApi';
 
@@ -14,7 +15,7 @@ export default function FinanceOperations({ canWrite, tick, refresh }: { canWrit
   const [anomalyPage, setAnomalyPage] = useState(1);
   const [doctorInput, setDoctorInput] = useState(''); const [doctorId, setDoctorId] = useState(''); const [paymentId, setPaymentId] = useState('');
   const [selected, setSelected] = useState<string[]>([]); const [proofRef, setProofRef] = useState('');
-  const [action, setAction] = useState<Action | null>(null); const [busy, setBusy] = useState(false); const [error, setError] = useState(false);
+  const [action, setAction] = useState<Action | null>(null); const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
   const running = useRef(false); const identity = useRef<{ fingerprint: string; requestId: string } | null>(null);
   const ops = useApi(() => get<Paginated<FinanceOperation>>(`/admin/finance/operations?page=${page}&pageSize=10`), [page, tick]);
   const anomalies = useApi(() => get<{ data: { id: string; doctorId: string | null; status: string; amount: string; providerReference: string | null }[]; hasMore: boolean }>(`/admin/finance/anomalies?page=${anomalyPage}&pageSize=10`), [anomalyPage, tick]);
@@ -22,7 +23,7 @@ export default function FinanceOperations({ canWrite, tick, refresh }: { canWrit
   const candidates = !eligible.loading && !eligible.error ? eligible.data : null;
   async function execute() {
     if (!action || running.current) return;
-    running.current = true; setBusy(true); setError(false);
+    running.current = true; setBusy(true); setError(null);
     try {
       if (action.kind === 'payout') {
         const fingerprint = `${doctorId}:${[...selected].sort().join()}`;
@@ -32,7 +33,10 @@ export default function FinanceOperations({ canWrite, tick, refresh }: { canWrit
       } else if (action.kind === 'legacy') await postNow(`/admin/finance/payments/${encodeURIComponent(paymentId.trim())}/external-refund`);
       else await postNow(`/admin/finance/operations/${action.operation.id}/${action.kind}`, action.kind === 'complete' ? { proofRef } : undefined);
       setAction(null); setProofRef(''); refresh();
-    } catch { setError(true); } finally { running.current = false; setBusy(false); }
+    } catch (e) {
+      // Refus métier de l'API affiché tel quel ; message générique seulement en repli (réseau/5xx).
+      setError(apiErrorMessage(e, t('revenue.error')));
+    } finally { running.current = false; setBusy(false); }
   }
   return <CardPagne className="p-4 space-y-4">
     <h2 className="font-display font-extrabold text-indigo-900">{t('finance_ops.title')}</h2>
@@ -52,7 +56,7 @@ export default function FinanceOperations({ canWrite, tick, refresh }: { canWrit
       <label className="block font-bold">{t('finance_ops.legacy_payment')}<input value={paymentId} onChange={(e) => setPaymentId(e.target.value)} className="block w-full p-2 text-base border border-indigo-200 pagne-focus" /></label>
       <Button variant="outline" disabled={busy || !paymentId.trim()} onClick={() => setAction({ kind: 'legacy' })}>{t('finance_ops.legacy')}</Button>
     </>}
-    {(error || ops.error) && <ErrorState label={t('revenue.error')} />}
+    {ops.error && <ErrorState label={t('revenue.error')} />}
     {ops.loading && <SkeletonCards count={1} />}
     {!ops.loading && !ops.error && ops.data?.data.map((op) => <div key={op.id} className="p-3 border-b border-dashed border-stone-300 space-y-2 text-[0.875rem] break-words">
       <p className="font-bold">{t(`finance_ops.kind_${op.kind.toLowerCase()}`)} · {formatNumber(op.amount)} FCFA · {t(`finance_ops.state_${op.state.toLowerCase()}`)}</p>
@@ -77,9 +81,9 @@ export default function FinanceOperations({ canWrite, tick, refresh }: { canWrit
     {anomalies.loading && <SkeletonCards count={1} />}
     {!anomalies.loading && !anomalies.error && anomalies.data?.data.map((p) => <div key={p.id} className="text-[0.875rem] border-b border-dashed border-stone-300 py-2 break-words"><p>{t('subscriptions.reference', { id: p.id })} · {formatNumber(p.amount)} FCFA · {t(`subscriptions.payment_${p.status.toLowerCase()}`)}</p>{p.doctorId && <p>{t('finance_ops.doctor')}: {p.doctorId}</p>}{p.providerReference && <p>{t('finance_ops.provider', { id: p.providerReference })}</p>}</div>)}
     <div className="flex gap-2"><Button variant="outline" disabled={busy || anomalyPage === 1} onClick={() => setAnomalyPage((p) => p - 1)}>{t('finance_ops.previous')}</Button><Button variant="outline" disabled={busy || !anomalies.data?.hasMore} onClick={() => setAnomalyPage((p) => p + 1)}>{t('finance_ops.next')}</Button></div>
-    <ConfirmDialog open={action !== null} busy={busy} title={t('finance_ops.title')} message={t(action?.kind === 'start' ? 'finance_ops.start_confirm' : action?.kind === 'complete' ? 'finance_ops.complete_confirm' : 'finance_ops.confirm')} confirmLabel={t('subscriptions.confirm_cancel')} onConfirm={() => void execute()} onCancel={() => { if (!busy) { setAction(null); setError(false); } }}>
+    <ConfirmDialog open={action !== null} busy={busy} title={t('finance_ops.title')} message={t(action?.kind === 'start' ? 'finance_ops.start_confirm' : action?.kind === 'complete' ? 'finance_ops.complete_confirm' : 'finance_ops.confirm')} confirmLabel={t('subscriptions.confirm_cancel')} onConfirm={() => void execute()} onCancel={() => { if (!busy) { setAction(null); setError(null); } }}>
       {action?.kind === 'complete' && <label className="block font-bold">{t('finance_ops.proof')}<input value={proofRef} onChange={(e) => setProofRef(e.target.value)} maxLength={120} className="block w-full p-2 text-base border border-indigo-200 pagne-focus" /></label>}
-      {error && <p role="alert">{t('revenue.error')}</p>}
+      {error && <p role="alert" className="text-[0.8125rem] font-bold text-sos-600">{error}</p>}
     </ConfirmDialog>
   </CardPagne>;
 }

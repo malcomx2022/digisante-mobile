@@ -17,7 +17,7 @@ Monorepo **pnpm** :
 
 ```
 apps/web      Next.js 14 (App Router, PWA) — 67 pages
-apps/api      Fastify — 182 endpoints REST + 1 WebSocket / 28 modules + Prisma + Valkey (compatible Redis)
+apps/api      Fastify — 183 endpoints REST + 1 WebSocket / 28 modules + Prisma + Valkey (compatible Redis)
 packages/shared   types, enums, schémas zod partagés
 packages/config   tsconfig de base
 infra/        docker-compose dev (Postgres 16 + Redis) · scripts deploy VPS

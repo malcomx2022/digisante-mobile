@@ -73,6 +73,24 @@ describe.skipIf(!HAS_INFRA)('Revue §5 — paiements et annulation du RDV', () =
     expect(await app.prisma.auditLog.count({ where: { actorId: patientUser, action: 'PAYMENT_CONFIRMED' } })).toBe(0);
   });
 
+  it('retour FedaPay propre au type (recette L10 C5) : consultation → RDV patient, recharge → portefeuille diaspora', async () => {
+    let seq = 0; // un identifiant fournisseur distinct par transaction (fedapayId unique)
+    vi.mocked(globalThis.fetch).mockImplementation(async (url) => String(url).endsWith('/token')
+      ? new Response(JSON.stringify({ url: 'https://sandbox-process.fedapay.com/review-synthetic-token' }))
+      : new Response(JSON.stringify({ 'v1/transaction': { id: `return-${randomUUID()}-${seq++}` } })));
+    const appt = await appointment();
+    expect((await pay(appt.id, 'MTN_MOMO')).statusCode).toBe(201);
+    const topup = await app.inject({ method: 'POST', url: '/api/v1/wallet/topup', headers: auth(), payload: { amountEur: 5, method: 'VISA_MC' } });
+    expect(topup.statusCode, topup.body).toBeLessThan(300);
+    const created = vi.mocked(globalThis.fetch).mock.calls
+      .filter(([url]) => !String(url).endsWith('/token'))
+      .map(([, init]) => JSON.parse(String(init!.body)) as { callback_url?: string });
+    expect(created.map((b) => b.callback_url)).toEqual([
+      expect.stringMatching(/\/patient\/appointments$/),
+      expect.stringMatching(/\/diaspora\/wallet$/),
+    ]);
+  });
+
   it('échec du crédit : ni RDV annulé, ni remboursement partiel ; nouvelle tentative possible', async () => {
     const appt = await appointment();
     const bought = await pay(appt.id); expect(bought.statusCode, bought.body).toBe(201);
