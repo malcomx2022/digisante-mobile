@@ -202,3 +202,15 @@ tests puis redémarré (200 sur 3100) ; aucune cible distante, aucune preuve enr
 - La première tentative de requalification a échoué sur `test:scripts` (3 tests `deploy-order`) parce que le web préprod écoutait sur 3100 : la garde #210 de `deploy.sh` (refus de migrer si 3100/3101 occupés) a bloqué les tests, comme prévu. Rejoué avec le web préprod arrêté (ports libres) : 202/208, 0 échec. Le web a été redémarré après (200 sur 3100).
 - Limites de l'environnement : VPS IONOS (Node 24, pnpm 9.12.0), checkout temporaire, web préprod arrêté le temps des tests ; aucun déploiement, aucune écriture sur le checkout de déploiement, aucune variable GitHub activée, aucun appel fournisseur réel. Le rejeu complet des étapes de `ci.yml` (`test`, `build`, `test:e2e`) n'a pas été refait localement ; la CI `main` sur `bc16c4c` fait foi pour le moteur, à confirmer via `preprod:qualify` avant fusion.
 - **Non prouvé** : aucun déploiement, aucune variable GitHub activée, aucun appel fournisseur réel (S8–S10 FedaPay, D19–D21 Daily ouverts). Gates déclaratifs rouges attendus ; L9 humain et L11 (recette 7 rôles, restauration par un tiers, rollback, pentest, PV GO/NO-GO) restent ouverts.
+
+## Candidat `ace0c689` déclaré (22/10/2026)
+
+Correctifs post-recette L10 (PR #213, fiche `docs/REVUE_Correctifs_post-L10_2026-10-21.md`) fusionnés sur `main` `ace0c689686204348e33c56e95cbc387d3b438b2` ; CI `main` run 39687976461 (`build-and-test` + `e2e` success, `deploy` skipped).
+
+| Candidate | Déploiement préprod | Registre | Gate |
+|---|---|---|---|
+| `ace0c689686204348e33c56e95cbc387d3b438b2` | Rapporté par l'opérateur (GO explicite du porteur à 23:57 WAT) : `deploy_history.log` `2026-10-21T23:59:17+01:00 ec6b0dc… -> ace0c689… status=SUCCESS stage=complete`, 34 migrations (aucune nouvelle), `/api/v1/ready` ready, PM2 api ×2 + web online, crons actifs ; **maintenance conservée** (`deny all`) jusqu'à recette complète et nouveau PV GO/NO-GO | `evidence.json` : bloc candidat `ace0c689` + CI 39687976461, `records: []` ; registre précédent archivé tel quel dans `docs/preproduction/archive/L10-ec6b0dc-2026-10-21/` (50 records : 49 PASS, 1 N/A T11 ; SHA-256 `716c7ed0…`) | `preprod:gate --expected-sha ace0c689…` : 100 points ouverts (preuves absentes), bloc candidat accepté |
+
+- Les 50 preuves de `ec6b0dc` restent rattachées à ce SHA (gate clos en l'état) ; aucune n'est reportée sur `ace0c689`. Chaque cas rejoué devient un nouveau record sur `ace0c689`, instantané L10 `d6bfcba2…` (inchangé par #213).
+- Rejeu prioritaire convenu avec l'opérateur : RESEND-R6 (campagne EMAIL DRAFT → SENT), `/admin/support` (I1), domaine Daily depuis le formulaire (I2), « Renouveler un mois PRO » (C2).
+- Déploiement constaté sur la base du retour opérateur : non observable depuis l'extérieur (maintenance). Aucune levée de maintenance sans décision explicite du porteur.
