@@ -1,0 +1,464 @@
+{
+  "candidate": {
+    "ciRunId": 38783490296,
+    "dedicatedHostRef": "srv1.immipro.app (31.70.148.167), VPS IONOS partagé — dérogation porteur du 13/10/2026 ; cas I2 non conforme, arbitrage L11",
+    "domain": "preprod.digisantemobile.app",
+    "environment": "preproduction",
+    "sha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2"
+  },
+  "records": [
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "I1",
+      "evidenceRef": "GitHub Actions ci.yml run 38783490296 (run 463, main, push, SHA ec6b0dc) : build-and-test et e2e success, job deploy skipped (opt-in désactivé).",
+      "executedAt": "2026-10-15T19:00:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "I3",
+      "evidenceRef": "Déploiement préprod du 15/10/2026 : SHA exact ec6b0dc dans /var/www/digisante-preprod, 34 migrations appliquées, maintenance Nginx posée, processus PM2 digisante-preprod-api/web actifs, verify_deploy.sh PASS.",
+      "executedAt": "2026-10-15T20:00:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "I4",
+      "evidenceRef": "HTTPS/TLS préprod vérifiés (certificat valide au 12/01/2027), readiness HTTP 200 {status:ready, db:up, redis:up}, upgrade WebSocket 101 ; readiness revérifiée le 20/10/2026.",
+      "executedAt": "2026-10-15T20:30:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "I5",
+      "evidenceRef": "Vérifié le 20/10/2026 : .env API en 0600 (propriétaire digisante-preprod), backup.key en 0400 root ; filestore KYC/DMP /var/lib/digisante-preprod-files en 700, propriétaire applicatif, hors checkout, vide (aucun document déposé en recette) ; backup.key et HEALTH_ENCRYPTION_KEY préprod conservées hors VPS dans Bitwarden (confirmé par le porteur) ; héritage audit intact : 12 entrées du 15/10 au 20/10/2026 (PAYMENT_CONFIRMED x6, AUTH_FAIL x2, INTEGRATION_UPDATE, PAYMENT_REFUND, FINANCE_REQUEST, DMP_ACCESS), aucune réécriture observée.",
+      "executedAt": "2026-10-20T11:50:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "I6",
+      "evidenceRef": "Journaux cron préprod du 16/10/2026 : quatre générateurs de notifications, dispatch et prune en HTTP 200 ; les HTTP 000 du 15/10 correspondent à la fenêtre avant mise en service.",
+      "executedAt": "2026-10-16T12:00:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "I7",
+      "evidenceRef": "Réconciliation cron préprod du 16/10/2026 à 02:30 (Africa/Porto-Novo) acceptée : HTTP 200, scanned=0, resolved=0, failed=0 ; diagnostics healthwatch verts.",
+      "executedAt": "2026-10-16T01:30:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "I8",
+      "evidenceRef": "Sauvegarde cible quotidienne (cron 01:30) : trio DB + fichiers + manifeste 20261020_013004 contrôlé par check-backup.mjs, archives et SHA256 conformes, magasin 0 fichier pour 0 référencé ; contrôle de restauration en base jetable du 16/10/2026 conforme au manifeste ; copie du trio 20261020_013004 conservée hors VPS sur le poste du porteur (téléchargée le 20/10/2026), clé de chiffrement conservée dans Bitwarden.",
+      "executedAt": "2026-10-20T11:50:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "I9",
+      "evidenceRef": "Vérifié le 20/10/2026 : configurations FedaPay et Firebase en base préprod, secrets chiffrés (secretsEnc, aucun clair), priorité DB établie (clés fournisseur du .env préprod toutes vides, intégrations résolues depuis la base) ; test intégré Firebase réussi (lastTestOk=true le 20/10/2026) ; configuration publique Firebase et clé VAPID (projet digisante-c6b2d) posées dans apps/web/.env.production avant reconstruction du web : projet, VAPID et sender id présents dans le build servi, processus web redémarré, readiness ready ; pas de devCode : NODE_ENV=production, aucun code OTP retourné par l'API en préprod (génération manuelle requise pendant les recettes).",
+      "executedAt": "2026-10-20T12:38:14.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FEDAPAY-S1",
+      "evidenceRef": "Deux recharges diaspora sandbox payées (FedaPay 524535 et 524536) : 2 paiements WALLET_TOPUP COMPLETED via webhook, wallet crédité une fois par paiement, 2 x 6 560 = 13 120 XOF, audits PAYMENT_CONFIRMED source=webhook ; crédit unique confirmé après renvoi des webhooks par le dashboard.",
+      "executedAt": "2026-10-16T11:33:58.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FEDAPAY-S2",
+      "evidenceRef": "Consultation MTN MoMo FedaPay 524566 COMPLETED 5 000 XOF, tarif médecin imposé côté serveur, RDV du 17/10/2026 07:00 passé CONFIRMED, audit PAYMENT_CONFIRMED source=webhook.",
+      "executedAt": "2026-10-16T12:47:23.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FEDAPAY-S3",
+      "evidenceRef": "RDV du 21/10/2026 08:00 payé par WALLET : CONSULTATION WALLET COMPLETED 5 000 XOF, fedapayId null (aucune transaction FedaPay), wallet patient débité une fois 10 000 vers 5 000 XOF, audit PAYMENT_CONFIRMED source=wallet, RDV CONFIRMED.",
+      "executedAt": "2026-10-16T13:11:07.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FEDAPAY-S4",
+      "evidenceRef": "Webhook à signature invalide envoyé en recette : HTTP 401 Signature de webhook invalide, audit AUTH_FAIL (bad_signature, fedapay_webhook), statuts des paiements inchangés.",
+      "executedAt": "2026-10-16T14:00:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FEDAPAY-S5",
+      "evidenceRef": "Réconciliation manuelle POST /api/v1/payments/reconcile : HTTP 200 {scanned:1, resolved:0, failed:0} ; le paiement SUBSCRIPTION toujours en attente chez FedaPay reste PROCESSING, aucun forçage de statut.",
+      "executedAt": "2026-10-16T14:30:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FEDAPAY-S6",
+      "evidenceRef": "Remboursement admin du paiement FedaPay 524536 via /admin/finance : COMPLETED vers REFUNDED, reversal wallet unique -6 560 XOF (13 120 vers 6 560), audit PAYMENT_REFUND ; l'idempotence du second remboursement est assurée par le contrôle de statut côté serveur.",
+      "executedAt": "2026-10-16T13:23:26.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FEDAPAY-S7",
+      "evidenceRef": "Rejeu côté serveur de 2 webhooks transaction.approved identiques et signés (paiement 524535) : 2 x HTTP 200 {idempotent:true, status:COMPLETED}, wallet diaspora inchangé à 6 560 XOF.",
+      "executedAt": "2026-10-16T15:00:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FEDAPAY-S8",
+      "evidenceRef": "Sonde SMOKE_FEDAPAY_S8 : verdict HOTE_AUTORISE, référence ds-recette-s8-20261016105336-24cf ; transaction sandbox (100 XOF, identifiant se terminant 4524) créée en HTTP 200 et jamais payée ; hôte observé sandbox-process.fedapay.com.",
+      "executedAt": "2026-10-16T10:53:36.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FEDAPAY-S9",
+      "evidenceRef": "Forme réelle du webhook observée dans le journal de livraison FedaPay : name=transaction.approved, entity.id numérique, entity.status texte, pas d'id à la racine ; réponses applicatives HTTP 200 processed (S1), idempotent (rejeu S7) et ignored pour un événement non transactionnel (customer.created).",
+      "executedAt": "2026-10-16T15:30:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FEDAPAY-S10",
+      "evidenceRef": "Recharge diaspora FedaPay 527039 refusée avec un numéro sandbox d'échec : webhook reçu, statut FAILED le 20/10/2026, aucun crédit ; repayée sur le même lien avec un numéro sandbox de succès : approbation tardive reçue par webhook (HTTP 200) et ignorée, statut resté FAILED, wallet diaspora inchangé à 13 120 XOF.",
+      "executedAt": "2026-10-20T11:11:35.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FIREBASE-F1-ANDROID",
+      "evidenceRef": "Android (PWA installée) : connexion patient avec la permission notifications refusée au niveau de l'origine ; aucun appel /users/me/device, users.fcmToken resté NULL, application fonctionnelle (journal Nginx préprod + contrôle base du 20/10/2026).",
+      "executedAt": "2026-10-20T13:08:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FIREBASE-F2-ANDROID",
+      "evidenceRef": "Android : permission origine passée à « Autoriser », reconnexion patient : POST /api/v1/users/me/device 200 à 15:32:09 UTC ; token FCM enregistré en base (longueur 142, empreinte SHA-256 5293a44e).",
+      "executedAt": "2026-10-20T15:32:09.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FIREBASE-F3-ANDROID",
+      "evidenceRef": "Smoke FCM du contrat §3 (SMOKE_FCM=1, jeton lu en base) à 15:32:59 UTC : accepté=true, message masqué ; affichage au premier plan confirmé par l'opérateur.",
+      "executedAt": "2026-10-20T15:32:59.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FIREBASE-F4-ANDROID",
+      "evidenceRef": "Smoke FCM : accepté=true ; notification reçue avec l'application en arrière-plan, confirmée par l'opérateur.",
+      "executedAt": "2026-10-20T15:36:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FIREBASE-F5-ANDROID",
+      "evidenceRef": "Clic de l'opérateur sur la notification push : l'application revient au premier plan.",
+      "executedAt": "2026-10-20T15:37:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FIREBASE-F6-ANDROID",
+      "evidenceRef": "Android : effacement des données du site puis reconnexion : nouveau token enregistré (empreinte 77f60326, distincte de 5293a44e) ; contrôle négatif sur l'ancien token (SMOKE_FCM_EXPECT_REJECTED=1) : accepté=false, token invalide=true.",
+      "executedAt": "2026-10-20T15:42:03.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FIREBASE-F8-ANDROID",
+      "evidenceRef": "Android : réouverture sans reconnexion : POST /api/v1/users/me/device 200 à 15:37:47 UTC, aucun /otp/verify depuis la connexion initiale ; rafraîchissement silencieux du token (empreinte inchangée).",
+      "executedAt": "2026-10-20T15:37:47.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FIREBASE-F9",
+      "evidenceRef": "Préprod : pose des valeurs publiques NEXT_PUBLIC_FIREBASE_* (projet digisante-c6b2d) dans apps/web/.env.production, next build puis redémarrage PM2 web : valeurs présentes dans les chunks servis ; test d'intégration Firebase lastTestOk à 12:38:14 UTC (opération I9 du 20/10/2026).",
+      "executedAt": "2026-10-20T12:38:14.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "FIREBASE-F7-ANDROID",
+      "evidenceRef": "Android : patient déconnecté depuis 16:47 (users.fcmToken NULL vérifié avant et après) ; campagne PUSH_FCM « Test recette F7 » (audience PATIENT, créée via l'UI) diffusée à 18:06:23 UTC — envoi déclenché par POST /api/v1/admin/campaigns/:id/send depuis la session admin de l'opérateur, la fenêtre de confirmation de l'UI étant défaillante sur ce build (finding consigné) ; notification traitée par le dispatch à 18:08:02 UTC : statut SENT et non DELIVERED, sentAt renseigné ; aucune notification reçue, confirmé par l'opérateur.",
+      "executedAt": "2026-10-20T18:08:02.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "RESEND-R1",
+      "evidenceRef": "Smoke Resend du contrat §3 en préprod (SMOKE_RESEND=1, destinataire boîte de recette du porteur) : [smoke:resend] destinataire masqué · message ••••6e9a · accepté=true ; 2 tests passés.",
+      "executedAt": "2026-10-20T18:24:41.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "RESEND-R2",
+      "evidenceRef": "Email de recette reçu dans Gmail : libellés INBOX et CATEGORY_UPDATES, absent des spams (lecture via le connecteur Gmail du porteur) ; pas de boîte Outlook de recette disponible.",
+      "executedAt": "2026-10-20T18:24:41.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "RESEND-R3",
+      "evidenceRef": "En-tête Authentication-Results de l'email reçu (mx.google.com) : dkim=pass (d=digisantemobile.app, s=resend), spf=pass (mailfrom @rsend.digisantemobile.app), dmarc=pass (p=NONE).",
+      "executedAt": "2026-10-20T18:24:41.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "RESEND-R4",
+      "evidenceRef": "Expéditeur de l'email de recette : notifications@digisantemobile.app (domaine vérifié chez Resend), et non l'expéditeur par défaut digisante.bj.",
+      "executedAt": "2026-10-20T18:24:41.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "RESEND-R5",
+      "evidenceRef": "Expéditeur temporairement réglé sur un domaine non vérifié : smoke → accepté=false, aucun envoi, aucune exception ; journal d'erreur masqué (destinataire d•••@gmail.com) avec resendError=upstream_error (HTTP 403 Resend) — écart d'étiquette par rapport au validation_error attendu par la recette, comportement d'échec propre conforme ; expéditeur ensuite restauré, test d'intégration de nouveau OK à 18:33 UTC.",
+      "executedAt": "2026-10-20T18:29:27.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "SUBSCRIPTION-A2",
+      "evidenceRef": "Catalogue vérifié dans le code livré (packages/shared/src/subscriptions.ts, version doctor-pilot-2026-10-v1 : FREE 0 XOF sans démarrage de téléconsultation, PRO 5 000 XOF pour 1 mois calendaire, autoRenew=false, plans STARTER/CLINIC désactivés) et confirmé visuellement par l'opérateur en session médecin FREE : page Revenus verrouillée sans PRO, mention « Renouvellement manuel uniquement. Aucun prélèvement automatique », offre « PRO · 5 000 FCFA / mois calendaire » ; aucun prélèvement automatique.",
+      "executedAt": "2026-10-20T18:58:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "SUBSCRIPTION-A5",
+      "evidenceRef": "Paiement PRO réel en sandbox FedaPay (transaction 527334, MTN MoMo, 5 000 XOF) : webhook signé reçu (HTTP 200), paiement COMPLETED, une seule période créée (2026-10-20T19:03:31Z vers 2026-11-20T19:03:31Z), un seul audit PAYMENT_CONFIRMED à 19:03:31Z ; médecin passé PRO/ACTIVE, vérifié en base préprod ; le retour navigateur seul n'a rien activé.",
+      "executedAt": "2026-10-20T19:03:31.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "SUBSCRIPTION-A7",
+      "evidenceRef": "Reprise de la commande d'abonnement laissée en PROCESSING depuis le 16/10/2026 (paiement cmvax61rl0009bsswtt6ktp9r, FedaPay 524545) : ancienne commande révoquée le 2026-10-20T19:02:09Z sans aucun débit (paiement jamais sorti de PROCESSING), remplacée par une nouvelle commande payée une seule fois (FedaPay 527334, 5 000 XOF) ; une seule période active ; aucun double débit, vérifié en base préprod.",
+      "executedAt": "2026-10-20T19:03:31.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "SUBSCRIPTION-A10",
+      "evidenceRef": "Renouvellement manuel pendant la période payée (déclenché par l'API depuis la session médecin, le bouton « Renouveler » de l'UI étant bloqué par le finding de la fenêtre de confirmation) : paiement sandbox FedaPay 527427 COMPLETED, nouvelle période chaînée exactement à la fin de la période payée (2026-11-20T19:03:31Z vers 2026-12-20T19:03:31Z, +1 mois calendaire), un seul audit PAYMENT_CONFIRMED ; vérifié en base préprod. Réserve : le sous-cas d'arithmétique « 31 janv. vers 28 févr. » n'est rejouable qu'à cette date calendaire ; l'enchaînement +1 mois calendaire est vérifié deux fois (20 vers 20).",
+      "executedAt": "2026-10-20T21:43:41.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "SUBSCRIPTION-A12",
+      "evidenceRef": "« Passer à FREE à l'échéance » confirmé dans l'UI médecin (« Arrêt demandé à l'échéance de la période payée ») : subscriptionCancelledAt=2026-10-20T21:48:22Z en base, plan PRO et statut ACTIVE conservés, périodes payées intactes jusqu'au 2026-12-20T19:03:31Z, aucun nouveau débit ; renouvellement manuel uniquement, aucun prélèvement automatique.",
+      "executedAt": "2026-10-20T21:48:22.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "SUBSCRIPTION-A14",
+      "evidenceRef": "Remboursements externes complets des deux paiements d'abonnement sandbox FedaPay du médecin de recette, exécutés dans le dashboard FedaPay puis consignés avec preuve dans l'admin Finances : paiement 527427 (renouvellement) remboursé le 20/10/2026 (remboursement FedaPay n°188, preuve FEDAPAY-REFUND-188, opération exécutée à 22:17:40Z), puis paiement 527334 (premier achat) remboursé et consigné de même (opération exécutée à 22:31:52Z). Après le premier remboursement, les droits du médecin sont retombés sur la période restante (jusqu'au 20/11/2026) ; après le second, les deux commandes sont révoquées, les deux paiements REFUNDED, aucune période payée valide ne subsiste. Vérifié en base préprod : pour chaque cycle, audits FINANCE_REQUEST, PAYMENT_REFUND, FINANCE_EXECUTING, FINANCE_EXECUTED dans l'ordre.",
+      "executedAt": "2026-10-20T22:31:52.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "SUBSCRIPTION-A1",
+      "evidenceRef": "Médecin retombé en FREE effectif après révocation de ses deux périodes payées (cas A14) : démarrage d'une téléconsultation sur un rendez-vous TELECONSULTATION confirmé (21/10/2026 16:00 UTC) refusé par l'API — POST /api/v1/consultations → 403 « Un abonnement PRO payé et en cours est requis », déclenché depuis la session médecin de l'opérateur ; le bandeau de l'agenda médecin affiche le même message. Aucun droit accordé, aucune salle créée.",
+      "executedAt": "2026-10-20T22:51:59.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "SUBSCRIPTION-A9",
+      "evidenceRef": "Idempotence d'achat : trois POST /api/v1/subscriptions identiques (plan PRO, méthode MTN_MOMO, même requestId) depuis la session médecin → HTTP 200 trois fois avec le même orderId (cmvha5w6c00js8bxvcizp8vwj) et le même paiement ; une seule commande et un seul paiement créés en base préprod (montant 5 000 XOF), aucun doublon.",
+      "executedAt": "2026-10-20T22:54:18.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "SUBSCRIPTION-A4",
+      "evidenceRef": "Tentatives invalides refusées proprement depuis la session médecin : POST /api/v1/subscriptions sans méthode ni requestId → 400 « Méthode et requestId requis pour un plan payant » ; plan désactivé pendant le pilote (STARTER) → 400 « Plan indisponible pendant le pilote » ; le montant n'est jamais accepté du client (5 000 XOF imposés par le catalogue serveur, cf. réponses du cas A9) ; la signature de webhook invalide est déjà couverte par le cas S4. Aucune commande créée par ces tentatives, vérifié en base préprod.",
+      "executedAt": "2026-10-20T22:54:50.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "TWILIO-T1",
+      "evidenceRef": "OTP SMS reçu sur le numéro MTN de l'opérateur (+2290196466777) : demande POST /auth/otp/request 200 à 04:29:57 WAT, code reçu par SMS et vérifié à 04:30:20 WAT, soit 23 secondes (< 60 s). Journal nginx préprod. Expéditeur affiché : numéro long.",
+      "executedAt": "2026-10-21T03:30:20.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "TWILIO-T3",
+      "evidenceRef": "Connexion réussie avec le code reçu par SMS : POST /auth/otp/verify 200 à 04:30:20 WAT après déconnexion (logout 04:29:30 WAT), journal nginx préprod. Aucun code de développement utilisé (NODE_ENV=production, envoi réel Twilio).",
+      "executedAt": "2026-10-21T03:30:20.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "TWILIO-T4",
+      "evidenceRef": "Quota d'envoi OTP : rafale de 6 demandes depuis la console navigateur — 5 acceptées (200, SMS) puis 6e refusée 429 TOO_MANY_REQUESTS « Trop de demandes de code. Réessayez plus tard. », journal nginx 05:08:25–05:08:28 WAT. Fenêtre fixe de 15 minutes, 5 envois max (OTP_SEND_MAX=5).",
+      "executedAt": "2026-10-21T04:08:28.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "TWILIO-T5",
+      "evidenceRef": "Verrouillage après échecs : 1 demande (200) puis 5 codes faux — refus génériques 401 « Code invalide ou expiré. Demandez un nouveau code. » (×4) puis 429 « Trop d'échecs. Compte verrouillé 30 minutes. » au 5e. Audit AUTH_LOCKOUT en base à 04:52:44 UTC ; une demande suivante pendant le verrou est refusée 429 (journal nginx 05:57:23 WAT).",
+      "executedAt": "2026-10-21T04:52:44.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "TWILIO-T6",
+      "evidenceRef": "Déverrouillage support : POST /api/v1/admin/support/account/<id>/unlock (scope otp:write) depuis la session admin de l'opérateur — la page /admin/support ne s'est pas chargée côté opérateur, voie API consignée — réponse 200 {unlocked:true}, purge des clés Valkey otp:lock/attempts/send, audit OTP_RESET à 05:27:22 UTC. Connexion OTP réussie ensuite avec un code frais (verify 200 à 06:31:11 WAT, journal nginx).",
+      "executedAt": "2026-10-21T05:31:11.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "TWILIO-T8",
+      "evidenceRef": "SOS en français (langue du patient FR) : alerte créée en base préprod à 04:28:04 UTC (ACTIVE, position concordante) + audit SOS_ALERT ; SMS reçu par le contact d'urgence du patient (numéro MTN de l'opérateur) : « URGENCE DigiSanté : une alerte SOS a été déclenchée. Position : 6.3826…, 2.4325…. Carte : https://maps.google.com/?q=… ».",
+      "executedAt": "2026-10-21T04:28:04.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "TWILIO-T9",
+      "evidenceRef": "SOS en fɔ̀ngbè : langue du compte patient basculée en FON (PATCH /api/v1/users/me, 200, lang=FON vérifiée en base) ; alerte créée à 04:43:20 UTC ; SMS reçu par le contact d'urgence : « DigiSanté ADANDÓ: SOS ɖé wá. Tɛn: 6.3829…, 2.4327…. Map: https://maps.google.com/?q=… ».",
+      "executedAt": "2026-10-21T04:43:20.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "TWILIO-T10",
+      "evidenceRef": "SOS en anglais : langue du compte patient basculée en EN (PATCH /api/v1/users/me, 200) ; alerte créée à 04:48:46 UTC ; SMS reçu par le contact d'urgence : « DigiSanté EMERGENCY: an SOS alert was triggered. Location: 6.384181, 2.433529. Map: https://maps.google.com/?q=… ».",
+      "executedAt": "2026-10-21T04:48:46.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "TWILIO-T11",
+      "evidenceRef": "Cas conditionnel clos en N/A : aucun envoi vers un numéro public effectué en recette (interdit par le contrat L10) ; la décision de portée du porteur couvre la non-configuration d'un numéro public pour le pilote.",
+      "executedAt": "2026-10-21T05:06:47.000Z",
+      "operator": "malcomx2022",
+      "reason": "Aucun numéro public SOS n'est configuré pour le pilote ; l'alerte SOS est adressée uniquement au contact d'urgence déclaré par le patient, comme vérifié aux cas T8, T9 et T10.",
+      "result": "N/A",
+      "scopeDecisionRef": "Décision du porteur du 21/10/2026 : aucun numéro public SOS pour le pilote, les alertes partent au contact d'urgence du patient.",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    }
+  ],
+  "schemaVersion": 1
+}
