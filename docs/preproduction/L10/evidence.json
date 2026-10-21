@@ -375,6 +375,89 @@
       "operator": "malcomx2022",
       "result": "PASS",
       "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "TWILIO-T1",
+      "evidenceRef": "OTP SMS reçu sur le numéro MTN de l'opérateur (+2290196466777) : demande POST /auth/otp/request 200 à 04:29:57 WAT, code reçu par SMS et vérifié à 04:30:20 WAT, soit 23 secondes (< 60 s). Journal nginx préprod. Expéditeur affiché : numéro long.",
+      "executedAt": "2026-10-21T03:30:20.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "TWILIO-T3",
+      "evidenceRef": "Connexion réussie avec le code reçu par SMS : POST /auth/otp/verify 200 à 04:30:20 WAT après déconnexion (logout 04:29:30 WAT), journal nginx préprod. Aucun code de développement utilisé (NODE_ENV=production, envoi réel Twilio).",
+      "executedAt": "2026-10-21T03:30:20.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "TWILIO-T4",
+      "evidenceRef": "Quota d'envoi OTP : rafale de 6 demandes depuis la console navigateur — 5 acceptées (200, SMS) puis 6e refusée 429 TOO_MANY_REQUESTS « Trop de demandes de code. Réessayez plus tard. », journal nginx 05:08:25–05:08:28 WAT. Fenêtre fixe de 15 minutes, 5 envois max (OTP_SEND_MAX=5).",
+      "executedAt": "2026-10-21T04:08:28.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "TWILIO-T5",
+      "evidenceRef": "Verrouillage après échecs : 1 demande (200) puis 5 codes faux — refus génériques 401 « Code invalide ou expiré. Demandez un nouveau code. » (×4) puis 429 « Trop d'échecs. Compte verrouillé 30 minutes. » au 5e. Audit AUTH_LOCKOUT en base à 04:52:44 UTC ; une demande suivante pendant le verrou est refusée 429 (journal nginx 05:57:23 WAT).",
+      "executedAt": "2026-10-21T04:52:44.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "TWILIO-T6",
+      "evidenceRef": "Déverrouillage support : POST /api/v1/admin/support/account/<id>/unlock (scope otp:write) depuis la session admin de l'opérateur — la page /admin/support ne s'est pas chargée côté opérateur, voie API consignée — réponse 200 {unlocked:true}, purge des clés Valkey otp:lock/attempts/send, audit OTP_RESET à 05:27:22 UTC. Connexion OTP réussie ensuite avec un code frais (verify 200 à 06:31:11 WAT, journal nginx).",
+      "executedAt": "2026-10-21T05:31:11.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "TWILIO-T8",
+      "evidenceRef": "SOS en français (langue du patient FR) : alerte créée en base préprod à 04:28:04 UTC (ACTIVE, position concordante) + audit SOS_ALERT ; SMS reçu par le contact d'urgence du patient (numéro MTN de l'opérateur) : « URGENCE DigiSanté : une alerte SOS a été déclenchée. Position : 6.3826…, 2.4325…. Carte : https://maps.google.com/?q=… ».",
+      "executedAt": "2026-10-21T04:28:04.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "TWILIO-T9",
+      "evidenceRef": "SOS en fɔ̀ngbè : langue du compte patient basculée en FON (PATCH /api/v1/users/me, 200, lang=FON vérifiée en base) ; alerte créée à 04:43:20 UTC ; SMS reçu par le contact d'urgence : « DigiSanté ADANDÓ: SOS ɖé wá. Tɛn: 6.3829…, 2.4327…. Map: https://maps.google.com/?q=… ».",
+      "executedAt": "2026-10-21T04:43:20.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "TWILIO-T10",
+      "evidenceRef": "SOS en anglais : langue du compte patient basculée en EN (PATCH /api/v1/users/me, 200) ; alerte créée à 04:48:46 UTC ; SMS reçu par le contact d'urgence : « DigiSanté EMERGENCY: an SOS alert was triggered. Location: 6.384181, 2.433529. Map: https://maps.google.com/?q=… ».",
+      "executedAt": "2026-10-21T04:48:46.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ec6b0dc1866af4f7da896b95688e74f5bbb77bb2",
+      "caseId": "TWILIO-T11",
+      "evidenceRef": "Cas conditionnel clos en N/A : aucun envoi vers un numéro public effectué en recette (interdit par le contrat L10) ; la décision de portée du porteur couvre la non-configuration d'un numéro public pour le pilote.",
+      "executedAt": "2026-10-21T05:06:47.000Z",
+      "operator": "malcomx2022",
+      "reason": "Aucun numéro public SOS n'est configuré pour le pilote ; l'alerte SOS est adressée uniquement au contact d'urgence déclaré par le patient, comme vérifié aux cas T8, T9 et T10.",
+      "result": "N/A",
+      "scopeDecisionRef": "Décision du porteur du 21/10/2026 : aucun numéro public SOS pour le pilote, les alertes partent au contact d'urgence du patient.",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
     }
   ],
   "schemaVersion": 1
