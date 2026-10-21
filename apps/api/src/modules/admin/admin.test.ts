@@ -179,6 +179,34 @@ describe.skipIf(!HAS_INFRA)('Admin RBAC (intégration)', () => {
     expect(deniedWh.statusCode).toBe(403);
   });
 
+  it('finances : liste des paiements tous statuts, REFUNDED inclus et filtrable (recette L10 C6)', async () => {
+    const [refunded, completed] = await Promise.all(['REFUNDED', 'COMPLETED'].map((status) => app.prisma.payment.create({
+      data: { userId: promotedUserId, type: 'CONSULTATION', method: 'WALLET', amount: 700, currency: 'XOF', status: status as 'REFUNDED' | 'COMPLETED' },
+      select: { id: true },
+    })));
+    try {
+      const all = await app.inject({ method: 'GET', url: '/api/v1/admin/finance/payments?pageSize=100', headers: auth(superToken) });
+      expect(all.statusCode).toBe(200);
+      const ids = all.json().data.map((p: { id: string }) => p.id);
+      expect(ids).toEqual(expect.arrayContaining([refunded!.id, completed!.id]));
+
+      const onlyRefunded = await app.inject({ method: 'GET', url: '/api/v1/admin/finance/payments?status=REFUNDED&pageSize=100', headers: auth(superToken) });
+      expect(onlyRefunded.statusCode).toBe(200);
+      const rows = onlyRefunded.json().data as { id: string; status: string }[];
+      expect(rows.map((p) => p.id)).toContain(refunded!.id);
+      expect(rows.every((p) => p.status === 'REFUNDED')).toBe(true);
+      expect(onlyRefunded.json().total).toBeGreaterThanOrEqual(1);
+      // Minimisation : aucune identité du payeur dans la ligne.
+      expect(Object.keys(rows[0]!).sort()).toEqual(['amount', 'createdAt', 'currency', 'fedapayId', 'id', 'method', 'status', 'type']);
+
+      expect((await app.inject({ method: 'GET', url: '/api/v1/admin/finance/payments?status=PAID', headers: auth(superToken) })).statusCode).toBe(422);
+      const modToken = app.jwt.sign({ sub: promotedUserId, role: 'ADMIN' }, { expiresIn: '15m' });
+      expect((await app.inject({ method: 'GET', url: '/api/v1/admin/finance/payments', headers: auth(modToken) })).statusCode).toBe(403);
+    } finally {
+      await app.prisma.payment.deleteMany({ where: { id: { in: [refunded!.id, completed!.id] } } });
+    }
+  });
+
   it('remboursement admin (finance:write) : 200 + REFUNDED ; MODERATION → 403', async () => {
     const pay = await app.prisma.payment.create({
       data: { userId: promotedUserId, type: 'CONSULTATION', method: 'MTN_MOMO', amount: '2000', currency: 'XOF', status: 'COMPLETED' },

@@ -1,5 +1,6 @@
 'use client';
 
+import { PAYMENT_STATUSES } from '@digisante/shared';
 import { useState } from 'react';
 
 import { Button, CardPagne, ConfirmDialog } from '@/components/ui';
@@ -7,7 +8,8 @@ import { SpaceHeader } from '@/components/ui/SpaceHeader';
 import { ErrorState, SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { adminsApi } from '@/lib/api/admins';
-import { financeApi, type CompletedPayment, type FinanceOverview, type WebhookEntry } from '@/lib/api/finance';
+import { apiErrorMessage } from '@/lib/api/errors';
+import { financeApi, type AdminPayment, type FinanceOverview, type WebhookEntry } from '@/lib/api/finance';
 import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
 import FinanceOperations from '@/components/admin/FinanceOperations';
@@ -28,10 +30,14 @@ export default function AdminFinance() {
   const ov = useApi<FinanceOverview>(() => financeApi.overview(30), [tick]);
   const wh = useApi<{ data: WebhookEntry[]; total: number }>(() => financeApi.webhooks(1, 20), []);
   const me = useApi(() => adminsApi.me(), []);
+  // Liste des paiements TOUS statuts (C6) : un paiement remboursé reste retrouvable.
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [paymentsPage, setPaymentsPage] = useState(1);
+  const pays = useApi(() => financeApi.payments(statusFilter || null, paymentsPage, 10), [statusFilter, paymentsPage, tick]);
   const canRefund = me.data?.scopes?.includes('finance:write') ?? false;
   const data = ov.data;
 
-  const [target, setTarget] = useState<CompletedPayment | null>(null);
+  const [target, setTarget] = useState<AdminPayment | null>(null);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -45,8 +51,9 @@ export default function AdminFinance() {
       setTarget(null);
       setReason('');
       setTick((x) => x + 1);
-    } catch {
-      setErr(t('auth.error'));
+    } catch (e) {
+      // Refus métier (ex. paiement déjà réservé) affiché tel quel ; générique en repli.
+      setErr(apiErrorMessage(e, t('auth.error')));
     } finally {
       setBusy(false);
     }
@@ -148,23 +155,46 @@ export default function AdminFinance() {
               )}
             </section>
 
-            {/* Paiements confirmés récents (+ remboursement, finance:write) */}
-            {data.payments.recentCompleted.length > 0 && (
-              <section>
-                <h2 className="font-display font-extrabold text-[0.875rem] text-stone-700 mb-2">{t('finance.recent_completed')}</h2>
-                {err && <p className="text-[0.75rem] text-sos-600 font-bold mb-2">{err}</p>}
+            {/* Paiements — TOUS statuts, filtrables (recette L10 C6) ; remboursement
+                (finance:write) proposé seulement sur un paiement COMPLETED. */}
+            <section aria-label={t('admin.finance')}>
+              <div className="flex items-center justify-end gap-2 mb-2">
+                <label className="flex items-center gap-2 text-[0.75rem] text-stone-500">
+                  <span>{t('admin.col_status')}</span>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => { setStatusFilter(e.target.value); setPaymentsPage(1); }}
+                    className="bg-white card-pagne border border-stone-300 px-2 py-1 text-base pagne-focus focus:outline-none focus:border-indigo-600"
+                  >
+                    <option value="">{t('admin.all_statuses')}</option>
+                    {PAYMENT_STATUSES.map((s) => (
+                      <option key={s} value={s}>{t(`subscriptions.payment_${s.toLowerCase()}`)}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {err && <p className="text-[0.75rem] text-sos-600 font-bold mb-2" role="alert">{err}</p>}
+              {pays.loading && !pays.data && <SkeletonCards count={2} label={t('common.loading')} />}
+              {pays.error && <ErrorState label={t('common.load_error')} />}
+              {pays.data && pays.data.data.length === 0 && <p className="text-[0.8125rem] text-stone-400">{t('common.empty')}</p>}
+              {pays.data && pays.data.data.length > 0 && (
                 <CardPagne className="p-0 overflow-hidden">
                   <ul className="divide-y divide-stone-100">
-                    {data.payments.recentCompleted.map((p) => (
-                      <li key={p.id} className="flex items-center justify-between gap-2 px-4 py-2.5 text-[0.75rem]">
-                        <span className="flex items-center gap-2 min-w-0">
+                    {pays.data.data.map((p) => (
+                      <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-[0.75rem]" data-payment-status={p.status}>
+                        <span className="flex flex-wrap items-center gap-2 min-w-0">
                           <span className="px-2 py-0.5 card-pagne bg-indigo-50 text-indigo-600 text-[0.59375rem] font-extrabold">{p.type}</span>
+                          <span className={cn('px-2 py-0.5 card-pagne text-[0.59375rem] font-extrabold', p.status === 'COMPLETED' ? 'bg-sante-50 text-sante-700' : p.status === 'REFUNDED' ? 'bg-stone-100 text-stone-600' : 'bg-ocre-50 text-ocre-600')}>
+                            {t(`subscriptions.payment_${p.status.toLowerCase()}`)}
+                          </span>
                           <span className="text-stone-400">{p.method}</span>
                           <span className="font-bold text-stone-900">{xof(p.amount)}</span>
+                          <span className="font-mono text-stone-500 break-all">{t('subscriptions.reference', { id: p.id })}</span>
+                          {p.fedapayId && <span className="font-mono text-stone-400 break-all">{t('finance_ops.provider', { id: p.fedapayId })}</span>}
                         </span>
                         <span className="flex items-center gap-2 whitespace-nowrap">
                           <span className="text-stone-400">{dt(p.createdAt)}</span>
-                          {canRefund && (
+                          {canRefund && p.status === 'COMPLETED' && (
                             <Button variant="sos" className="text-[0.6875rem] px-2.5 py-1" onClick={() => { setErr(null); setReason(''); setTarget(p); }}>
                               {t('finance.refund')}
                             </Button>
@@ -174,8 +204,14 @@ export default function AdminFinance() {
                     ))}
                   </ul>
                 </CardPagne>
-              </section>
-            )}
+              )}
+              {pays.data && pays.data.total > 10 && (
+                <div className="flex gap-2 mt-2">
+                  <Button variant="outline" className="text-[0.75rem] px-3 py-1.5" disabled={paymentsPage === 1} onClick={() => setPaymentsPage((n) => n - 1)}>{t('finance_ops.previous')}</Button>
+                  <Button variant="outline" className="text-[0.75rem] px-3 py-1.5" disabled={paymentsPage * 10 >= pays.data.total} onClick={() => setPaymentsPage((n) => n + 1)}>{t('finance_ops.next')}</Button>
+                </div>
+              )}
+            </section>
 
             {/* Journal des webhooks FedaPay (dérivé de l'audit) */}
             <section>

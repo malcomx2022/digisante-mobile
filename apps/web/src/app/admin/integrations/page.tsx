@@ -12,6 +12,7 @@ import {
   type IntegrationView,
   PROVIDER_META,
   PROVIDER_ORDER,
+  unconfirmedKeys,
   type WebhookJournalEntry,
 } from '@/lib/api/integrations';
 import { useApi } from '@/lib/api/useApi';
@@ -78,13 +79,27 @@ function ProviderCard({ view, onChanged }: { view: IntegrationView; onChanged: (
   );
 
   async function save() {
+    // Le PUT REMPLACE le jeu complet : une clé obligatoire laissée vide serait effacée.
+    // Refus avant tout envoi plutôt qu'un enregistrement partiel silencieux (I2).
+    const secrets = Object.fromEntries(Object.entries(values).map(([k, v]) => [k, v.trim()]).filter(([, v]) => v !== ''));
+    const missing = meta.fields.filter((f) => f.required && !secrets[f.key]).map((f) => f.key);
+    if (missing.length) {
+      setErr(`${t('integrations.missing')} : ${missing.join(', ')} — ${t('integrations.replace_warning')}`);
+      return;
+    }
     setBusy(true);
     setErr(null);
     try {
-      const secrets = Object.fromEntries(Object.entries(values).filter(([, v]) => v.trim() !== ''));
       const body: { secrets: Record<string, string>; meta?: Record<string, unknown> } = { secrets };
       if (meta.supportsWebhooks) body.meta = { ...(view.meta ?? {}), webhookUrl: webhookUrl.trim() || undefined };
-      await integrationsApi.save(view.provider, body);
+      const saved = await integrationsApi.save(view.provider, body);
+      // Réponse qui ne reflète pas la saisie : échec bruyant, formulaire conservé.
+      const unconfirmed = unconfirmedKeys(secrets, saved);
+      if (unconfirmed.length) {
+        setErr(`${t('integrations.missing')} : ${unconfirmed.join(', ')}`);
+        onChanged();
+        return;
+      }
       setEditing(false);
       setValues({});
       onChanged();
@@ -211,8 +226,9 @@ function ProviderCard({ view, onChanged }: { view: IntegrationView; onChanged: (
                     {f.key}{f.required && <span className="text-sos-500"> *</span>}
                   </span>
                   <input
-                    type="password"
+                    type={f.plain ? 'text' : 'password'}
                     autoComplete="off"
+                    spellCheck={false}
                     value={values[f.key] ?? ''}
                     onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
                     placeholder={view.secrets[f.key] ?? '—'}

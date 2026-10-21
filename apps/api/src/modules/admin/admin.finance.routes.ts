@@ -6,7 +6,7 @@
 // voir REVUE_L7_2026-10.md et CONTRAT_Finances_L7.md.
 // Sous-module /api/v1/admin, agrégé par admin.routes.ts.
 // ─────────────────────────────────────────────────────────────
-import { paginationSchema } from '@digisante/shared';
+import { PAYMENT_STATUSES, paginationSchema } from '@digisante/shared';
 import { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -20,6 +20,8 @@ import { adminGuards, idParams } from './admin.shared.js';
 
 // Tableau de bord finances : fenêtre d'observation (jours).
 const financeQuery = z.object({ days: z.coerce.number().int().min(1).max(365).default(30) });
+// Liste des paiements : tous statuts (REFUNDED inclus), filtre facultatif.
+const paymentsQuery = paginationSchema.extend({ status: z.enum(PAYMENT_STATUSES).optional() });
 // Remboursement admin : motif libre optionnel.
 const refundBody = z.object({ reason: z.string().trim().max(200).optional() });
 
@@ -42,6 +44,23 @@ export default async function adminFinanceRoutes(app: FastifyInstance) {
   app.post('/finance/operations/:id/start', withScope('finance:write'), async (request) => finance.transition(app, request.user.sub, zParse(idParams, request.params).id, 'start'));
   app.post('/finance/operations/:id/cancel', withScope('finance:write'), async (request) => finance.transition(app, request.user.sub, zParse(idParams, request.params).id, 'cancel'));
   app.post('/finance/operations/:id/complete', withScope('finance:write'), async (request) => finance.transition(app, request.user.sub, zParse(idParams, request.params).id, 'complete', zParse(finance.proofSchema, request.body).proofRef));
+
+  // Paiements, TOUS statuts (recette L10 C6, 20/10/2026) : la liste « récents
+  // COMPLETED » perdait de vue un paiement dès son remboursement, alors que le
+  // rapprochement (F2/F4) a besoin de le retrouver. Lecture seule, sans donnée
+  // de santé ni identité du payeur ; date = création (jamais déduite d'updatedAt).
+  app.get('/finance/payments', withScope('finance:read'), async (request) => {
+    const q = zParse(paymentsQuery, request.query);
+    const where: Prisma.PaymentWhereInput = q.status ? { status: q.status } : {};
+    const [rows, total] = await Promise.all([
+      app.prisma.payment.findMany({
+        where, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], skip: (q.page - 1) * q.pageSize, take: q.pageSize,
+        select: { id: true, amount: true, currency: true, method: true, type: true, status: true, fedapayId: true, createdAt: true },
+      }),
+      app.prisma.payment.count({ where }),
+    ]);
+    return paginate(rows, total, q.page, q.pageSize);
+  });
 
   // Tableau de bord : volumes par statut/méthode, file de réconciliation, wallets.
   // Aucune écriture, aucun déclenchement : pure consultation (scope finance:read).

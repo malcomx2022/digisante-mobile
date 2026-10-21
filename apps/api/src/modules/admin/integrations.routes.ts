@@ -27,6 +27,7 @@ import {
   supportsWebhooks,
   testIntegration,
   validateSecretsShape,
+  verifyIntegrationWrite,
 } from '@/lib/integrations.js';
 import { requireRole, requireScope } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
@@ -94,6 +95,8 @@ export default async function adminIntegrationsRoutes(app: FastifyInstance) {
       enabled: body.enabled,
       updatedById: request.user.sub,
     });
+    // Relecture obligatoire (I2) : une écriture non retrouvée telle quelle échoue (500).
+    await verifyIntegrationWrite(app, provider, body.secrets);
     // Audit : noms de clés uniquement, JAMAIS les valeurs.
     await writeAudit(app.prisma, {
       action: 'INTEGRATION_UPDATE',

@@ -5,7 +5,7 @@ import type { ContentCategory, Lang, Role } from '@digisante/shared';
 import { del, get, post, put } from './client';
 
 export type CampaignStatus = 'DRAFT' | 'SENT';
-export type CampaignChannel = 'IN_APP' | 'SMS_TWILIO' | 'PUSH_FCM';
+export type CampaignChannel = 'IN_APP' | 'SMS_TWILIO' | 'PUSH_FCM' | 'EMAIL';
 
 export interface CampaignText {
   title: string;
@@ -37,10 +37,12 @@ export interface CampaignInput {
 export const campaignsApi = {
   list: () => get<Campaign[]>('/admin/campaigns'),
   get: (id: string) => get<Campaign>(`/admin/campaigns/${id}`),
-  audience: (q: { audienceRole?: Role; audienceLang?: Lang }) => {
+  audience: (q: { audienceRole?: Role; audienceLang?: Lang; channel?: CampaignChannel }) => {
     const params = new URLSearchParams();
     if (q.audienceRole) params.set('audienceRole', q.audienceRole);
     if (q.audienceLang) params.set('audienceLang', q.audienceLang);
+    // EMAIL : la portée ne compte que les comptes ayant une adresse e-mail.
+    if (q.channel) params.set('channel', q.channel);
     const qs = params.toString();
     return get<{ audienceCount: number }>(`/admin/campaigns/audience${qs ? `?${qs}` : ''}`);
   },

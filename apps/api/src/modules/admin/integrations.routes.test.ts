@@ -2,7 +2,7 @@
 // Invariants vérifiés : secrets JAMAIS renvoyés en clair, écriture auditée SANS
 // valeur, RBAC integrations:read/write, FedaPay gelé (§5). Exécutés si DB+Redis (CI).
 import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 const PHONES = ['+2290196700001', '+2290196700002']; // super-admin, admin restreint
@@ -277,5 +277,54 @@ describe.skipIf(!HAS_INFRA)('Admin intégrations API (intégration)', () => {
     expect(await resolveConfiguredSecrets(app, 'TWILIO')).toBeNull();
     await app.inject({ method: 'PATCH', url: '/api/v1/admin/integrations/TWILIO', headers: auth(superToken), payload: { enabled: true } });
     expect(await resolveConfiguredSecrets(app, 'TWILIO')).toMatchObject({ authToken: TWILIO_TOKEN });
+  });
+
+  // ── Recette L10, I2 : édition du domaine Daily ──
+  it('DAILY : un nouveau domaine saisi est réellement stocké (relu en base, pas seulement masqué)', async () => {
+    const { resolveConfiguredSecrets } = await import('@/lib/integrations.js');
+    const put = (domain: string) => app.inject({
+      method: 'PUT', url: '/api/v1/admin/integrations/DAILY', headers: auth(superToken),
+      payload: { secrets: { apiKey: 'daily_key_synthetic_1234', domain } },
+    });
+    expect((await put('ancienne-equipe.daily.co')).statusCode).toBe(200);
+    const res = await put('nouvelle-equipe.daily.co');
+    expect(res.statusCode, res.body).toBe(200);
+    // Le masque (4 derniers caractères) ne distingue pas les deux domaines : c'est la
+    // relecture qui fait foi.
+    expect(res.json().secrets.domain).toBe('••••y.co');
+    expect(await resolveConfiguredSecrets(app, 'DAILY')).toMatchObject({ domain: 'nouvelle-equipe.daily.co' });
+  });
+
+  it('DAILY : une URL complète au lieu du sous-domaine est refusée (400) sans écriture', async () => {
+    const { resolveConfiguredSecrets } = await import('@/lib/integrations.js');
+    const res = await app.inject({
+      method: 'PUT', url: '/api/v1/admin/integrations/DAILY', headers: auth(superToken),
+      payload: { secrets: { apiKey: 'daily_key_synthetic_1234', domain: 'https://autre.daily.co/salle' } },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().message).toContain('domain');
+    expect(await resolveConfiguredSecrets(app, 'DAILY')).toMatchObject({ domain: 'nouvelle-equipe.daily.co' });
+  });
+
+  it('écriture non retrouvée à la relecture : échec BRUYANT (500), sans audit ni valeur citée', async () => {
+    const before = await app.prisma.auditLog.count({ where: { action: 'INTEGRATION_UPDATE' } });
+    // Écriture perdue (simulée) : l'upsert ne persiste rien.
+    const upsert = vi.spyOn(app.prisma.integrationConfig, 'upsert').mockResolvedValueOnce({} as never);
+    try {
+      const res = await app.inject({
+        method: 'PUT', url: '/api/v1/admin/integrations/DAILY', headers: auth(superToken),
+        payload: { secrets: { apiKey: 'daily_key_synthetic_1234', domain: 'perdue-equipe' } },
+      });
+      expect(upsert).toHaveBeenCalled();
+      expect(res.statusCode).toBe(500);
+      expect(res.json().code).toBe('INTEGRATION_WRITE_UNVERIFIED');
+      expect(res.body).not.toContain('perdue-equipe');
+      expect(res.body).not.toContain('daily_key_synthetic_1234');
+    } finally {
+      upsert.mockRestore();
+    }
+    expect(await app.prisma.auditLog.count({ where: { action: 'INTEGRATION_UPDATE' } })).toBe(before);
+    await app.prisma.integrationConfig.deleteMany({ where: { provider: 'DAILY' } });
+    await app.redis.del('integration:DAILY');
   });
 });

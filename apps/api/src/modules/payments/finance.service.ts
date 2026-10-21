@@ -99,7 +99,8 @@ export async function receipt(app: FastifyInstance, userId: string, paymentId: s
 
 const operationSelect = { id: true, requestId: true, kind: true, state: true, doctorId: true, amount: true, currency: true, requestedBy: true, executingBy: true, executedBy: true, createdAt: true, executingAt: true, executedAt: true, proofRef: true, items: { select: { paymentId: true, providerReference: true, amount: true } } } as const;
 export const payoutSchema = z.object({ requestId: z.string().uuid(), doctorId: z.string().cuid(), paymentIds: z.array(z.string().cuid()).min(1).max(100).refine((a) => new Set(a).size === a.length) }).strict();
-export const proofSchema = z.object({ proofRef: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_.:-]{5,119}$/) }).strict();
+// Message explicite (recette L10 C7) : renvoyé tel quel par l'UI ; règle inchangée.
+export const proofSchema = z.object({ proofRef: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_.:-]{5,119}$/, 'Référence de preuve : 6 à 120 caractères (lettres, chiffres, _ . : -), commençant par une lettre ou un chiffre') }).strict();
 
 export async function eligible(app: FastifyInstance, doctorId: string, page: number, pageSize: number) {
   return app.prisma.$transaction(async (tx) => {

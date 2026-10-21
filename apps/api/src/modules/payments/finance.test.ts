@@ -142,6 +142,13 @@ describe.skipIf(!HAS_INFRA)('L7 — revenus et opérations intégrées', () => {
     const id = await paid(); const op = (await payout([id])).json(); await expect(payments.refund(app, id, { actorId: adminId })).rejects.toMatchObject({ statusCode: 409 });
     expect((await operation(op.id, 'cancel')).statusCode).toBe(200); expect((await payout([id])).statusCode).toBe(200);
   });
+  it('référence de preuve mal formée : 422 nommant le champ et la règle (recette L10 C7), opération inchangée', async () => {
+    const id = await paid(); const op = (await payout([id])).json(); await operation(op.id, 'start');
+    const res = await operation(op.id, 'complete', { proofRef: 'court' });
+    expect(res.statusCode).toBe(422);
+    expect(res.json().details.fieldErrors.proofRef[0]).toMatch(/^Référence de preuve : 6 à 120 caractères/);
+    expect((await operation(op.id, 'complete', { proofRef: 'bank:' + op.id })).statusCode).toBe(200);
+  });
   it('exécution exige prise en charge et preuve ; clôture répétée stable, vraie somme reversée distincte', async () => {
     const id = await paid(); const op = (await payout([id])).json(); expect((await operation(op.id, 'complete', { proofRef: 'operator:l7proof' })).statusCode).toBe(409);
     expect((await operation(op.id, 'start')).json().state).toBe('EXECUTING'); expect((await operation(op.id, 'cancel')).statusCode).toBe(409);

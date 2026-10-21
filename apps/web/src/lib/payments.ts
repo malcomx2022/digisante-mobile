@@ -60,3 +60,39 @@ export function paymentOutcome(res: PaymentInitResponse | { queued: true } | nul
   }
   return { kind: 'settled' };
 }
+
+// ─────────────────────────────────────────────────────────────
+// Libellé de l'état d'un paiement de consultation (recette L10, C1 — 20/10/2026).
+// Un paiement Portefeuille COMPLETED s'affichait « Paiement initié » : le libellé
+// unique ne distinguait pas un paiement confirmé d'une transaction en attente.
+// Lecture seule de l'état SERVEUR (§5 : aucune règle de paiement ici).
+// ─────────────────────────────────────────────────────────────
+
+export type PaymentTone = 'ok' | 'wait' | 'off' | 'error';
+export interface PaymentStatusView {
+  /** Clé i18n de la famille `subscriptions.payment_<statut>` (libellés génériques partagés). */
+  key: string;
+  tone: PaymentTone;
+}
+
+const PAYMENT_STATUS_TONE: Record<string, PaymentTone> = {
+  COMPLETED: 'ok',
+  PENDING: 'wait',
+  PROCESSING: 'wait',
+  REFUNDED: 'off',
+  FAILED: 'error',
+  CANCELLED: 'error',
+};
+
+/**
+ * État affichable du paiement d'un rendez-vous, ou `null` s'il n'en porte aucun
+ * (le rendez-vous reste alors payable). `settledLocally` : débit Portefeuille
+ * confirmé par la réponse serveur, avant le rechargement de la liste.
+ * Un statut inconnu n'est jamais présenté comme confirmé.
+ */
+export function paymentStatusView(status: string | null | undefined, settledLocally = false): PaymentStatusView | null {
+  if (settledLocally && !status) return { key: 'subscriptions.payment_completed', tone: 'ok' };
+  if (!status) return null;
+  const tone = PAYMENT_STATUS_TONE[status];
+  return tone ? { key: `subscriptions.payment_${status.toLowerCase()}`, tone } : { key: 'subscriptions.payment_pending', tone: 'wait' };
+}

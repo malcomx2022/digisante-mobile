@@ -11,9 +11,15 @@ import { useLocale } from '@/i18n/LocaleProvider';
 import { campaignsApi, type Campaign, type CampaignChannel } from '@/lib/api/campaigns';
 import { useApi } from '@/lib/api/useApi';
 
-const CHANNELS: CampaignChannel[] = ['IN_APP', 'SMS_TWILIO', 'PUSH_FCM'];
+const CHANNELS: CampaignChannel[] = ['IN_APP', 'SMS_TWILIO', 'PUSH_FCM', 'EMAIL'];
 const inputClass =
   'mt-0.5 w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base pagne-focus focus:outline-none focus:border-indigo-600';
+
+// Libellé d'une audience par rôle. Pas de clé `role.ADMIN` (les rôles d'inscription
+// seuls en ont une) : l'audience ADMIN reprend le libellé « Administrateurs ».
+function roleLabelKey(role: Role): string {
+  return role === 'ADMIN' ? 'admin.admins' : `role.${role}`;
+}
 
 function dt(s: string | null): string {
   return s ? formatDateTime(s, { dateStyle: 'short', timeStyle: 'short' }) : '—';
@@ -91,7 +97,7 @@ function CampaignCard({ campaign, onChanged }: { campaign: Campaign; onChanged: 
           <p className="font-display font-bold text-stone-800">{campaign.translations.FR.title}</p>
           <p className="text-[0.6875rem] text-stone-500 mt-0.5">
             {t(`campaigns.cat.${campaign.category}`)} ·{' '}
-            {campaign.audienceRole ? t(`role.${campaign.audienceRole}` as `role.${Role}`) : t('campaigns.all_roles')} ·{' '}
+            {campaign.audienceRole ? t(roleLabelKey(campaign.audienceRole)) : t('campaigns.all_roles')} ·{' '}
             {campaign.audienceLang ?? t('campaigns.all_langs')} · {campaign.channel}
           </p>
         </div>
@@ -147,13 +153,13 @@ function CampaignForm({ onDone, onCancel }: { onDone: () => void; onCancel: () =
   useEffect(() => {
     let cancelled = false;
     campaignsApi
-      .audience({ audienceRole: audienceRole || undefined, audienceLang: audienceLang || undefined })
+      .audience({ audienceRole: audienceRole || undefined, audienceLang: audienceLang || undefined, channel })
       .then((r) => !cancelled && setReach(r.audienceCount))
       .catch(() => !cancelled && setReach(null));
     return () => {
       cancelled = true;
     };
-  }, [audienceRole, audienceLang]);
+  }, [audienceRole, audienceLang, channel]);
 
   const valid = frTitle.trim().length > 0 && frBody.trim().length > 0;
 
@@ -201,9 +207,10 @@ function CampaignForm({ onDone, onCancel }: { onDone: () => void; onCancel: () =
           <span className="text-[0.6875rem] font-bold text-stone-500">{t('campaigns.audience_role')}</span>
           <select value={audienceRole} onChange={(e) => setAudienceRole(e.target.value as Role | '')} className={inputClass}>
             <option value="">{t('campaigns.all_roles')}</option>
-            {ROLES.filter((r) => r !== 'ADMIN').map((r) => (
+            {/* ADMIN inclus (recette L10, C3) : message non médical, déjà couvert par « Tous les rôles ». */}
+            {ROLES.map((r) => (
               <option key={r} value={r}>
-                {t(`role.${r}` as `role.${Role}`)}
+                {t(roleLabelKey(r))}
               </option>
             ))}
           </select>

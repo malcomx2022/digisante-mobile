@@ -10,7 +10,7 @@ import { useLocale } from '@/i18n/LocaleProvider';
 import { appointmentsApi, type PatientAppointment } from '@/lib/api/appointments';
 import { ApiRequestError, post } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
-import { paymentOutcome } from '@/lib/payments';
+import { paymentOutcome, paymentStatusView, type PaymentTone } from '@/lib/payments';
 import { PaymentReceipt } from '@/components/ui/PaymentReceipt';
 import { formatDateTime, formatNumber } from '@/i18n/format';
 
@@ -25,6 +25,14 @@ const PAY_METHODS: { method: string; label: string; cls: string }[] = [
   { method: 'MOOV_MONEY', label: 'Moov Money', cls: 'bg-indigo-600 text-white' },
   { method: 'WALLET', label: 'Wallet 🇫🇷', cls: 'bg-ocre-400 text-stone-900' },
 ];
+
+// Présentation de l'état du paiement (C1) : la couleur double le texte, jamais seule.
+const PAYMENT_TONE: Record<PaymentTone, { cls: string; icon: string }> = {
+  ok: { cls: 'text-sante-700', icon: '✓' },
+  wait: { cls: 'text-ocre-600', icon: '⏳' },
+  off: { cls: 'text-stone-600', icon: '↩' },
+  error: { cls: 'text-sos-600', icon: '✕' },
+};
 
 // Mes rendez-vous — liste (à venir / passés), annulation, rejoindre la téléconsult.
 export default function AppointmentsPage() {
@@ -111,7 +119,10 @@ export default function AppointmentsPage() {
     const future = new Date(a.scheduledAt).getTime() > now;
     const cancellable = future && (a.status === 'PENDING' || a.status === 'CONFIRMED');
     const joinable = a.status === 'CONFIRMED' && a.type === 'TELECONSULTATION' && a.consultationId;
-    const payable = !a.paid && !paidLocal.has(a.id) && (a.status === 'PENDING' || a.status === 'CONFIRMED');
+    // Un paiement existant (quel que soit son statut) verrouille le RDV côté serveur
+    // (`Payment.appointmentId` unique) : afficher son état plutôt qu'un bouton voué à l'échec.
+    const payment = paymentStatusView(a.paymentStatus, paidLocal.has(a.id));
+    const payable = !payment && (a.status === 'PENDING' || a.status === 'CONFIRMED');
     return (
       <CardPagne key={a.id} className="p-4">
         <div className="flex items-start justify-between gap-2">
@@ -163,8 +174,10 @@ export default function AppointmentsPage() {
 
         {/* Paiement de la consultation — montant imposé par le serveur (tarif du médecin). */}
         {a.paymentId && ['COMPLETED', 'REFUNDED'].includes(a.paymentStatus ?? '') && <PaymentReceipt paymentId={a.paymentId} />}
-        {(a.paid || paidLocal.has(a.id)) ? (
-          <p className="mt-3 text-[0.75rem] text-sante-700 font-bold"><span aria-hidden="true">✓</span> {t('prescriptions.paid')}</p>
+        {payment ? (
+          <p className={`mt-3 text-[0.75rem] font-bold ${PAYMENT_TONE[payment.tone].cls}`} data-payment-status={a.paymentStatus ?? 'COMPLETED'}>
+            <span aria-hidden="true">{PAYMENT_TONE[payment.tone].icon}</span> {t(payment.key)}
+          </p>
         ) : queuedLocal.has(a.id) ? (
           <p className="mt-3 text-[0.75rem] text-ocre-600 font-bold"><span aria-hidden="true">⏳</span> {t('prescriptions.payment_queued')}</p>
         ) : payable ? (

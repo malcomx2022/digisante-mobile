@@ -4,7 +4,8 @@ import { Protected } from '@/components/auth/Protected';
 import { AppShell } from '@/components/spaces/AppShell';
 import type { NavItem } from '@/components/ui/BottomNav';
 
-// Navigation de l'espace Diaspora (accent ocre). FAB = recharge wallet.
+// Navigation de l'espace Diaspora (accent ocre). FAB = action « Recharger » : il
+// mène au formulaire de recharge (`#topup`), la navigation garde « Mon portefeuille ».
 const NAV: NavItem[] = [
   { labelKey: 'nav.home', icon: 'home', href: '/diaspora' },
   { labelKey: 'wallet.title', icon: 'file', href: '/diaspora/wallet' },
@@ -18,8 +19,8 @@ export default function DiasporaLayout({ children }: { children: React.ReactNode
       <AppShell
         accent="ocre"
         items={NAV}
-        fabHref="/diaspora/wallet"
-        fabLabelKey="wallet.title"
+        fabHref="/diaspora/wallet#topup"
+        fabLabelKey="wallet.topup"
         profileHref="/diaspora/profile"
         bgWrap="wax-ocre"
       >

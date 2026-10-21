@@ -18,9 +18,11 @@ describe.skipIf(!HAS_INFRA)('Admin — diffusion / veille sanitaire (intégratio
   let restrictedToken: string;
   const auth = (t: string) => ({ authorization: `Bearer ${t}` });
   const recipientIds: string[] = [];
+  const adminIds: string[] = [];
 
   const cleanup = async () => {
-    if (recipientIds.length) await app.prisma.notification.deleteMany({ where: { recipientId: { in: recipientIds } } });
+    const ids = [...recipientIds, ...adminIds];
+    if (ids.length) await app.prisma.notification.deleteMany({ where: { recipientId: { in: ids } } });
     await app.prisma.healthCampaign.deleteMany({ where: { category: 'VACCINATION' } });
     await app.prisma.user.deleteMany({ where: { phone: { in: PHONES } } });
   };
@@ -32,7 +34,7 @@ describe.skipIf(!HAS_INFRA)('Admin — diffusion / veille sanitaire (intégratio
     await cleanup();
 
     const contentAdmin = await app.prisma.user.create({
-      data: { phone: PHONES[0], role: 'ADMIN', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Camp', lastName: 'Content' } }, adminProfile: { create: { scopes: CONTENT, preset: 'CONTENT' } } },
+      data: { phone: PHONES[0], email: 'camp.content@example.test', role: 'ADMIN', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Camp', lastName: 'Content' } }, adminProfile: { create: { scopes: CONTENT, preset: 'CONTENT' } } },
     });
     const restricted = await app.prisma.user.create({
       data: { phone: PHONES[1], role: 'ADMIN', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Camp', lastName: 'Restr' } }, adminProfile: { create: { scopes: RESTRICTED, preset: null } } },
@@ -42,6 +44,7 @@ describe.skipIf(!HAS_INFRA)('Admin — diffusion / veille sanitaire (intégratio
     const docFr = await app.prisma.user.create({ data: { phone: PHONES[4], role: 'MEDECIN', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Doc', lastName: 'Fr' } }, doctor: { create: { speciality: 'GEN', licenseNumber: 'BJ-CAM-00001', consultFee: 0 } } } });
     const patSuspended = await app.prisma.user.create({ data: { phone: PHONES[5], role: 'PATIENT', status: 'SUSPENDED', lang: 'FR', profile: { create: { firstName: 'Pat', lastName: 'Susp' } }, patient: { create: {} } } });
     recipientIds.push(patFr.id, patEn.id, docFr.id, patSuspended.id);
+    adminIds.push(contentAdmin.id, restricted.id);
 
     contentToken = app.jwt.sign({ sub: contentAdmin.id, role: 'ADMIN' }, { expiresIn: '15m' });
     restrictedToken = app.jwt.sign({ sub: restricted.id, role: 'ADMIN' }, { expiresIn: '15m' });
@@ -122,5 +125,45 @@ describe.skipIf(!HAS_INFRA)('Admin — diffusion / veille sanitaire (intégratio
     expect(editAfter.statusCode).toBe(400);
     const del = await app.inject({ method: 'DELETE', url: `/api/v1/admin/campaigns/${id}`, headers: auth(contentToken) });
     expect(del.statusCode).toBe(400);
+  });
+
+  it('canal EMAIL (recette RESEND-R6) : audience ADMIN, seuls les comptes avec e-mail, DRAFT → SENT puis dispatch tracé', async () => {
+    // Portée annoncée = comptes ACTIFS avec adresse e-mail (l'admin restreint n'en a pas).
+    const reach = await app.inject({ method: 'GET', url: '/api/v1/admin/campaigns/audience?audienceRole=ADMIN&channel=EMAIL', headers: auth(contentToken) });
+    const reachAll = await app.inject({ method: 'GET', url: '/api/v1/admin/campaigns/audience?audienceRole=ADMIN', headers: auth(contentToken) });
+    expect(reach.statusCode).toBe(200);
+    expect(reach.json().audienceCount).toBeGreaterThanOrEqual(1);
+    expect(reach.json().audienceCount).toBeLessThan(reachAll.json().audienceCount);
+
+    const create = await app.inject({
+      method: 'POST', url: '/api/v1/admin/campaigns', headers: auth(contentToken),
+      payload: { category: 'VACCINATION', translations: { FR: { title: 'Test e-mail', body: 'Message de recette.' } }, audienceRole: 'ADMIN', channel: 'EMAIL' },
+    });
+    expect(create.statusCode).toBe(201);
+    expect(create.json()).toMatchObject({ channel: 'EMAIL', status: 'DRAFT' });
+    const id = create.json().id as string;
+
+    const send = await app.inject({ method: 'POST', url: `/api/v1/admin/campaigns/${id}/send`, headers: auth(contentToken) });
+    expect(send.statusCode).toBe(200);
+    expect((await app.prisma.healthCampaign.findUnique({ where: { id } }))?.status).toBe('SENT');
+
+    const [mine] = await app.prisma.notification.findMany({ where: { recipientId: adminIds[0], type: 'SYSTEM', channel: 'EMAIL' } });
+    expect(mine).toMatchObject({ status: 'PENDING', title: 'Test e-mail' });
+    expect(await app.prisma.notification.count({ where: { recipientId: adminIds[1], channel: 'EMAIL' } })).toBe(0);
+
+    // Dispatch : le canal EMAIL passe par Resend (stub sans clé ici) et la ligne est tracée.
+    const { dispatchPending } = await import('@/modules/notifications/notifications.service.js');
+    await dispatchPending(app, 500);
+    const after = await app.prisma.notification.findUnique({ where: { id: mine!.id } });
+    expect(after?.status).toBe('SENT');
+    expect(after?.sentAt).not.toBeNull();
+  });
+
+  it('canal inconnu refusé (422)', async () => {
+    const res = await app.inject({
+      method: 'POST', url: '/api/v1/admin/campaigns', headers: auth(contentToken),
+      payload: { category: 'VACCINATION', translations: { FR: { title: 'T', body: 'B' } }, channel: 'FAX' },
+    });
+    expect(res.statusCode).toBe(422);
   });
 });

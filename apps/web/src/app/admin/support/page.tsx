@@ -124,6 +124,9 @@ export default function AdminSupport() {
           )}
         </CardPagne>
 
+        {/* Recette L10 I1 : sans compte choisi, la page n'émet aucune requête et
+            n'affichait qu'un champ — prise pour une page non chargée. */}
+        {!selectedId && <p className="text-[0.8125rem] text-stone-500 text-center py-4">{t('admin.detail_hint')}</p>}
         {err && <p className="text-[0.75rem] text-sos-600 font-bold">{err}</p>}
         {acc.error && selectedId && <ErrorState label={t('auth.error')} />}
         {acc.loading && selectedId && !account && <SkeletonCards count={2} label={t('common.loading')} />}
