@@ -101,3 +101,4 @@ Hors registre L10, mais bloquants pour un GO pilote patients réels : validation
 | 22/10/2026 | B1 : I7 (réconciliation 02:30, healthwatch, D-13) ; D-14 tranchée, retrait du `.env` à exécuter ; I8 en attente de la copie hors VPS | 1 | 92 |
 | 22/10/2026 | B1 : I8 (trio 20261022_013005 contrôlé, copie et clé hors VPS) — lot B1 clos (I3–I9) ; retrait du `.env` (D-14) à rapporter | 1 | 91 |
 | 22/10/2026 | D-14 exécutée (retrait du `.env`, redémarrage, ready) ; formulation d'I9 corrigée (origine des variables) | 0 | 91 |
+| 22/10/2026 | I8 remplacé par la version fusionnée (exécution 12:09:42Z = copie hors VPS achevée ; copie de transit supprimée), sur accord du porteur | 0 | 91 |
