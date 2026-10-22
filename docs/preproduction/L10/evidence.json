@@ -27,6 +27,33 @@
     },
     {
       "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
+      "caseId": "I4",
+      "evidenceRef": "Préprod ace0c689, maintenance Nginx posée (403 hors IP autorisées) : HTTPS 200 depuis IP autorisée, certificat valide jusqu’au 2027-01-12 ; certbot renew --dry-run réussi pour preprod.digisantemobile.app (simulation complète vers 07:16Z le 22/10, certificats réels intacts) ; HSTS présent max-age=86400, actif depuis le provisionnement des 14–15/10, condition « renouvellement vérifié » satisfaite par ce dry-run ; GET /api/v1/ready → ready, db:up, redis:up (08:50:37Z) ; poignée WebSocket route chat 101 via Nginx relevée dans le journal WS préprod (08:51:02Z), puis grep -c token= sur ce journal = 0 (09:12Z).",
+      "executedAt": "2026-10-22T09:12:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d",
+      "caseId": "I6",
+      "executedAt": "2026-10-22T08:50:03.000Z",
+      "evidenceRef": "Journaux cron préprod du 22/10/2026, tous postérieurs au déploiement ace0c689 et en HTTP 200 (heures Porto-Novo, UTC+1) : purge sync_receipts 03:10:04 (deleted=0), vaccination_reminders 06:30:04 (generated=0), maternity_reminders 06:40:04 (generated=0), appt_reminders */15 min (ex. 09:45:02, generated=0), med_reminders */5 min (ex. 09:50:03, generated=0) ; aucun rappel généré ce jour, donc aucun doublon ; dispatch */2 min actif (notification de recette dispatchée le 21/10 à 23:28Z)."
+    },
+    {
+      "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d",
+      "caseId": "I9",
+      "executedAt": "2026-10-22T08:53:42.000Z",
+      "evidenceRef": "Build ace0c689 vérifié le 22/10 à 08:52:04Z : configuration publique Firebase et clé VAPID présentes dans les chunks servis ; processus API PM2 en NODE_ENV=production ; demande d’OTP sur un numéro de recette fictif à 08:53:42Z → réponse {channel:SMS, expiresInSec:300}, sans devCode, code ni stub ; configurations fournisseurs chiffrées en base, activées, dernier test Firebase OK ; priorité base : le resolver lib/integrations sert exclusivement la ligne en base dès qu’elle existe (repli .env seulement sans ligne, jamais pour une ligne illisible) — le .env porte 10 variables fournisseurs renseignées, non utilisées tant que les lignes existent (écart avec le 20/10 signalé, à retirer ou justifier)."
+    },
+    {
+      "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
       "caseId": "RESEND-R6",
       "evidenceRef": "Campagne EMAIL de recette créée dans /admin/campaigns, audience ADMIN, passage DRAFT→SENT le 2026-10-21T23:26:11Z (audienceCount=1, vérifié en base) ; 1 notification EMAIL tracée puis dispatchée, statut DELIVERED (sentAt 2026-10-21T23:28:02Z, vérifié en base) ; e-mail reçu en FR dans la boîte de l'opérateur (capture conservée hors dépôt).",
       "executedAt": "2026-10-21T23:28:02.006Z",
