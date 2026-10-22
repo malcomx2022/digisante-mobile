@@ -77,7 +77,7 @@
       "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d",
       "caseId": "I9",
       "executedAt": "2026-10-22T08:53:42.000Z",
-      "evidenceRef": "Build ace0c689 vérifié le 22/10 à 08:52:04Z : configuration publique Firebase et clé VAPID présentes dans les chunks servis ; processus API PM2 en NODE_ENV=production ; demande d’OTP sur un numéro de recette fictif à 08:53:42Z → réponse {channel:SMS, expiresInSec:300}, sans devCode, code ni stub ; configurations fournisseurs chiffrées en base, activées, dernier test Firebase OK ; priorité base : le resolver lib/integrations sert exclusivement la ligne en base dès qu’elle existe (repli .env seulement sans ligne, jamais pour une ligne illisible) — le .env porte 10 variables fournisseurs renseignées, non utilisées tant que les lignes existent (écart avec le 20/10 signalé, à retirer ou justifier)."
+      "evidenceRef": "Build ace0c689 vérifié le 22/10 à 08:52:04Z : configuration publique Firebase et clé VAPID présentes dans les chunks servis ; processus API PM2 en NODE_ENV=production ; demande d’OTP sur un numéro de recette fictif à 08:53:42Z → réponse {channel:SMS, expiresInSec:300}, sans devCode, code ni stub ; configurations fournisseurs chiffrées en base, activées, dernier test Firebase OK ; priorité base : le resolver lib/integrations sert exclusivement la ligne en base dès qu’elle existe (repli .env seulement sans ligne, jamais pour une ligne illisible) — le .env portait 10 variables fournisseurs renseignées depuis le provisionnement du 15/10 (fichier non modifié depuis), non utilisées tant que les lignes existent ; retirées le 22/10 sur décision D-14."
     },
     {
       "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
