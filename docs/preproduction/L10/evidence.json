@@ -64,8 +64,8 @@
     {
       "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
       "caseId": "I8",
-      "evidenceRef": "Première sauvegarde cible après déploiement ace0c689 : cron 01:30 (Porto-Novo) du 22/10/2026, trio 20261022_013005 (DB chiffrée, fichiers chiffrés, manifeste), journal « Terminé ✓ » ; SHA256 des deux archives recalculés et conformes au manifeste, files_missing=0, comptages cohérents avec la base (34 migrations, 77 audits) ; copie du trio 20261022_013005 conservée hors VPS (confirmée par l’opérateur le 22/10/2026), clé de chiffrement backup.key conservée hors VPS dans le coffre du porteur. Exercice de restauration complète sur ce candidat reporté à FINANCE-F8/L11.",
-      "executedAt": "2026-10-22T00:30:07.000Z",
+      "evidenceRef": "Première sauvegarde cible après déploiement ace0c689 : cron 01:30 (Porto-Novo) du 22/10/2026, trio 20261022_013005 (DB chiffrée, fichiers chiffrés, manifeste), journal « Terminé ✓ » ; SHA256 des deux archives recalculés et conformes au manifeste, files_missing=0, comptages cohérents avec la base (34 migrations, 77 audits) ; copie du trio conservée hors VPS par l’opérateur (confirmation du 22/10/2026, comme pour le trio du 20/10), copie de transit sur le serveur supprimée après téléchargement ; clé de chiffrement backup.key conservée hors VPS dans le coffre du porteur. Exercice de restauration complète sur ce candidat reporté à FINANCE-F8/L11.",
+      "executedAt": "2026-10-22T12:09:42.000Z",
       "operator": "malcomx2022",
       "result": "PASS",
       "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
