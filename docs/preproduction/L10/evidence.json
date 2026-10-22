@@ -15,6 +15,15 @@
       "operator": "malcomx2022",
       "result": "PASS",
       "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
+      "caseId": "RESEND-R6",
+      "evidenceRef": "Campagne EMAIL de recette créée dans /admin/campaigns, audience ADMIN, passage DRAFT→SENT le 2026-10-21T23:26:11Z (audienceCount=1, vérifié en base) ; 1 notification EMAIL tracée puis dispatchée, statut DELIVERED (sentAt 2026-10-21T23:28:02Z, vérifié en base) ; e-mail reçu en FR dans la boîte de l'opérateur (capture conservée hors dépôt).",
+      "executedAt": "2026-10-21T23:28:02.006Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
     }
   ],
   "schemaVersion": 1
