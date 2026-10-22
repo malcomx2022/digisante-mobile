@@ -43,4 +43,4 @@ Touchés dans `src/modules/payments/**` : `callbackUrl` (adresse de navigation, 
 
 - Libellés dédiés non ajoutés (verrou L9) : titre « Paiements » de la liste finance (section sans titre visible, filtre « Statut »), note sur la portée EMAIL, message d'aide au format de preuve côté UI (le message vient de l'API, en français). À ajouter avec la prochaine régénération de l'instantané L9.
 - C2 : la cause exacte du renouvellement PRO sans POST du 20/10 21:46 n'est pas prouvée (le dialogue est hors carte sur `/pro/stats`) ; le portail supprime la classe de causes « confinement », l'E2E abonnement existant reste vert.
-- I1/I2 du brief rejoués PASS en préprod sur `ace0c689` (ci-dessus) ; RESEND-R6 réel et C2 (« Renouveler un mois PRO ») restent à rejouer.
+- I1/I2 du brief rejoués PASS en préprod sur `ace0c689` (ci-dessus) ; RESEND-R6 PASS sur `ace0c689` (2026-10-21T23:28:02Z, campagne EMAIL audience ADMIN DRAFT→SENT, notification DELIVERED, reçue en FR — preuve au registre L10) ; C2 (« Renouveler un mois PRO ») reste à rejouer.
