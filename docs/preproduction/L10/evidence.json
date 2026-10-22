@@ -81,6 +81,15 @@
     },
     {
       "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
+      "caseId": "FEDAPAY-S1",
+      "evidenceRef": "Recharge du portefeuille diaspora par l’interface, redirection vers la page FedaPay bac à sable (hôte constaté en S8) puis paiement carte de test : paiement WALLET_TOPUP de 6 560 XOF créé à 14:24:49Z, PENDING → COMPLETED à 14:25:15Z ; un seul audit PAYMENT_CONFIRMED (14:25:15.403Z) avec source=webhook (relu en base) ; portefeuille crédité une seule fois, 13 120 → 19 680 XOF (vérifié en base) ; retour navigateur sur /diaspora/wallet (GET 200 à 14:25:17Z), conforme au callback_url par type du correctif C5. Référence opaque.",
+      "executedAt": "2026-10-22T14:25:15.403Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
       "caseId": "FEDAPAY-S8",
       "evidenceRef": "Sonde S8 (SMOKE_FEDAPAY_S8=1) avec gardes L10 (préproduction, SHA du candidat, base et Redis dédiés) : transaction bac à sable de 100 XOF créée (HTTP 200), jamais payée, aucun Payment ni audit local ; lien généré (HTTP 200) ; verdict PASS, code HOTE_AUTORISE ; hôte exact du lien sandbox-process.fedapay.com, chemin = jeton opaque sans identifiant ni paramètre de requête, forme brute sans anomalie ; redirection effective constatée en FEDAPAY-S1. Référence de sonde ds-recette-s8-20261022140254-a772.",
       "executedAt": "2026-10-22T14:02:54.000Z",
