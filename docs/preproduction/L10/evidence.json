@@ -54,6 +54,15 @@
     },
     {
       "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
+      "caseId": "I7",
+      "evidenceRef": "Réconciliation FedaPay par cron le 22/10/2026 à 02:30 (Porto-Novo) sur ace0c689 : HTTP 200, réponse {scanned:3, resolved:0, failed:0} (aucun « non configuré »), aucun effet produit, donc sans double traitement ; healthwatch post-déploiement au matin du 22/10 : backlog 0 notification > 15 min, 0 webhook FedaPay rejeté en 1 h, aucune alerte ouverte ; alertes en syslog local de l’hôte (aucun ALERT_CMD), destinataire autorisé pour la préproduction par décision D-13 du porteur du 22/10/2026 (ALERT_CMD vers une adresse d’exploitation requis avant GO production).",
+      "executedAt": "2026-10-22T07:01:41.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
       "operator": "malcomx2022",
       "result": "PASS",
       "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d",
