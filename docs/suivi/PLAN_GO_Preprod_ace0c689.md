@@ -108,3 +108,4 @@ Hors registre L10, mais bloquants pour un GO pilote patients réels : validation
 | 22/10/2026 | B2 : FEDAPAY-S2 (consultation MTN MoMo, tarif serveur, webhook, retour /patient/appointments) | 1 | 88 |
 | 22/10/2026 | B2 : FEDAPAY-S3 (consultation par portefeuille, immédiate, débit unique) | 1 | 87 |
 | 22/10/2026 | B2 : FEDAPAY-S4 (webhook à secret falsifié rejeté ×3, AUTH_FAIL, puis confirmation unique après restauration) | 1 | 86 |
+| 22/10/2026 | B2 : FEDAPAY-S7 (1 + 3 rejeux rapprochés, idempotents, réponse déduite des tailles — le journal FedaPay n’affiche pas les corps). Note de mode opératoire : rejouer depuis la page du webhook FedaPay ; un renvoi depuis la page « Événements » n’a produit aucune livraison | 1 | 85 |
