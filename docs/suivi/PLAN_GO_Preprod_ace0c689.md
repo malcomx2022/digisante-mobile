@@ -106,3 +106,4 @@ Hors registre L10, mais bloquants pour un GO pilote patients réels : validation
 | 22/10/2026 | B2 : FEDAPAY-S8 (HOTE_AUTORISE, hôte sandbox-process.fedapay.com constaté) ; S1 en attente de la source de confirmation | 1 | 90 |
 | 22/10/2026 | B2 : FEDAPAY-S1 (recharge diaspora, confirmée par webhook, crédit unique, retour /diaspora/wallet) | 1 | 89 |
 | 22/10/2026 | B2 : FEDAPAY-S2 (consultation MTN MoMo, tarif serveur, webhook, retour /patient/appointments) | 1 | 88 |
+| 22/10/2026 | B2 : FEDAPAY-S3 (consultation par portefeuille, immédiate, débit unique) | 1 | 87 |
