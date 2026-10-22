@@ -103,3 +103,4 @@ Hors registre L10, mais bloquants pour un GO pilote patients réels : validation
 | 22/10/2026 | D-14 exécutée (retrait du `.env`, redémarrage, ready) ; formulation d'I9 corrigée (origine des variables) | 0 | 91 |
 | 22/10/2026 | I8 remplacé par la version fusionnée (exécution 12:09:42Z = copie hors VPS achevée ; copie de transit supprimée), sur accord du porteur | 0 | 91 |
 | 22/10/2026 | D-14 close : 5 intégrations testées OK depuis la base, `.env` sans variable fournisseur | 0 | 91 |
+| 22/10/2026 | B2 : FEDAPAY-S8 (HOTE_AUTORISE, hôte sandbox-process.fedapay.com constaté) ; S1 en attente de la source de confirmation | 1 | 90 |
