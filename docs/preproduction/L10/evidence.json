@@ -36,6 +36,15 @@
     },
     {
       "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
+      "caseId": "I5",
+      "evidenceRef": "Préprod ace0c689 : .env de l’API en 0600 (propriétaire digisante-preprod), backup.key en 0400 root:root ; magasin de fichiers /var/lib/digisante-preprod-files en 700, propriétaire applicatif, hors checkout ; backup.key et HEALTH_ENCRYPTION_KEY conservées hors VPS dans le coffre du porteur (attestations des 16/10 et 20/10, clés inchangées par le candidat) ; héritage d’audit vérifié sans réécriture : export psql ordonné (createdAt, id) en session UTC passé à scripts/audit/verify-chain.mjs du checkout ace0c689 → 77 entrées, 0 chaînage rompu, 0 hash non recalculable, code de sortie 0 (contrôle répété deux fois).",
+      "executedAt": "2026-10-22T11:24:36.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
       "operator": "malcomx2022",
       "result": "PASS",
       "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d",
