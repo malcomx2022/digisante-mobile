@@ -89,3 +89,4 @@ Hors registre L10, mais bloquants pour un GO pilote patients réels : validation
 |---|---|---|---:|
 | 21/10/2026 | Déclaration candidat + I1, RESEND-R6 | 2 | 98 |
 | 22/10/2026 | B1 partiel : I3 (I4–I9 en attente de compléments : readiness DB/Redis, renouvellement TLS/HSTS, journal WS sans jeton, permissions/clés hors VPS, générateurs et purge du 22/10, réconciliation du 22/10, copie hors VPS du trio du 22/10, absence de devCode) | 1 | 97 |
+| 22/10/2026 | B1 : I4 (readiness, dry-run certbot, HSTS, WS 101, journal WS sans jeton) ; I5–I9 en attente de compléments | 1 | 96 |
