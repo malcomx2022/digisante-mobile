@@ -1,0 +1,88 @@
+# Revue complète vers le GO préproduction puis production — 22 octobre 2026
+
+Branche `claude/youthful-allen-0yb5p7`, base `main` `14c3b82`. **Le code de `main` est identique à celui du candidat `ace0c689`** (`git diff ace0c689..14c3b82` ne touche que `docs/`) : les résultats ci-dessous valent pour le code déployé en préproduction.
+
+Cette fiche est une **revue et un plan**, pas une preuve de recette. Elle n'écrit rien dans le registre L10 (`docs/preproduction/L10/evidence.json`), ni dans `docs/suivi/LOT_L10.md` ou `docs/suivi/PLAN_GO_Preprod_ace0c689.md` : ces fichiers sont tenus par la session parallèle qui inscrit les preuves opérateur (branche `claude/inspiring-shannon-6c26ex`, PR #227 ouverte pour FEDAPAY-S2 au moment de cette revue).
+
+## 1. Tests rejoués (CI complète, en local)
+
+Environnement : PostgreSQL 16 et Redis 7 locaux, bases neuves, `NODE_ENV=test`, Node 22 (la CI utilise Node 24 et fait foi pour le moteur), Chromium préinstallé pour Playwright. Mêmes étapes que `.github/workflows/ci.yml`.
+
+| Étape | Résultat |
+|---|---|
+| `pnpm install --frozen-lockfile`, `prisma generate`, `migrate deploy` | OK, 34 migrations appliquées |
+| `pnpm lint`, `pnpm typecheck` | OK |
+| `pnpm test:scripts` (outillage L9/L10/infra) | **207 réussis, 1 ignoré, 0 échec** sur 208 |
+| Contrôles techniques : i18n EN complet, `validation:check`, `validation:campaign:check`, `preprod:check`, plan DOCX, `bash -n` des scripts, dossier L9 DOCX | OK (100 cas L10, source `d6bfcba2…` ; snapshot L9 `3e061d52…` inchangé) |
+| `pnpm test` — **unitaires + intégration** | **API 718/718** (94 fichiers), **web 155/155** (19 fichiers) |
+| `pnpm build` (proxy E2E, URL d'API relative) | OK |
+| `pnpm test:e2e` — **fonctionnels Playwright** | **39/39** |
+| `metrics:check` | 16 compteurs / 30 mentions conformes |
+
+Notes :
+- Les compteurs documentaires (696 API + 144 web, 36 E2E) sont une **mesure statique des déclarations** ; l'exécution compte 718 + 155 + 39 (tests paramétrés et ajouts post-L10). Aucun écart à corriger.
+- Premier passage de `test:scripts` : 3 échecs (`deploy-order.test.mjs`) dus à l'absence de la commande `ss` (paquet iproute2) sur le poste ; verts après installation. Les tests de déploiement dépendent de cet outil de l'hôte : à mentionner dans les prérequis locaux, sans effet en CI.
+
+### Gates déclaratifs
+
+| Gate | Résultat | Lecture |
+|---|---|---|
+| `preprod:gate --expected-sha ace0c689…` | code 1, **89 points ouverts** (88 après fusion de #227) | 11 cas inscrits : I1, I3–I9, RESEND-R6, FEDAPAY-S8, FEDAPAY-S1 |
+| `validation:gate` (L9) | code 1, **15 points ouverts** | FON/YOR 866/1 098 (232 manquantes dont 6 `sos.*`), phrasier natif absent, 7 contreseings cliniques absents |
+
+## 2. Revue du code du candidat (`ec6b0dc → ace0c689`)
+
+Diff relu intégralement (≈ 400 lignes hors tests : correctifs post-recette C1–C7, I1, I2). Zone §5 : seul le calcul de `callback_url` change (`lib/payment-return.ts`, navigation seule, aucun effet sur HMAC/CAS/crédit wallet) ; un message d'erreur de `proofSchema` (règle inchangée). Aucun défaut bloquant.
+
+| # | Constat | Gravité | Action proposée |
+|---|---|---|---|
+| R1 | `PUT /admin/integrations/:provider` : écriture, relecture (`verifyIntegrationWrite`) et audit `INTEGRATION_UPDATE` ne sont pas dans une transaction. Si la relecture échoue (ou si l'audit échoue), le secret **reste modifié sans audit**. Deux PUT concurrents : le premier reçoit un 500 sans audit alors que sa valeur a été écrite puis écrasée. | Moyenne (traçabilité §3.6 ④) | Lot correctif post-recette : écriture + audit dans une même transaction, relecture dans la transaction ; test concurrent. **Ne pas corriger pendant la recette** (nouveau candidat ⇒ preuves périmées). |
+| R2 | Cause racine d'I2 identifiée dans le diff : le client utilisait `put` (file hors ligne possible) au lieu de `putNow`. La relecture serveur ajoutée est une détection, la correction réelle est `putNow`. | Info | Rien ; conserver les deux. |
+| R3 | Liste admin `GET /admin/finance/payments` : expose `fedapayId` (identifiant opaque fournisseur) au scope `finance:read`, sans identité payeur ni donnée de santé. | Conforme | — |
+| R4 | Campagne `EMAIL` : audience restreinte aux comptes ACTIFS avec e-mail, aperçu cohérent avec le fan-out. | Conforme | — |
+
+Balayages d'invariants (CLAUDE.md §8) : 0 `window.confirm`, 0 `min-h-screen` imbriqué, 0 `text-[Npx]`, 0 `card-pagne` cliquable sans `pagne-focus`, 0 fausse horloge, 0 booléen statique `isXxxConfigured`, `/wallet/pay` absent, `enable_recording` jamais envoyé, ports 3000/3001 seulement dans les gardes. CSP : `unsafe-inline` (résiduel X8) toujours présent — arbitrage avant GO production.
+
+## 3. Ce qui reste pour le GO préproduction (candidat `ace0c689`)
+
+Source : `docs/suivi/PLAN_GO_Preprod_ace0c689.md` (tenu par la session parallèle). État : 11 PASS / 100, S2 en cours.
+
+1. **Recettes rejouables immédiatement (≈ 45)** : FedaPay S3–S7, S9, S10 ; Twilio T1, T3–T6, T8–T10 ; Firebase Android F1–F8 ; Resend R1–R5 ; abonnements A2, A4, A5, A7, A9, A10, A12, A14.
+2. **Modes opératoires à écrire puis exécuter (28)** : **Daily D1–D21 jamais PASS** (deux appareils + tiers, D19–D21 = bloquant B5 latence/démarrages simultanés), abonnements A1, A3, A6, A13, A16, finance F6–F7.
+3. **Décisions du porteur en attente** : D-1 (voix Bénin), D-2 (T11 N/A), D-3 (wallet médecin A8), D-4/D-11 (iOS, Moov), D-5 (finance LIVE geste par geste), D-6 (ligne REQUESTED 6 560 XOF), D-7 (second admin finance), D-8 (conservation), D-9 (I2), D-10 (approbation tardive S10), D-12 (F9). D-13 et D-14 closes.
+4. **Cas structurellement ouverts (13)** : I2, T2, T12, F1–F8 iPhone, A11 (échéance 21/11/2026), A15 → uniquement par décision référencée au PV, jamais PASS.
+5. **PV GO/NO-GO préproduction** signé ; maintenance Nginx levée seulement après.
+
+Plafond réaliste : ≈ 85 PASS + T11 N/A + décisions référencées pour le reste.
+
+## 4. Ce qui reste pour le GO production
+
+Indépendamment du GO préproduction (L11, `docs/suivi/LOT_L11.md`, tout « NON ATTESTÉ ») :
+
+| Bloc | Restant | Propriétaire |
+|---|---|---|
+| **L9 humain** | Traductions FON/YOR natives (232 clés, **6 `sos.*` critiques**), phrasier natif (27 phrases), 7 contreseings cliniques sur le snapshot `3e061d52…` ; **rendu posologie** (fractions, unités, horaires/durées supposés) à corriger puis contresigner | Relecteurs natifs, professionnel de santé, porteur |
+| **Hôte partagé (I2)** | Arbitrage des 6 résiduels de `infra/deploy/README.md` : port squatté, **Valkey partagé (mot de passe `default` = tous les index et FLUSHALL)**, fuseau, zones Nginx, **rôle PG d'exécution non propriétaire de l'audit** (à implémenter avant GO prod), capacité 4 Go | Porteur ; code pour le rôle PG |
+| **Exploitation** | Provisioning prod (`provision-ionos.sh --apply` production, jamais exécuté), B3/B4 installés côté prod, `ALERT_CMD` d'alerte vers une adresse d'exploitation (D-13), première sauvegarde prod + **restauration indépendante base ET fichiers**, répétition de rollback | Opérateur |
+| **Sécurité** | Pentest externe + re-tests, arbitrage X8 (`unsafe-inline`), Twilio Geo Permissions, hôtes FedaPay **live** jamais observés (B1 reste ouvert en live), HSTS prod après renouvellement vérifié | Prestataire, porteur |
+| **Paiements live** | Bascule clé `sk_live_` + secret webhook live, recette S1/S8 en live à montant plafonné, rapprochement des issues incertaines | Porteur (§5) |
+| **Recette 7 rôles** | Appareils et réseaux réels (2G/coupures), FR/EN/FON/YOR | Porteur, opérateur |
+| **Décision** | PV GO/NO-GO production signé, périmètre (Android seul ? MTN seul ?) | Porteur |
+| **Correctifs différés** | R1 ci-dessus, A8 (wallet médecin), D-10 si S10 le constate : à regrouper dans **un** candidat post-recette, requalifié puis re-recetté sur les cas concernés | Développement |
+
+## 5. Défis, compte tenu du travail parallèle
+
+1. **Gel du code pendant la recette.** Toute fusion touchant `apps/`, `packages/`, `infra/`, `scripts/` ou un fichier de l'instantané L10/L9 crée un nouveau candidat et **périme les preuves déjà inscrites** sur `ace0c689`. Pendant que la session parallèle inscrit les cas, ne fusionner que de la documentation hors instantané ; regrouper les correctifs (R1, A8, D-10…) dans un candidat unique après la recette.
+2. **Fichiers partagés.** `evidence.json`, `LOT_L10.md` et `PLAN_GO_Preprod_ace0c689.md` sont modifiés lot par lot par l'autre session : une seule session doit y écrire (celle-ci n'y touche pas). Fusions séquentielles, une PR par lot, gate rejoué sur copie à chaque fois.
+3. **SHA de `main` ≠ SHA déployé.** Chaque PR documentaire crée un nouveau SHA `main` ; le candidat reste `ace0c689` tant que le code ne change pas. Avant un déploiement production depuis la tête de `main`, requalifier ce SHA exact (`preprod:qualify`) et vérifier que l'instantané L10 est inchangé.
+4. **Recettes à dépendances humaines** : Daily (deux appareils + tiers, OTP sur le terminal du porteur), Moov/iOS (matériel absent), finance LIVE (feu vert par geste) — chemin critique hors code.
+5. **L9 n'avance pas avec la recette L10** : les relecteurs sont identifiés depuis le 14/10 mais aucun retour n'est intégré ; le GO pilote patients réels en dépend directement (écran SOS en français pour un locuteur FON/YOR).
+6. **Hôte partagé** : une décision production (Valkey dédié/ACL, rôle PG non propriétaire) peut imposer du code et donc un nouveau candidat ; à trancher **avant** la recette production pour ne pas la refaire.
+
+## 6. Ordre recommandé
+
+1. Terminer la recette préproduction sur `ace0c689` (§3), décisions D-1 à D-12 en parallèle, sans fusion de code.
+2. PV GO/NO-GO préproduction.
+3. Candidat post-recette unique : R1, rôle PG non propriétaire de l'audit, préfixe/ACL Valkey si décidé, A8/D-10 si décidés ; requalification + re-recette ciblée.
+4. L9 : intégration des retours natifs/cliniques et correction posologie (même candidat ou suivant, nouveau dossier à contresigner).
+5. Provisioning et recette production, restauration indépendante, pentest, PV GO production.
