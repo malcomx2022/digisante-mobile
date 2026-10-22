@@ -20,14 +20,13 @@ import {
   describeIntegration,
   type IntegrationProvider,
   INTEGRATION_PROVIDERS,
-  invalidateIntegration,
   isFrozenProvider,
   PROVIDER_SECRET_KEYS,
   setIntegration,
+  toggleIntegration,
   supportsWebhooks,
   testIntegration,
   validateSecretsShape,
-  verifyIntegrationWrite,
 } from '@/lib/integrations.js';
 import { requireRole, requireScope } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
@@ -89,16 +88,15 @@ export default async function adminIntegrationsRoutes(app: FastifyInstance) {
       if (!ok) throw badRequest('meta.webhookUrl doit être une URL HTTPS valide');
     }
 
+    // Écriture + relecture (I2) + audit dans UNE transaction (R1) : une écriture non
+    // retrouvée telle quelle échoue (500) et n'est pas conservée. Audit : noms de
+    // clés uniquement, JAMAIS les valeurs.
     await setIntegration(app, provider, {
       secrets: body.secrets,
       meta: body.meta ?? null,
       enabled: body.enabled,
       updatedById: request.user.sub,
-    });
-    // Relecture obligatoire (I2) : une écriture non retrouvée telle quelle échoue (500).
-    await verifyIntegrationWrite(app, provider, body.secrets);
-    // Audit : noms de clés uniquement, JAMAIS les valeurs.
-    await writeAudit(app.prisma, {
+    }, {
       action: 'INTEGRATION_UPDATE',
       actorId: request.user.sub,
       ip: request.ip,
@@ -112,16 +110,14 @@ export default async function adminIntegrationsRoutes(app: FastifyInstance) {
     const { provider } = zParse(providerParams, request.params);
     if (isFrozenProvider(provider)) throw badRequest(`Le provider ${provider} n'est pas modifiable via l'admin`);
     const { enabled } = zParse(patchBody, request.body);
-    const existing = await app.prisma.integrationConfig.findUnique({ where: { provider }, select: { id: true } });
-    if (!existing) throw badRequest('Aucune configuration en base pour ce provider (enregistrez d’abord des clés)');
-    await app.prisma.integrationConfig.update({ where: { provider }, data: { enabled, updatedById: request.user.sub } });
-    await invalidateIntegration(app, provider);
-    await writeAudit(app.prisma, {
+    // Mise à jour + audit dans UNE transaction (R1) : jamais d'activation sans trace.
+    const updated = await toggleIntegration(app, provider, enabled, request.user.sub, {
       action: 'INTEGRATION_TOGGLE',
       actorId: request.user.sub,
       ip: request.ip,
       meta: { provider, enabled },
     });
+    if (!updated) throw badRequest('Aucune configuration en base pour ce provider (enregistrez d’abord des clés)');
     return describeIntegration(app, provider);
   });
 

@@ -36,7 +36,7 @@ Diff relu intégralement (≈ 400 lignes hors tests : correctifs post-recette C1
 
 | # | Constat | Gravité | Action proposée |
 |---|---|---|---|
-| R1 | `PUT /admin/integrations/:provider` : écriture, relecture (`verifyIntegrationWrite`) et audit `INTEGRATION_UPDATE` ne sont pas dans une transaction. Si la relecture échoue (ou si l'audit échoue), le secret **reste modifié sans audit**. Deux PUT concurrents : le premier reçoit un 500 sans audit alors que sa valeur a été écrite puis écrasée. | Moyenne (traçabilité §3.6 ④) | Lot correctif post-recette : écriture + audit dans une même transaction, relecture dans la transaction ; test concurrent. **Ne pas corriger pendant la recette** (nouveau candidat ⇒ preuves périmées). |
+| R1 | `PUT /admin/integrations/:provider` : écriture, relecture (`verifyIntegrationWrite`) et audit `INTEGRATION_UPDATE` n'étaient pas dans une transaction. Si la relecture échouait (ou si l'audit échouait), le secret **restait modifié sans audit**. Deux PUT concurrents : le premier recevait un 500 sans audit alors que sa valeur avait été écrite puis écrasée. Même défaut sur `PATCH` (`INTEGRATION_TOGGLE`). | Moyenne (traçabilité §3.6 ④) | **Corrigé dans le lot post-recette (§7)**, non fusionnable avant la fin de la recette `ace0c689`. |
 | R2 | Cause racine d'I2 identifiée dans le diff : le client utilisait `put` (file hors ligne possible) au lieu de `putNow`. La relecture serveur ajoutée est une détection, la correction réelle est `putNow`. | Info | Rien ; conserver les deux. |
 | R3 | Liste admin `GET /admin/finance/payments` : expose `fedapayId` (identifiant opaque fournisseur) au scope `finance:read`, sans identité payeur ni donnée de santé. | Conforme | — |
 | R4 | Campagne `EMAIL` : audience restreinte aux comptes ACTIFS avec e-mail, aperçu cohérent avec le fan-out. | Conforme | — |
@@ -86,3 +86,21 @@ Indépendamment du GO préproduction (L11, `docs/suivi/LOT_L11.md`, tout « NON 
 3. Candidat post-recette unique : R1, rôle PG non propriétaire de l'audit, préfixe/ACL Valkey si décidé, A8/D-10 si décidés ; requalification + re-recette ciblée.
 4. L9 : intégration des retours natifs/cliniques et correction posologie (même candidat ou suivant, nouveau dossier à contresigner).
 5. Provisioning et recette production, restauration indépendante, pentest, PV GO production.
+
+## 7. Lot post-recette — correctif R1 (préparé le 22/10/2026, NON fusionnable pendant la recette)
+
+**Statut : implémenté et testé localement sur la branche de cette PR ; à ne fusionner qu'après le PV GO/NO-GO préproduction de `ace0c689`.** La fusion crée un nouveau candidat applicatif : requalification CI du SHA `main` obtenu, redéploiement préproduction sous maintenance, puis rejeu ciblé des cas concernés (au minimum la saisie/rotation d'une intégration depuis `/admin/integrations` et son audit). L'instantané L10 (`d6bfcba2…`) et le snapshot L9 (`3e061d52…`) ne changent pas : aucun fichier de recette ou clinique n'est touché.
+
+Correction (`apps/api/src/lib/integrations.ts`, `apps/api/src/modules/admin/integrations.routes.ts`) :
+- `setIntegration` fait upsert, **relecture dans la transaction** et audit (`writeAuditWithin`, verrou consultatif de la chaîne) dans **une seule transaction** ; tout échec annule l'écriture. Le cache Redis n'est invalidé qu'après le commit.
+- Le verrou de ligne de l'upsert sérialise deux enregistrements concurrents : chacun relit sa propre valeur et reçoit son audit (avant : 500 sans audit pour le premier).
+- `PATCH` passe par `toggleIntegration` (mise à jour conditionnelle + audit dans la même transaction) ; un provider sans ligne reste un 400, sans écriture ni audit.
+- La relecture `verifyIntegrationWrite` (I2) devient interne (`assertStoredSecrets`) et lit la ligne dans la transaction ; message d'erreur : « rien n'a été modifié ».
+- Aucun changement de la logique de paiement (§5) : FedaPay reste géré par la même route, seule l'atomicité de l'enregistrement de ses clés change.
+
+Preuves locales :
+- 4 tests d'intégration ajoutés/remplacés dans `integrations.routes.test.ts` : relecture en échec (valeur précédente conservée, pas d'audit, aucune valeur citée), audit en échec (nouvelle valeur non conservée), deux PUT concurrents (deux 200, deux audits), PATCH avec audit en échec (état inchangé). Les échecs sont simulés **dans la transaction réelle** (client transactionnel en proxy).
+- **Rouges sur l'ancien code** (4 échecs, 17 réussites), verts sur le nouveau (21/21).
+- `pnpm lint`, `pnpm typecheck` verts ; suite API complète **721/721** (94 fichiers) ; `preprod:check`, `validation:check` inchangés ; `metrics:check` mis à jour (699 API déclarés, 843 au total).
+
+Limite : un échec de l'invalidation Redis **après** le commit laisse l'ancien descripteur en cache au plus 300 s (résiduel déjà documenté au §8 de CLAUDE.md) ; l'écriture et son audit, eux, sont acquis.
