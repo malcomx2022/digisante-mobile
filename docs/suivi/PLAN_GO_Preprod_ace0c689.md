@@ -74,8 +74,8 @@ Ces projets sont des **brouillons à faire valider** ; aucun n'est acquis tant q
 | D-10 | Approbation FedaPay tardive après FAILED/CANCELLED (si S10 la constate) | FEDAPAY-S10 | accepter l'ignorance + rapprochement manuel / PR §5 dédiée |
 | D-11 | Moov (T2, T12) et iOS (F*-IPHONE) | cf. §5 | cf. §5 |
 | D-12 | F9 (rebuild) pendant la recette : nouveau build = nouveau candidat | FIREBASE-F9 | reporter au prochain candidat / accepter la preuve du build `ace0c689` |
-| D-13 | Destination des alertes healthwatch : aucun `ALERT_CMD` configuré, alertes en syslog local seulement | I7 | accepter le syslog de l'hôte comme destinataire autorisé du pilote / configurer `ALERT_CMD` vers une adresse d'exploitation |
-| D-14 | Variables fournisseurs du `.env` préprod (10 renseignées, vides le 20/10) : repli inutilisé tant que les lignes en base existent | I9 (inscrit) | retirer du `.env` / justifier et consigner |
+| D-13 | Destination des alertes healthwatch : aucun `ALERT_CMD` configuré, alertes en syslog local seulement | I7 | accepter le syslog de l'hôte comme destinataire autorisé du pilote / configurer `ALERT_CMD` vers une adresse d'exploitation — **Tranché le 22/10/2026 par le porteur : (a)** syslog local accepté pour la préproduction ; `ALERT_CMD` vers une adresse d'exploitation requis avant GO production |
+| D-14 | Variables fournisseurs du `.env` préprod (10 renseignées, vides le 20/10) : repli inutilisé tant que les lignes en base existent | I9 (inscrit) | retirer du `.env` / justifier et consigner — **Tranché le 22/10/2026 par le porteur : (a)** retirer les 10 variables du `.env` préprod (geste opérateur) puis redémarrer l'API, revérifier `/api/v1/ready` et le test d'intégration de chaque fournisseur ; origine des valeurs à consigner |
 
 **Chaîne d'audit (I5) — levé le 22/10/2026** : le rapport de rupture transmis le matin a été retiré par l'opérateur (il ne provenait pas d'une exécution réelle du script). Vérification réelle à 11:24:36Z sur la base préprod, export en session UTC : 77 entrées, 0 chaînage rompu, 0 hash non recalculable. Piège d'exploitation : un export psql dans un fuseau non UTC décale tous les horodatages et rend tous les hash non recalculables ; forcer `PGOPTIONS='-c timezone=UTC'`.
 
@@ -96,3 +96,4 @@ Hors registre L10, mais bloquants pour un GO pilote patients réels : validation
 | 22/10/2026 | B1 : I4 (readiness, dry-run certbot, HSTS, WS 101, journal WS sans jeton) ; I5–I9 en attente de compléments | 1 | 96 |
 | 22/10/2026 | B1 : I6, I9 (I4 complété) ; I5 bloqué (chaîne d'audit), I7 (compteurs de réconciliation + D-13), I8 (copie hors VPS) en attente | 2 | 94 |
 | 22/10/2026 | B1 : I5 (chaîne d'audit intègre, 77 entrées) ; I7 en attente de D-13 (compteurs 02:30 : scanned=3, resolved=0, failed=0) ; I8 en attente de la copie hors VPS | 1 | 93 |
+| 22/10/2026 | B1 : I7 (réconciliation 02:30, healthwatch, D-13) ; D-14 tranchée, retrait du `.env` à exécuter ; I8 en attente de la copie hors VPS | 1 | 92 |
