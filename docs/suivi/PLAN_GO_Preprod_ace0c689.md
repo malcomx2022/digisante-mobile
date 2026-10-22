@@ -74,6 +74,10 @@ Ces projets sont des **brouillons à faire valider** ; aucun n'est acquis tant q
 | D-10 | Approbation FedaPay tardive après FAILED/CANCELLED (si S10 la constate) | FEDAPAY-S10 | accepter l'ignorance + rapprochement manuel / PR §5 dédiée |
 | D-11 | Moov (T2, T12) et iOS (F*-IPHONE) | cf. §5 | cf. §5 |
 | D-12 | F9 (rebuild) pendant la recette : nouveau build = nouveau candidat | FIREBASE-F9 | reporter au prochain candidat / accepter la preuve du build `ace0c689` |
+| D-13 | Destination des alertes healthwatch : aucun `ALERT_CMD` configuré, alertes en syslog local seulement | I7 | accepter le syslog de l'hôte comme destinataire autorisé du pilote / configurer `ALERT_CMD` vers une adresse d'exploitation |
+| D-14 | Variables fournisseurs du `.env` préprod (10 renseignées, vides le 20/10) : repli inutilisé tant que les lignes en base existent | I9 (inscrit) | retirer du `.env` / justifier et consigner |
+
+**Point bloquant ouvert — chaîne d'audit (I5)** : `scripts/audit/verify-chain.mjs` rapporte sur la base préprod deux hash non recalculables (INTEGRATION_UPDATE du 15/10 13:38:11Z et du 20/10 12:38:14Z) et un chaînage rompu (index 8). Non reproduit localement avec le code `ace0c689` (écritures INTEGRATION_UPDATE/TEST rechargées via jsonb : chaîne intègre). Diagnostic en lecture seule demandé à l'opérateur ; I5 reste ouvert tant que la cause n'est pas établie (§4 : registre append-only chaîné).
 
 Hors registre L10, mais bloquants pour un GO pilote patients réels : validation clinique L9 (dossier non signé — ni Claude ni l'opérateur ne signent), clés critiques `sos.*` FON/YOR, rendu posologie. Le PV GO/NO-GO les reprendra comme critères distincts.
 
@@ -90,3 +94,4 @@ Hors registre L10, mais bloquants pour un GO pilote patients réels : validation
 | 21/10/2026 | Déclaration candidat + I1, RESEND-R6 | 2 | 98 |
 | 22/10/2026 | B1 partiel : I3 (I4–I9 en attente de compléments : readiness DB/Redis, renouvellement TLS/HSTS, journal WS sans jeton, permissions/clés hors VPS, générateurs et purge du 22/10, réconciliation du 22/10, copie hors VPS du trio du 22/10, absence de devCode) | 1 | 97 |
 | 22/10/2026 | B1 : I4 (readiness, dry-run certbot, HSTS, WS 101, journal WS sans jeton) ; I5–I9 en attente de compléments | 1 | 96 |
+| 22/10/2026 | B1 : I6, I9 (I4 complété) ; I5 bloqué (chaîne d'audit), I7 (compteurs de réconciliation + D-13), I8 (copie hors VPS) en attente | 2 | 94 |
