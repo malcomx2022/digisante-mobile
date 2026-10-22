@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d",
+  "sourceSnapshotSha256": "397411aac1f3e90349015c8aa480e44d7b559b54b0ae94c19c4d6c7b46ee8ffe",
   "sources": {
     ".github/workflows/ci.yml": "b2dd66e634f137fe14200fc302536a4f5510182814f3c6996c3aaa101260526d",
     ".github/workflows/preproduction.yml": "055bf59c9c4b40c4acd8a5ddf53b94b7caafb050f37f754006b077d9d98d384c",
@@ -13,9 +13,9 @@
     "apps/api/vitest.smoke.config.ts": "bde25a6e35a520dd45ed945f544c9f77c79f867cfbe669e359d59b49fa6196c8",
     "apps/api/vitest.smoke.setup.ts": "c9d496b7f7261735ef27db198892d339d4b0a7a7580b76784c1eb764142a7d5f",
     "docs/CONTRAT_Preproduction_L10.md": "1dbf026ee2d60e05648c1ac8aa58770f2615304e6db8457cb7f3e53215a6769b",
-    "docs/RECETTE_Abonnements_L6.md": "c22fb2d31b8068cbfbe3b31b1930e0e15b47d1da17c058ed0ad1fee85fea9b73",
+    "docs/RECETTE_Abonnements_L6.md": "28af4c3ce412e45fb5eff91752943ac4733f1dcf06ee1b3c3e97f7a3b3569a5f",
     "docs/RECETTE_Daily_Teleconsultation.md": "7d5a39df8ac395b8870cd5afeb23688faf5b4388904fe1cbf734c6cf0065b1a4",
-    "docs/RECETTE_FedaPay_Sandbox.md": "651bd37cc6676da00509406e1c1484d5e99617de5ec92780ac118fb169384ea2",
+    "docs/RECETTE_FedaPay_Sandbox.md": "b747be69ea2e56be993e6df05686a6b6cca45ffbe46ed5bdd5a8fc188a8e06ff",
     "docs/RECETTE_Finances_L7.md": "64fa7fad7c036134fe9428b23db02f9923d64e87c9b83cbf2beedd9bc77414a3",
     "docs/RECETTE_Firebase_Push.md": "f0954e4167284cb6ed9ea802a5abde583b145bbefeee4e42f4d96535ed23c20f",
     "docs/RECETTE_Resend_Email.md": "60bd43c96b5b69e0ebcabd0f5826e7f00d23d36fe36991f07cf6088a2f5f1a44",
@@ -167,7 +167,7 @@
     {
       "id": "FEDAPAY-S10",
       "recipe": "RECETTE_FedaPay_Sandbox.md",
-      "scenario": "Transaction refusée puis approuvée (B2) | refuser un paiement test puis réessayer sur le même lien si FedaPay le permet | consigner si le même `entity.id` passe `declined` → `approved` : FAILED/CANCELLED étant terminaux ici, une approbation tardive est ignorée — arbitrage porteur requis avant GO |  | ☐",
+      "scenario": "Transaction refusée puis approuvée (B2, D-10) | refuser un paiement test puis réessayer sur le même lien si FedaPay le permet | consigner si le même `entity.id` passe `declined` → `approved`. Décision D-10 (22/10/2026) : le paiement reste FAILED/CANCELLED, **aucun effet** (crédit, activation, capture) ; audit `PAYMENT_LATE_APPROVAL` unique et ligne dans /admin/finance › anomalies ; remboursement opérateur manuel |  | ☐",
       "conditional": false
     },
     {
@@ -551,7 +551,7 @@
     {
       "id": "SUBSCRIPTION-A8",
       "recipe": "RECETTE_Abonnements_L6.md",
-      "scenario": "Wallet suffisant/insuffisant : un débit exactement 5 000 XOF avec période/audit, ou rollback total | À recueillir",
+      "scenario": "Portefeuille refusé (A8, 22/10/2026) : « Wallet » absent de /pro/stats ; un `POST /subscriptions` `method: WALLET` répond 400 sans paiement, commande, débit ni appel fournisseur | À recueillir",
       "conditional": false
     },
     {

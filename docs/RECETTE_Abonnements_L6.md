@@ -11,7 +11,7 @@
 | A5 | FedaPay sandbox configuré : payer effectivement 5 000 XOF, webhook HMAC réel → une période et un audit, retour PRO ne confirme rien seul | À recueillir, L10 |
 | A6 | Refus/annulation opérateur, secret invalide, absence configuration : aucun droit ni lien fictif | À recueillir, L10 |
 | A7 | Coupure après POST : relire/reprendre commande, même clé sans nouveau débit ; recharge historique wallet reste correcte | À recueillir |
-| A8 | Wallet suffisant/insuffisant : un débit exactement 5 000 XOF avec période/audit, ou rollback total | À recueillir |
+| A8 | Portefeuille refusé (A8, 22/10/2026) : « Wallet » absent de /pro/stats ; un `POST /subscriptions` `method: WALLET` répond 400 sans paiement, commande, débit ni appel fournisseur | À recueillir |
 | A9 | Retry ×5 et webhook ∥ reconcile : aucune prolongation supplémentaire ; signature mauvaise refusée | À recueillir, L10 |
 | A10 | Renouvellement manuel : nouveau paiement et mois à la fin payée ; fin de mois 31 janvier → 28 février, heure Bénin conservée | À recueillir |
 | A11 | Expiration sans cron : nouveau démarrage refusé, join/end du soin ouvert conservés selon L5 | À recueillir |

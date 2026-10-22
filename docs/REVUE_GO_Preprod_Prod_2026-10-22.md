@@ -68,7 +68,7 @@ Indépendamment du GO préproduction (L11, `docs/suivi/LOT_L11.md`, tout « NON 
 | **Paiements live** | Bascule clé `sk_live_` + secret webhook live, recette S1/S8 en live à montant plafonné, rapprochement des issues incertaines | Porteur (§5) |
 | **Recette 7 rôles** | Appareils et réseaux réels (2G/coupures), FR/EN/FON/YOR | Porteur, opérateur |
 | **Décision** | PV GO/NO-GO production signé, périmètre (Android seul ? MTN seul ?) | Porteur |
-| **Correctifs différés** | R1 ci-dessus, A8 (wallet médecin), D-10 si S10 le constate : à regrouper dans **un** candidat post-recette, requalifié puis re-recetté sur les cas concernés | Développement |
+| **Correctifs différés** | R1, A8 (wallet médecin) et D-10 (approbation tardive) : **préparés dans ce lot post-recette (§7–§8)**, à fusionner en **un** candidat après le PV préproduction, requalifié puis re-recetté sur les cas concernés | Développement |
 
 ## 5. Défis, compte tenu du travail parallèle
 
@@ -104,3 +104,30 @@ Preuves locales :
 - `pnpm lint`, `pnpm typecheck` verts ; suite API complète **721/721** (94 fichiers) ; `preprod:check`, `validation:check` inchangés ; `metrics:check` mis à jour (699 API déclarés, 843 au total).
 
 Limite : un échec de l'invalidation Redis **après** le commit laisse l'ancien descripteur en cache au plus 300 s (résiduel déjà documenté au §8 de CLAUDE.md) ; l'écriture et son audit, eux, sont acquis.
+
+## 8. Lot post-recette — A8 et D-10 (préparés le 22/10/2026, NON fusionnables pendant la recette)
+
+Décisions du porteur prises dans cette session le 22/10/2026 : **D-3/A8 → retirer le portefeuille de l'abonnement PRO** ; **D-10 → signaler l'approbation tardive, sans effet**. Elles sont à reporter dans `docs/suivi/PLAN_GO_Preprod_ace0c689.md` (§6) par la session qui tient ce plan ; cette branche n'y écrit pas.
+
+### A8 — portefeuille retiré de l'abonnement médecin
+
+Constat : `/pro/stats` proposait « Wallet », mais un médecin n'a pas de portefeuille (aucun créé à l'inscription, aucune recharge dans l'espace PRO) ; le choix échouait toujours et seule la branche « insuffisant » était prouvable.
+- API : `subscriptions.subscribe` refuse `method: WALLET` en **400 avant toute écriture** (ni paiement, ni commande, ni débit, ni appel fournisseur) ; la branche de débit wallet est retirée. Le remboursement d'éventuels paiements historiques par wallet reste traité par `refundWithin` (inchangé).
+- Web : `SUBSCRIPTION_METHODS` (`lib/subscriptions.ts`, testé) remplace `PAYMENT_METHODS` dans `/pro/stats`.
+- Tests : les fichiers qui rendaient un médecin PRO par wallet utilisent une fixture « période confirmée par le fournisseur » — `apps/api/src/test/pro-fixture.ts` (passe par `activateWithin`, comme un webhook signé) et `e2e/pro-fixture.ts`. Les tests de restitution wallet d'abonnement deviennent : refus A8 avec solde suffisant, échec de révocation au remboursement (tout annulé), remboursements concurrents (un seul). Le renouvellement contigu reste couvert par l'API (`renouvellement manuel`) ; l'e2e vérifie l'absence de l'option et l'arrêt à échéance.
+- Contrat L6 §3 et recette A8 mis à jour.
+
+### D-10 — approbation FedaPay tardive (zone §5, revue + re-tests webhooks)
+
+Constat : un `approved` reçu pour un paiement déjà FAILED/CANCELLED était ignoré en silence alors que le payeur a pu être débité.
+- `applyPaymentStatus` : statut **inchangé**, aucun crédit/activation/capture ; `flagLateApproval` écrit l'audit `PAYMENT_LATE_APPROVAL` **une seule fois par paiement** (`writeAuditOnceWithin`, recherche sous le verrou de la chaîne d'audit) et journalise l'identifiant seul. Couvre aussi l'approbation qui perd la course face à un échec concurrent. COMPLETED/REFUNDED rejoués : inchangés.
+- `finance.anomalies` liste ces paiements pour un remboursement opérateur **manuel** (aucun transfert automatique).
+- HMAC, CAS `status ∉ terminaux`, crédit de recharge, capture L7 et activation L6 inchangés. Réponse webhook 200 (`idempotent`), donc pas de rejeu FedaPay infini.
+- Recette S10 mise à jour avec le comportement attendu.
+
+### Preuves locales du lot (R1 + A8 + D-10)
+
+- Tests D-10 (`payments.test.ts`) : refus puis approbation (×5, dont 4 simultanées) → FAILED, solde inchangé, 0 `PAYMENT_CONFIRMED`, 1 `PAYMENT_LATE_APPROVAL`, présent dans les anomalies ; annulation puis approbation → aucune écriture financière ; échec ∥ approbation → une seule issue ; confirmé rejoué jamais signalé. **3 rouges sur l'ancien code**, le 4ᵉ est une non-régression.
+- Re-tests webhooks §5 : suites `payments*`, `subscriptions*`, `finance*`, `wallet` complètes (HMAC valide/invalide, rejeux concurrents, réconciliation, remboursements).
+- Instantané L10 régénéré : source `397411aa…` (seules les recettes A8 et S10 changent ; `d6bfcba2…` reste celle de `ace0c689`). Le registre `evidence.json` du candidat en cours n'est pas touché : après fusion, le nouveau candidat aura son propre registre et la recette se rejouera sur les cas concernés (au moins A8, S10, A5/A10, F1–F4, saisie d'intégration).
+- Compteurs : 701 API + 145 web déclarés (846).
