@@ -107,3 +107,4 @@ Hors registre L10, mais bloquants pour un GO pilote patients réels : validation
 | 22/10/2026 | B2 : FEDAPAY-S1 (recharge diaspora, confirmée par webhook, crédit unique, retour /diaspora/wallet) | 1 | 89 |
 | 22/10/2026 | B2 : FEDAPAY-S2 (consultation MTN MoMo, tarif serveur, webhook, retour /patient/appointments) | 1 | 88 |
 | 22/10/2026 | B2 : FEDAPAY-S3 (consultation par portefeuille, immédiate, débit unique) | 1 | 87 |
+| 22/10/2026 | B2 : FEDAPAY-S4 (webhook à secret falsifié rejeté ×3, AUTH_FAIL, puis confirmation unique après restauration) | 1 | 86 |

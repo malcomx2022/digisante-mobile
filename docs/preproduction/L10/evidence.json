@@ -108,6 +108,15 @@
     },
     {
       "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
+      "caseId": "FEDAPAY-S4",
+      "evidenceRef": "Webhook rejeté : secret webhook FedaPay de la configuration en base temporairement falsifié, puis recharge diaspora bac à sable de 6 560 XOF (créée à 18:19:14Z) ; trois livraisons rejetées pour signature invalide, chacune avec un audit AUTH_FAIL source=fedapay_webhook reason=bad_signature (18:20:47Z, 18:21:10Z, 18:21:15Z), statut inchangé, aucune confirmation ni crédit pendant la fenêtre ; secret d’origine restauré à 18:21:34Z (audit INTEGRATION_UPDATE, test d’intégration OK à 18:21:35Z) ; relivraison confirmée une seule fois (PAYMENT_CONFIRMED source=webhook à 18:21:57Z), portefeuille crédité une fois 19 680 → 26 240 XOF — vérifié en base et au journal. Référence opaque.",
+      "executedAt": "2026-10-22T18:20:47.501Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
       "caseId": "FEDAPAY-S8",
       "evidenceRef": "Sonde S8 (SMOKE_FEDAPAY_S8=1) avec gardes L10 (préproduction, SHA du candidat, base et Redis dédiés) : transaction bac à sable de 100 XOF créée (HTTP 200), jamais payée, aucun Payment ni audit local ; lien généré (HTTP 200) ; verdict PASS, code HOTE_AUTORISE ; hôte exact du lien sandbox-process.fedapay.com, chemin = jeton opaque sans identifiant ni paramètre de requête, forme brute sans anomalie ; redirection effective constatée en FEDAPAY-S1. Référence de sonde ds-recette-s8-20261022140254-a772.",
       "executedAt": "2026-10-22T14:02:54.000Z",
