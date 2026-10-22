@@ -97,3 +97,4 @@ Hors registre L10, mais bloquants pour un GO pilote patients réels : validation
 | 22/10/2026 | B1 : I6, I9 (I4 complété) ; I5 bloqué (chaîne d'audit), I7 (compteurs de réconciliation + D-13), I8 (copie hors VPS) en attente | 2 | 94 |
 | 22/10/2026 | B1 : I5 (chaîne d'audit intègre, 77 entrées) ; I7 en attente de D-13 (compteurs 02:30 : scanned=3, resolved=0, failed=0) ; I8 en attente de la copie hors VPS | 1 | 93 |
 | 22/10/2026 | B1 : I7 (réconciliation 02:30, healthwatch, D-13) ; D-14 tranchée, retrait du `.env` à exécuter ; I8 en attente de la copie hors VPS | 1 | 92 |
+| 22/10/2026 | B1 : I8 (trio 20261022_013005 contrôlé, copie et clé hors VPS) — lot B1 clos (I3–I9) ; retrait du `.env` (D-14) à rapporter | 1 | 91 |
