@@ -21,7 +21,9 @@ Poser et vérifier une maintenance **Nginx** avant le script ; autoriser seuleme
 ```bash
 # Maintenance déjà vérifiée. Outillage = deploy.sh de origin/main extrait HORS du checkout (comme les workflows), jamais celui
 # du checkout : bash relit le fichier ouvert même après `git switch` (README §3).
-sudo -u digisante-preprod bash -c 'cd /var/www/digisante-preprod && git fetch origin main \
+# URL du rôle PROPRIÉTAIRE saisie DANS le shell du compte (sudo -u réinitialise l'environnement), jamais en argument.
+sudo -u digisante-preprod bash -c 'read -rs -p "MIGRATION_DATABASE_URL (propriétaire, coffre) : " MIGRATION_DATABASE_URL; echo; export MIGRATION_DATABASE_URL \
+  && cd /var/www/digisante-preprod && git fetch origin main \
   && M="$(git rev-parse --verify "origin/main^{commit}")" && F="$(mktemp)" \
   && git show "$M:infra/deploy/scripts/deploy.sh" > "$F" \
   && DEPLOY_TOOLING_SHA="$M" DEPLOY_REF=<SHA_COMPLET_QUALIFIE> DEPLOY_ENVIRONMENT=preproduction \

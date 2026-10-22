@@ -44,7 +44,7 @@ function fixture() {
   // Le script de déploiement contrôle le profil complet ; les services synthétiques
   // ne doivent pas hériter des URLs NODE_ENV=test de la CI qui lance cette suite.
   delete env.DATABASE_URL; delete env.REDIS_URL; env.NODE_ENV='production';
-  writeFileSync(join(env.APP_DIR,'apps/api/.env'),'NODE_ENV=production\nDATABASE_URL=postgresql://digisante_preprod:synthetic@127.0.0.1:5432/digisante_preprod?schema=public\nREDIS_URL=redis://:synthetic@127.0.0.1:6379/5\n');chmodSync(join(env.APP_DIR,'apps/api/.env'),0o600);
+  writeFileSync(join(env.APP_DIR,'apps/api/.env'),'NODE_ENV=production\nDATABASE_URL=postgresql://digisante_preprod_app:synthetic@127.0.0.1:5432/digisante_preprod?schema=public\nREDIS_URL=redis://:synthetic@127.0.0.1:6379/5\n');chmodSync(join(env.APP_DIR,'apps/api/.env'),0o600);
   writeFileSync(env.BACKUP_KEY_FILE,'SYNTHETIC TEST KEY');chmodSync(env.BACKUP_KEY_FILE,0o600);
   writeFileSync(env.TRACE,'');chmodSync(env.TRACE,0o666);
   writeFileSync(join(env.KYC_STORAGE_DIR,`${STORE_ID}.bin`),'SYNTHETIC ENCRYPTED FILE');own(env.KYC_STORAGE_DIR);
@@ -83,6 +83,8 @@ esac`);
   command('ss',`echo "ss $*" >> "$TRACE"; if [[ "\u0024{PORT_BUSY:-0}" == 1 ]]; then echo 'LISTEN 0 511 127.0.0.1:3101 0.0.0.0:*'; fi`);
   command('curl',`echo "curl $*" >> "$TRACE"; if [[ "\u0024{BAD_READY:-0}" == 1 ]]; then echo '<html>wrong backend</html>'; else echo '{"status":"ready","db":"up","redis":"up"}'; fi`);
   command('sleep',':');
+  // Droits du rôle d'exécution appliqués par deploy.sh sous le propriétaire (SQL sur l'entrée standard).
+  command('psql',`echo "psql $* user=\u0024{PGUSER:-}" >> "$TRACE"; cat >/dev/null`);
   // psql synthétique : relevé du snapshot avec fichiers référencés (FILES_EXPECTED / REFS).
   // tar : tracé avec l'identité demandée ; en root, privilèges RÉELLEMENT abandonnés.
   command('sudo',`[[ "$1" == -u ]]; u="$2"; shift 2; [[ "$1" != -- ]] || shift
@@ -104,7 +106,8 @@ function archivedNames(f) {
   const clear=spawnSync('openssl',['enc','-d','-aes-256-cbc','-pbkdf2','-pass','file:'+f.env.BACKUP_KEY_FILE,'-in',enc]);assert.equal(clear.status,0);
   const list=spawnSync('tar',['-tzf','-'],{input:clear.stdout,encoding:'utf8'});assert.equal(list.status,0);return list.stdout.trim().split('\n');
 }
-const deployEnv={DEPLOY_REF:sha,DEPLOY_ENVIRONMENT:'preproduction',DEPLOY_MAINTENANCE_READY:'1'};
+// URL du rôle PROPRIÉTAIRE fournie par l'environnement du déploiement (revue GO du 22/10/2026), jamais par le .env.
+const deployEnv={DEPLOY_REF:sha,DEPLOY_ENVIRONMENT:'preproduction',DEPLOY_MAINTENANCE_READY:'1',MIGRATION_DATABASE_URL:'postgresql://digisante_preprod:owner-synthetic@127.0.0.1:5432/digisante_preprod?schema=public'};
 test('déploiement : SHA/maintenance/env production/change opérateur/branche exigés avant effets',()=>{
   for(const change of [{DEPLOY_REF:'main'},{DEPLOY_MAINTENANCE_READY:'0'},{DEPLOY_ENVIRONMENT:'bad'},{DIRTY:'1'},{WRONG_BRANCH:'1'}]) {
     const f=fixture();try {const r=f.run('deploy.sh',{...deployEnv,...change});assert.notEqual(r.status,0,r.stderr);assert.doesNotMatch(f.trace(),/pnpm |pm2 /);}finally{f.clean();}
@@ -256,6 +259,19 @@ esac`);
   const ws=join(f.dir,'ws.log');writeFileSync(ws,'');
   return {f,ws};
 }
+test('vérification : API sous le rôle d’exécution <base>_app exigée, propriétaire ou URL de migration dans le .env ⇒ FAIL',()=>{
+  const {f,ws}=verifyFixture();try {
+    const base={DOMAIN:'preprod.example.bj',VERIFY_JOB_ENVIRONMENT:'preproduction',WS_LOG:ws};
+    let r=f.run('verify_deploy.sh',base);
+    assert.equal(r.status,0,r.stdout+r.stderr);assert.match(r.stdout,/PASS.*API sous le rôle d'exécution digisante_preprod_app/);
+    for(const body of ['DATABASE_URL=postgresql://digisante_preprod:owner-synthetic@127.0.0.1:5432/digisante_preprod\n',
+      'DATABASE_URL=postgresql://digisante_preprod_app:synthetic@127.0.0.1:5432/digisante_preprod\nMIGRATION_DATABASE_URL=postgresql://digisante_preprod:owner-synthetic@127.0.0.1:5432/digisante_preprod\n']) {
+      writeFileSync(f.env.API_ENV_FILE,'NODE_ENV=production\n'+body);chmodSync(f.env.API_ENV_FILE,0o600);
+      r=f.run('verify_deploy.sh',base);
+      assert.notEqual(r.status,0);assert.match(r.stdout,/FAIL.*API \(\.env\) sous .* au lieu de digisante_preprod_app/);assert.doesNotMatch(r.stdout+r.stderr,/owner-synthetic/);
+    }
+  } finally {f.clean();}
+});
 test('vérification : sondes par défaut sans tâches ; opt-in synthétique lance exactement six tâches de la copie root',()=>{
   for(const jobs of [false,true]) {
     const {f,ws}=verifyFixture();try {
@@ -367,8 +383,8 @@ test('déploiement préproduction : arrête SEULEMENT digisante-preprod-*, readi
 });
 test('déploiement production : arrête digisante-api/web (jamais la préproduction), readiness 127.0.0.1:3201',()=>{
   const f=fixture();try{
-    writeFileSync(f.env.API_ENV_FILE,'NODE_ENV=production\nDATABASE_URL=postgresql://digisante:synthetic@127.0.0.1:5432/digisante?schema=public\nREDIS_URL=redis://:synthetic@127.0.0.1:6379/6\n');
-    const r=f.run('deploy.sh',{...deployEnv,DEPLOY_ENVIRONMENT:'production',DIGISANTE_ENV:'',OLD_WRITERS:'1',OLD_API:'digisante-api',OLD_WEB:'digisante-web',OTHER_ENV:'{"name":"digisante-preprod-api","pm2_env":{"status":"online"}}'});
+    writeFileSync(f.env.API_ENV_FILE,'NODE_ENV=production\nDATABASE_URL=postgresql://digisante_app:synthetic@127.0.0.1:5432/digisante?schema=public\nREDIS_URL=redis://:synthetic@127.0.0.1:6379/6\n');
+    const r=f.run('deploy.sh',{...deployEnv,MIGRATION_DATABASE_URL:'postgresql://digisante:owner-synthetic@127.0.0.1:5432/digisante?schema=public',DEPLOY_ENVIRONMENT:'production',DIGISANTE_ENV:'',OLD_WRITERS:'1',OLD_API:'digisante-api',OLD_WEB:'digisante-web',OTHER_ENV:'{"name":"digisante-preprod-api","pm2_env":{"status":"online"}}'});
     assert.equal(r.status,0,r.stderr+r.stdout);const t=f.trace();
     assert.match(t,/^pm2 stop digisante-api digisante-web$/m);assert.doesNotMatch(t,/^pm2 stop .*preprod/m);
     assert.match(t,/^pm2 delete digisante-api digisante-web$/m);assert.doesNotMatch(t,/^pm2 delete .*preprod/m);

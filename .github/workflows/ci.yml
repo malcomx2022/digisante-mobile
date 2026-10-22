@@ -57,6 +57,21 @@ jobs:
           for script in infra/deploy/scripts/*.sh; do bash -n "$script"; done
           python scripts/docs/validate-l9-dossier.py
       - run: pnpm test
+      # Revue GO du 22/10/2026 : l'API de production tourne sous un rôle NON propriétaire
+      # (`<base>_app`, droits appliqués par deploy.sh). La suite API est rejouée sous ce rôle
+      # pour prouver que le code n'a besoin d'aucun droit de propriétaire (DDL, UPDATE/DELETE
+      # sur l'audit…). Le test du rôle lui-même exige la connexion propriétaire : exclu ici.
+      - name: Suite API sous le rôle d'exécution non propriétaire
+        env:
+          PGHOST: localhost
+          PGUSER: digisante
+          PGPASSWORD: devpassword
+          PGDATABASE: digisante_test
+        run: |
+          psql -X -q -v ON_ERROR_STOP=1 -c "CREATE ROLE digisante_test_app LOGIN PASSWORD 'ci-synthetic-runtime-role'"
+          node scripts/infra/runtime-grants-sql.mjs | psql -X -q -A -t -v app_role=digisante_test_app
+          DATABASE_URL='postgresql://digisante_test_app:ci-synthetic-runtime-role@localhost:5432/digisante_test?schema=public' \
+            pnpm --filter @digisante/api exec vitest run --exclude src/lib/runtime-role.test.ts
       - run: pnpm build
 
   # ── Tests e2e (Playwright) ──
@@ -145,34 +160,43 @@ jobs:
       # PAS la clé d'hôte (un DNS détourné « déploierait » sur un autre serveur).
       - name: Vérifier la présence des accès (aucune valeur affichée)
         run: |
-          node -e 'for(const k of ["HOST","USER","KEY","FINGERPRINT"]){if(!process.env[k]){console.error("Accès production incomplet : "+k);process.exit(1)}}'
+          node -e 'for(const k of ["HOST","USER","KEY","FINGERPRINT","MIGRATION"]){if(!process.env[k]){console.error("Accès production incomplet : "+k);process.exit(1)}}'
         env:
           HOST: ${{ secrets.VPS_HOST }}
           USER: ${{ secrets.VPS_USER }}
           KEY: ${{ secrets.VPS_SSH_KEY }}
           FINGERPRINT: ${{ secrets.VPS_FINGERPRINT }}
-      - name: Déploiement SSH sur le VPS
-        # Reste en v1 volontairement : c'est une action COMPOSITE
-        # (`runs.using: composite`), pas une action JavaScript — elle n'embarque
-        # aucun runtime Node et n'est donc pas concernée par le retrait de
-        # Node 20 des runners. v1 est toujours la majeure courante.
-        uses: appleboy/ssh-action@v1
+          MIGRATION: ${{ secrets.DB_MIGRATION_URL }}
+      # Outillage de déploiement (ssh-deploy.sh) issu de main, comme la garde de deploy.sh.
+      - uses: actions/checkout@v7
         with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          fingerprint: ${{ secrets.VPS_FINGERPRINT }}
-          port: ${{ secrets.VPS_SSH_PORT || 22 }}
-          script: |
-            set -e
-            # Checkout de production sur l'hôte IONOS partagé (= APP_DIR du profil production).
-            cd /var/www/digisante
-            git fetch origin main
-            # Garde issue du main récupéré, même si la candidate est ancienne : son
-            # deploy.sh historique pourrait ignorer les protections ajoutées depuis.
-            MAIN_SHA="$(git rev-parse --verify 'origin/main^{commit}')"
-            printf 'Outillage de déploiement : main %s\n' "$MAIN_SHA"
-            deploy_script=$(mktemp)
-            trap 'rm -f "$deploy_script"' EXIT
-            git show "$MAIN_SHA:infra/deploy/scripts/deploy.sh" > "$deploy_script"
-            DEPLOY_TOOLING_SHA="$MAIN_SHA" DEPLOY_REF='${{ github.sha }}' DEPLOY_ENVIRONMENT=production DEPLOY_MAINTENANCE_READY=1 bash "$deploy_script"
+          ref: main
+      - name: Déploiement SSH sur le VPS
+        # Revue GO du 22/10/2026 : appleboy/ssh-action remplacé. Ses `envs` sont recopiés dans la
+        # commande distante, lisible par tous les comptes de l'hôte partagé (/proc/<pid>/cmdline) :
+        # l'URL du rôle PROPRIÉTAIRE PostgreSQL passe par l'entrée standard (ssh-deploy.sh), et la
+        # clé d'hôte est vérifiée contre VPS_FINGERPRINT avant toute connexion.
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          VPS_FINGERPRINT: ${{ secrets.VPS_FINGERPRINT }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT || 22 }}
+          MIGRATION_DATABASE_URL: ${{ secrets.DB_MIGRATION_URL }}
+        run: |
+          remote="$(mktemp)"
+          cat > "$remote" <<'REMOTE'
+          set -e
+          # Checkout de production sur l'hôte IONOS partagé (= APP_DIR du profil production).
+          cd /var/www/digisante
+          git fetch origin main
+          # Garde issue du main récupéré, même si la candidate est ancienne : son
+          # deploy.sh historique pourrait ignorer les protections ajoutées depuis.
+          MAIN_SHA="$(git rev-parse --verify 'origin/main^{commit}')"
+          printf 'Outillage de déploiement : main %s\n' "$MAIN_SHA"
+          deploy_script=$(mktemp)
+          trap 'rm -f "$deploy_script"' EXIT
+          git show "$MAIN_SHA:infra/deploy/scripts/deploy.sh" > "$deploy_script"
+          DEPLOY_TOOLING_SHA="$MAIN_SHA" DEPLOY_REF='${{ github.sha }}' DEPLOY_ENVIRONMENT=production DEPLOY_MAINTENANCE_READY=1 bash "$deploy_script"
+          REMOTE
+          bash scripts/deploy/ssh-deploy.sh "$remote"

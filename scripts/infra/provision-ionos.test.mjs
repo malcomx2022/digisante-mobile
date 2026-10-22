@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const SCRIPT_REL = 'infra/deploy/scripts/provision-ionos.sh';
 const PG_SECRET = 'SYNTHETIC_PG_SECRET_0123456789abcdef';
+const PG_RUNTIME_SECRET = 'SYNTHETIC_PG_RUNTIME_0123456789abcdef';
 const VALKEY_SECRET = 'SYNTHETIC_VALKEY_SECRET_abcdef';
 const ROOT_LIST = readFileSync(resolve(ROOT, 'infra/deploy/root-scripts.list'), 'utf8').split('\n')
   .map((l) => /^(0755|0644) (\S+)$/.exec(l)).filter(Boolean).map((m) => ({ mode: parseInt(m[1], 8), path: m[2] }));
@@ -68,8 +69,9 @@ exec "$@"`,
   esac
 fi
 sql=""; db=""; prev=""; for a in "$@"; do [[ "$prev" == -c ]] && sql="$a"; [[ "$prev" == -d ]] && db="$a"; prev="$a"; done
-if [[ -z "$sql" ]]; then sql="$(cat)"; echo "psql-stdin $(tr '\\n' ' ' <<<"$sql")" >> "$TRACE"; echo "psql-env pw=\${PG_APP_PASSWORD:+set} verifier=\${PG_APP_VERIFIER:0:18}" >> "$TRACE"; exit 0; fi
+if [[ -z "$sql" ]]; then sql="$(cat)"; echo "psql-stdin $(tr '\\n' ' ' <<<"$sql")" >> "$TRACE"; v="\${PG_APP_VERIFIER:-}\${PG_RUNTIME_VERIFIER:-}"; echo "psql-env pw=\${PG_APP_PASSWORD:+set}\${PG_RUNTIME_PASSWORD:+set} verifier=\${v:0:18}" >> "$TRACE"; exit 0; fi
 case "$sql" in
+*runtime_role_check*) printf '%s' "\${FAKE_PG_RUNTIME:-ok}";;
 *server_version_num*) echo "\${FAKE_PG_VERSION:-180006}";;
 *pg_auth_members*) echo "\${FAKE_PG_MEMBERS:-0}";;
 *rolsuper*) printf '%s' "\${FAKE_PG_ROLE_ATTR:-}";;
@@ -159,7 +161,7 @@ function fixture(env = 'preproduction', { osVersion = '26.04', fakeInstall = fal
     PATH: `${bin}:${process.env.PATH}`, HOME: t('root-home'), TRACE: trace, REAL_NODE: process.execPath,
     REAL_STAT, FAKE_ROOT_PARENT: dirname(dir),
     PROVISION_TEST_ROOT: dir, DIGISANTE_ENV: env, VALKEY_PASSWORD: VALKEY_SECRET, FAKE_VALKEY_PASS: VALKEY_SECRET,
-    PG_APP_PASSWORD: PG_SECRET, LETSENCRYPT_EMAIL: 'ops@example.invalid', FAKE_APP_DB: e.db, TMPDIR: t('tmp'),
+    PG_APP_PASSWORD: PG_SECRET, PG_RUNTIME_PASSWORD: PG_RUNTIME_SECRET, LETSENCRYPT_EMAIL: 'ops@example.invalid', FAKE_APP_DB: e.db, TMPDIR: t('tmp'),
   };
   const run = (args = [], extra = {}) => spawnSync('bash', [t(join(e.lib, SCRIPT_REL)), ...args], { env: { ...baseEnv, ...extra }, encoding: 'utf8', timeout: 30_000 });
   // Instantané complet : répertoires, liens et fichiers, avec mode et propriétaire (écriture,
@@ -342,7 +344,9 @@ test('pg_hba sans connexion locale par mot de passe, DNS hors hôte ⇒ FAIL sig
     assert.equal(r.status, 1);
     assert.match(r.stdout, /FAIL  pg_hba : aucune règle host 127\.0\.0\.1\/32 scram-sha-256 applicable à digisante_preprod@digisante_preprod .*À LA MAIN/);
     assert.match(r.stdout, /FAIL  DNS preprod\.digisantemobile\.app ne résout pas vers 31\.70\.148\.167/);
-    assert.match(r.stderr, /2 garde\(s\) en échec/); assert.doesNotMatch(f.trace(), MUTATING);
+    // Les deux rôles (propriétaire et exécution) sont sondés : 2 FAIL pg_hba + 1 FAIL DNS.
+    assert.match(r.stdout, /FAIL  pg_hba : aucune règle host 127\.0\.0\.1\/32 scram-sha-256 applicable à digisante_preprod_app@digisante_preprod /);
+    assert.match(r.stderr, /3 garde\(s\) en échec/); assert.doesNotMatch(f.trace(), MUTATING);
   } finally { f.clean(); }
 });
 
@@ -420,6 +424,39 @@ test('B4 --verify : KYC_STORAGE_DIR absolu exigé, magasin du compte applicatif,
   } finally { f.clean(); }
 });
 
+test('--verify : rôle d’exécution non propriétaire contrôlé (droits des registres, .env de l’API sous <base>_app)', () => {
+  const f = fixture();
+  try {
+    const api = f.t('var/www/digisante-preprod/apps/api'); mkdirSync(api, { recursive: true });
+    const envFile = join(api, '.env');
+    const users = { FAKE_USERS: `digisante-preprod:${APP_UID}:${APP_UID}:digisante-preprod sshusers;digisante-preprod-jobs:${APP_UID - 1}:${APP_UID - 1}:digisante-preprod-jobs` };
+    const owner = 'postgresql://digisante_preprod:SYNTHETIC_OWNER_VALUE@127.0.0.1:5432/digisante_preprod';
+    const runtime = 'postgresql://digisante_preprod_app:SYNTHETIC_RUNTIME_VALUE@127.0.0.1:5432/digisante_preprod';
+    writeEnv(envFile, `DATABASE_URL="${runtime}"\n`);
+    let r = f.run(['--verify'], users);
+    assert.match(r.stdout, /PASS  rôle d'exécution digisante_preprod_app : non propriétaire, audit_logs\/finance_entries en INSERT\/SELECT seulement/);
+    assert.match(r.stdout, /PASS  API \(\.env\) sous digisante_preprod_app/);
+    assert.match(r.stdout, /PASS  aucune URL du propriétaire dans le \.env de l'API/);
+    for (const [state, message] of [
+      ['audit', /FAIL  rôle digisante_preprod_app : objet possédé, CREATE sur public ou UPDATE\/DELETE\/TRUNCATE sur un registre append-only/],
+      ['grants', /FAIL  rôle digisante_preprod_app sans droits sur les tables : relancer deploy\.sh/],
+      ['absent', /FAIL  rôle d'exécution digisante_preprod_app absent/],
+      ['privilege', /FAIL  rôle d'exécution digisante_preprod_app : privilégié, membre d'un autre rôle/],
+      ['schema', /NOTE  schéma non migré/],
+    ]) {
+      r = f.run(['--verify'], { ...users, FAKE_PG_RUNTIME: state });
+      assert.match(r.stdout, message, state);
+    }
+    // API sous le PROPRIÉTAIRE (configuration d'avant la revue GO) et URL du propriétaire dans le .env : FAIL.
+    writeEnv(envFile, `DATABASE_URL="${owner}"\nMIGRATION_DATABASE_URL="${owner}"\n`);
+    r = f.run(['--verify'], users);
+    assert.match(r.stdout, /FAIL  API \(\.env\) sous digisante_preprod au lieu de digisante_preprod_app/);
+    assert.match(r.stdout, /FAIL  MIGRATION_DATABASE_URL dans le \.env de l'API/);
+    assert.doesNotMatch(r.stdout + r.stderr, /SYNTHETIC_OWNER_VALUE|SYNTHETIC_RUNTIME_VALUE/);
+    assert.notEqual(r.status, 0);
+  } finally { f.clean(); }
+});
+
 test('B4 --verify interroge les fichiers dans la base applicative de chaque environnement, jamais postgres', () => {
   for (const env of ['preproduction', 'production']) {
     const f = fixture(env);
@@ -451,6 +488,11 @@ test('--apply : secrets requis contrôlés AVANT toute écriture ; mot de passe 
       const bad = f.run(['--apply'], { PG_APP_PASSWORD: pw });
       assert.equal(bad.status, 1, pw); assert.doesNotMatch(f.trace(), MUTATING);
     }
+    const noRuntime = f.run(['--apply'], { PG_RUNTIME_PASSWORD: '' });
+    assert.equal(noRuntime.status, 1); assert.match(noRuntime.stderr, /PG_RUNTIME_PASSWORD .* requis pour créer digisante_preprod_app — rien n'a été écrit/);
+    assert.doesNotMatch(f.trace(), MUTATING);
+    const same = f.run(['--apply'], { PG_RUNTIME_PASSWORD: PG_SECRET });
+    assert.equal(same.status, 1); assert.match(same.stderr, /identique à PG_APP_PASSWORD/); assert.doesNotMatch(f.trace(), MUTATING);
     const r2 = f.run(['--apply'], { LETSENCRYPT_EMAIL: '' });
     assert.equal(r2.status, 1); assert.match(r2.stderr, /LETSENCRYPT_EMAIL requis/); assert.doesNotMatch(f.trace(), MUTATING);
   } finally { f.clean(); }
@@ -464,7 +506,11 @@ test('--apply : secrets requis contrôlés AVANT toute écriture ; mot de passe 
     assert.match(trace, /^psql-stdin \\getenv db_role DB_ROLE \\getenv db_pw PG_APP_VERIFIER SELECT format\('CREATE ROLE %I LOGIN NOSUPERUSER/m);
     assert.match(trace, /^psql-env pw= verifier=SCRAM-SHA-256\$4096$/m);
     assert.match(trace, /^createdb-write --owner=digisante_preprod/m);
-    assert.match(trace, /^psql-c REVOKE ALL ON DATABASE "digisante_preprod" FROM PUBLIC; GRANT CONNECT, TEMPORARY ON DATABASE "digisante_preprod" TO "digisante_preprod";$/m);
+    assert.match(trace, /^psql-c REVOKE ALL ON DATABASE "digisante_preprod" FROM PUBLIC; GRANT CONNECT, TEMPORARY ON DATABASE "digisante_preprod" TO "digisante_preprod"; GRANT CONNECT ON DATABASE "digisante_preprod" TO "digisante_preprod_app";$/m);
+    // Rôle d'EXÉCUTION de l'API : créé séparément, son propre vérificateur, jamais le mot de passe en clair.
+    assert.match(trace, /^psql-stdin \\getenv db_role RUN_ROLE \\getenv db_pw PG_RUNTIME_VERIFIER SELECT format\('CREATE ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT/m);
+    assert.equal((trace.match(/^psql-env pw= verifier=SCRAM-SHA-256\$4096$/gm) ?? []).length, 2, trace.split("\n").filter((l) => l.startsWith("psql-")).join("\n"));
+    assert.ok(!trace.includes(PG_RUNTIME_SECRET), 'mot de passe du rôle d’exécution en argument');
     assert.match(trace, /^valkey-write 5 SET digisante:owner preproduction NX$/m);
     assert.ok(!trace.includes(PG_SECRET) && !trace.includes(VALKEY_SECRET), 'secret en argument d’une commande');
     assert.ok(!(r.stdout + r.stderr).includes(PG_SECRET));

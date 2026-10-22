@@ -220,6 +220,20 @@ fi
 curl -sSI --connect-timeout 5 --max-time 15 "https://${DOMAIN}/" | grep -qi '^strict-transport-security' && info "HSTS présent" || info "HSTS absent (PREFLIGHT O1)"
 [[ "$(timedatectl show -p Timezone --value 2>/dev/null)" == "Africa/Porto-Novo" ]] && pass "fuseau Africa/Porto-Novo" || fail "fuseau ≠ Africa/Porto-Novo"
 [[ "$(stat -c '%a' "${APP_DIR}/apps/api/.env" 2>/dev/null)" == "600" ]] && pass ".env API en 600" || fail ".env API absent ou permissions ≠ 600"
+# Revue GO du 22/10/2026 : l'API tourne sous le rôle d'exécution <base>_app, jamais sous le
+# propriétaire (migrations seulement, URL fournie au déploiement). Fichier lu comme DONNÉE
+# (parseEnv, sans suivre de lien) ; seul le NOM d'utilisateur est extrait, jamais affiché d'autre.
+API_DB_USER="$(node -e '
+  const fs = require("node:fs"); const { parseEnv } = require("node:util"); const file = process.argv[1];
+  try { if (fs.realpathSync(file) !== file) process.exit(3); } catch { process.exit(3); }
+  const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+  const env = parseEnv(fs.readFileSync(fd, "utf8"));
+  if (Object.hasOwn(env, "MIGRATION_DATABASE_URL")) process.exit(4);
+  process.stdout.write(decodeURIComponent(new URL(env.DATABASE_URL).username).replace(/[^a-z0-9_]/g, "?"));' "${APP_DIR}/apps/api/.env" 2>/dev/null || echo "?")"
+# Base CANONIQUE du profil (même règle que deploy.sh), jamais un DB_NAME surchargé.
+RUN_ROLE="$(unset DB_NAME; digisante_profile && printf '%s_app' "$DB_NAME")"
+[[ "$API_DB_USER" == "$RUN_ROLE" ]] && pass "API sous le rôle d'exécution ${RUN_ROLE} (non propriétaire)" \
+  || fail "API (.env) sous ${API_DB_USER:-?} au lieu de ${RUN_ROLE}, ou URL du propriétaire présente dans le .env"
 
 echo
 if (( FAILS > 0 )); then echo "❌ ${FAILS} contrôle(s) en échec (${WARNS} avertissement(s))"; exit 1; fi

@@ -111,8 +111,12 @@ famille d'adresses (`443`/`80` et `[::]:443`/`[::]:80`, ordre de chargement rée
 aucun voisin en IPv6 ⇒ NOTE (DigiSanté y serait le repli IPv6, point 6) ; DNS A = `31.70.148.167` et aucun AAAA vers un
 autre hôte (`HOST_PUBLIC_IP6` si un AAAA vise cet hôte) ; aucune planification root (crontab root, `/etc/crontab`,
 `/etc/cron.d/*`, `/etc/cron.{hourly,daily,weekly,monthly}`) ne lance un chemin du checkout (B3, chemins normalisés).
-En `--apply`, `PG_APP_PASSWORD` (si le rôle est à créer : **24 à 256 caractères ASCII imprimables, sans
-espace** — vérificateur SCRAM sans normalisation ; `openssl rand -hex 24` évite aussi l'encodage d'URL) et
+Deux rôles PostgreSQL par environnement (revue GO du 22/10/2026) : `<base>` **propriétaire/migrateur** et
+`<base>_app` **rôle d'exécution** de l'API (NOINHERIT, aucun privilège ni appartenance ; droits sur les tables posés
+par `deploy.sh` après chaque migration : DML, `audit_logs`/`finance_entries` en INSERT/SELECT seulement).
+En `--apply`, `PG_APP_PASSWORD` (propriétaire) et `PG_RUNTIME_PASSWORD` (exécution, **distinct**), si le rôle est à
+créer (**24 à 256 caractères ASCII imprimables, sans
+espace** — vérificateur SCRAM sans normalisation ; `openssl rand -hex 24` évite aussi l'encodage d'URL), et
 `LETSENCRYPT_EMAIL` (si le certificat est à émettre) sont exigés **avant** la première écriture.
 
 #### Vérifications sur l'hôte AVANT `--apply` (opérateur, lecture seule, aucun secret affiché)
@@ -175,11 +179,12 @@ bash "$P"
 
 # 2) APPLICATION, éventuellement par étapes (--only users,dirs puis pg,valkey …)
 read -rs -p 'PG_APP_PASSWORD (coffre, 24-256 ASCII sans espace) : ' PG_APP_PASSWORD; echo; export PG_APP_PASSWORD
+read -rs -p 'PG_RUNTIME_PASSWORD (coffre, distinct) : ' PG_RUNTIME_PASSWORD; echo; export PG_RUNTIME_PASSWORD
 export LETSENCRYPT_EMAIL=<contact d'exploitation>
 bash "$P" --apply --only users,dirs,pg,valkey,runtime
 bash "$P" --apply --only nginx      # certificat : dry-run Let's Encrypt, émission, renew --dry-run, vhost TLS
 bash "$P" --apply --only cron
-unset PG_APP_PASSWORD
+unset PG_APP_PASSWORD PG_RUNTIME_PASSWORD
 
 # 3) Checkout applicatif (données seulement : aucun script n'y est lancé en root) puis .env (§2)
 sudo -u digisante${SUFFIX} git clone https://github.com/malcomx2022/digisante-mobile.git /var/www/digisante${SUFFIX}
@@ -274,9 +279,13 @@ sudo -u digisante-preprod sh -c 'umask 077; grep -E "^NEXT_PUBLIC_" .env.preprod
 # (curl et réponse de l'API sous ce compte, setpriv/no_new_privs ; ni root, ni l'utilisateur applicatif).
 ```
 
-`DATABASE_URL` (PostgreSQL 18 natif partagé, TCP local — règle `pg_hba` scram-sha-256 par rôle, §1.b) :
-`postgresql://digisante_preprod:<mot de passe URL-encodé>@127.0.0.1:5432/digisante_preprod?schema=public` (préprod)
-`postgresql://digisante:<mot de passe URL-encodé>@127.0.0.1:5432/digisante?schema=public` (prod)
+`DATABASE_URL` (PostgreSQL 18 natif partagé, TCP local — règle `pg_hba` scram-sha-256 pour **chacun** des deux rôles, §1.b),
+**rôle d'exécution seulement** (`PG_RUNTIME_PASSWORD`) :
+`postgresql://digisante_preprod_app:<mot de passe URL-encodé>@127.0.0.1:5432/digisante_preprod?schema=public` (préprod)
+`postgresql://digisante_app:<mot de passe URL-encodé>@127.0.0.1:5432/digisante?schema=public` (prod)
+L'URL du **propriétaire** (`postgresql://digisante[_preprod]:<PG_APP_PASSWORD>@…`) n'est **jamais** écrite sur l'hôte :
+secret GitHub `PREPROD_DB_MIGRATION_URL` / `DB_MIGRATION_URL` (transmis par l'entrée standard SSH,
+`scripts/deploy/ssh-deploy.sh`) ou saisie `read -rs` au déploiement manuel. `deploy.sh` refuse un `.env` qui la contient.
 `REDIS_URL` (Valkey) : `redis://:<mot de passe URL-encodé>@127.0.0.1:6379/5` (préprod) · `/6` (prod) — l'index est obligatoire.
 
 ## 3. Premier déploiement
@@ -304,7 +313,9 @@ sudo rm -f "$MAINT" && sudo nginx -t && sudo systemctl reload nginx
 ```bash
 # Outillage = deploy.sh de origin/main extrait HORS du checkout (comme les workflows), jamais celui
 # du checkout : bash relit le fichier ouvert même après `git switch` (cf. ci-dessous).
-sudo -u digisante-preprod bash -c 'cd /var/www/digisante-preprod && git fetch origin main \
+# URL du rôle PROPRIÉTAIRE saisie DANS le shell du compte (sudo -u réinitialise l'environnement), jamais en argument.
+sudo -u digisante-preprod bash -c 'read -rs -p "MIGRATION_DATABASE_URL (propriétaire, coffre) : " MIGRATION_DATABASE_URL; echo; export MIGRATION_DATABASE_URL \
+  && cd /var/www/digisante-preprod && git fetch origin main \
   && M="$(git rev-parse --verify "origin/main^{commit}")" && F="$(mktemp)" \
   && git show "$M:infra/deploy/scripts/deploy.sh" > "$F" \
   && DEPLOY_TOOLING_SHA="$M" DEPLOY_REF=<SHA_COMPLET_QUALIFIE> DEPLOY_ENVIRONMENT=preproduction \
@@ -323,8 +334,11 @@ les migrations**. Le verrou `deploy.lock` dans le répertoire de journaux de l'e
 refuse aussi une invocation manuelle concurrente.
 
 Avant l'arrêt PM2 ou une migration, le `.env` API doit cibler les services locaux du
-profil : rôle/base PostgreSQL `digisante_preprod` et Valkey `/5` en préproduction,
-`digisante` et `/6` en production (ports 5432/6379, schéma `public`). Les mots de passe
+profil : base PostgreSQL `digisante_preprod` sous le rôle d'exécution `digisante_preprod_app` et Valkey `/5` en
+préproduction, `digisante`/`digisante_app` et `/6` en production (ports 5432/6379, schéma `public`) ; l'URL du
+propriétaire (`MIGRATION_DATABASE_URL`, même base, rôle `<base>`, mot de passe distinct) doit être fournie par
+l'environnement et ne sert qu'à `migrate deploy` puis aux droits du rôle d'exécution (stade `grants`, contrôlé :
+un écart annule les droits et laisse l'API arrêtée). Elle est retirée de l'environnement avant PM2 ; `bash -x` est refusé. Les mots de passe
 URL-encodés restent acceptés. Une variable héritée `NODE_ENV`, `DATABASE_URL` ou
 `REDIS_URL` différente du fichier est refusée ; aucune valeur secrète n'est affichée.
 
@@ -335,7 +349,9 @@ La maintenance reste obligatoire et aucune migration n'est annulée par le scrip
 
 ```bash
 # Même forme que ci-dessus (outillage = deploy.sh de origin/main hors du checkout), cible ancêtre :
-sudo -u digisante-preprod bash -c 'cd /var/www/digisante-preprod && git fetch origin main \
+# URL du rôle PROPRIÉTAIRE saisie DANS le shell du compte (sudo -u réinitialise l'environnement), jamais en argument.
+sudo -u digisante-preprod bash -c 'read -rs -p "MIGRATION_DATABASE_URL (propriétaire, coffre) : " MIGRATION_DATABASE_URL; echo; export MIGRATION_DATABASE_URL \
+  && cd /var/www/digisante-preprod && git fetch origin main \
   && M="$(git rev-parse --verify "origin/main^{commit}")" && F="$(mktemp)" \
   && git show "$M:infra/deploy/scripts/deploy.sh" > "$F" \
   && DEPLOY_TOOLING_SHA="$M" DEPLOY_REF=<SHA_ANCESTRE_QUALIFIE> DEPLOY_ENVIRONMENT=preproduction \
@@ -543,14 +559,27 @@ Les archives DB ET fichiers sont nécessaires à la restauration. `sudo node $RO
 >    entier, qui est aussi celui d'ImmiPro/BeninLink. Constater `timedatectl` ; changer ou recaler les horaires est une
 >    décision du porteur.
 > 4. *Zones de limitation Nginx communes* (choix assumé) : une même IP partage ses quotas entre préproduction et production.
-> 5. *Rôle PostgreSQL unique, propriétaire des tables d'audit* : `provision-ionos.sh` crée un seul rôle par
->    environnement (propriétaire de la base, migrateur ET identité d'exécution ; `deploy.sh` exige d'ailleurs rôle =
->    base). Or CLAUDE.md §8 demande en production un rôle d'exécution **non propriétaire** des tables d'audit : un
->    propriétaire peut `ALTER TABLE audit_logs DISABLE TRIGGER USER` puis modifier/vider le registre (une injection
->    SQL ou une RCE de l'API suffirait). Proposition à arbitrer **avant GO production** : rôle propriétaire/migrateur
->    `<base>` + rôle d'exécution `<base>_app` (LOGIN sans attribut, `ALTER DEFAULT PRIVILEGES` pour le DML, `audit_logs`
->    en INSERT/SELECT seulement), URL de migration distincte dans `deploy.sh`, contrôle `--verify`
->    (`has_table_privilege` UPDATE/DELETE/TRUNCATE refusés). Non implémenté ici : modèle d'accès DB et `deploy.sh`.
+> 5. *Rôle PostgreSQL unique, propriétaire des tables d'audit* — **traité le 22/10/2026 (revue GO)** : l'API tourne sous
+>    `<base>_app` (NOINHERIT, ni privilège, ni appartenance, aucun objet possédé, pas de CREATE), les registres
+>    append-only `audit_logs` et `finance_entries` sont en INSERT/SELECT seulement et `_prisma_migrations` est fermé ;
+>    le propriétaire `<base>` ne sert qu'aux migrations et aux droits (stade `grants` de `deploy.sh`, bloc
+>    `runtime-grants.sql`, contrôlé et transactionnel). Son URL n'est jamais sur l'hôte (cf. §2). Preuves :
+>    `apps/api/src/lib/runtime-role.test.ts` (PostgreSQL réel : UPDATE/DELETE/TRUNCATE/DISABLE TRIGGER refusés par les
+>    DROITS), suite API complète rejouée en CI sous ce rôle, `deploy-order`/`provision-ionos`/`ssh-deploy` (tests).
+>    Limite : pendant un déploiement, l'URL du propriétaire existe dans l'environnement des processus du compte
+>    applicatif (API arrêtée) ; un compte applicatif compromis AVANT le déploiement pourrait la capturer à ce moment.
+>    **Bascule d'un environnement déjà provisionné avec un rôle unique** (la préproduction du 15/10/2026), dans une
+>    fenêtre de maintenance :
+>    1. root, copie root mise à jour au SHA qui porte ce changement : `read -rs PG_RUNTIME_PASSWORD; export …` puis
+>       `provision-ionos.sh --apply --only pg` (crée `<base>_app` + CONNECT ; le propriétaire et son mot de passe ne
+>       changent pas). Si `pg_hba.conf` nomme les rôles, ajouter **à la main** la règle `host <base> <base>_app
+>       127.0.0.1/32 scram-sha-256` (le script ne touche jamais `pg_hba` ; `--verify` sonde les deux rôles) ;
+>    2. compte applicatif : `apps/api/.env` → `DATABASE_URL` sous `<base>_app` (0600) ;
+>    3. GitHub : secret `PREPROD_DB_MIGRATION_URL` (prod : `DB_MIGRATION_URL`) = URL du propriétaire ;
+>    4. déploiement (workflow ou §3) : `deploy.sh` migre sous le propriétaire, applique et contrôle les droits, puis
+>       démarre l'API sous `<base>_app` ; `provision-ionos.sh --verify` et `verify_deploy.sh` doivent être verts.
+>    Retour arrière : remettre l'ancien `DATABASE_URL` dans le `.env` n'est accepté que par un `deploy.sh` antérieur
+>    (rollback explicite, schéma compatible) ; le rôle `<base>_app` peut rester en place.
 > 6. *Capacité de l'hôte (4 Go)* : 3 processus PM2 par environnement à 512 Mo de seuil de redémarrage (non un
 >    plafond), plus le build pendant un déploiement, à côté de PostgreSQL, Valkey, ImmiPro, BeninLink et Grafana.
 >    Constater mémoire, swap et disque avant `--apply` (§1.b, point 11) ; un `MemoryMax` systemd sur

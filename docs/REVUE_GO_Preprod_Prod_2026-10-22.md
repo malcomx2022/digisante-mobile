@@ -62,7 +62,7 @@ Indépendamment du GO préproduction (L11, `docs/suivi/LOT_L11.md`, tout « NON 
 | Bloc | Restant | Propriétaire |
 |---|---|---|
 | **L9 humain** | Traductions FON/YOR natives (232 clés, **6 `sos.*` critiques**), phrasier natif (27 phrases), 7 contreseings cliniques sur le snapshot `3e061d52…` ; **rendu posologie** (fractions, unités, horaires/durées supposés) à corriger puis contresigner | Relecteurs natifs, professionnel de santé, porteur |
-| **Hôte partagé (I2)** | Arbitrage des 6 résiduels de `infra/deploy/README.md` : port squatté, **Valkey partagé (mot de passe `default` = tous les index et FLUSHALL)**, fuseau, zones Nginx, **rôle PG d'exécution non propriétaire de l'audit** (à implémenter avant GO prod), capacité 4 Go | Porteur ; code pour le rôle PG |
+| **Hôte partagé (I2)** | Arbitrage des résiduels de `infra/deploy/README.md` : port squatté, **Valkey partagé (mot de passe `default` = tous les index et FLUSHALL)**, fuseau, zones Nginx, capacité 4 Go ; rôle PG d'exécution non propriétaire **préparé dans ce lot (§9)**, bascule de la préprod à exécuter | Porteur ; opérateur pour la bascule |
 | **Exploitation** | Provisioning prod (`provision-ionos.sh --apply` production, jamais exécuté), B3/B4 installés côté prod, `ALERT_CMD` d'alerte vers une adresse d'exploitation (D-13), première sauvegarde prod + **restauration indépendante base ET fichiers**, répétition de rollback | Opérateur |
 | **Sécurité** | Pentest externe + re-tests, arbitrage X8 (`unsafe-inline`), Twilio Geo Permissions, hôtes FedaPay **live** jamais observés (B1 reste ouvert en live), HSTS prod après renouvellement vérifié | Prestataire, porteur |
 | **Paiements live** | Bascule clé `sk_live_` + secret webhook live, recette S1/S8 en live à montant plafonné, rapprochement des issues incertaines | Porteur (§5) |
@@ -131,3 +131,30 @@ Constat : un `approved` reçu pour un paiement déjà FAILED/CANCELLED était ig
 - Re-tests webhooks §5 : suites `payments*`, `subscriptions*`, `finance*`, `wallet` complètes (HMAC valide/invalide, rejeux concurrents, réconciliation, remboursements).
 - Instantané L10 régénéré : source `397411aa…` (seules les recettes A8 et S10 changent ; `d6bfcba2…` reste celle de `ace0c689`). Le registre `evidence.json` du candidat en cours n'est pas touché : après fusion, le nouveau candidat aura son propre registre et la recette se rejouera sur les cas concernés (au moins A8, S10, A5/A10, F1–F4, saisie d'intégration).
 - Compteurs : 701 API + 145 web déclarés (846).
+
+## 9. Lot post-recette — rôle PostgreSQL d'exécution non propriétaire (préparé le 22/10/2026, NON fusionnable pendant la recette)
+
+Résiduel 5 de `infra/deploy/README.md`. Décision du porteur dans cette session : l'URL du rôle propriétaire reste **hors disque** et n'est fournie qu'au déploiement.
+
+Constat : un seul rôle par environnement (propriétaire de la base, migrateur et identité de l'API). Un propriétaire peut `ALTER TABLE audit_logs DISABLE TRIGGER USER` puis modifier ou vider le registre d'audit et le registre financier : une injection SQL ou une prise de contrôle de l'API suffisait.
+
+Correction :
+- **Deux rôles** : `<base>` propriétaire (migrations + droits) et `<base>_app` exécution (NOINHERIT, aucun privilège ni appartenance). `provision-ionos.sh` crée le second (`PG_RUNTIME_PASSWORD` distinct, vérificateur SCRAM local, `CONNECT`), sonde `pg_hba` pour les deux, et `--verify` contrôle droits et `.env`.
+- **Droits** (`deploy.sh`, bloc `runtime-grants.sql`, après chaque migration, sous le propriétaire, en une transaction) : DML sur toutes les tables et séquences et droits par défaut identiques ; `audit_logs`/`finance_entries` en INSERT/SELECT ; `_prisma_migrations` fermé ; pas de CREATE. Le contrôle final annule tout et laisse l'API arrêtée en cas d'écart.
+- **`deploy.sh`** : `MIGRATION_DATABASE_URL` lu par l'environnement puis retiré de l'environnement exporté. Il est refusé s'il est absent, mal ciblé, a le même mot de passe que l'API ou figure dans le `.env`. Le `.env` doit viser `<base>_app`. `bash -x` est refusé, et PM2 ne voit jamais le secret.
+- **Workflows** : `scripts/deploy/ssh-deploy.sh` remplace `appleboy/ssh-action`, dont les `envs` sont recopiés dans la commande distante, lisible par tous les comptes de l'hôte partagé. Le secret passe par l'entrée standard SSH et la clé d'hôte n'est acceptée que si son empreinte égale `VPS_FINGERPRINT`. Nouveaux secrets : `PREPROD_DB_MIGRATION_URL`, `DB_MIGRATION_URL`.
+- `verify_deploy.sh` contrôle le rôle du `.env` ; modèles `.env`, README (procédure de bascule de la préprod existante), secrets, checklist et `CLAUDE.md` mis à jour.
+
+Preuves locales :
+- `apps/api/src/lib/runtime-role.test.ts` sur **PostgreSQL réel**, avec le SQL extrait de `deploy.sh` : idempotent ; l'audit s'écrit par `writeAudit` sous le rôle d'exécution ; UPDATE/DELETE/TRUNCATE/`DISABLE TRIGGER` sur les deux registres, lecture des migrations et CREATE TABLE sont **refusés par les droits** ; un rôle privilégié fait échouer le contrôle. 13/13.
+- **Suite API complète sous le rôle d'exécution** : 723 tests verts sur 94 fichiers (hors test du rôle, qui exige le propriétaire). Ajoutée en CI (`build-and-test`).
+- Tests d'outillage : `deploy-order` 12/12 (rôle par migrate, ordre migrate → droits → PM2, aucune fuite vers PM2, refus d'URL, échec `grants`, `bash -x`) ; `provision-ionos` 43/43 (le test a révélé une fuite, corrigée : `PG_RUNTIME_PASSWORD` restait dans l'environnement de `psql` à la création du rôle propriétaire) ; `ssh-deploy` 4/4 (`ssh-keygen` réel ; secret jamais en argument, empreinte, entrées non sûres, workflows).
+- Vérification réelle : `prisma migrate deploy` utilise le `DATABASE_URL` de l'environnement plutôt que celui du `.env` (contrôlé sur PostgreSQL).
+- `operations.test.mjs` (L10) : 41/41, fixtures passées aux deux rôles ; `verify_deploy.sh` refuse une API sous le propriétaire ou une URL de migration dans le `.env` (nom attendu dérivé du profil canonique, jamais d'un `DB_NAME` surchargé).
+- CI complète en local sur la tête du lot : lint, typecheck, `test:scripts` 217 (1 ignoré), contrôles L9/L10/DOCX, **API 736 + web 156**, étape « suite API sous le rôle d'exécution » 723/723, build, **E2E 39/39**. Instantané L10 régénéré : `d5fbbbd9…`.
+- Intermittence observée, sans lien établi avec ce lot : sur un premier passage E2E, `auth-session-race` (« refresh A refusé ») a dépassé 60 s sur `waitForLoadState('networkidle')`, alors que la session B était déjà affichée. Relancé seul : 5/5 en 18 s ; série complète relancée : 39/39. Le test attend un réseau inactif, ce qui le rend fragile sous charge. À surveiller en CI, sans retry ni désactivation.
+
+Limites :
+- Pendant un déploiement, l'URL du propriétaire est dans l'environnement des processus du compte applicatif ; l'API est alors arrêtée.
+- La bascule de la préproduction existante est une opération humaine (README résiduel 5) : règle `pg_hba` éventuelle à la main, `.env`, secret GitHub.
+- Un nouveau registre append-only devra être ajouté au bloc.

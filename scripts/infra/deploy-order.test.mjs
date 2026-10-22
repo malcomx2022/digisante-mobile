@@ -50,19 +50,26 @@ function fixture() {
   git(app, 'checkout', '--quiet', '--detach', newer);
   mkdirSync(join(app, 'apps/api'), { recursive: true });
   const apiEnv = join(app, 'apps/api/.env');
-  const databaseUrl = 'postgresql://digisante_preprod:synthetic%40%3A%2F%23@127.0.0.1:5432/digisante_preprod?schema=public';
+  // API sous le rôle d'exécution NON propriétaire ; migrations sous le propriétaire (URL fournie
+  // par l'environnement au déploiement, jamais dans le .env de l'API).
+  const databaseUrl = 'postgresql://digisante_preprod_app:synthetic%40%3A%2F%23@127.0.0.1:5432/digisante_preprod?schema=public';
+  const migrationUrl = 'postgresql://digisante_preprod:owner-synthetic%40%3A@127.0.0.1:5432/digisante_preprod?schema=public';
   const redisUrl = 'redis://:synthetic%40%3A%2F%23@127.0.0.1:6379/5';
   const writeEnv = (values = {}) => writeFileSync(apiEnv, Object.entries({ NODE_ENV: 'production', DATABASE_URL: databaseUrl, REDIS_URL: redisUrl, ...values }).map(([key, value]) => `${key}=${value}\n`).join(''));
   writeEnv();
   chmodSync(join(app, 'apps/api/.env'), 0o600);
   mkdirSync(log); mkdirSync(bin); writeFileSync(trace, '');
   for (const [name, body] of Object.entries({
-    pnpm: 'printf "pnpm %s\\n" "$*" >> "$TRACE"',
+    // Rôle reçu par `migrate deploy` : nom d'utilisateur SEUL (jamais le mot de passe).
+    pnpm: 'printf "pnpm %s\\n" "$*" >> "$TRACE"; if [[ "$*" == *"migrate deploy"* ]]; then u="${DATABASE_URL#postgresql://}"; printf "migrate-user %s\\n" "${u%%:*}" >> "$TRACE"; fi',
+    // Droits du rôle d'exécution : arguments et utilisateur tracés, SQL lu sur l'entrée standard.
+    psql: 'printf "psql %s\\n" "$*" >> "$TRACE"; printf "psql-user %s\\n" "$PGUSER" >> "$TRACE"; grep -q "has_table_privilege" || exit 9; exit "${FAKE_PSQL_STATUS:-0}"',
     // deploy.sh : shim `pnpm` → `corepack pnpm …` (version épinglée) ; `corepack pnpm@x.y.z --version`
     // prépare la version de la cible. La simulation délègue au pnpm simulé (chemin absolu : le shim
     // est en tête du PATH).
     corepack: 'if [[ "$1" == pnpm@* && "$2" == --version ]]; then echo "${FAKE_COREPACK_VERSION:-${1#pnpm@}}"; exit 0; fi; [[ "$1" == pnpm ]] || exit 2; shift; exec "$(dirname "$0")/pnpm" "$@"',
-    pm2: 'printf "pm2 %s\\n" "$*" >> "$TRACE"; [[ "$1" != jlist ]] || printf "[]\\n"',
+    // PM2 (et donc l'API) ne doit JAMAIS hériter de l'URL du propriétaire.
+    pm2: 'printf "pm2 %s\\n" "$*" >> "$TRACE"; ! env | grep -Eq "^(MIGRATION_DATABASE_URL|DEPLOY_MIGRATION_URL|MIGRATION_URL)=|owner-synthetic" || printf "LEAK\\n" >> "$TRACE"; [[ "$1" != jlist ]] || printf "[]\\n"',
     curl: 'printf "curl %s\\n" "$*" >> "$TRACE"; printf \'{"status":"ready","db":"up","redis":"up"}\\n\'',
   })) {
     writeFileSync(join(bin, name), `#!/usr/bin/env bash\nset -eu\n${body}\n`);
@@ -73,10 +80,10 @@ function fixture() {
     DEPLOY_ALLOW_ROLLBACK: '', ROOT_LIB: join(dir, 'uninstalled-root-scripts') };
   delete env.DATABASE_URL; delete env.REDIS_URL; env.NODE_ENV = 'production';
   return {
-    older, newer, divergent, app, log, writeEnv, databaseUrl, redisUrl,
+    older, newer, divergent, app, log, writeEnv, databaseUrl, redisUrl, migrationUrl,
     checkout: (sha) => git(app, 'checkout', '--quiet', '--detach', sha),
     head: () => git(app, 'rev-parse', 'HEAD'),
-    run: (sha, extra = {}) => spawnSync('bash', [SCRIPT], { env: { ...env, DEPLOY_REF: sha, ...extra }, encoding: 'utf8', timeout: 10_000 }),
+    run: (sha, extra = {}, shellArgs = []) => spawnSync('bash', [...shellArgs, SCRIPT], { env: { ...env, MIGRATION_DATABASE_URL: migrationUrl, DEPLOY_REF: sha, ...extra }, encoding: 'utf8', timeout: 10_000 }),
     trace: () => readFileSync(trace, 'utf8'),
     clean: () => rmSync(dir, { recursive: true, force: true }),
   };
@@ -160,7 +167,10 @@ test('déploiement : fichier préproduction visant production, mauvais rôle/sch
   try {
     for (const values of [
       { DATABASE_URL: 'postgresql://digisante:synthetic@127.0.0.1:5432/digisante?schema=public' },
-      { DATABASE_URL: f.databaseUrl.replace('digisante_preprod:', 'digisante:') },
+      { DATABASE_URL: f.databaseUrl.replace('digisante_preprod_app:', 'digisante_app:') },
+      // L'API sous le rôle PROPRIÉTAIRE (configuration d'avant la revue GO) est refusée.
+      { DATABASE_URL: f.databaseUrl.replace('digisante_preprod_app:', 'digisante_preprod:') },
+      { MIGRATION_DATABASE_URL: 'postgresql://digisante_preprod:x@127.0.0.1:5432/digisante_preprod' },
       { DATABASE_URL: f.databaseUrl.replace('schema=public', 'schema=private') },
       { DATABASE_URL: f.databaseUrl.replace('127.0.0.1', 'db.example.invalid') },
       { DATABASE_URL: `${f.databaseUrl}&host=db.example.invalid` },
@@ -199,6 +209,68 @@ test('déploiement : priorité des variables héritées contrôlée, credentials
     const r = f.run(f.newer);
     assert.equal(r.status, 0, r.stdout + r.stderr);
     assert.equal(f.head(), f.newer);
+  } finally { f.clean(); }
+});
+
+test('déploiement : migrations sous le propriétaire, droits appliqués, API et PM2 sans le secret', () => {
+  const f = fixture();
+  try {
+    const r = f.run(f.newer);
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    const trace = f.trace();
+    assert.match(trace, /^migrate-user digisante_preprod$/m);
+    assert.match(trace, /^psql .*app_role=digisante_preprod_app/m);
+    assert.match(trace, /^psql-user digisante_preprod$/m);
+    // Ordre : migrations, puis droits, puis seulement le démarrage PM2.
+    assert.ok(trace.indexOf('migrate-user') < trace.indexOf('psql-user'));
+    assert.ok(trace.indexOf('psql-user') < trace.indexOf('pm2 startOrReload'));
+    assert.doesNotMatch(trace, /LEAK|owner-synthetic/);
+    assert.doesNotMatch(r.stdout + r.stderr, /owner-synthetic|synthetic%40/);
+  } finally { f.clean(); }
+});
+
+test('déploiement : URL du propriétaire absente, mal ciblée ou dans le .env refusée avant effets', () => {
+  const f = fixture();
+  try {
+    for (const extra of [
+      { MIGRATION_DATABASE_URL: '' },
+      { MIGRATION_DATABASE_URL: f.migrationUrl.replace('digisante_preprod:', 'digisante_preprod_app:') },
+      { MIGRATION_DATABASE_URL: f.migrationUrl.replace('/digisante_preprod?', '/digisante?') },
+      { MIGRATION_DATABASE_URL: f.migrationUrl.replace('127.0.0.1', 'db.example.invalid') },
+      { MIGRATION_DATABASE_URL: f.migrationUrl.replace('owner-synthetic%40%3A', 'synthetic%40%3A%2F%23') },
+    ]) {
+      const r = f.run(f.newer, extra);
+      assert.notEqual(r.status, 0, JSON.stringify(extra));
+      assert.match(r.stdout + r.stderr, /aucun processus arrêté ni migration lancée/);
+      assert.doesNotMatch(r.stdout + r.stderr, /owner-synthetic|synthetic%40|postgresql:\/\//);
+      assert.equal(f.trace(), '');
+    }
+    f.writeEnv({ MIGRATION_DATABASE_URL: f.migrationUrl });
+    const inFile = f.run(f.newer);
+    assert.notEqual(inFile.status, 0);
+    assert.match(inFile.stderr, /présent dans le fichier API/);
+    assert.equal(f.trace(), '');
+  } finally { f.clean(); }
+});
+
+test('déploiement : droits non conformes ⇒ échec au stade grants, API non redémarrée', () => {
+  const f = fixture();
+  try {
+    const r = f.run(f.newer, { FAKE_PSQL_STATUS: '3' });
+    assert.notEqual(r.status, 0);
+    assert.doesNotMatch(f.trace(), /pm2 startOrReload/);
+    assert.match(readFileSync(join(f.log, 'deploy_history.log'), 'utf8'), /status=FAILED stage=grants/);
+  } finally { f.clean(); }
+});
+
+test('déploiement : bash -x refusé (afficherait l’URL du propriétaire)', () => {
+  const f = fixture();
+  try {
+    const r = f.run(f.newer, {}, ['-x']);
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /bash -x refusé/);
+    assert.doesNotMatch(r.stdout + r.stderr, /owner-synthetic/);
+    assert.equal(f.trace(), '');
   } finally { f.clean(); }
 });
 
