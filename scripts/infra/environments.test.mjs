@@ -334,6 +334,10 @@ test('.env.preprod.example / .env.prod.example : mêmes clés que .env.example, 
     // Formes documentées : base dédiée, index Valkey de l'environnement, jamais 3000/3001.
     assert.match(text, new RegExp(`@127\\.0\\.0\\.1:5432/${p.DB_NAME}\\?schema=public`), file);
     assert.match(text, new RegExp(`@127\\.0\\.0\\.1:6379/${idx}\\b`), file);
+    // Isolement Valkey : utilisateur ACL et préfixe = SITE de provision-ionos.sh (VALKEY_APP_USER/VALKEY_PREFIX).
+    assert.equal(values.REDIS_KEY_PREFIX, `"${site}:"`, `${file} : préfixe ≠ utilisateur ACL de l'environnement`);
+    assert.match(text, new RegExp(`redis://${site}:<VALKEY_APP_PASSWORD>@127\\.0\\.0\\.1:6379/${idx}\\b`), file);
+    assert.match(prov, /^VALKEY_APP_USER="\$SITE"$/m); assert.match(prov, /^VALKEY_PREFIX="\$\{SITE\}:"$/m);
     assert.doesNotMatch(text, /:300[01]\b/, file);
   }
   // Noms GitHub exacts (préprod PREPROD_VPS_*, production VPS_* lus par ci.yml) et métadonnées smoke.

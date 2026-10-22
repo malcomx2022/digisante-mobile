@@ -10,7 +10,8 @@
 |---|---|---|
 | `DATABASE_URL` | ✅ | `postgresql://digisante_app:<PG_RUNTIME_PASSWORD>@127.0.0.1:5432/digisante?schema=public` — rôle d'**exécution** non propriétaire (DML ; `audit_logs`/`finance_entries` en INSERT/SELECT), créé par `provision-ionos.sh`, droits posés par `deploy.sh` |
 | `DB_MIGRATION_URL` (secret GitHub, **pas** dans le `.env`) | ✅ | `postgresql://digisante:<PG_APP_PASSWORD>@127.0.0.1:5432/digisante?schema=public` — rôle **propriétaire** (migrations + droits), transmis par l'entrée standard SSH (`scripts/deploy/ssh-deploy.sh`) au seul déploiement ; `deploy.sh` refuse un `.env` qui le contient |
-| `REDIS_URL` | ✅ | `redis://:<pwd>@127.0.0.1:6379/6` (Valkey partagé : index **/6** production, /5 préproduction ; jamais l'index d'un autre projet ; isolement d'accès : README résiduel 2) |
+| `REDIS_URL` | ✅ | `redis://digisante:<VALKEY_APP_PASSWORD>@127.0.0.1:6379/6` (Valkey partagé : index **/6** production, /5 préproduction ; **utilisateur ACL de l'environnement**, jamais `default` ni le mot de passe d'administration de l'hôte ; README résiduel 2) |
+| `REDIS_KEY_PREFIX` | ✅ | `digisante:` (préproduction : `digisante-preprod:`) — préfixe des clés et canaux, borne de l'utilisateur ACL ; non secret, obligatoire en production |
 | `NODE_ENV` | ✅ | `production` (désactive l'exposition du `devCode` OTP) |
 | `JWT_SECRET` | ✅ | **≥ 32 caractères aléatoires** — `openssl rand -base64 48` |
 | `JWT_ACCESS_TTL` / `JWT_REFRESH_TTL` | — | défauts `15m` / `30d` |

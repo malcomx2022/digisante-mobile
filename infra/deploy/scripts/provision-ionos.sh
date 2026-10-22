@@ -9,7 +9,7 @@
 # écriture est seulement AFFICHÉE. --apply est requis pour écrire.
 #
 #   (shell root : `sudo -i`) — secrets saisis par `read -rs` depuis le coffre, jamais sur la ligne de
-#   commande (historique, `ps`) : read -rs VALKEY_PASSWORD; read -rs PG_APP_PASSWORD; read -rs PG_RUNTIME_PASSWORD; export …
+#   commande (historique, `ps`) : read -rs VALKEY_PASSWORD; read -rs VALKEY_APP_PASSWORD; read -rs PG_APP_PASSWORD; read -rs PG_RUNTIME_PASSWORD; export …
 #   DIGISANTE_ENV=preproduction /usr/local/lib/digisante-preprod/infra/deploy/scripts/provision-ionos.sh
 #   DIGISANTE_ENV=preproduction LETSENCRYPT_EMAIL=… /usr/local/lib/digisante-preprod/infra/deploy/scripts/provision-ionos.sh --apply
 #   … --verify              liste de vérification post-provisioning (lecture seule)
@@ -22,8 +22,9 @@
 # FLUSHDB/FLUSHALL. Ports 3000 (ImmiPro) et 3001 (Grafana) : jamais configurés ni touchés.
 # Secrets : uniquement par l'environnement (coffre opérateur), jamais en argument de
 # commande ni affichés : PG_APP_PASSWORD (création du rôle PROPRIÉTAIRE/migrateur <base>),
-# PG_RUNTIME_PASSWORD (rôle d'EXÉCUTION de l'API <base>_app, distinct), VALKEY_PASSWORD (VALKEY_USERNAME
-# si ACL), LETSENCRYPT_EMAIL (non secret). Le .env de l'API est lu comme DONNÉES (parseEnv).
+# PG_RUNTIME_PASSWORD (rôle d'EXÉCUTION de l'API <base>_app, distinct), VALKEY_PASSWORD (administration
+# Valkey de l'hôte ; VALKEY_USERNAME si ACL), VALKEY_APP_PASSWORD (utilisateur ACL de l'API, distinct),
+# LETSENCRYPT_EMAIL (non secret). Le .env de l'API est lu comme DONNÉES (parseEnv).
 #
 # B3 : lancé par root depuis la copie root:root (install_root_scripts.sh, README §1.a),
 # jamais depuis APP_DIR ; crons, Nginx, logrotate copiés depuis cette copie root.
@@ -31,7 +32,7 @@
 # --verify compare les fichiers présents aux références de la base.
 # ─────────────────────────────────────────────────────────────
 set -euo pipefail
-# xtrace (bash -x / set -x) afficherait PG_APP_PASSWORD, PG_RUNTIME_PASSWORD et VALKEY_PASSWORD en clair : refusé.
+# xtrace (bash -x / set -x) afficherait PG_APP_PASSWORD, PG_RUNTIME_PASSWORD, VALKEY_PASSWORD et VALKEY_APP_PASSWORD en clair : refusé.
 case "$-" in *x*) set +x; echo "[provision-ionos] REFUS : xtrace (bash -x) afficherait les secrets" >&2; exit 2 ;; esac
 
 # >>> trusted_path (B3 — copie IDENTIQUE dans chaque script exécuté par root ; test de non-dérive)
@@ -156,8 +157,12 @@ PNPM_VERSION=9.12.0
 NODE_MAJOR=24
 HOST_IP="${HOST_PUBLIC_IP:-31.70.148.167}"
 VALKEY_PORT="${VALKEY_PORT:-6379}"
+# Utilisateur ACL de l'API (revue GO du 22/10/2026, résiduel 2) : clés et canaux sous le seul
+# préfixe de CET environnement (REDIS_KEY_PREFIX du .env), aucune commande d'administration.
+VALKEY_APP_USER="$SITE"
+VALKEY_PREFIX="${SITE}:"
 ENV_FILE="${APP_DIR}/apps/api/.env"
-: "${PG_APP_PASSWORD:=}" "${PG_RUNTIME_PASSWORD:=}" "${VALKEY_PASSWORD:=}" "${VALKEY_USERNAME:=}" "${LETSENCRYPT_EMAIL:=}" "${DEPLOY_SSH_PUBKEY:=}"
+: "${PG_APP_PASSWORD:=}" "${PG_RUNTIME_PASSWORD:=}" "${VALKEY_PASSWORD:=}" "${VALKEY_USERNAME:=}" "${VALKEY_APP_PASSWORD:=}" "${LETSENCRYPT_EMAIL:=}" "${DEPLOY_SSH_PUBKEY:=}"
 [[ "$DB_NAME" =~ ^[a-z][a-z0-9_]*$ && "$APP_USER" =~ ^[a-z][a-z0-9-]*$ && "$JOBS_USER" =~ ^[a-z][a-z0-9-]*$ ]] || die "noms de base ou de comptes invalides"
 [[ "$PM2_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "PM2_VERSION : version exacte attendue (x.y.z)"
 
@@ -183,7 +188,7 @@ FILESTORE_MODULE="${SELF_ROOT}/scripts/preproduction/filestore-dir.mjs"
 
 # Outils tiers (scripts d'installation npm, certbot, pm2, comptes applicatifs) : jamais les
 # secrets de la session root, même si sudo conservait l'environnement.
-clean_env() { env -u PG_APP_PASSWORD -u PG_RUNTIME_PASSWORD -u VALKEY_PASSWORD -u VALKEY_USERNAME -u REDISCLI_AUTH -u VALKEYCLI_AUTH -u PG_APP_VERIFIER -u PG_RUNTIME_VERIFIER -u SCRAM_SOURCE "$@"; }
+clean_env() { env -u PG_APP_PASSWORD -u PG_RUNTIME_PASSWORD -u VALKEY_PASSWORD -u VALKEY_USERNAME -u VALKEY_APP_PASSWORD -u REDISCLI_AUTH -u VALKEYCLI_AUTH -u PG_APP_VERIFIER -u PG_RUNTIME_VERIFIER -u SCRAM_SOURCE "$@"; }
 as_user() { local u="$1"; shift; clean_env sudo -u "$u" -H -- "$@"; }
 pg_ro() { sudo -u postgres -H -- psql -X -A -t -q -v ON_ERROR_STOP=1 -d "${2:-postgres}" -c "$1"; }
 valkey_cli() {
@@ -193,6 +198,21 @@ valkey_cli() {
   REDISCLI_AUTH="$VALKEY_PASSWORD" VALKEYCLI_AUTH="$VALKEY_PASSWORD" "$cli" -h 127.0.0.1 -p "$VALKEY_PORT" \
     ${VALKEY_USERNAME:+--user "$VALKEY_USERNAME"} --no-auth-warning "$@"
 }
+# >>> valkey-acl (règles de l'utilisateur ACL de l'API ; source UNIQUE, test Redis/Valkey réel :
+# apps/api/src/lib/valkey-acl.test.ts, rejoué en CI sous ces règles)
+# Clés `~<préfixe>*` et canaux `&<préfixe>*` seulement ; liste POSITIVE des commandes de l'API
+# (lib/redis.ts, scripts Lua de l'OTP et du rate-limit compris) : ni FLUSH*, ni KEYS/SCAN, ni
+# INFO/CONFIG/ACL/CLIENT LIST, ni MONITOR/DEBUG/SWAPDB/MOVE. SELECT reste permis (index du
+# profil) : les clés d'un autre index restent hors du préfixe, donc refusées.
+valkey_acl_rules() {
+  printf '%s\n' resetkeys "~${1}*" resetchannels "&${1}*" nocommands \
+    +ping +select '+client|setname' +quit \
+    +get +set +del +getdel +incr +expire +pexpire +ttl +pttl \
+    +eval +evalsha +publish +subscribe +unsubscribe
+}
+# <<< valkey-acl
+# Ligne `ACL LIST` de l'utilisateur ACL de l'environnement (vide s'il n'existe pas).
+valkey_acl_line() { valkey_cli ACL LIST 2>/dev/null | grep -E "^user ${VALKEY_APP_USER} " || true; }
 same_file() { [[ -f "$1" && -f "$2" ]] && cmp -s -- "$1" "$2"; }
 # Vérificateur SCRAM-SHA-256 (RFC 5802/7677, format PostgreSQL) calculé ICI : le serveur
 # ne reçoit jamais le mot de passe en clair (log_statement, pg_stat_statements, journaux).
@@ -444,6 +464,29 @@ guard_valkey() {
   other_db=$(( VALKEY_DB == 5 ? 6 : 5 ))
   [[ "$(valkey_cli -n "$other_db" GET digisante:owner 2>/dev/null || true)" != "$DIGISANTE_ENV" ]] || die "marqueur ${DIGISANTE_ENV} présent dans l'index ${other_db} : indexes croisés"
   valkey_eviction_check
+  guard_valkey_acl
+}
+
+# Utilisateur ACL de l'API : persistance par fichier ACL (ACL SAVE), jamais CONFIG REWRITE du
+# valkey.conf partagé ; un utilisateur de même nom hors du préfixe n'est jamais modifié.
+guard_valkey_acl() {
+  local aclfile line patterns
+  aclfile="$(valkey_cli CONFIG GET aclfile 2>/dev/null | sed -n 2p || true)"
+  [[ -n "$aclfile" ]] || die "Valkey : aclfile non configuré (ou CONFIG GET refusé) — l'utilisateur ACL ${VALKEY_APP_USER} serait perdu au redémarrage ; faire déclarer un fichier ACL par l'administrateur de l'hôte (README §1.b), jamais de CONFIG REWRITE du valkey.conf partagé"
+  pass "Valkey : fichier ACL déclaré (ACL SAVE possible)"
+  if [[ -n "$VALKEY_APP_PASSWORD" ]]; then
+    [[ "$VALKEY_APP_PASSWORD" =~ ^[A-Za-z0-9._~-]{32,256}$ ]] || die "VALKEY_APP_PASSWORD : 32 à 256 caractères [A-Za-z0-9._~-] (sans encodage dans REDIS_URL ; openssl rand -hex 32)"
+    [[ "$VALKEY_APP_PASSWORD" != "$VALKEY_PASSWORD" ]] || die "VALKEY_APP_PASSWORD identique au mot de passe d'administration Valkey de l'hôte : deux secrets distincts requis"
+  fi
+  line="$(valkey_acl_line)"
+  if [[ -z "$line" ]]; then
+    note "utilisateur ACL ${VALKEY_APP_USER} absent : créé à l'application (clés et canaux ${VALKEY_PREFIX}*)"
+    return 0
+  fi
+  patterns="$(tr ' ' '\n' <<<"$line" | grep -E '^(~|%R~|%W~|%RW~|allkeys$)' | tr '\n' ' ' || true)"
+  [[ "$patterns" == "~${VALKEY_PREFIX}* " ]] || die "utilisateur ACL ${VALKEY_APP_USER} existant avec d'autres clés (${patterns:-aucune}) : propriétaire inconnu, jamais modifié"
+  if [[ -z "$VALKEY_APP_PASSWORD" && " $line " == *" nopass "* ]]; then die "utilisateur ACL ${VALKEY_APP_USER} sans mot de passe (nopass) : VALKEY_APP_PASSWORD requis"; fi
+  pass "utilisateur ACL ${VALKEY_APP_USER} déjà limité à ${VALKEY_PREFIX}*"
 }
 
 guard_nginx() {
@@ -555,6 +598,9 @@ guard_cron() {
 # --apply : tout secret ou paramètre requis est contrôlé AVANT la première écriture.
 preflight_apply() {
   [[ "$MODE" == apply ]] || return 0
+  if want valkey && [[ -z "$VALKEY_APP_PASSWORD" && -z "$(valkey_acl_line)" ]]; then
+    die "VALKEY_APP_PASSWORD (coffre, 32 à 256 caractères [A-Za-z0-9._~-]) requis pour créer l'utilisateur ACL ${VALKEY_APP_USER} — rien n'a été écrit"
+  fi
   if want pg && [[ "$(pg_ro "SELECT 1 FROM pg_roles WHERE rolname = '${DB_ROLE}'")" != 1 ]] && ! pg_scram_verifier >/dev/null; then
     die "PG_APP_PASSWORD (coffre, ≥ 24 caractères ASCII imprimables, sans espace) requis pour créer ${DB_ROLE} — rien n'a été écrit"
   fi
@@ -654,7 +700,7 @@ step_pg() {
       verifier="$(pg_scram_verifier)" || die "PG_APP_PASSWORD (coffre, ≥ 24 caractères ASCII imprimables, sans espace) requis pour créer ${DB_ROLE}"
       log "création du rôle ${DB_ROLE} (LOGIN, aucun privilège ; vérificateur SCRAM calculé localement, mot de passe jamais transmis ni affiché)"
       # Seul le VÉRIFICATEUR SCRAM part au serveur, par l'environnement de psql (\\getenv), jamais en argument (`ps`).
-      env -u PG_APP_PASSWORD -u PG_RUNTIME_PASSWORD -u VALKEY_PASSWORD -u REDISCLI_AUTH -u VALKEYCLI_AUTH DB_ROLE="$DB_ROLE" PG_APP_VERIFIER="$verifier" \
+      env -u PG_APP_PASSWORD -u PG_RUNTIME_PASSWORD -u VALKEY_PASSWORD -u VALKEY_APP_PASSWORD -u REDISCLI_AUTH -u VALKEYCLI_AUTH DB_ROLE="$DB_ROLE" PG_APP_VERIFIER="$verifier" \
         sudo --preserve-env=DB_ROLE,PG_APP_VERIFIER -u postgres -H -- psql -X -q -v ON_ERROR_STOP=1 -d postgres <<'SQL'
 \getenv db_role DB_ROLE
 \getenv db_pw PG_APP_VERIFIER
@@ -677,7 +723,7 @@ SQL
       local run_verifier
       run_verifier="$(pg_scram_verifier PG_RUNTIME_PASSWORD)" || die "PG_RUNTIME_PASSWORD (coffre, ≥ 24 caractères ASCII imprimables, sans espace) requis pour créer ${RUN_ROLE}"
       log "création du rôle d'exécution ${RUN_ROLE} (LOGIN, aucun privilège ni appartenance ; vérificateur SCRAM calculé localement)"
-      env -u PG_APP_PASSWORD -u PG_RUNTIME_PASSWORD -u VALKEY_PASSWORD -u REDISCLI_AUTH -u VALKEYCLI_AUTH RUN_ROLE="$RUN_ROLE" PG_RUNTIME_VERIFIER="$run_verifier" \
+      env -u PG_APP_PASSWORD -u PG_RUNTIME_PASSWORD -u VALKEY_PASSWORD -u VALKEY_APP_PASSWORD -u REDISCLI_AUTH -u VALKEYCLI_AUTH RUN_ROLE="$RUN_ROLE" PG_RUNTIME_VERIFIER="$run_verifier" \
         sudo --preserve-env=RUN_ROLE,PG_RUNTIME_VERIFIER -u postgres -H -- psql -X -q -v ON_ERROR_STOP=1 -d postgres <<'SQL'
 \getenv db_role RUN_ROLE
 \getenv db_pw PG_RUNTIME_VERIFIER
@@ -712,7 +758,59 @@ step_valkey() {
   else
     plan "index ${VALKEY_DB} réservé : SET digisante:owner ${DIGISANTE_ENV} NX (mot de passe par REDISCLI_AUTH)"
   fi
-  note "REDIS_URL du .env : redis://:<mot de passe URL-encodé>@127.0.0.1:${VALKEY_PORT}/${VALKEY_DB}"
+  # Utilisateur ACL : par l'ENTRÉE STANDARD de valkey-cli (jamais en argument, `ps`) et sous
+  # forme d'empreinte SHA-256 calculée ici (`#…`) : le mot de passe ne part jamais au serveur.
+  local rules out hash
+  rules="$(valkey_acl_rules "$VALKEY_PREFIX" | tr '\n' ' ')"
+  if [[ "$MODE" == apply ]]; then
+    if [[ -n "$VALKEY_APP_PASSWORD" ]]; then
+      hash="$(printf '%s' "$VALKEY_APP_PASSWORD" | sha256sum | cut -d ' ' -f 1)"
+      out="$(printf 'ACL SETUSER %s reset on #%s %s\n' "$VALKEY_APP_USER" "$hash" "$rules" | valkey_cli 2>&1 || true)"
+      unset hash
+    else
+      # Rotation non demandée : mots de passe conservés, règles réappliquées.
+      out="$(printf 'ACL SETUSER %s on %s\n' "$VALKEY_APP_USER" "$rules" | valkey_cli 2>&1 || true)"
+    fi
+    [[ "$out" == OK ]] || die "ACL SETUSER ${VALKEY_APP_USER} refusé (réponse non affichée) : droits d'administration Valkey requis"
+    out="$(valkey_cli ACL SAVE 2>&1 || true)"
+    [[ "$out" == OK ]] || die "ACL SAVE refusé : utilisateur ${VALKEY_APP_USER} actif mais NON persistant — à corriger avant tout redémarrage de Valkey"
+    log "utilisateur ACL ${VALKEY_APP_USER} : ${rules}(persistant, ACL SAVE)"
+  else
+    plan "utilisateur ACL ${VALKEY_APP_USER} : ACL SETUSER ${VALKEY_APP_USER} $([[ -n "$VALKEY_APP_PASSWORD" ]] && echo 'reset on #<SHA-256 de VALKEY_APP_PASSWORD, calculée ici>' || echo 'on (mots de passe conservés)') ${rules}par l'entrée standard, puis ACL SAVE"
+  fi
+  note "REDIS_URL du .env : redis://${VALKEY_APP_USER}:<VALKEY_APP_PASSWORD>@127.0.0.1:${VALKEY_PORT}/${VALKEY_DB} et REDIS_KEY_PREFIX=${VALKEY_PREFIX}"
+}
+
+# Droits EFFECTIFS de l'utilisateur ACL, mesurés par ACL DRYRUN (sans son mot de passe), et
+# .env de l'API sous cet utilisateur et ce préfixe.
+verify_valkey_acl() {
+  local line probe allowed denied
+  line="$(valkey_acl_line)"
+  if [[ -z "$line" ]]; then fail "utilisateur ACL ${VALKEY_APP_USER} absent (--apply --only valkey, VALKEY_APP_PASSWORD)"; return 0; fi
+  if [[ " $line " == *" on "* && " $line " != *" nopass "* ]]; then pass "utilisateur ACL ${VALKEY_APP_USER} actif, avec mot de passe"; else fail "utilisateur ACL ${VALKEY_APP_USER} inactif ou sans mot de passe"; fi
+  allowed=0; denied=0
+  local other_prefix words
+  if [[ "$DIGISANTE_ENV" == production ]]; then other_prefix=digisante-preprod:; else other_prefix=digisante:; fi
+  for probe in "GET ${VALKEY_PREFIX}probe" "PUBLISH ${VALKEY_PREFIX}chat:events x"; do
+    read -r -a words <<<"$probe"
+    if [[ "$(valkey_cli ACL DRYRUN "$VALKEY_APP_USER" "${words[@]}" 2>/dev/null)" == OK ]]; then allowed=$((allowed + 1)); else fail "ACL ${VALKEY_APP_USER} : « ${probe} » refusé (l'API en a besoin)"; fi
+  done
+  for probe in FLUSHALL FLUSHDB 'KEYS *' 'SCAN 0' 'CONFIG GET maxmemory' INFO 'ACL LIST' 'CLIENT LIST' MONITOR 'SWAPDB 5 6' \
+    'GET otp:probe' "GET ${other_prefix}probe" 'PUBLISH chat:events x' "SUBSCRIBE ${other_prefix}chat:events" "MOVE ${VALKEY_PREFIX}probe 0"; do
+    # Mots de la sonde sans expansion de chemin (« KEYS * »).
+    read -r -a words <<<"$probe"
+    if [[ "$(valkey_cli ACL DRYRUN "$VALKEY_APP_USER" "${words[@]}" 2>/dev/null)" == OK ]]; then fail "ACL ${VALKEY_APP_USER} : « ${probe} » PERMIS (hors périmètre de l'environnement)"; else denied=$((denied + 1)); fi
+  done
+  (( allowed == 2 && denied == 15 )) && pass "ACL ${VALKEY_APP_USER} : préfixe ${VALKEY_PREFIX} seul, aucune commande d'administration (ACL DRYRUN)"
+  note "utilisateur default (mot de passe d'administration de l'hôte) : accès à TOUS les index (ImmiPro, BeninLink, DigiSanté) — réservé à l'administrateur, jamais dans un .env"
+  if [[ -f "$(F "$ENV_FILE")" ]]; then
+    local url user prefix rc=0
+    url="$(env_value REDIS_URL)" || rc=$?
+    user="${url#*://}"; user="${user%%[:@]*}"; unset url
+    if (( rc == 0 )) && [[ "$user" == "$VALKEY_APP_USER" ]]; then pass "API (.env) sous l'utilisateur ACL ${VALKEY_APP_USER}"; else fail "API (.env) sous l'utilisateur Valkey « ${user:-default} » au lieu de ${VALKEY_APP_USER}"; fi
+    rc=0; prefix="$(env_value REDIS_KEY_PREFIX)" || rc=$?
+    if (( rc == 0 )) && [[ "$prefix" == "$VALKEY_PREFIX" ]]; then pass "REDIS_KEY_PREFIX=${VALKEY_PREFIX}"; else fail "REDIS_KEY_PREFIX absent ou différent de ${VALKEY_PREFIX} (.env de l'API)"; fi
+  fi
 }
 
 step_runtime() {
@@ -983,7 +1081,8 @@ verify_all() {
   if [[ -n "${VALKEY_PASSWORD:-}" ]]; then
     if [[ "$(valkey_cli -n "$VALKEY_DB" GET digisante:owner 2>/dev/null)" == "$DIGISANTE_ENV" ]]; then pass "Valkey index ${VALKEY_DB} → ${DIGISANTE_ENV}"; else fail "Valkey index ${VALKEY_DB} sans marqueur ${DIGISANTE_ENV}"; fi
     valkey_eviction_check
-  else fail "VALKEY_PASSWORD absent : marqueur et éviction Valkey NON vérifiés (read -rs VALKEY_PASSWORD; export VALKEY_PASSWORD)"; fi
+    verify_valkey_acl
+  else fail "VALKEY_PASSWORD absent : marqueur, éviction et utilisateur ACL Valkey NON vérifiés (read -rs VALKEY_PASSWORD; export VALKEY_PASSWORD)"; fi
   # Runtime.
   # Node du COMPTE applicatif (PM2, deploy.sh) : un Node réservé à root (nvm sous /root) ne lui sert à rien.
   if [[ "$(as_user "$APP_USER" node -v 2>/dev/null | sed -n 's/^v\([0-9]*\)\..*/\1/p')" == "$NODE_MAJOR" ]]; then pass "Node ${NODE_MAJOR} (compte ${APP_USER})"; else fail "Node ${NODE_MAJOR} introuvable pour ${APP_USER} (Node de root seulement ?)"; fi

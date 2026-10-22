@@ -54,8 +54,8 @@ function fixture() {
   // par l'environnement au déploiement, jamais dans le .env de l'API).
   const databaseUrl = 'postgresql://digisante_preprod_app:synthetic%40%3A%2F%23@127.0.0.1:5432/digisante_preprod?schema=public';
   const migrationUrl = 'postgresql://digisante_preprod:owner-synthetic%40%3A@127.0.0.1:5432/digisante_preprod?schema=public';
-  const redisUrl = 'redis://:synthetic%40%3A%2F%23@127.0.0.1:6379/5';
-  const writeEnv = (values = {}) => writeFileSync(apiEnv, Object.entries({ NODE_ENV: 'production', DATABASE_URL: databaseUrl, REDIS_URL: redisUrl, ...values }).map(([key, value]) => `${key}=${value}\n`).join(''));
+  const redisUrl = 'redis://digisante-preprod:synthetic%40%3A%2F%23@127.0.0.1:6379/5';
+  const writeEnv = (values = {}) => writeFileSync(apiEnv, Object.entries({ NODE_ENV: 'production', DATABASE_URL: databaseUrl, REDIS_URL: redisUrl, REDIS_KEY_PREFIX: 'digisante-preprod:', ...values }).map(([key, value]) => `${key}=${value}\n`).join(''));
   writeEnv();
   chmodSync(join(app, 'apps/api/.env'), 0o600);
   mkdirSync(log); mkdirSync(bin); writeFileSync(trace, '');
@@ -178,6 +178,12 @@ test('déploiement : fichier préproduction visant production, mauvais rôle/sch
       { REDIS_URL: f.redisUrl.replace('/5', '/') },
       { REDIS_URL: f.redisUrl.replace('6379', '6380') },
       { REDIS_URL: f.redisUrl.replace('127.0.0.1', 'redis.example.invalid') },
+      // Isolement Valkey : utilisateur ACL et préfixe de l'environnement, jamais `default`.
+      { REDIS_URL: f.redisUrl.replace('digisante-preprod:', ':') },
+      { REDIS_URL: f.redisUrl.replace('digisante-preprod:', 'default:') },
+      { REDIS_URL: f.redisUrl.replace('digisante-preprod:', 'digisante:') },
+      { REDIS_KEY_PREFIX: 'digisante:' },
+      { REDIS_KEY_PREFIX: '' },
       { NODE_ENV: 'test' },
     ]) {
       f.writeEnv(values);
@@ -197,6 +203,7 @@ test('déploiement : priorité des variables héritées contrôlée, credentials
     for (const override of [
       { DATABASE_URL: f.databaseUrl.replace('digisante_preprod', 'digisante') },
       { REDIS_URL: f.redisUrl.replace('/5', '/6') },
+      { REDIS_KEY_PREFIX: 'digisante:' },
       { NODE_ENV: 'test' },
     ]) {
       const r = f.run(f.newer, override);

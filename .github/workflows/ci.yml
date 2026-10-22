@@ -57,11 +57,14 @@ jobs:
           for script in infra/deploy/scripts/*.sh; do bash -n "$script"; done
           python scripts/docs/validate-l9-dossier.py
       - run: pnpm test
-      # Revue GO du 22/10/2026 : l'API de production tourne sous un rôle NON propriétaire
-      # (`<base>_app`, droits appliqués par deploy.sh). La suite API est rejouée sous ce rôle
-      # pour prouver que le code n'a besoin d'aucun droit de propriétaire (DDL, UPDATE/DELETE
-      # sur l'audit…). Le test du rôle lui-même exige la connexion propriétaire : exclu ici.
-      - name: Suite API sous le rôle d'exécution non propriétaire
+      # Revue GO du 22/10/2026 : l'API de production tourne sous un rôle PostgreSQL NON
+      # propriétaire (`<base>_app`, droits appliqués par deploy.sh) et sous l'utilisateur ACL
+      # Valkey de son environnement (préfixe de clés/canaux, aucune commande d'administration,
+      # règles de provision-ionos.sh). La suite API est rejouée sous ces DEUX identités pour
+      # prouver que le code n'a besoin d'aucun droit de propriétaire ni d'administration Valkey.
+      # Le test du rôle PG exige la connexion propriétaire : exclu ici ; la purge initiale de
+      # l'index Redis passe par REDIS_ADMIN_URL (FLUSHDB refusé à l'utilisateur ACL).
+      - name: Suite API sous le rôle d'exécution et l'utilisateur ACL Valkey
         env:
           PGHOST: localhost
           PGUSER: digisante
@@ -70,7 +73,10 @@ jobs:
         run: |
           psql -X -q -v ON_ERROR_STOP=1 -c "CREATE ROLE digisante_test_app LOGIN PASSWORD 'ci-synthetic-runtime-role'"
           node scripts/infra/runtime-grants-sql.mjs | psql -X -q -A -t -v app_role=digisante_test_app
+          VALKEY_APP_PASSWORD=ci-synthetic-valkey-acl-user node scripts/infra/valkey-acl-user.mjs redis://localhost:6379/1 digisante-test digisante-test:
           DATABASE_URL='postgresql://digisante_test_app:ci-synthetic-runtime-role@localhost:5432/digisante_test?schema=public' \
+          REDIS_URL='redis://digisante-test:ci-synthetic-valkey-acl-user@localhost:6379/1' REDIS_KEY_PREFIX=digisante-test: \
+          REDIS_ADMIN_URL=redis://localhost:6379/1 \
             pnpm --filter @digisante/api exec vitest run --exclude src/lib/runtime-role.test.ts
       - run: pnpm build
 

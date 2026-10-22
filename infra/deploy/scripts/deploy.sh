@@ -108,13 +108,13 @@ DEPLOY_MIGRATION_URL="$MIGRATION_URL" node - "$ENV_FILE" "$DEPLOY_ENVIRONMENT" <
 const fs = require('node:fs'); const { parseEnv } = require('node:util');
 const env = parseEnv(fs.readFileSync(process.argv[2], 'utf8'));
 const profile = process.argv[3] === 'preproduction'
-  ? { database: 'digisante_preprod', redis: '/5' }
-  : { database: 'digisante', redis: '/6' };
+  ? { database: 'digisante_preprod', redis: '/5', valkeyUser: 'digisante-preprod' }
+  : { database: 'digisante', redis: '/6', valkeyUser: 'digisante' };
 const refuse = (message) => { fs.writeSync(2, `${message} ; aucun processus arrêté ni migration lancée.\n`); process.exit(1); };
 if (env.NODE_ENV !== 'production') refuse('NODE_ENV=production requis dans le fichier API');
 // Prisma et l'API (lib/env-file.ts) gardent les variables héritées : contrôler aussi cette
 // priorité, sinon le .env vérifié pourrait différer de la base réellement migrée.
-for (const key of ['NODE_ENV', 'DATABASE_URL', 'REDIS_URL']) {
+for (const key of ['NODE_ENV', 'DATABASE_URL', 'REDIS_URL', 'REDIS_KEY_PREFIX']) {
   if (process.env[key] !== undefined && process.env[key] !== env[key]) refuse(`${key} hérité différent du fichier API`);
 }
 // L'URL du propriétaire n'a rien à faire dans le fichier lu par l'API.
@@ -144,6 +144,12 @@ const ownerPassword = pgTarget('MIGRATION_DATABASE_URL', { MIGRATION_DATABASE_UR
 if (runtimePassword === ownerPassword) refuse('mots de passe identiques pour le rôle propriétaire et le rôle d’exécution');
 const redis = parsed('REDIS_URL', ['redis:'], '6379');
 if (redis.pathname !== profile.redis || redis.search) refuse('REDIS_URL ne correspond pas à l’index du profil');
+// Isolement Valkey (revue GO du 22/10/2026) : utilisateur ACL de l'environnement (jamais
+// `default`, dont le mot de passe ouvre tous les index de l'hôte) et préfixe des clés/canaux.
+let valkeyUser;
+try { valkeyUser = decodeURIComponent(redis.username); } catch { refuse('REDIS_URL invalide'); }
+if (valkeyUser !== profile.valkeyUser) refuse(`REDIS_URL doit viser l’utilisateur ACL ${profile.valkeyUser} (jamais default)`);
+if (env.REDIS_KEY_PREFIX !== `${profile.valkeyUser}:`) refuse(`REDIS_KEY_PREFIX=${profile.valkeyUser}: requis dans le fichier API`);
 JS
 # >>> runtime-grants.sql (exécuté sous le rôle PROPRIÉTAIRE ; test PostgreSQL réel : apps/api/src/lib/runtime-role.test.ts)
 # Idempotent, dans UNE transaction : DML sur toutes les tables et séquences, mêmes droits par

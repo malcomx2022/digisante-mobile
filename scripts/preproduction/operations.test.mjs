@@ -44,7 +44,7 @@ function fixture() {
   // Le script de déploiement contrôle le profil complet ; les services synthétiques
   // ne doivent pas hériter des URLs NODE_ENV=test de la CI qui lance cette suite.
   delete env.DATABASE_URL; delete env.REDIS_URL; env.NODE_ENV='production';
-  writeFileSync(join(env.APP_DIR,'apps/api/.env'),'NODE_ENV=production\nDATABASE_URL=postgresql://digisante_preprod_app:synthetic@127.0.0.1:5432/digisante_preprod?schema=public\nREDIS_URL=redis://:synthetic@127.0.0.1:6379/5\n');chmodSync(join(env.APP_DIR,'apps/api/.env'),0o600);
+  writeFileSync(join(env.APP_DIR,'apps/api/.env'),'NODE_ENV=production\nDATABASE_URL=postgresql://digisante_preprod_app:synthetic@127.0.0.1:5432/digisante_preprod?schema=public\nREDIS_URL=redis://digisante-preprod:synthetic@127.0.0.1:6379/5\nREDIS_KEY_PREFIX=digisante-preprod:\n');chmodSync(join(env.APP_DIR,'apps/api/.env'),0o600);
   writeFileSync(env.BACKUP_KEY_FILE,'SYNTHETIC TEST KEY');chmodSync(env.BACKUP_KEY_FILE,0o600);
   writeFileSync(env.TRACE,'');chmodSync(env.TRACE,0o666);
   writeFileSync(join(env.KYC_STORAGE_DIR,`${STORE_ID}.bin`),'SYNTHETIC ENCRYPTED FILE');own(env.KYC_STORAGE_DIR);
@@ -272,6 +272,22 @@ test('vérification : API sous le rôle d’exécution <base>_app exigée, propr
     }
   } finally {f.clean();}
 });
+test('vérification : API sous l’utilisateur ACL Valkey et le préfixe de l’environnement, default ou autre préfixe ⇒ FAIL',()=>{
+  const {f,ws}=verifyFixture();try {
+    const base={DOMAIN:'preprod.example.bj',VERIFY_JOB_ENVIRONMENT:'preproduction',WS_LOG:ws};
+    let r=f.run('verify_deploy.sh',base);
+    assert.equal(r.status,0,r.stdout+r.stderr);assert.match(r.stdout,/PASS.*API sous l'utilisateur ACL Valkey digisante-preprod, préfixe digisante-preprod:/);
+    const db='DATABASE_URL=postgresql://digisante_preprod_app:synthetic@127.0.0.1:5432/digisante_preprod\n';
+    for(const body of ['REDIS_URL=redis://:valkey-synthetic@127.0.0.1:6379/5\nREDIS_KEY_PREFIX=digisante-preprod:\n',
+      'REDIS_URL=redis://default:valkey-synthetic@127.0.0.1:6379/5\nREDIS_KEY_PREFIX=digisante-preprod:\n',
+      'REDIS_URL=redis://digisante-preprod:valkey-synthetic@127.0.0.1:6379/5\nREDIS_KEY_PREFIX=digisante:\n',
+      'REDIS_URL=redis://digisante-preprod:valkey-synthetic@127.0.0.1:6379/5\n']) {
+      writeFileSync(f.env.API_ENV_FILE,'NODE_ENV=production\n'+db+body);chmodSync(f.env.API_ENV_FILE,0o600);
+      r=f.run('verify_deploy.sh',base);
+      assert.notEqual(r.status,0);assert.match(r.stdout,/FAIL.*utilisateur Valkey\/préfixe/);assert.doesNotMatch(r.stdout+r.stderr,/valkey-synthetic/);
+    }
+  } finally {f.clean();}
+});
 test('vérification : sondes par défaut sans tâches ; opt-in synthétique lance exactement six tâches de la copie root',()=>{
   for(const jobs of [false,true]) {
     const {f,ws}=verifyFixture();try {
@@ -383,7 +399,7 @@ test('déploiement préproduction : arrête SEULEMENT digisante-preprod-*, readi
 });
 test('déploiement production : arrête digisante-api/web (jamais la préproduction), readiness 127.0.0.1:3201',()=>{
   const f=fixture();try{
-    writeFileSync(f.env.API_ENV_FILE,'NODE_ENV=production\nDATABASE_URL=postgresql://digisante_app:synthetic@127.0.0.1:5432/digisante?schema=public\nREDIS_URL=redis://:synthetic@127.0.0.1:6379/6\n');
+    writeFileSync(f.env.API_ENV_FILE,'NODE_ENV=production\nDATABASE_URL=postgresql://digisante_app:synthetic@127.0.0.1:5432/digisante?schema=public\nREDIS_URL=redis://digisante:synthetic@127.0.0.1:6379/6\nREDIS_KEY_PREFIX=digisante:\n');
     const r=f.run('deploy.sh',{...deployEnv,MIGRATION_DATABASE_URL:'postgresql://digisante:owner-synthetic@127.0.0.1:5432/digisante?schema=public',DEPLOY_ENVIRONMENT:'production',DIGISANTE_ENV:'',OLD_WRITERS:'1',OLD_API:'digisante-api',OLD_WEB:'digisante-web',OTHER_ENV:'{"name":"digisante-preprod-api","pm2_env":{"status":"online"}}'});
     assert.equal(r.status,0,r.stderr+r.stdout);const t=f.trace();
     assert.match(t,/^pm2 stop digisante-api digisante-web$/m);assert.doesNotMatch(t,/^pm2 stop .*preprod/m);

@@ -62,7 +62,7 @@ Indépendamment du GO préproduction (L11, `docs/suivi/LOT_L11.md`, tout « NON 
 | Bloc | Restant | Propriétaire |
 |---|---|---|
 | **L9 humain** | Traductions FON/YOR natives (232 clés, **6 `sos.*` critiques**), phrasier natif (27 phrases), 7 contreseings cliniques sur le snapshot `3e061d52…` ; **rendu posologie** (fractions, unités, horaires/durées supposés) à corriger puis contresigner | Relecteurs natifs, professionnel de santé, porteur |
-| **Hôte partagé (I2)** | Arbitrage des résiduels de `infra/deploy/README.md` : port squatté, **Valkey partagé (mot de passe `default` = tous les index et FLUSHALL)**, fuseau, zones Nginx, capacité 4 Go ; rôle PG d'exécution non propriétaire **préparé dans ce lot (§9)**, bascule de la préprod à exécuter | Porteur ; opérateur pour la bascule |
+| **Hôte partagé (I2)** | Arbitrage des résiduels de `infra/deploy/README.md` : port squatté, fuseau, zones Nginx, capacité 4 Go ; rôle PG d'exécution non propriétaire (§9) et **isolement Valkey par utilisateur ACL + préfixe (§10)** préparés dans ce lot, bascules de la préprod à exécuter (fichier ACL Valkey à déclarer par l'administrateur de l'hôte) | Porteur ; administrateur de l'hôte et opérateur pour les bascules |
 | **Exploitation** | Provisioning prod (`provision-ionos.sh --apply` production, jamais exécuté), B3/B4 installés côté prod, `ALERT_CMD` d'alerte vers une adresse d'exploitation (D-13), première sauvegarde prod + **restauration indépendante base ET fichiers**, répétition de rollback | Opérateur |
 | **Sécurité** | Pentest externe + re-tests, arbitrage X8 (`unsafe-inline`), Twilio Geo Permissions, hôtes FedaPay **live** jamais observés (B1 reste ouvert en live), HSTS prod après renouvellement vérifié | Prestataire, porteur |
 | **Paiements live** | Bascule clé `sk_live_` + secret webhook live, recette S1/S8 en live à montant plafonné, rapprochement des issues incertaines | Porteur (§5) |
@@ -158,3 +158,32 @@ Limites :
 - Pendant un déploiement, l'URL du propriétaire est dans l'environnement des processus du compte applicatif ; l'API est alors arrêtée.
 - La bascule de la préproduction existante est une opération humaine (README résiduel 5) : règle `pg_hba` éventuelle à la main, `.env`, secret GitHub.
 - Un nouveau registre append-only devra être ajouté au bloc.
+
+## 10. Lot post-recette — isolement Valkey par environnement (préparé le 22/10/2026, NON fusionnable pendant la recette)
+
+Résiduel 2 de `infra/deploy/README.md`. `CLAUDE.md` §2 verrouille un Valkey 6379 partagé avec les index /5 et /6 : la correction reste dans ce cadre. Une instance dédiée aurait été une dérogation à faire valider par le porteur.
+
+Constat : les index séparaient les données, pas l'accès. Chaque `.env` contenait le mot de passe `default` de l'hôte, qui ouvre tous les index (ImmiPro, BeninLink, l'autre environnement) et les commandes `FLUSHALL`, `CONFIG` et `ACL`. Le canal `chat:events` était commun aux deux environnements. Une prise de contrôle de l'API DigiSanté donnait donc la main sur le Valkey de l'hôte.
+
+Correction :
+- **API** : `REDIS_KEY_PREFIX` (`digisante-preprod:` / `digisante:`), obligatoire en production (`env.ts`). Une fabrique unique, `lib/redis.ts`, sert la connexion principale, l'abonné pub/sub et le magasin du rate-limit. Elle pose le préfixe sur toutes les clés et désactive `CLIENT SETINFO` et la vérification `INFO`, toutes deux refusées. Le canal est préfixé par `redisChannel()`, car le `keyPrefix` d'ioredis ne s'applique pas aux canaux (constaté sur Redis réel). Le test de l'annuaire purgeait le cache par `KEYS` ; il supprime désormais des clés nommées.
+- **Utilisateur ACL par environnement** (`provision-ionos.sh`, bloc `valkey-acl`, source unique). Clés `~<préfixe>*`, canaux `&<préfixe>*`, et une liste positive limitée aux commandes de l'API, scripts Lua de l'OTP et du rate-limit compris. Le compte est créé par `ACL SETUSER` sur l'entrée standard avec l'empreinte `#SHA-256` de `VALKEY_APP_PASSWORD` : ce secret est distinct du mot de passe d'administration et n'est jamais transmis au serveur. La persistance passe par `ACL SAVE`.
+- **Gardes avant écriture** : fichier ACL déclaré, sans jamais de `CONFIG REWRITE` du `valkey.conf` partagé. Un utilisateur de même nom hors préfixe est refusé, tout comme `nopass`, un mot de passe faible ou identique à celui d'administration. Sans mot de passe, les règles sont réappliquées en conservant le mot de passe existant.
+- **`--verify`** mesure les droits effectifs par `ACL DRYRUN`. 2 commandes doivent passer et 15 être refusées, dont FLUSH\*, KEYS, SCAN, INFO, CONFIG, ACL, CLIENT, SWAPDB, MOVE, les clés et canaux hors préfixe et ceux de l'autre environnement. Il contrôle aussi l'utilisateur et le préfixe du `.env`.
+- **`deploy.sh`** refuse un `REDIS_URL` sous un autre utilisateur, `default` compris, un préfixe absent ou différent, ou une valeur héritée divergente. `verify_deploy.sh` contrôle la même chose.
+- La CI rejoue toute la suite API sous l'utilisateur ACL et le rôle PostgreSQL d'exécution (`scripts/infra/valkey-acl-user.mjs`). `REDIS_ADMIN_URL` ne sert qu'à la purge initiale.
+- Mis à jour : modèles `.env`, README (prérequis, procédure de bascule, résiduel 2), secrets, checklist, contrat L10 et `CLAUDE.md`.
+
+Preuves locales :
+- `apps/api/src/lib/valkey-acl.test.ts`, sur **Redis 7.0 réel**, avec les règles extraites de `provision-ionos.sh` (16/16). Passent : les commandes de l'API, les scripts Lua (OTP, rate-limit Fastify) et le pub/sub préfixé, la clé étant réellement préfixée côté serveur. Refusés : FLUSH\*, KEYS, SCAN, INFO, CONFIG, ACL LIST, CLIENT LIST, SWAPDB, DBSIZE, RANDOMKEY, ainsi que les clés et canaux hors préfixe, y compris après `SELECT` d'un autre index. Les sondes `ACL DRYRUN` de `--verify` donnent le même verdict.
+- **Suite API complète sous l'utilisateur ACL + préfixe ET le rôle PostgreSQL d'exécution** : 740/740 sur 95 fichiers. Après le passage, `ACL LOG` ne contient aucun refus pour cet utilisateur.
+- CI complète en local sur la tête du lot : lint, typecheck, `test:scripts` 221 (1 ignoré), contrôles L9/L10/DOCX, **API 753 + web 156**, étape « suite API sous le rôle d'exécution et l'utilisateur ACL Valkey » 740/740, build, **E2E 39/39**. Instantané L10 régénéré : `4f98d36b…` ; compteurs 710 API + 145 web (`metrics:check`).
+- Tests d'outillage : `provision-ionos` 46/46 (+3 : création par stdin et `#SHA-256` sans secret transmis, réapplication et production ; refus avant écriture ; `--verify` par `DRYRUN` et `.env`), `deploy-order` 12/12 (+6 cas refusés), `operations` 42/42 (+1 `verify_deploy`), `environments` 9/9 (préfixe = utilisateur = `SITE`). Syntaxe `ACL SETUSER` par l'entrée standard de `redis-cli` vérifiée sur Redis réel.
+
+Limites :
+- L'utilisateur `default` de l'hôte garde l'accès complet ; cela relève de son administrateur, et le provisioning le signale en NOTE.
+- La mémoire, l'éviction et la persistance restent communes. `--verify` exige `noeviction` ; seule une instance dédiée séparerait les ressources (décision du porteur).
+- Prérequis sur l'hôte, non constatés : Valkey ≥ 7 avec `ACL DRYRUN` (Ubuntu 26.04 : 9.0.x) et un fichier ACL déclaré par l'administrateur.
+- Bascule de la préproduction existante (README résiduel 2) : les clés non préfixées deviennent inaccessibles. Les sessions sont à rouvrir et les OTP à redemander ; les anciennes clés expirent seules, jamais de `FLUSHDB`.
+- Toute nouvelle commande Redis utilisée par l'API doit être ajoutée au bloc `valkey-acl` dans le même lot. La CI le détecte.
+

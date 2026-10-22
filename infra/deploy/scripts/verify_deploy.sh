@@ -234,6 +234,18 @@ API_DB_USER="$(node -e '
 RUN_ROLE="$(unset DB_NAME; digisante_profile && printf '%s_app' "$DB_NAME")"
 [[ "$API_DB_USER" == "$RUN_ROLE" ]] && pass "API sous le rôle d'exécution ${RUN_ROLE} (non propriétaire)" \
   || fail "API (.env) sous ${API_DB_USER:-?} au lieu de ${RUN_ROLE}, ou URL du propriétaire présente dans le .env"
+# Valkey partagé : utilisateur ACL et préfixe de CET environnement (droits mesurés par
+# provision-ionos.sh --verify, ACL DRYRUN) ; jamais l'utilisateur default de l'hôte.
+if [[ "$DIGISANTE_ENV" == production ]]; then VALKEY_APP_USER=digisante; else VALKEY_APP_USER=digisante-preprod; fi
+API_VALKEY="$(node -e '
+  const fs = require("node:fs"); const { parseEnv } = require("node:util"); const file = process.argv[1];
+  try { if (fs.realpathSync(file) !== file) process.exit(3); } catch { process.exit(3); }
+  const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+  const env = parseEnv(fs.readFileSync(fd, "utf8"));
+  const clean = (v) => String(v ?? "").replace(/[^a-z0-9:-]/g, "?");
+  process.stdout.write(`${clean(decodeURIComponent(new URL(env.REDIS_URL).username))} ${clean(env.REDIS_KEY_PREFIX)}`);' "${APP_DIR}/apps/api/.env" 2>/dev/null || echo "? ?")"
+[[ "$API_VALKEY" == "${VALKEY_APP_USER} ${VALKEY_APP_USER}:" ]] && pass "API sous l'utilisateur ACL Valkey ${VALKEY_APP_USER}, préfixe ${VALKEY_APP_USER}:" \
+  || fail "API (.env) : utilisateur Valkey/préfixe « ${API_VALKEY} » au lieu de « ${VALKEY_APP_USER} ${VALKEY_APP_USER}: »"
 
 echo
 if (( FAILS > 0 )); then echo "❌ ${FAILS} contrôle(s) en échec (${WARNS} avertissement(s))"; exit 1; fi
