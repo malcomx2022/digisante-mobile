@@ -136,6 +136,48 @@ test('B3 : requêtes des tâches sous le compte sans droits — bloc jobs_user i
   }
 });
 
+test('résiduel 1 : bloc port_owner identique ; jeton et readiness seulement derrière le contrôle du propriétaire du port', () => {
+  const block = (text) => text.slice(text.indexOf('# >>> port_owner'), text.indexOf('# <<< port_owner'));
+  const reference = block(read('infra/deploy/scripts/deploy.sh'));
+  assert.ok(reference.includes('port_owned_by() {') && reference.includes('ss -Htlne'));
+  for (const name of ['deploy.sh', 'healthwatch.sh', 'verify_deploy.sh', 'internal_job.sh', 'fedapay_reconcile.sh']) {
+    assert.equal(block(read(`infra/deploy/scripts/${name}`)), reference, `${name} : bloc port_owner absent ou divergent`);
+  }
+  for (const name of ['internal_job.sh', 'fedapay_reconcile.sh']) {
+    const code = read(`infra/deploy/scripts/${name}`).replace(/^\s*#.*$/gm, '');
+    const guard = code.indexOf('if ! port_owned_by "$API_PORT" "$APP_USER"; then');
+    assert.ok(guard > 0 && guard < code.indexOf('| as_jobs_user curl -q '), `${name} : jeton envoyé sans contrôle du port`);
+  }
+  const deploy = read('infra/deploy/scripts/deploy.sh');
+  const loop = deploy.slice(deploy.indexOf('for i in $(seq 1 10); do'));
+  assert.ok(loop.indexOf('port_owned_by "$API_PORT" "$APP_USER"') < loop.indexOf('curl -fsS'), 'deploy.sh : readiness crue avant le contrôle du port');
+  const health = read('infra/deploy/scripts/healthwatch.sh');
+  assert.ok(health.indexOf('port_owned_by "$p" "$APP_USER"') < health.indexOf('"${API_BASE}/api/v1/ready"'), 'healthwatch.sh : readiness interrogée avant le contrôle du port');
+});
+
+test('résiduel 1 : port_owned_by sur un écouteur RÉEL (ss du système)', async () => {
+  const { createServer } = await import('node:net');
+  const { userInfo } = await import('node:os');
+  const deploy = read('infra/deploy/scripts/deploy.sh');
+  const fn = deploy.slice(deploy.indexOf('# >>> port_owner'), deploy.indexOf('# <<< port_owner'));
+  if (spawnSync('bash', ['-c', 'command -v ss'], { encoding: 'utf8' }).status !== 0) return; // ss absent : contrôle statique seul
+  const server = createServer(); await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const port = server.address().port;
+  const check = (p, user) => spawnSync('bash', ['-c', `${fn}\nport_owned_by "$1" "$2"`, '_', String(p), user], { encoding: 'utf8' }).status;
+  try {
+    const me = userInfo().username;
+    if (process.getuid?.() === 0) {
+      assert.notEqual(check(port, 'root'), 0, 'écouteur root accepté'); // ss n'affiche pas l'uid 0
+    } else {
+      assert.equal(check(port, me), 0, 'écouteur du compte courant refusé');
+    }
+    assert.notEqual(check(port, 'nobody'), 0, 'écouteur d’un autre compte accepté');
+    assert.notEqual(check(port, 'compte-inexistant-digisante'), 0);
+    assert.notEqual(check('abc', me), 0);
+  } finally { await new Promise((r) => server.close(r)); }
+  assert.notEqual(check(port, userInfo().username), 0, 'port libre accepté');
+});
+
 test('B3 : chaque script root vérifie sa propre origine avec un trusted_path identique', () => {
   const block = (text) => text.slice(text.indexOf('# >>> trusted_path'), text.indexOf('# <<< trusted_path'));
   const reference = block(read('infra/deploy/scripts/install_root_scripts.sh'));

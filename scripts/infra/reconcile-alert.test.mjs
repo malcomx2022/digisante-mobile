@@ -10,7 +10,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir, userInfo } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -52,6 +52,9 @@ done
 # Sortie réelle de \`-o -\` + \`-w '\\n%{http_code}'\` : corps puis code sur stdout.
 if [[ "$url" == */payments/reconcile ]]; then printf '%s' "$RECONCILE_BODY"; printf '\\n%s' "$RECONCILE_CODE"
 else echo '{"status":"ready","db":"up","redis":"up"}'; fi`);
+  // Faux ss (résiduel 1) : ports de l'API et du web tenus par l'utilisateur applicatif du test.
+  command('ss', `[[ "$1" == -Htlne ]] || exit 0
+for p in 3100 3101; do [[ "$*" != *":$p "* ]] || echo "LISTEN 0 511 127.0.0.1:$p 0.0.0.0:* uid:$(id -u "$APP_USER") ino:1 sk:1 <->"; done`);
   command('logger', ':');
   command('fixture-psql', 'echo 0');
   const env = {
@@ -69,6 +72,8 @@ else echo '{"status":"ready","db":"up","redis":"up"}'; fi`);
     CONFIG_TRACE: join(dir, 'config'),
     // B3 : lancé par root, la requête part sous ce compte sans droits (traces accessibles).
     ...(process.getuid?.() === 0 ? { JOBS_USER: 'daemon' } : {}),
+    // Utilisateur applicatif qui tient les ports (jamais root : un écouteur root est refusé).
+    APP_USER: process.getuid?.() === 0 ? 'nobody' : userInfo().username,
   };
   for (const trace of [env.ARGV_TRACE, env.CONFIG_TRACE]) { writeFileSync(trace, ''); chmodSync(trace, 0o666); }
   const log = join(dir, 'reconcile.log');

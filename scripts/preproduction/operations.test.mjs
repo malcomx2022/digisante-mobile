@@ -77,10 +77,21 @@ jlist) other='{"name":"digisante-api","pm2_env":{"status":"online"}},{"name":"di
   elif [[ "\u0024{OLD_WRITERS:-0}" == 1 && ! -f "$APP_DIR/deleted" ]]; then echo "[\u0024{old//online/stopped},$other]"; else echo "[$other]"; fi;;
 stop) [[ "\u0024{STOP_FAIL:-0}" == 0 ]] || exit 2; touch "$APP_DIR/stopped";;
 delete) touch "$APP_DIR/deleted";;
-startOrReload) echo "pm2-env DIGISANTE_ENV=\u0024{DIGISANTE_ENV:-absent}" >> "$TRACE";;
+startOrReload) echo "pm2-env DIGISANTE_ENV=\u0024{DIGISANTE_ENV:-absent}" >> "$TRACE"; touch "$APP_DIR/started";;
 esac`);
-  // ss synthétique : ports du profil libres, sauf PORT_BUSY=1 (écouteur hors des apps PM2 du profil).
-  command('ss',`echo "ss $*" >> "$TRACE"; if [[ "\u0024{PORT_BUSY:-0}" == 1 ]]; then echo 'LISTEN 0 511 127.0.0.1:3101 0.0.0.0:*'; fi`);
+  // ss synthétique. Sans -e (contrôle « ports libres » de deploy.sh avant migrations) : vide,
+  // sauf PORT_BUSY=1. Avec -e (port_owned_by) : ports du profil tenus par l'utilisateur
+  // applicatif (PORT_UID), sauf PORTS_DOWN=1 ; en déploiement, seulement après le démarrage
+  // PM2 ; SQUAT_PORT ajoute un écouteur d'un autre compte (uid 4242) sur ce port.
+  command('ss',`echo "ss $*" >> "$TRACE"
+if [[ "$1" == -Htlne ]]; then
+  if [[ "\u0024{PORTS_DOWN:-0}" != 1 && ( "\u0024{DEPLOY_PORTS:-0}" != 1 || -f "$APP_DIR/started" ) ]]; then
+    for p in 3100 3101 3200 3201; do [[ "$*" != *":$p "* ]] || echo "LISTEN 0 511 127.0.0.1:$p 0.0.0.0:* uid:\u0024{PORT_UID:-${APP.uid}} ino:1 sk:1 <->"; done
+  fi
+  if [[ -n "\u0024{SQUAT_PORT:-}" && "$*" == *":\u0024{SQUAT_PORT} "* ]]; then echo "LISTEN 0 5 127.0.0.2:\u0024{SQUAT_PORT} 0.0.0.0:* uid:4242 ino:2 sk:2 <->"; fi
+  exit 0
+fi
+if [[ "\u0024{PORT_BUSY:-0}" == 1 ]]; then echo 'LISTEN 0 511 127.0.0.1:3101 0.0.0.0:*'; fi`);
   command('curl',`echo "curl $*" >> "$TRACE"; if [[ "\u0024{BAD_READY:-0}" == 1 ]]; then echo '<html>wrong backend</html>'; else echo '{"status":"ready","db":"up","redis":"up"}'; fi`);
   command('sleep',':');
   // Droits du rôle d'exécution appliqués par deploy.sh sous le propriétaire (SQL sur l'entrée standard).
@@ -107,7 +118,7 @@ function archivedNames(f) {
   const list=spawnSync('tar',['-tzf','-'],{input:clear.stdout,encoding:'utf8'});assert.equal(list.status,0);return list.stdout.trim().split('\n');
 }
 // URL du rôle PROPRIÉTAIRE fournie par l'environnement du déploiement (revue GO du 22/10/2026), jamais par le .env.
-const deployEnv={DEPLOY_REF:sha,DEPLOY_ENVIRONMENT:'preproduction',DEPLOY_MAINTENANCE_READY:'1',MIGRATION_DATABASE_URL:'postgresql://digisante_preprod:owner-synthetic@127.0.0.1:5432/digisante_preprod?schema=public'};
+const deployEnv={DEPLOY_PORTS:'1',DEPLOY_REF:sha,DEPLOY_ENVIRONMENT:'preproduction',DEPLOY_MAINTENANCE_READY:'1',MIGRATION_DATABASE_URL:'postgresql://digisante_preprod:owner-synthetic@127.0.0.1:5432/digisante_preprod?schema=public'};
 test('déploiement : SHA/maintenance/env production/change opérateur/branche exigés avant effets',()=>{
   for(const change of [{DEPLOY_REF:'main'},{DEPLOY_MAINTENANCE_READY:'0'},{DEPLOY_ENVIRONMENT:'bad'},{DIRTY:'1'},{WRONG_BRANCH:'1'}]) {
     const f=fixture();try {const r=f.run('deploy.sh',{...deployEnv,...change});assert.notEqual(r.status,0,r.stderr);assert.doesNotMatch(f.trace(),/pnpm |pm2 /);}finally{f.clean();}
@@ -432,6 +443,39 @@ test('tâches root : sans DIGISANTE_ENV aucun appel ; jeton envoyé au seul port
     r=f.run(script,{RECONCILE_TOKEN_FILE:token,DIGISANTE_ENV:'production'},args);assert.equal(r.status,0,r.stderr+r.stdout);
     assert.match(f.trace(),/^curl .*http:\/\/127\.0\.0\.1:3201\/api\/v1\//m);assert.doesNotMatch(f.trace(),/:300[01]\b|SYNTHETIC TOKEN/);
   }finally{f.clean();}}
+});
+test('résiduel 1 : port squatté, libre ou tenu par un autre compte ⇒ jeton jamais envoyé, readiness jamais crue',()=>{
+  for(const script of ['internal_job.sh','fedapay_reconcile.sh']){
+    for(const bad of [{SQUAT_PORT:'3101'},{PORTS_DOWN:'1'},{PORT_UID:'4242'}]){const f=fixture();try{
+      const token=join(f.dir,'token');writeFileSync(token,'SYNTHETIC TOKEN');chmodSync(token,0o600);
+      f.command('curl',`echo "curl $*" >> "$TRACE"; cat > "$TRACE.config"; printf '{}\\n200'`);
+      const r=f.run(script,{RECONCILE_TOKEN_FILE:token,...bad},script==='internal_job.sh'?['/api/v1/notifications/dispatch']:[]);
+      assert.equal(r.status,1,`${script} ${JSON.stringify(bad)} ${r.stdout}${r.stderr}`);
+      assert.match(r.stdout,/ÉCHEC : 127\.0\.0\.1:3101 n'est pas tenu par .* seul \(API arrêtée, ou port squatté par un autre compte\) : jeton non envoyé/);
+      assert.doesNotMatch(f.trace(),/^curl /m,`${script} : requête émise`);assert.ok(!existsSync(`${f.env.TRACE}.config`),'jeton transmis');
+      assert.doesNotMatch(r.stdout+r.stderr,/SYNTHETIC TOKEN/);
+    }finally{f.clean();}}
+  }
+  // Déploiement : écouteur d'un autre compte sur le port de l'API après le démarrage ⇒ FAILED, readiness jamais interrogée.
+  let f=fixture();try{
+    const r=f.run('deploy.sh',{...deployEnv,OLD_WRITERS:'1',SQUAT_PORT:'3101'});assert.notEqual(r.status,0);
+    assert.match(r.stdout+r.stderr,/ports 3101\/3100 ne sont pas tenus par .* seul \(port squatté \?\)/);
+    assert.doesNotMatch(f.trace(),/^curl /m);assert.match(f.trace(),/^ss -Htlne \( sport = :3101 \)$/m);
+  }finally{f.clean();}
+  // healthwatch : alerte « ports » et readiness non interrogée ; verify_deploy : FAIL nommé.
+  f=fixture();try{
+    f.command('fixture-psql','echo 0');f.command('logger',':');
+    let r=f.run('healthwatch.sh',healthEnv(f));assert.match(r.stdout,/^ports +OK +3101\/3100 tenus par /m);
+    r=f.run('healthwatch.sh',{...healthEnv(f),SQUAT_PORT:'3100'});
+    assert.match(r.stdout,/^ports +ALERTE +port\(s\) 3100 libre\(s\) ou écouté\(s\) par un autre compte/m);assert.match(r.stdout,/^ready +OK/m);
+    writeFileSync(f.env.TRACE,'');r=f.run('healthwatch.sh',{...healthEnv(f),SQUAT_PORT:'3101'});
+    assert.match(r.stdout,/^ready +ALERTE +port 3101 non tenu par .* : readiness non interrogée/m);assert.doesNotMatch(f.trace(),/^curl .*127\.0\.0\.1:3101/m);
+  }finally{f.clean();}
+  const {f:v,ws}=verifyFixture();try{
+    const base={DOMAIN:'preprod.example.bj',VERIFY_JOB_ENVIRONMENT:'preproduction',WS_LOG:ws};
+    let r=v.run('verify_deploy.sh',base);assert.equal(r.status,0,r.stdout+r.stderr);assert.match(r.stdout,/PASS.*port 3101 tenu par .* seul/);assert.match(r.stdout,/PASS.*port 3100 tenu par/);
+    r=v.run('verify_deploy.sh',{...base,SQUAT_PORT:'3100'});assert.notEqual(r.status,0);assert.match(r.stdout,/FAIL.*port 3100 libre ou écouté par un autre compte/);
+  }finally{v.clean();}
 });
 test('scripts root : copie d’un autre environnement (ROOT_LIB du profil ≠ copie lancée) refusée avant tout effet',()=>{
   for(const script of ['internal_job.sh','fedapay_reconcile.sh','healthwatch.sh','pg_dump_encrypted.sh','verify_deploy.sh']){

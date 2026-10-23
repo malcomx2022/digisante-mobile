@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir, userInfo } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
@@ -71,13 +71,18 @@ function fixture() {
     // PM2 (et donc l'API) ne doit JAMAIS hériter de l'URL du propriétaire.
     pm2: 'printf "pm2 %s\\n" "$*" >> "$TRACE"; ! env | grep -Eq "^(MIGRATION_DATABASE_URL|DEPLOY_MIGRATION_URL|MIGRATION_URL)=|owner-synthetic" || printf "LEAK\\n" >> "$TRACE"; [[ "$1" != jlist ]] || printf "[]\\n"',
     curl: 'printf "curl %s\\n" "$*" >> "$TRACE"; printf \'{"status":"ready","db":"up","redis":"up"}\\n\'',
+    // ss (résiduel 1) : sans -e, ports libres (contrôle avant migrations) ; avec -e, ports du
+    // profil tenus par l'utilisateur applicatif seulement après le démarrage PM2.
+    ss: '[[ "$1" == -Htlne ]] && grep -q "^pm2 startOrReload" "$TRACE" || exit 0; for p in 3100 3101; do [[ "$*" != *":$p "* ]] || echo "LISTEN 0 511 127.0.0.1:$p 0.0.0.0:* uid:$(id -u "$APP_USER") ino:1 sk:1 <->"; done',
   })) {
     writeFileSync(join(bin, name), `#!/usr/bin/env bash\nset -eu\n${body}\n`);
     chmodSync(join(bin, name), 0o755);
   }
   const env = { ...gitEnv, PATH: `${bin}:${process.env.PATH}`, TRACE: trace, APP_DIR: app, LOG_DIR: log,
     DIGISANTE_ENV: 'preproduction', DEPLOY_ENVIRONMENT: 'preproduction', DEPLOY_MAINTENANCE_READY: '1',
-    DEPLOY_ALLOW_ROLLBACK: '', ROOT_LIB: join(dir, 'uninstalled-root-scripts') };
+    DEPLOY_ALLOW_ROLLBACK: '', ROOT_LIB: join(dir, 'uninstalled-root-scripts'),
+    // Compte qui tient les ports (jamais root : un écouteur root est refusé, résiduel 1).
+    APP_USER: process.getuid?.() === 0 ? 'nobody' : userInfo().username };
   delete env.DATABASE_URL; delete env.REDIS_URL; env.NODE_ENV = 'production';
   return {
     older, newer, divergent, app, log, writeEnv, databaseUrl, redisUrl, migrationUrl,

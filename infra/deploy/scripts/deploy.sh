@@ -51,6 +51,29 @@ digisante_profile() {
   : "${CRON_FILE:=/etc/cron.d/digisante${sfx}}" "${WS_LOG:=/var/log/nginx/digisante${sfx}-ws.log}"
 }
 # <<< digisante_profile
+# >>> port_owner (résiduel 1 « port squatté » — copie IDENTIQUE dans deploy.sh, healthwatch.sh, verify_deploy.sh, internal_job.sh et fedapay_reconcile.sh ; test de non-dérive)
+# Vrai seulement si le port TCP a au moins un écouteur ET si TOUS ses écouteurs (toutes
+# adresses, IPv4/IPv6) appartiennent au compte attendu. L'uid du socket (`ss -e`, uid de
+# création noté par le noyau) est lisible sans privilège et ne dépend ni d'un pid ni d'un
+# nom de processus ; `ss` ne l'affiche pas pour root, donc un écouteur root est refusé.
+# Sur l'hôte partagé, tout compte local peut écouter sur 127.0.0.1:<port> pendant que
+# l'environnement est arrêté : sans ce contrôle, il recevrait le jeton de service des
+# tâches ou répondrait « ready » à la place de l'API.
+port_owned_by() { # port_owned_by <port> <compte>
+  local want listing line uid n=0
+  [[ "$1" =~ ^[0-9]{1,5}$ ]] || return 1
+  want="$(id -u -- "$2" 2>/dev/null)" || return 1
+  [[ "$want" =~ ^[0-9]+$ && "$want" != 0 ]] || return 1
+  listing="$(ss -Htlne "( sport = :$1 )" 2>/dev/null)" || return 1
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    n=$((n + 1))
+    uid="$(sed -n 's/.*[[:space:]]uid:\([0-9][0-9]*\)[[:space:]].*/\1/p' <<<"$line ")"
+    [[ "$uid" == "$want" ]] || return 1
+  done <<<"$listing"
+  (( n > 0 ))
+}
+# <<< port_owner
 
 BRANCH="${DEPLOY_BRANCH:-main}"
 # ROLLBACK explicite : ajouter DEPLOY_ALLOW_ROLLBACK=1 pour redéployer un ancêtre
@@ -302,6 +325,12 @@ STAGE=readiness
 log "Healthcheck ${READY_URL} (10 tentatives)…"
 healthy=0
 for i in $(seq 1 10); do
+  # Résiduel 1 : la readiness n'est crue que si les deux ports sont tenus par ${APP_USER}
+  # (un compte local qui aurait pris le port pendant l'arrêt répondrait « ready » à sa place).
+  if ! port_owned_by "$API_PORT" "$APP_USER" || ! port_owned_by "$WEB_PORT" "$APP_USER"; then
+    log "Ports ${API_PORT}/${WEB_PORT} pas encore tenus par ${APP_USER} seul (tentative ${i}/10)…"
+    sleep 3; continue
+  fi
   if curl -fsS --connect-timeout 3 --max-time 5 "$READY_URL" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{try{const r=JSON.parse(d);process.exit(r.status==="ready"&&r.db==="up"&&r.redis==="up"?0:1)}catch{process.exit(1)}})' ; then
     healthy=1
     log "API prête (tentative ${i}) ✓"
@@ -312,7 +341,7 @@ for i in $(seq 1 10); do
 done
 
 if [ "$healthy" -ne 1 ]; then
-  log "ERREUR : l'API ne répond pas sur ${READY_URL} après le déploiement."
+  log "ERREUR : l'API ne répond pas sur ${READY_URL} après le déploiement, ou les ports ${API_PORT}/${WEB_PORT} ne sont pas tenus par ${APP_USER} seul (port squatté ?)."
   record FAILED
   log "État PM2 et schéma à vérifier ; maintenance conservée, aucun ancien code garanti."
   log "Inspecter : pm2 logs ${PM2_API} --lines 100"

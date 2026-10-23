@@ -62,7 +62,7 @@ Indépendamment du GO préproduction (L11, `docs/suivi/LOT_L11.md`, tout « NON 
 | Bloc | Restant | Propriétaire |
 |---|---|---|
 | **L9 humain** | Traductions FON/YOR natives (232 clés, **6 `sos.*` critiques**), phrasier natif (27 phrases), 7 contreseings cliniques sur le snapshot `3e061d52…` ; **rendu posologie** (fractions, unités, horaires/durées supposés) à corriger puis contresigner | Relecteurs natifs, professionnel de santé, porteur |
-| **Hôte partagé (I2)** | Arbitrage des résiduels de `infra/deploy/README.md` : port squatté, fuseau, zones Nginx, capacité 4 Go ; rôle PG d'exécution non propriétaire (§9) et **isolement Valkey par utilisateur ACL + préfixe (§10)** préparés dans ce lot, bascules de la préprod à exécuter (fichier ACL Valkey à déclarer par l'administrateur de l'hôte) | Porteur ; administrateur de l'hôte et opérateur pour les bascules |
+| **Hôte partagé (I2)** | Arbitrage des résiduels de `infra/deploy/README.md` : fuseau, zones Nginx, capacité 4 Go, trafic Nginx vers un port squatté (détecté seulement, §11) ; rôle PG d'exécution non propriétaire (§9) et **isolement Valkey par utilisateur ACL + préfixe (§10)** préparés dans ce lot, bascules de la préprod à exécuter (fichier ACL Valkey à déclarer par l'administrateur de l'hôte) | Porteur ; administrateur de l'hôte et opérateur pour les bascules |
 | **Exploitation** | Provisioning prod (`provision-ionos.sh --apply` production, jamais exécuté), B3/B4 installés côté prod, `ALERT_CMD` d'alerte vers une adresse d'exploitation (D-13), première sauvegarde prod + **restauration indépendante base ET fichiers**, répétition de rollback | Opérateur |
 | **Sécurité** | Pentest externe + re-tests, arbitrage X8 (`unsafe-inline`), Twilio Geo Permissions, hôtes FedaPay **live** jamais observés (B1 reste ouvert en live), HSTS prod après renouvellement vérifié | Prestataire, porteur |
 | **Paiements live** | Bascule clé `sk_live_` + secret webhook live, recette S1/S8 en live à montant plafonné, rapprochement des issues incertaines | Porteur (§5) |
@@ -187,3 +187,31 @@ Limites :
 - Bascule de la préproduction existante (README résiduel 2) : les clés non préfixées deviennent inaccessibles. Les sessions sont à rouvrir et les OTP à redemander ; les anciennes clés expirent seules, jamais de `FLUSHDB`.
 - Toute nouvelle commande Redis utilisée par l'API doit être ajoutée au bloc `valkey-acl` dans le même lot. La CI le détecte.
 
+
+## 11. Lot post-recette — port squatté (préparé le 23/10/2026, NON fusionnable pendant la recette)
+
+Résiduel 1 de `infra/deploy/README.md`. La correction reste dans le cadre : ports 3100/3101/3200/3201 en TCP local. Passer à des sockets Unix changerait les ports documentés, et `next start` ne les prend pas en charge.
+
+Constat : quand un environnement est entièrement arrêté (déploiement, crash en boucle, démarrage de l'hôte), n'importe quel compte local de l'hôte partagé peut écouter sur son port. Il recevait alors :
+- le **jeton de service** des tâches cron (`internal_job.sh`, `fedapay_reconcile.sh`) ;
+- la **readiness** de `deploy.sh` et de healthwatch, à laquelle il pouvait répondre « ready » et valider ainsi un déploiement échoué ;
+- le trafic Nginx.
+
+Correction :
+- **Bloc `port_owner`** (`port_owned_by <port> <compte>`), identique dans cinq scripts (test de non-dérive). Un port n'est accepté que si **tous** ses écouteurs appartiennent à l'utilisateur de l'environnement. Le contrôle lit l'uid du socket noté par le noyau (`ss -Htlne`), lisible sans privilège et indépendant d'un pid. `ss` n'affiche pas l'uid 0 : un écouteur root est donc refusé. Constaté sur le système : uid affiché pour un écouteur `nobody`, absent pour root, lisible par un compte non privilégié.
+- **Tâches** : sans port tenu par l'API, le jeton n'est jamais envoyé (« ÉCHEC … jeton non envoyé », relevé par la sonde `cron`).
+- **`deploy.sh`** : chaque tentative de readiness exige d'abord que les ports API **et** web soient tenus par l'utilisateur. Sinon le déploiement finit en `FAILED` (stade `readiness`, « port squatté ? »).
+- **healthwatch** : nouvelle sonde `ports` ; `/ready` n'est pas interrogé sur un port étranger. **`verify_deploy.sh`** : PASS/FAIL par port. Runbook des alertes, checklist, contrat L10, README et `CLAUDE.md` mis à jour.
+
+Preuves locales :
+- `root-scripts.test.mjs` (10/10) : non-dérive du bloc ; ordre contrôle → jeton et contrôle → readiness ; `port_owned_by` sur un **écouteur réel** avec le vrai `ss` (écouteur root refusé, autre compte refusé, port libre refusé).
+- Le cas « compte courant non privilégié accepté » n'est exécuté qu'en CI (non-root). En local, en root, il a été vérifié à la main avec un écouteur `nobody`.
+- `operations.test.mjs` 43/43 (+1). Squat, port libre ou autre uid : aucune requête ni jeton pour les deux tâches. `deploy.sh` en `FAILED` sans readiness. Alerte `ports` et readiness non interrogée. FAIL de `verify_deploy.sh`.
+- `deploy-order` 12/12 et `reconcile-alert` 2/2, avec simulation `ss -e`.
+- `test:scripts` 224 (1 ignoré), lint, typecheck, contrôles L9/L10/DOCX, `metrics:check`. Instantané L10 régénéré : `0b806239…`.
+- Ni l'API ni le web ne sont modifiés ; les suites API/web/E2E de la tête précédente (`baf1fe1`) restent valables.
+
+Limites :
+- Nginx ne vérifie pas le propriétaire de l'upstream. Pendant un **déploiement**, la maintenance (obligatoire) ne relaie rien. Pendant un **crash** ou au **démarrage de l'hôte**, un squatteur recevrait le trafic jusqu'à l'alerte `ports` (≤ 5 min), puis jusqu'à l'intervention humaine.
+- Course résiduelle entre le contrôle et la connexion si l'API tombe dans l'intervalle ; le port n'est alors repris qu'après la chute.
+- La parade complète (sockets Unix dans un répertoire `digisante[-preprod]:www-data 0750`) relève d'une décision du porteur.

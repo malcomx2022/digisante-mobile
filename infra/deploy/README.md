@@ -557,10 +557,25 @@ Les archives DB ET fichiers sont nécessaires à la restauration. `sudo node $RO
 > dérogation à arbitrer en L11.
 >
 > **Résiduels de l'hôte partagé, à arbitrer avec I2 (L11)** — consignés par la revue du 13/10/2026, non corrigés par le code :
-> 1. *Port libre squatté* : tout compte local peut écouter sur 127.0.0.1:3100/3101/3200/3201 quand le processus de
->    l'environnement est entièrement arrêté (déploiement, crash en boucle, démarrage de l'hôte). Il recevrait alors le
->    trafic Nginx et, des tâches cron, le jeton de service. Détection actuelle : sonde `pm2` de healthwatch (0/2 en
->    ligne). Parade possible : vérifier l'uid du socket à l'écoute avant d'envoyer le jeton, ou socket Unix 0750.
+> 1. *Port libre squatté* — **traité le 23/10/2026 (revue GO) pour le jeton et la readiness, détecté pour Nginx** :
+>    tout compte local peut écouter sur 127.0.0.1:3100/3101/3200/3201 quand l'environnement est entièrement arrêté
+>    (déploiement, crash en boucle, démarrage de l'hôte). Un bloc **`port_owner`** identique (`port_owned_by`, test de
+>    non-dérive) n'accepte un port que si **tous** ses écouteurs appartiennent à l'utilisateur de l'environnement
+>    (uid du socket noté par le noyau, `ss -Htlne`, lisible sans privilège ; un écouteur root est refusé) :
+>    - `internal_job.sh` / `fedapay_reconcile.sh` : **jeton de service jamais envoyé** sinon (`ÉCHEC … jeton non
+>      envoyé`, sonde `cron`) ;
+>    - `deploy.sh` : la readiness n'est **jamais crue** tant que les ports API et web ne sont pas tenus par l'utilisateur
+>      (sinon `FAILED`, stade `readiness`, « port squatté ? ») — un squatteur ne peut plus valider un déploiement ;
+>    - `healthwatch.sh` : sonde **`ports`** (ALERTE si un port est libre ou tenu par un autre compte) et readiness non
+>      interrogée sur un port qui n'est pas celui de l'API ; `verify_deploy.sh` : PASS/FAIL par port.
+>    Preuves : `scripts/preproduction/root-scripts.test.mjs` (non-dérive, ordre contrôle → jeton/readiness, `ss` réel sur
+>    un écouteur réel), `operations.test.mjs` (squat, port libre, autre uid : aucune requête ni jeton ; deploy FAILED ;
+>    alerte healthwatch ; FAIL verify). **Limites restantes** : Nginx ne vérifie pas le propriétaire de l'upstream —
+>    pendant un **déploiement** la maintenance (obligatoire, README §3) ne relaie rien ; pendant un **crash** ou au
+>    **démarrage de l'hôte**, un squatteur recevrait le trafic jusqu'à l'alerte `ports` (≤ 5 min) puis l'intervention
+>    humaine. Course résiduelle entre contrôle et connexion si l'API tombe dans l'intervalle. La seule parade complète
+>    (sockets Unix dans un répertoire `digisante[-preprod]:www-data 0750`) changerait les ports documentés et n'est pas
+>    prise en charge par `next start` : décision du porteur.
 > 2. *Valkey partagé* — **traité le 22/10/2026 (revue GO), dans le code et le provisioning** : chaque environnement
 >    se connecte sous **son utilisateur ACL** (`digisante-preprod` / `digisante`), limité aux clés `~<préfixe>*` et
 >    aux canaux `&<préfixe>*` (`REDIS_KEY_PREFIX` : `digisante-preprod:` / `digisante:`, posé par l'API sur toute clé
