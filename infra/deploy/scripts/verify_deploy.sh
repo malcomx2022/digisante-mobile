@@ -241,7 +241,17 @@ fi
 
 # 8. Informations (non bloquantes ici, suivies ailleurs)
 curl -sSI --connect-timeout 5 --max-time 15 "https://${DOMAIN}/" | grep -qi '^strict-transport-security' && info "HSTS présent" || info "HSTS absent (PREFLIGHT O1)"
-[[ "$(timedatectl show -p Timezone --value 2>/dev/null)" == "Africa/Porto-Novo" ]] && pass "fuseau Africa/Porto-Novo" || fail "fuseau ≠ Africa/Porto-Novo"
+# Résiduel 3 : le fuseau de l'hôte partagé reste celui de ses administrateurs. L'API épingle
+# Africa/Porto-Novo (main.ts + ecosystem) et les tâches quotidiennes du cron.d se déclenchent
+# sur l'heure locale de Porto-Novo (garde horaire). Il faut seulement : données de fuseau
+# présentes, et décalage UTC de l'hôte en heures entières (sinon la minute cron ne tombe jamais
+# sur l'horaire de Porto-Novo et les tâches quotidiennes ne partent plus).
+info "fuseau de l'hôte : $(timedatectl show -p Timezone --value 2>/dev/null || echo inconnu) (sans effet sur DigiSanté)"
+[[ "$(TZ=Africa/Porto-Novo date +%z 2>/dev/null)" == "+0100" ]] && pass "données de fuseau Africa/Porto-Novo présentes (UTC+1)" \
+  || fail "fuseau Africa/Porto-Novo inconnu de l'hôte (tzdata) : horaires de l'API et des tâches faux"
+HOST_OFFSET="$(date +%z 2>/dev/null)"
+[[ "$HOST_OFFSET" =~ ^[+-][0-9]{2}00$ ]] && pass "décalage UTC de l'hôte en heures entières (${HOST_OFFSET}) : tâches quotidiennes à l'heure de Porto-Novo" \
+  || fail "décalage UTC de l'hôte ${HOST_OFFSET:-inconnu} non entier : les tâches quotidiennes (sauvegarde, réconciliation, rappels PEV/CPN) ne partiraient jamais"
 [[ "$(stat -c '%a' "${APP_DIR}/apps/api/.env" 2>/dev/null)" == "600" ]] && pass ".env API en 600" || fail ".env API absent ou permissions ≠ 600"
 # Revue GO du 22/10/2026 : l'API tourne sous le rôle d'exécution <base>_app, jamais sous le
 # propriétaire (migrations seulement, URL fournie au déploiement). Fichier lu comme DONNÉE

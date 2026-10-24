@@ -9,7 +9,8 @@
 // ─────────────────────────────────────────────────────────────
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -155,7 +156,8 @@ test('API : entrée PM2 sans garde process.argv, .env chargé par l’API depuis
   // Configuration puis serveur importés DANS le try (erreur d'évaluation couverte), puis start() ;
   // tout échec sort en code 1 — PM2 (cluster) avale les promesses rejetées sans arrêter le worker.
   const body = main.replace(/\s+/g, ' ');
-  assert.match(body, /try \{ await import\('@\/lib\/env\.js'\); const \{ start \} = await import\('@\/server\.js'\); await start\(\); \} catch \(err\) \{/);
+  // Fuseau de l'application épinglé en premier (résiduel 3), avant toute date locale.
+  assert.match(body, /try \{ pinProcessTimeZone\(\); await import\('@\/lib\/env\.js'\); const \{ start \} = await import\('@\/server\.js'\); await start\(\); \} catch \(err\) \{/);
   // Sortie en code 1 APRÈS écriture effective (rappel de process.stderr.write), filet minuté.
   assert.match(body, /catch \(err\) \{ process\.exitCode = 1; const exit = \(\) => process\.exit\(1\);/);
   assert.match(body, /process\.stderr\.write\(`❌ Démarrage de l'API impossible : \$\{describeBootError\(err\)\}\\n`, \(\) => \{ clearTimeout\(fallback\); exit\(\); \}\);/);
@@ -267,7 +269,10 @@ test('crontabs /etc/cron.d : mêmes tâches pour les deux environnements, chemin
       for (const [, path] of line.matchAll(/(\/usr\/local\/lib\/[^/\s]+)\//g)) assert.equal(path, p.ROOT_LIB, `${env} : ${line}`);
     }
   }
-  const strip = (line) => line.replace(/^((?:\S+\s+){5})/, '');
+  // Garde horaire (résiduel 3) : la tâche quotidienne part toutes les heures à la minute voulue
+  // et ne s'exécute qu'à l'horaire de Porto-Novo indiqué.
+  const GATE = /\[\[ "\$\(TZ=\$LOCAL_TZ date \+\\%H\\%M\)" == (\d{4}) \]\] && /;
+  const strip = (line) => line.replace(/^((?:\S+\s+){5})/, '').replace(GATE, '');
   const mappedPre = jobs(pre).map((l) => strip(l).replaceAll('/usr/local/lib/digisante-preprod/', '/usr/local/lib/digisante/').replaceAll('/var/log/digisante-preprod-cron/', '/var/log/digisante-cron/').replaceAll('--cert-name preprod.digisantemobile.app', '--cert-name digisantemobile.app'));
   // Hôte partagé : certbot ne renouvelle QUE le certificat DigiSanté de l'environnement.
   for (const [text, cert] of [[prod, 'digisantemobile.app'], [pre, 'preprod.digisantemobile.app']]) {
@@ -275,7 +280,7 @@ test('crontabs /etc/cron.d : mêmes tâches pour les deux environnements, chemin
   }
   assert.deepEqual(mappedPre, jobs(prod).map(strip), 'tâches divergentes entre environnements');
   // Sauvegardes et renouvellement certbot jamais simultanés sur l'hôte partagé.
-  const at = (text, re) => jobs(text).find((l) => re.test(l)).split(/\s+/).slice(0, 5).join(' ');
+  const at = (text, re) => { const l = jobs(text).find((x) => re.test(x)); const fields = l.split(/\s+/).slice(0, 5).join(' '); return GATE.exec(l.replace(/^((?:\S+\s+){5})/, ''))?.[1] ?? fields; };
   assert.notEqual(at(pre, /pg_dump_encrypted\.sh/), at(prod, /pg_dump_encrypted\.sh/));
   assert.notEqual(at(pre, /certbot renew/), at(prod, /certbot renew/));
 });
@@ -353,4 +358,98 @@ test('.env.preprod.example / .env.prod.example : mêmes clés que .env.example, 
   assert.match(read('.github/workflows/preproduction.yml'), /secrets\.PREPROD_VPS_FINGERPRINT/);
   assert.match(read('.gitignore'), /^!\.env\.preprod\.example$/m);
   assert.match(read('.gitignore'), /^!\.env\.prod\.example$/m);
+});
+
+// ── Résiduel 3 : fuseau de l'hôte partagé ≠ fuseau de l'application ──
+const CRON_GATE = /^\[\[ "\$\(TZ=\$LOCAL_TZ date \+\\%H\\%M\)" == (\d{2})(\d{2}) \]\] && (.+)$/;
+const cronLines = (text) => text.split('\n').filter((l) => /^[*@0-9]/.test(l)).map((l) => {
+  const m = /^(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+root\s+(.+)$/.exec(l);
+  assert.ok(m, l);
+  return { minute: m[1], hour: m[2], dom: m[3], month: m[4], dow: m[5], cmd: m[6], line: l };
+});
+
+test('fuseau : tâches quotidiennes gardées par l’heure de Porto-Novo, API et web épinglés', () => {
+  const tz = read('apps/api/src/lib/timezone.ts');
+  assert.match(tz, /export const APP_TIME_ZONE = 'Africa\/Porto-Novo';/);
+  for (const env of ENVS) {
+    for (const app of ecosystem(env).config.apps) assert.equal(app.env.TZ, 'Africa/Porto-Novo', `${env} ${app.name} : TZ`);
+  }
+  for (const name of ['crontab.example', 'crontab.preproduction.example']) {
+    const text = read(`infra/deploy/${name}`);
+    assert.match(text, /^LOCAL_TZ=Africa\/Porto-Novo$/m, name);
+    let gated = 0;
+    for (const j of cronLines(text)) {
+      const gate = CRON_GATE.exec(j.cmd);
+      if (gate) {
+        gated++;
+        // Lancée toutes les heures, à la minute de l'horaire, tous les jours.
+        assert.deepEqual([j.hour, j.dom, j.month, j.dow], ['*', '*', '*', '*'], `${name} : ${j.line}`);
+        assert.equal(Number(j.minute), Number(gate[2]), `${name} : minute cron ≠ minute de la garde : ${j.line}`);
+        assert.ok(Number(gate[1]) < 24 && Number(gate[2]) < 60, j.line);
+        assert.doesNotMatch(gate[3], /\[\[|TZ=/, j.line);
+      } else if (!/^\*\/\d+$|^\*$/.test(j.hour)) {
+        // Seul horaire fixe non gardé : certbot (renouvellement, indifférent au fuseau).
+        assert.match(j.cmd, /^certbot renew /, `${name} : horaire fixe sans garde de fuseau : ${j.line}`);
+      } else {
+        assert.ok(/^\*\/\d+$/.test(j.minute) || j.minute === '*', `${name} : minute fixe toutes les heures sans garde : ${j.line}`);
+      }
+    }
+    // Vaccination, CPN, sauvegarde, réconciliation, purge des reçus.
+    assert.equal(gated, 5, name);
+  }
+});
+
+/** Décalage UTC (minutes) d'un fuseau à un instant donné. */
+function offsetMinutes(timeZone, instant) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+    .formatToParts(instant).filter((p) => p.type !== 'literal').map((p) => [p.type, Number(p.value)]));
+  return (Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute) - instant.getTime()) / 60000;
+}
+
+test('fuseau : chaque tâche gardée part UNE fois par jour à l’heure de Porto-Novo, quel que soit le fuseau (heures entières) de l’hôte, changements d’heure compris', () => {
+  const jobs = cronLines(read('infra/deploy/crontab.example')).map((j) => ({ j, gate: CRON_GATE.exec(j.cmd) })).filter((x) => x.gate);
+  for (const host of ['UTC', 'Europe/Madrid', 'Africa/Porto-Novo', 'America/New_York', 'Asia/Kolkata']) {
+    for (const { j, gate } of jobs) {
+      const target = `${gate[1]}${gate[2]}`;
+      const perDay = new Map();
+      // Le cron de l'hôte déclenche la ligne une fois par heure UTC, quand la minute LOCALE de
+      // l'hôte vaut le champ minute ; la garde compare ensuite l'heure de Porto-Novo.
+      for (let t = Date.UTC(2026, 0, 1); t < Date.UTC(2027, 0, 1); t += 3600_000) {
+        const off = offsetMinutes(host, new Date(t));
+        const delta = (((Number(j.minute) - off) % 60) + 60) % 60;
+        const fire = new Date(t + delta * 60_000);
+        const local = new Date(fire.getTime() + 60 * 60_000); // Porto-Novo = UTC+1, sans heure d'été
+        const hhmm = `${String(local.getUTCHours()).padStart(2, '0')}${String(local.getUTCMinutes()).padStart(2, '0')}`;
+        if (hhmm !== target) continue;
+        const day = local.toISOString().slice(0, 10);
+        perDay.set(day, (perDay.get(day) ?? 0) + 1);
+      }
+      if (host === 'Asia/Kolkata') {
+        // Décalage non entier (+05:30) : jamais déclenchée — d'où le FAIL de verify_deploy/provision.
+        assert.equal(perDay.size, 0, `${host} ${target}`);
+        continue;
+      }
+      assert.equal(perDay.size, 365, `${host} ${target} : jours sans exécution`);
+      assert.ok([...perDay.values()].every((n) => n === 1), `${host} ${target} : exécution multiple un jour`);
+    }
+  }
+});
+
+test('fuseau : la ligne cron gardée exécute la tâche seulement à l’horaire de Porto-Novo (bash réel, % échappé comme cron)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'digisante-cron-tz-'));
+  try {
+    const bin = join(dir, 'bin'); mkdirSync(bin);
+    const realDate = spawnSync('bash', ['-c', 'command -v date'], { encoding: 'utf8' }).stdout.trim();
+    // date simulée : l'heure de Porto-Novo vient de FAKE_PN, tout le reste du vrai date.
+    writeFileSync(join(bin, 'date'), `#!/bin/bash\nif [[ "\${TZ:-}" == Africa/Porto-Novo && "$1" == +%H%M ]]; then echo "$FAKE_PN"; else exec ${realDate} "$@"; fi\n`);
+    chmodSync(join(bin, 'date'), 0o755);
+    const line = cronLines(read('infra/deploy/crontab.example')).find((j) => /vaccinations\/reminders/.test(j.cmd));
+    // cron : « \% » devient « % », variables du fichier dans l'environnement, SHELL=/bin/bash.
+    const cmd = line.cmd.replaceAll('\\%', '%').replace(/ >> \S+ 2>&1$/, '');
+    const marker = join(dir, 'ran');
+    const run = (now) => spawnSync('/bin/bash', ['-c', cmd], { encoding: 'utf8', env: { PATH: `${bin}:${process.env.PATH}`, LOCAL_TZ: 'Africa/Porto-Novo', J: `touch ${marker} #`, FAKE_PN: now } });
+    run('0530'); assert.ok(!existsSync(marker), 'tâche lancée hors horaire');
+    run('0631'); assert.ok(!existsSync(marker), 'tâche lancée à une autre minute');
+    run('0630'); assert.ok(existsSync(marker), 'tâche non lancée à 06:30 Porto-Novo');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

@@ -62,7 +62,7 @@ Indépendamment du GO préproduction (L11, `docs/suivi/LOT_L11.md`, tout « NON 
 | Bloc | Restant | Propriétaire |
 |---|---|---|
 | **L9 humain** | Traductions FON/YOR natives (232 clés, **6 `sos.*` critiques**), phrasier natif (27 phrases), 7 contreseings cliniques sur le snapshot `3e061d52…` ; **rendu posologie** (fractions, unités, horaires/durées supposés) à corriger puis contresigner | Relecteurs natifs, professionnel de santé, porteur |
-| **Hôte partagé (I2)** | Arbitrage des résiduels de `infra/deploy/README.md` : fuseau, zones Nginx, capacité 4 Go, trafic Nginx vers un port squatté (détecté seulement, §11) ; rôle PG d'exécution non propriétaire (§9) et **isolement Valkey par utilisateur ACL + préfixe (§10)** préparés dans ce lot, bascules de la préprod à exécuter (fichier ACL Valkey à déclarer par l'administrateur de l'hôte) | Porteur ; administrateur de l'hôte et opérateur pour les bascules |
+| **Hôte partagé (I2)** | Arbitrage des résiduels de `infra/deploy/README.md` : zones Nginx, capacité 4 Go, trafic Nginx vers un port squatté (détecté seulement, §11) ; rôle PG d'exécution non propriétaire (§9) et **isolement Valkey par utilisateur ACL + préfixe (§10)** préparés dans ce lot, bascules de la préprod à exécuter (fichier ACL Valkey à déclarer par l'administrateur de l'hôte) | Porteur ; administrateur de l'hôte et opérateur pour les bascules |
 | **Exploitation** | Provisioning prod (`provision-ionos.sh --apply` production, jamais exécuté), B3/B4 installés côté prod, `ALERT_CMD` d'alerte vers une adresse d'exploitation (D-13), première sauvegarde prod + **restauration indépendante base ET fichiers**, répétition de rollback | Opérateur |
 | **Sécurité** | Pentest externe + re-tests, arbitrage X8 (`unsafe-inline`), Twilio Geo Permissions, hôtes FedaPay **live** jamais observés (B1 reste ouvert en live), HSTS prod après renouvellement vérifié | Prestataire, porteur |
 | **Paiements live** | Bascule clé `sk_live_` + secret webhook live, recette S1/S8 en live à montant plafonné, rapprochement des issues incertaines | Porteur (§5) |
@@ -215,3 +215,32 @@ Limites :
 - Nginx ne vérifie pas le propriétaire de l'upstream. Pendant un **déploiement**, la maintenance (obligatoire) ne relaie rien. Pendant un **crash** ou au **démarrage de l'hôte**, un squatteur recevrait le trafic jusqu'à l'alerte `ports` (≤ 5 min), puis jusqu'à l'intervention humaine.
 - Course résiduelle entre le contrôle et la connexion si l'API tombe dans l'intervalle ; le port n'est alors repris qu'après la chute.
 - La parade complète (sockets Unix dans un répertoire `digisante[-preprod]:www-data 0750`) relève d'une décision du porteur.
+
+## 12. Lot post-recette — fuseau horaire (préparé le 24/10/2026, NON fusionnable pendant la recette)
+
+Résiduel 3 de `infra/deploy/README.md`. Le fuseau de l'hôte partagé n'est pas modifié : ImmiPro et BeninLink le gardent, et le changer relèverait de leurs administrateurs.
+
+Constat, plus large que prévu :
+- **cron** n'a pas de fuseau par fichier, et `CRON_TZ` n'est pas garanti par le cron d'Ubuntu ;
+- **l'API dépendait du fuseau du processus Node** : heure des rappels de traitement (`setHours(h, m)` dans `reminders.medication.ts`), début de journée des générateurs idempotents (PEV, CPN, observance), série d'observance, dates affichées dans les rappels. Sur un hôte en Europe/Madrid, un rappel de 08:00 serait parti à 07:00 (hiver) ou 06:00 (été) heure de Porto-Novo. Les calculs explicites en Africa/Lagos (abonnements, finances) n'étaient pas concernés.
+
+Correction :
+- **API** : `lib/timezone.ts` (`APP_TIME_ZONE = 'Africa/Porto-Novo'`, `pinProcessTimeZone()`), appelé en **premier** par `main.ts`, avant la configuration. La fonction vérifie que le fuseau est réellement appliqué (UTC+1 hiver comme été) ; sinon le démarrage s'arrête en `API_TZ_UNAVAILABLE`, message sûr. `ecosystem.config.cjs` pose aussi `TZ` pour l'API et le web.
+- **Crontabs** : les cinq tâches quotidiennes à heure fixe (vaccination 06:30, CPN 06:40, sauvegarde 02:00 en prod / 01:30 en préprod, réconciliation 02:30, purge des reçus 03:10) sont lancées toutes les heures à leur minute. Elles ne s'exécutent que si l'heure de Porto-Novo vaut l'horaire (`[[ "$(TZ=$LOCAL_TZ date +\%H\%M)" == HHMM ]] && …`). Les tâches à intervalle et certbot ne dépendent pas du fuseau. Les horaires de Porto-Novo et le décalage préprod/prod sont conservés.
+- **Prérequis contrôlé** : décalage UTC de l'hôte en heures entières, et tzdata qui connaît Porto-Novo. `provision-ionos.sh` le vérifie avant toute écriture ; `verify_deploy.sh` donne PASS/FAIL. Le fuseau de l'hôte n'est plus qu'une information. Le FAIL « fuseau ≠ Africa/Porto-Novo » est supprimé.
+- README (point 8 du §1.b, résiduel 3), en-têtes des crontabs, checklist, contrat L10 et `CLAUDE.md` mis à jour.
+
+Preuves locales :
+- `timezone.test.ts` (4) : avec un processus lancé en Europe/Madrid, UTC ou New York, puis épinglé, un rappel « 08:00 » vaut 07:00 UTC en janvier comme en juillet. `main.ts` épingle bien avant de charger la configuration.
+- `environments.test.mjs` 12/12 (+3) :
+  - toute tâche à heure fixe est gardée (sauf certbot), minute cron = minute de la garde, `TZ` de l'ecosystem ;
+  - **simulation sur toute l'année 2026** : exactement une exécution par jour à l'heure de Porto-Novo pour un hôte en UTC, Europe/Madrid (changements d'heure compris), Porto-Novo et New York ; aucune pour Asia/Kolkata (+05:30), d'où le FAIL ;
+  - la ligne cron réelle, `\%` désescapé comme le fait cron, exécutée par bash avec un `date` simulé : la tâche part à 06:30 et pas à 06:31 ni à 05:30.
+- `operations.test.mjs` 44/44 (+1) : hôte UTC ou Madrid acceptés ; décalage +05:30 et Porto-Novo inconnu refusés ; fuseau de l'hôte affiché en INFO. `provision-ionos.sh` 47/47 (+1) : +05:30 refusé avant écriture, Madrid accepté.
+- CI complète en local sur la tête du lot : lint, typecheck, `test:scripts` 229 (1 ignoré), contrôles L9/L10/DOCX et `metrics:check`, **API 757 + web 156**, suite API sous l'utilisateur ACL Valkey et le rôle PostgreSQL d'exécution 744/744, build, **E2E 39/39** (l'API y démarre par `main.ts`, donc avec le fuseau épinglé). Compteurs 711 API + 145 web.
+
+Limites :
+- La garde repose sur `date` et tzdata de l'hôte.
+- Les horodatages des journaux cron et les noms d'archives de sauvegarde restent à l'heure de l'hôte.
+- Les tests Vitest tournent au fuseau du conteneur : `server.ts` n'épingle rien, seule l'entrée `main.ts` le fait. Tout nouveau calcul d'heure locale doit être testé sous TZ épinglé.
+

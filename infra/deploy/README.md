@@ -158,8 +158,9 @@ Le dry-run les évalue, mais elles exigent l'accès à l'hôte et ne sont **pas*
 7. **Ports** : `ss -ltnp` — 3100/3101/3200/3201 libres ; 3000 (ImmiPro) et 3001 (Grafana) jamais touchés.
    **Node 24** installé pour tout l'hôte (`/usr/bin/node`, pas un `nvm` réservé à root) : PM2 et `deploy.sh`
    tournent sous le compte applicatif (`--verify` le contrôle sous ce compte).
-8. **Fuseau** (`timedatectl`) : `Africa/Porto-Novo` attendu par `verify_deploy.sh` ; décision du porteur si
-   l'hôte partagé est sur un autre fuseau (résiduel 3).
+8. **Fuseau** (`timedatectl`) : celui de l'hôte partagé est **conservé** (résiduel 3, traité). Constater seulement
+   `TZ=Africa/Porto-Novo date +%z` = `+0100` (tzdata) et `date +%z` en **heures entières** (ex. `+0200` à Madrid) ;
+   sinon le dry-run échoue (garde `cron`).
 9. **Sauvegarde préalable de la configuration de l'hôte** (`/etc/nginx`, `/etc/cron.d`, `/etc/logrotate.d`,
    `pg_dumpall --roles-only`) et fenêtre de maintenance convenue avec les autres applications.
 10. **Valkey** : `valkey-server --version`, `CONFIG GET maxmemory maxmemory-policy appendonly save` (si l'ACL le
@@ -603,9 +604,24 @@ Les archives DB ET fichiers sont nécessaires à la restauration. `sudo node $RO
 >    à rouvrir, codes OTP à redemander, compteurs de limitation remis à zéro ; elles expirent seules (TTL), ne
 >    jamais vider l'index (`FLUSHDB` interdit sur l'hôte partagé). Retour arrière : seul un `deploy.sh` antérieur
 >    accepte l'ancien `REDIS_URL` (rollback explicite) ; l'utilisateur ACL peut rester en place.
-> 3. *Fuseau horaire* : cron n'a pas de fuseau par fichier ; `verify_deploy.sh` exige `Africa/Porto-Novo` pour l'hôte
->    entier, qui est aussi celui d'ImmiPro/BeninLink. Constater `timedatectl` ; changer ou recaler les horaires est une
->    décision du porteur.
+> 3. *Fuseau horaire* — **traité le 24/10/2026 (revue GO), sans toucher au fuseau de l'hôte** (ImmiPro/BeninLink le
+>    gardent) :
+>    - **API et web** : `TZ=Africa/Porto-Novo` dans `ecosystem.config.cjs`, et l'API l'**épingle elle-même** au démarrage
+>      (`apps/api/src/lib/timezone.ts`, appelé en premier par `main.ts`, échec `API_TZ_UNAVAILABLE` si tzdata manque).
+>      Constaté dans le code : l'heure des rappels de traitement (`setHours`), le début de journée des générateurs
+>      idempotents (PEV, CPN, observance) et la série d'observance dépendaient du fuseau du **processus** ; sur un hôte en
+>      Europe/Madrid, un rappel de 08:00 serait parti à 06:00 ou 07:00 heure de Porto-Novo selon la saison.
+>    - **Cron** (pas de fuseau par fichier, `CRON_TZ` non garanti) : chaque tâche quotidienne à heure fixe (vaccination,
+>      CPN, sauvegarde, réconciliation, purge des reçus) est lancée **toutes les heures à sa minute** et ne s'exécute que
+>      si l'heure de Porto-Novo vaut l'horaire : `[[ "$(TZ=$LOCAL_TZ date +\%H\%M)" == HHMM ]] && …`. Une exécution
+>      par jour, changements d'heure de l'hôte compris, tant que son décalage UTC est en **heures entières** — contrôlé par
+>      `provision-ionos.sh` (garde avant écriture) et `verify_deploy.sh` (FAIL si non entier ou si tzdata ignore
+>      Porto-Novo ; le fuseau de l'hôte n'est plus qu'une information). Tâches à intervalle et certbot : indifférentes.
+>    Preuves : `timezone.test.ts` (hôte Madrid/UTC/New York ⇒ rappel 08:00 = 07:00 UTC hiver comme été),
+>    `environments.test.mjs` (toutes les tâches à heure fixe gardées ; simulation sur 2026 : exactement une exécution par
+>    jour pour un hôte en UTC, Europe/Madrid, Porto-Novo, New York, aucune pour +05:30 ; ligne cron exécutée par bash avec
+>    `\%` désescapé), `operations`/`provision-ionos` (décalage non entier, tzdata absent). **Limites** : la garde suppose
+>    `date` et tzdata de l'hôte ; horodatages des journaux et noms d'archives restent à l'heure de l'hôte.
 > 4. *Zones de limitation Nginx communes* (choix assumé) : une même IP partage ses quotas entre préproduction et production.
 > 5. *Rôle PostgreSQL unique, propriétaire des tables d'audit* — **traité le 22/10/2026 (revue GO)** : l'API tourne sous
 >    `<base>_app` (NOINHERIT, ni privilège, ni appartenance, aucun objet possédé, pas de CREATE), les registres

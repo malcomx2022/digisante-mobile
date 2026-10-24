@@ -135,6 +135,8 @@ GET) v="FAKE_VALKEY_OWNER_$n"; if [[ -f "$TRACE.owner.$n" ]]; then cat "$TRACE.o
 SET) echo "valkey-write $n \${args[*]}" >> "$TRACE"; [[ -f "$TRACE.owner.$n" ]] || printf '%s' "\${args[2]}" > "$TRACE.owner.$n"; echo OK;;
 *) echo "valkey-write $n \${args[*]}" >> "$TRACE"; echo OK;;
 esac`,
+  // date : décalage UTC de l'hôte simulable (résiduel 3), sinon le vrai date.
+  date: `if [[ "$1" == +%z && -n "\${FAKE_HOST_OFFSET:-}" && "\${TZ:-}" != Africa/Porto-Novo ]]; then echo "$FAKE_HOST_OFFSET"; exit 0; fi; exec "$REAL_DATE" "$@"`,
   node: `if [[ "$1" == -v ]]; then echo "\${FAKE_NODE_VERSION:-v24.21.0}"; exit 0; fi; exec "$REAL_NODE" "$@"`,
   npm: `case "$1" in root) echo /usr/lib/node_modules;; *) echo "npm-write $*" >> "$TRACE"; echo "npm-env secrets=\${PG_APP_PASSWORD:+pg}\${VALKEY_PASSWORD:+valkey}" >> "$TRACE";; esac`,
   // nginx -t : échec global (FAKE_NGINX_T) ou seulement quand un fichier contient un motif (configuration refusée).
@@ -186,7 +188,7 @@ function fixture(env = 'preproduction', { osVersion = '26.04', fakeInstall = fal
   for (const [name, body] of Object.entries(fakes)) { writeFileSync(join(bin, name), `#!/bin/bash\nset -uo pipefail\n${body}\n`); chmodSync(join(bin, name), 0o755); }
   const trace = t('trace.log'); writeFileSync(trace, '');
   const baseEnv = {
-    PATH: `${bin}:${process.env.PATH}`, HOME: t('root-home'), TRACE: trace, REAL_NODE: process.execPath,
+    PATH: `${bin}:${process.env.PATH}`, HOME: t('root-home'), TRACE: trace, REAL_NODE: process.execPath, REAL_DATE: spawnSync('bash', ['-c', 'command -v date'], { encoding: 'utf8' }).stdout.trim(),
     REAL_STAT, FAKE_ROOT_PARENT: dirname(dir),
     PROVISION_TEST_ROOT: dir, DIGISANTE_ENV: env, VALKEY_PASSWORD: VALKEY_SECRET, FAKE_VALKEY_PASS: VALKEY_SECRET, VALKEY_APP_PASSWORD: VALKEY_APP_SECRET,
     PG_APP_PASSWORD: PG_SECRET, PG_RUNTIME_PASSWORD: PG_RUNTIME_SECRET, LETSENCRYPT_EMAIL: 'ops@example.invalid', FAKE_APP_DB: e.db, TMPDIR: t('tmp'),
@@ -893,6 +895,17 @@ test('pg_hba : première règle trust (accès sans mot de passe) ⇒ FAIL ; sond
     assert.match(f.trace(), /^psql-probe .*host=127\.0\.0\.1 port=5432 dbname=digisante_preprod user=digisante_preprod.* pw= passfile=\/dev\/null$/m);
     // Même avec PGPASSWORD exporté par l'opérateur : aucune sonde ne transmet de mot de passe.
     assert.doesNotMatch(f.trace(), /^psql-probe .* pw=set/m);
+  } finally { f.clean(); }
+});
+
+test('résiduel 3 : décalage UTC de l’hôte non entier ⇒ refus avant toute écriture ; heures entières (Madrid) acceptées', () => {
+  const f = fixture();
+  try {
+    let r = f.run(['--only', 'cron'], { FAKE_HOST_OFFSET: '+0530' });
+    assert.equal(r.status, 1, r.stdout + r.stderr); assert.match(r.stderr, /décalage UTC de l'hôte \+0530 non entier/);
+    assert.doesNotMatch(f.trace(), MUTATING);
+    r = f.run(['--only', 'cron'], { FAKE_HOST_OFFSET: '+0200' });
+    assert.equal(r.status, 0, r.stdout + r.stderr); assert.match(r.stdout, /PASS  fuseau de l'hôte conservé \(décalage \+0200, heures entières\)/);
   } finally { f.clean(); }
 });
 

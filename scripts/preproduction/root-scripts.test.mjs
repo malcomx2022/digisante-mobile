@@ -47,7 +47,9 @@ export function cronJobs(text) {
     const job = /^(@\w+|(?:\S+\s+){4}\S+)\s+(\S+)\s+(.+)$/.exec(line);
     assert.ok(job, `ligne cron illisible : ${line}`);
     assert.equal(job[2], 'root', `utilisateur cron.d inattendu : ${line}`);
-    jobs.push(job[3].replace(/\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?/g, (m, v) => vars[v] ?? m));
+    // Garde horaire de Porto-Novo (résiduel 3) retirée : la commande gardée reste contrôlée.
+    const command = job[3].replace(/^\[\[ "\$\(TZ=\$LOCAL_TZ date \+\\%H\\%M\)" == \d{4} \]\] && /, '');
+    jobs.push(command.replace(/\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?/g, (m, v) => vars[v] ?? m));
   }
   return { vars, jobs };
 }

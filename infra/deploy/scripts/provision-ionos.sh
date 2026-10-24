@@ -593,6 +593,13 @@ guard_cron() {
   # qui lance APP_DIR — ancienne installation, ligne ajoutée à la main — est refusée.
   if b3_cron_hit "$(root_schedules)"; then die "B3 : une planification root (crontab root, /etc/crontab, /etc/cron.d, /etc/cron.{hourly,daily,weekly,monthly}) lance un chemin sous ${APP_DIR} : la retirer avant tout provisioning"; fi
   pass "planifications root sans chemin sous ${APP_DIR}"
+  # Résiduel 3 : tâches quotidiennes gardées par l'heure de Porto-Novo (crontab) — l'hôte garde
+  # son fuseau, mais son décalage UTC doit être en heures entières et tzdata connaître Porto-Novo.
+  local offset
+  [[ "$(TZ=Africa/Porto-Novo date +%z 2>/dev/null)" == "+0100" ]] || die "fuseau Africa/Porto-Novo inconnu de l'hôte (tzdata) : horaires DigiSanté impossibles, rien n'est configuré"
+  offset="$(date +%z 2>/dev/null)"
+  [[ "$offset" =~ ^[+-][0-9]{2}00$ ]] || die "décalage UTC de l'hôte ${offset:-inconnu} non entier : les tâches quotidiennes gardées par l'heure de Porto-Novo ne partiraient jamais"
+  pass "fuseau de l'hôte conservé (décalage ${offset}, heures entières) : tâches quotidiennes à l'heure de Porto-Novo"
 }
 
 # --apply : tout secret ou paramètre requis est contrôlé AVANT la première écriture.

@@ -477,6 +477,19 @@ test('résiduel 1 : port squatté, libre ou tenu par un autre compte ⇒ jeton j
     r=v.run('verify_deploy.sh',{...base,SQUAT_PORT:'3100'});assert.notEqual(r.status,0);assert.match(r.stdout,/FAIL.*port 3100 libre ou écouté par un autre compte/);
   }finally{v.clean();}
 });
+test('résiduel 3 : fuseau de l’hôte libre ; décalage UTC non entier ou Porto-Novo inconnu ⇒ FAIL',()=>{
+  const realDate=spawnSync('bash',['-c','command -v date'],{encoding:'utf8'}).stdout.trim();
+  for(const [extra,expect] of [[{},null],[{HOST_OFFSET:'+0200',HOST_TZ:'Europe/Madrid'},null],[{HOST_OFFSET:'+0530'},/FAIL.*décalage UTC de l'hôte \+0530 non entier/],[{NO_PN:'1'},/FAIL.*fuseau Africa\/Porto-Novo inconnu de l'hôte/]]){
+    const {f,ws}=verifyFixture();try{
+      f.command('date',`if [[ "$1" == +%z ]]; then if [[ "\u0024{TZ:-}" == Africa/Porto-Novo ]]; then [[ -n "\u0024{NO_PN:-}" ]] && echo +0000 || echo +0100; exit 0; fi; [[ -n "\u0024{HOST_OFFSET:-}" ]] && { echo "$HOST_OFFSET"; exit 0; }; fi; exec ${realDate} "$@"`);
+      f.command('timedatectl',`echo "\u0024{HOST_TZ:-Etc/UTC}"`);
+      const r=f.run('verify_deploy.sh',{DOMAIN:'preprod.example.bj',VERIFY_JOB_ENVIRONMENT:'preproduction',WS_LOG:ws,...extra});
+      assert.match(r.stdout,/INFO fuseau de l'hôte : /);
+      if(expect){assert.notEqual(r.status,0,JSON.stringify(extra));assert.match(r.stdout,expect);}
+      else{assert.equal(r.status,0,JSON.stringify(extra)+r.stdout+r.stderr);assert.match(r.stdout,/PASS.*décalage UTC de l'hôte en heures entières/);assert.match(r.stdout,/PASS.*données de fuseau Africa\/Porto-Novo présentes/);}
+    }finally{f.clean();}
+  }
+});
 test('scripts root : copie d’un autre environnement (ROOT_LIB du profil ≠ copie lancée) refusée avant tout effet',()=>{
   for(const script of ['internal_job.sh','fedapay_reconcile.sh','healthwatch.sh','pg_dump_encrypted.sh','verify_deploy.sh']){
     for(const rootLib of ['other','']){const f=fixture();try{
