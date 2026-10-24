@@ -6,7 +6,6 @@ import { setIntegration } from '@/lib/integrations.js';
 import { buildWebhookSignatureHeader } from '@/services/fedapay.js';
 import { fedapayWebhookBody } from '@/test/fedapay-fixture.js';
 import * as audit from '@/lib/audit.js';
-import * as wallet from '@/modules/wallet/wallet.service.js';
 import * as effects from './subscriptions.effects.js';
 import * as payments from '@/modules/payments/payments.service.js';
 
@@ -81,11 +80,11 @@ describe.skipIf(!HAS_INFRA)('L6 — abonnements médecin payants', () => {
   });
   it('médecin non vérifié refusé avant fournisseur et débit', async () => {
     await app.prisma.doctor.update({ where: { id: doctorId }, data: { verifiedAt: null } });
-    expect((await buy()).statusCode).toBe(403); expect((await buy({ method: 'WALLET' })).statusCode).toBe(403); expect(supplier).not.toHaveBeenCalled();
+    expect((await buy()).statusCode).toBe(403); expect(supplier).not.toHaveBeenCalled();
   });
   it('ancien JWT suspendu refusé', async () => {
     const headers = auth(); await app.prisma.user.update({ where: { id: userId }, data: { status: 'SUSPENDED' } });
-    expect((await app.inject({ method: 'POST', url: '/api/v1/subscriptions', headers, payload: { plan: 'PRO', method: 'WALLET', requestId: randomUUID() } })).statusCode).toBe(401);
+    expect((await app.inject({ method: 'POST', url: '/api/v1/subscriptions', headers, payload: { plan: 'PRO', method: 'MTN_MOMO', requestId: randomUUID() } })).statusCode).toBe(401);
   });
   it('configuration absente : aucun checkout fictif ni commande', async () => {
     await setIntegration(app, 'FEDAPAY', { secrets: {} });
@@ -111,7 +110,7 @@ describe.skipIf(!HAS_INFRA)('L6 — abonnements médecin payants', () => {
     expect(res.every((r) => r.statusCode === 200)).toBe(true); expect(new Set(res.map((r) => r.json().orderId)).size).toBe(1); expect(supplier).toHaveBeenCalledTimes(2);
   });
   it('requestId réutilisé avec autre méthode → conflit', async () => {
-    const requestId = randomUUID(); await buy({ requestId }); expect((await buy({ requestId, method: 'WALLET' })).statusCode).toBe(409);
+    const requestId = randomUUID(); await buy({ requestId }); expect((await buy({ requestId, method: 'MOOV_MONEY' })).statusCode).toBe(409);
   });
   it('seconde commande en attente refusée, reprise du même lien propriétaire', async () => {
     const res = await buy(); expect((await buy()).statusCode).toBe(409);
@@ -122,18 +121,11 @@ describe.skipIf(!HAS_INFRA)('L6 — abonnements médecin payants', () => {
     const res = await buy(); expect((await app.inject({ method: 'GET', url: `/api/v1/subscriptions/${res.json().orderId}/checkout`, headers: auth(otherId) })).statusCode).toBe(404);
     const history = await app.inject({ method: 'GET', url: '/api/v1/subscriptions/history', headers: auth() }); expect(history.body).not.toContain('checkoutUrl'); expect(history.body).not.toContain('fedapayId');
   });
-  it('wallet insuffisant : ni débit, ni paiement, ni période', async () => {
-    await app.prisma.wallet.update({ where: { userId }, data: { balance: 100 } });
-    expect((await buy({ method: 'WALLET' })).statusCode).toBe(400); expect(await app.prisma.payment.count({ where: { userId } })).toBe(0); expect(await app.prisma.subscriptionOrder.count({ where: { doctorId } })).toBe(0);
-  });
-  it('wallet : paiement, débit référencé et activation atomiques', async () => {
-    const res = await buy({ method: 'WALLET' }); expect(res.statusCode).toBe(200); expect(res.json().payment.status).toBe('COMPLETED'); expect(res.json().paymentUrl).toBeNull();
-    expect((await read()).json()).toMatchObject({ subscriptionPlan: 'PRO', rights: { startTeleconsultation: true, revenueStats: true } });
-    expect(Number((await app.prisma.wallet.findUniqueOrThrow({ where: { userId } })).balance)).toBe(95000); expect(await app.prisma.walletTransaction.count({ where: { reference: res.json().payment.id, type: 'DEBIT' } })).toBe(1); expect(supplier).not.toHaveBeenCalled();
-  });
-  it('wallet concurrent même requestId : un seul débit et une période', async () => {
-    const requestId = randomUUID(); const results = await Promise.all(Array.from({ length: 5 }, () => buy({ requestId, method: 'WALLET' })));
-    expect(results.every((r) => r.statusCode === 200)).toBe(true); expect(await app.prisma.walletTransaction.count({ where: { wallet: { userId }, type: 'DEBIT' } })).toBe(1); expect(await app.prisma.subscriptionOrder.count({ where: { doctorId } })).toBe(1);
+  it('A8 : portefeuille refusé avant tout effet, même avec un solde suffisant', async () => {
+    const res = await buy({ method: 'WALLET' }); expect(res.statusCode).toBe(400);
+    expect(await app.prisma.payment.count({ where: { userId } })).toBe(0); expect(await app.prisma.subscriptionOrder.count({ where: { doctorId } })).toBe(0);
+    expect(Number((await app.prisma.wallet.findUniqueOrThrow({ where: { userId } })).balance)).toBe(100000); expect(await app.prisma.walletTransaction.count({ where: { wallet: { userId } } })).toBe(0);
+    expect(supplier).not.toHaveBeenCalled(); expect((await read()).json().subscriptionPlan).toBe('FREE');
   });
   it('HMAC incorrect : aucune activation ni transition financière', async () => {
     const o = await orderFor((await buy()).json().orderId); expect((await webhook(o.payment.fedapayId!, 'approved', 'wrong_test_secret')).statusCode).toBe(401); expect((await read()).json().subscriptionPlan).toBe('FREE'); expect((await orderFor(o.id)).payment.status).toBe('PENDING');
@@ -161,10 +153,10 @@ describe.skipIf(!HAS_INFRA)('L6 — abonnements médecin payants', () => {
     expect((await webhook(o.payment.fedapayId!)).statusCode).toBe(500); expect((await orderFor(o.id)).payment.status).toBe('PENDING'); expect((await orderFor(o.id)).startsAt).toBeNull();
     expect((await webhook(o.payment.fedapayId!)).statusCode).toBe(200); expect(await app.prisma.auditLog.count({ where: { action: 'PAYMENT_CONFIRMED', targetId: o.paymentId } })).toBe(1);
   });
-  it('échec restitution wallet : remboursement, révocation et audit annulés ensemble', async () => {
-    const o = await orderFor((await buy({ method: 'WALLET' })).json().orderId);
-    vi.spyOn(wallet, 'creditWithin').mockRejectedValueOnce(new Error('test-only refund credit failure'));
-    await expect(payments.refund(app, o.paymentId, { actorId: userId })).rejects.toThrow('test-only refund credit failure');
+  it('échec de révocation : remboursement, droit et audit annulés ensemble', async () => {
+    const o = await pay();
+    vi.spyOn(effects, 'revokeWithin').mockRejectedValueOnce(new Error('test-only revoke failure'));
+    await expect(payments.refund(app, o.paymentId, { actorId: userId })).rejects.toThrow('test-only revoke failure');
     expect((await orderFor(o.id)).revokedAt).toBeNull(); expect((await orderFor(o.id)).payment.status).toBe('COMPLETED'); expect((await read()).json().subscriptionPlan).toBe('PRO');
     expect(await app.prisma.auditLog.count({ where: { action: 'PAYMENT_REFUND', targetId: o.paymentId } })).toBe(0);
   });
@@ -195,16 +187,17 @@ describe.skipIf(!HAS_INFRA)('L6 — abonnements médecin payants', () => {
     const o = await orderFor((await buy()).json().orderId); await stop(); expect((await webhook(o.payment.fedapayId!)).statusCode).toBe(200); const after = await orderFor(o.id); expect(after.payment.status).toBe('COMPLETED'); expect(after.startsAt).toBeNull(); expect(after.revokedAt).not.toBeNull(); expect((await read()).json().subscriptionPlan).toBe('FREE');
     await payments.refund(app, o.paymentId, { actorId: userId }); expect((await orderFor(o.id)).payment.status).toBe('REFUNDED');
   });
-  it('remboursements wallet concurrents : restitution unique et droit révoqué atomiquement', async () => {
-    const o = await orderFor((await buy({ method: 'WALLET' })).json().orderId); await Promise.all(Array.from({ length: 4 }, () => payments.refund(app, o.paymentId, { actorId: userId })));
-    expect((await read()).json().subscriptionPlan).toBe('FREE'); expect(Number((await app.prisma.wallet.findUniqueOrThrow({ where: { userId } })).balance)).toBe(100000); expect(await app.prisma.walletTransaction.count({ where: { reference: o.paymentId, type: 'REFUND_IN' } })).toBe(1);
+  it('remboursements concurrents : un seul remboursement et droit révoqué atomiquement', async () => {
+    const o = await pay(); await Promise.all(Array.from({ length: 4 }, () => payments.refund(app, o.paymentId, { actorId: userId })));
+    expect((await read()).json().subscriptionPlan).toBe('FREE'); expect((await orderFor(o.id)).payment.status).toBe('REFUNDED');
+    expect(await app.prisma.auditLog.count({ where: { action: 'PAYMENT_REFUND', targetId: o.paymentId } })).toBe(1); expect(await app.prisma.walletTransaction.count({ where: { reference: o.paymentId } })).toBe(0);
   });
   it('API téléconsultation : FREE refusé, PRO payé démarre, expiration conserve join/end', async () => {
     const patient = await app.prisma.patient.upsert({ where: { userId: patientId }, create: { userId: patientId }, update: {} });
     const appt = await app.prisma.appointment.create({ data: { patientId: patient.id, doctorId, type: 'TELECONSULTATION', status: 'CONFIRMED', scheduledAt: new Date() } });
     const start = () => app.inject({ method: 'POST', url: '/api/v1/consultations', headers: auth(), payload: { appointmentId: appt.id } });
     expect((await start()).statusCode).toBe(403); expect(await app.prisma.consultation.count({ where: { appointmentId: appt.id } })).toBe(0);
-    const order = await orderFor((await buy({ method: 'WALLET' })).json().orderId);
+    const order = await pay();
     const opened = await start(); expect(opened.statusCode).toBe(201);
     await app.prisma.subscriptionOrder.update({ where: { id: order.id }, data: { endsAt: new Date(Date.now() - 1000) } });
     const cid = opened.json().consultation.id;

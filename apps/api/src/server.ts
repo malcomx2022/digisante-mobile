@@ -5,10 +5,10 @@ import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
 import Fastify from 'fastify';
-import Redis from 'ioredis';
 
 import { env } from '@/lib/env.js';
 import { sanitizeLogUrl, serializeErrorForLog } from '@/lib/log-sanitize.js';
+import { createRedis } from '@/lib/redis.js';
 import adherenceRoutes from '@/modules/adherence/adherence.routes.js';
 import adminRoutes from '@/modules/admin/admin.routes.js';
 import adminCampaignsRoutes from '@/modules/admin/campaigns.routes.js';
@@ -106,7 +106,7 @@ export async function buildServer() {
   const rateLimitStore =
     env.NODE_ENV === 'test'
       ? undefined
-      : new Redis(env.REDIS_URL, {
+      : createRedis({
           connectionName: 'digisante-ratelimit',
           enableOfflineQueue: false,
           maxRetriesPerRequest: 1,

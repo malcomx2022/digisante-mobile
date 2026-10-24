@@ -15,7 +15,9 @@ import { fileURLToPath } from 'node:url';
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const SCRIPT_REL = 'infra/deploy/scripts/provision-ionos.sh';
 const PG_SECRET = 'SYNTHETIC_PG_SECRET_0123456789abcdef';
+const PG_RUNTIME_SECRET = 'SYNTHETIC_PG_RUNTIME_0123456789abcdef';
 const VALKEY_SECRET = 'SYNTHETIC_VALKEY_SECRET_abcdef';
+const VALKEY_APP_SECRET = 'synthetic-valkey-app-user-secret-0123456789';
 const ROOT_LIST = readFileSync(resolve(ROOT, 'infra/deploy/root-scripts.list'), 'utf8').split('\n')
   .map((l) => /^(0755|0644) (\S+)$/.exec(l)).filter(Boolean).map((m) => ({ mode: parseInt(m[1], 8), path: m[2] }));
 const ME = userInfo().username;
@@ -68,8 +70,9 @@ exec "$@"`,
   esac
 fi
 sql=""; db=""; prev=""; for a in "$@"; do [[ "$prev" == -c ]] && sql="$a"; [[ "$prev" == -d ]] && db="$a"; prev="$a"; done
-if [[ -z "$sql" ]]; then sql="$(cat)"; echo "psql-stdin $(tr '\\n' ' ' <<<"$sql")" >> "$TRACE"; echo "psql-env pw=\${PG_APP_PASSWORD:+set} verifier=\${PG_APP_VERIFIER:0:18}" >> "$TRACE"; exit 0; fi
+if [[ -z "$sql" ]]; then sql="$(cat)"; echo "psql-stdin $(tr '\\n' ' ' <<<"$sql")" >> "$TRACE"; v="\${PG_APP_VERIFIER:-}\${PG_RUNTIME_VERIFIER:-}"; echo "psql-env pw=\${PG_APP_PASSWORD:+set}\${PG_RUNTIME_PASSWORD:+set} verifier=\${v:0:18}" >> "$TRACE"; exit 0; fi
 case "$sql" in
+*runtime_role_check*) printf '%s' "\${FAKE_PG_RUNTIME:-ok}";;
 *server_version_num*) echo "\${FAKE_PG_VERSION:-180006}";;
 *pg_auth_members*) echo "\${FAKE_PG_MEMBERS:-0}";;
 *rolsuper*) printf '%s' "\${FAKE_PG_ROLE_ATTR:-}";;
@@ -91,10 +94,37 @@ esac
 exit 0`,
   'valkey-cli': `[[ "\${REDISCLI_AUTH:-}" == "\${FAKE_VALKEY_PASS:-}" && -n "\${REDISCLI_AUTH:-}" ]] || { echo "NOAUTH"; exit 0; }
 n=0; args=(); while (($#)); do case "$1" in -h|-p|--user) shift 2;; --no-auth-warning) shift;; -n) n="$2"; shift 2;; *) args+=("$1"); shift;; esac; done
+acl="$TRACE.acl"; [[ -f "$acl" ]] || printf '%s' "\${FAKE_VALKEY_ACL_LIST:-}" > "$acl"
+# Sans argument : commandes lues sur l'entrée standard (ACL SETUSER du provisioning).
+if (( \${#args[@]} == 0 )); then
+  while IFS= read -r line; do
+    read -r -a w <<<"$line"
+    echo "valkey-write stdin \${w[0]} \${w[1]} \${w[2]}" >> "$TRACE"
+    [[ "\${w[0]} \${w[1]}" == "ACL SETUSER" && "\${FAKE_VALKEY_SETUSER_DENIED:-0}" != 1 ]] || { echo "NOPERM"; continue; }
+    hashes=""; for t in "\${w[@]:3}"; do [[ "$t" == "#"* ]] && hashes+="$t "; done
+    [[ " \${w[*]} " == *" reset "* ]] || hashes="$(grep -E "^user \${w[2]} " "$acl" | tr ' ' '\\n' | grep '^#' | tr '\\n' ' ' || true)"
+    rules="$(printf '%s ' "\${w[@]:3}" | tr ' ' '\\n' | grep -Ev '^(reset|on|#.*)$' | tr '\\n' ' ')"
+    { grep -Ev "^user \${w[2]} " "$acl" || true; echo "user \${w[2]} on sanitize-payload \${hashes}\${rules}"; } > "$acl.new"; mv "$acl.new" "$acl"
+    printf '%s\\n' "\${w[*]}" >> "$TRACE.setuser"
+    echo OK
+  done
+  exit 0
+fi
 case "\${args[0]}" in
+ACL) case "\${args[1]}" in
+  LIST) cat "$acl";;
+  SAVE) echo "valkey-write 0 ACL SAVE" >> "$TRACE"; [[ "\${FAKE_VALKEY_ACLSAVE_FAIL:-0}" == 1 ]] && echo "ERR There was an error trying to save the ACLs" || echo OK;;
+  DRYRUN) line="$(grep -E "^user \${args[2]} " "$acl" || true)"; cmd="\${args[3],,}"; arg="\${args[4]:-}"
+    pfx="$(tr ' ' '\\n' <<<"$line" | sed -n 's/^~\\(.*\\)\\*$/\\1/p')"
+    if [[ " \${FAKE_VALKEY_DRYRUN_OK:-} " == *" $cmd "* ]]; then echo OK
+    elif [[ -z "$line" || " $line " != *" +$cmd "* ]]; then echo "User \${args[2]} has no permissions to run the '$cmd' command"
+    elif [[ "$cmd" =~ ^(get|set|del|publish|subscribe|getdel|incr)$ && "$arg" != "$pfx"* ]]; then echo "User \${args[2]} has no permissions to access the '$arg' key"
+    else echo OK; fi;;
+  esac;;
 PING) echo PONG;;
 CONFIG) [[ "\${FAKE_VALKEY_CONFIG_DENIED:-0}" == 1 ]] && { echo "NOPERM this user has no permissions to run the 'config|get' command"; exit 1; }
   case "\${args[2]}" in
+  aclfile) echo aclfile; printf '%s\\n' "\${FAKE_VALKEY_ACLFILE-/etc/valkey/users.acl}";;
   maxmemory) echo maxmemory; echo "\${FAKE_VALKEY_MAXMEM:-0}";;
   maxmemory-policy) echo maxmemory-policy; echo "\${FAKE_VALKEY_POLICY:-noeviction}";;
   appendonly) echo appendonly; echo "\${FAKE_VALKEY_AOF:-no}";;
@@ -105,6 +135,8 @@ GET) v="FAKE_VALKEY_OWNER_$n"; if [[ -f "$TRACE.owner.$n" ]]; then cat "$TRACE.o
 SET) echo "valkey-write $n \${args[*]}" >> "$TRACE"; [[ -f "$TRACE.owner.$n" ]] || printf '%s' "\${args[2]}" > "$TRACE.owner.$n"; echo OK;;
 *) echo "valkey-write $n \${args[*]}" >> "$TRACE"; echo OK;;
 esac`,
+  // date : décalage UTC de l'hôte simulable (résiduel 3), sinon le vrai date.
+  date: `if [[ "$1" == +%z && -n "\${FAKE_HOST_OFFSET:-}" && "\${TZ:-}" != Africa/Porto-Novo ]]; then echo "$FAKE_HOST_OFFSET"; exit 0; fi; exec "$REAL_DATE" "$@"`,
   node: `if [[ "$1" == -v ]]; then echo "\${FAKE_NODE_VERSION:-v24.21.0}"; exit 0; fi; exec "$REAL_NODE" "$@"`,
   npm: `case "$1" in root) echo /usr/lib/node_modules;; *) echo "npm-write $*" >> "$TRACE"; echo "npm-env secrets=\${PG_APP_PASSWORD:+pg}\${VALKEY_PASSWORD:+valkey}" >> "$TRACE";; esac`,
   // nginx -t : échec global (FAKE_NGINX_T) ou seulement quand un fichier contient un motif (configuration refusée).
@@ -156,10 +188,10 @@ function fixture(env = 'preproduction', { osVersion = '26.04', fakeInstall = fal
   for (const [name, body] of Object.entries(fakes)) { writeFileSync(join(bin, name), `#!/bin/bash\nset -uo pipefail\n${body}\n`); chmodSync(join(bin, name), 0o755); }
   const trace = t('trace.log'); writeFileSync(trace, '');
   const baseEnv = {
-    PATH: `${bin}:${process.env.PATH}`, HOME: t('root-home'), TRACE: trace, REAL_NODE: process.execPath,
+    PATH: `${bin}:${process.env.PATH}`, HOME: t('root-home'), TRACE: trace, REAL_NODE: process.execPath, REAL_DATE: spawnSync('bash', ['-c', 'command -v date'], { encoding: 'utf8' }).stdout.trim(),
     REAL_STAT, FAKE_ROOT_PARENT: dirname(dir),
-    PROVISION_TEST_ROOT: dir, DIGISANTE_ENV: env, VALKEY_PASSWORD: VALKEY_SECRET, FAKE_VALKEY_PASS: VALKEY_SECRET,
-    PG_APP_PASSWORD: PG_SECRET, LETSENCRYPT_EMAIL: 'ops@example.invalid', FAKE_APP_DB: e.db, TMPDIR: t('tmp'),
+    PROVISION_TEST_ROOT: dir, DIGISANTE_ENV: env, VALKEY_PASSWORD: VALKEY_SECRET, FAKE_VALKEY_PASS: VALKEY_SECRET, VALKEY_APP_PASSWORD: VALKEY_APP_SECRET,
+    PG_APP_PASSWORD: PG_SECRET, PG_RUNTIME_PASSWORD: PG_RUNTIME_SECRET, LETSENCRYPT_EMAIL: 'ops@example.invalid', FAKE_APP_DB: e.db, TMPDIR: t('tmp'),
   };
   const run = (args = [], extra = {}) => spawnSync('bash', [t(join(e.lib, SCRIPT_REL)), ...args], { env: { ...baseEnv, ...extra }, encoding: 'utf8', timeout: 30_000 });
   // Instantané complet : répertoires, liens et fichiers, avec mode et propriétaire (écriture,
@@ -342,7 +374,9 @@ test('pg_hba sans connexion locale par mot de passe, DNS hors hôte ⇒ FAIL sig
     assert.equal(r.status, 1);
     assert.match(r.stdout, /FAIL  pg_hba : aucune règle host 127\.0\.0\.1\/32 scram-sha-256 applicable à digisante_preprod@digisante_preprod .*À LA MAIN/);
     assert.match(r.stdout, /FAIL  DNS preprod\.digisantemobile\.app ne résout pas vers 31\.70\.148\.167/);
-    assert.match(r.stderr, /2 garde\(s\) en échec/); assert.doesNotMatch(f.trace(), MUTATING);
+    // Les deux rôles (propriétaire et exécution) sont sondés : 2 FAIL pg_hba + 1 FAIL DNS.
+    assert.match(r.stdout, /FAIL  pg_hba : aucune règle host 127\.0\.0\.1\/32 scram-sha-256 applicable à digisante_preprod_app@digisante_preprod /);
+    assert.match(r.stderr, /3 garde\(s\) en échec/); assert.doesNotMatch(f.trace(), MUTATING);
   } finally { f.clean(); }
 });
 
@@ -420,6 +454,129 @@ test('B4 --verify : KYC_STORAGE_DIR absolu exigé, magasin du compte applicatif,
   } finally { f.clean(); }
 });
 
+test('--verify : rôle d’exécution non propriétaire contrôlé (droits des registres, .env de l’API sous <base>_app)', () => {
+  const f = fixture();
+  try {
+    const api = f.t('var/www/digisante-preprod/apps/api'); mkdirSync(api, { recursive: true });
+    const envFile = join(api, '.env');
+    const users = { FAKE_USERS: `digisante-preprod:${APP_UID}:${APP_UID}:digisante-preprod sshusers;digisante-preprod-jobs:${APP_UID - 1}:${APP_UID - 1}:digisante-preprod-jobs` };
+    const owner = 'postgresql://digisante_preprod:SYNTHETIC_OWNER_VALUE@127.0.0.1:5432/digisante_preprod';
+    const runtime = 'postgresql://digisante_preprod_app:SYNTHETIC_RUNTIME_VALUE@127.0.0.1:5432/digisante_preprod';
+    writeEnv(envFile, `DATABASE_URL="${runtime}"\n`);
+    let r = f.run(['--verify'], users);
+    assert.match(r.stdout, /PASS  rôle d'exécution digisante_preprod_app : non propriétaire, audit_logs\/finance_entries en INSERT\/SELECT seulement/);
+    assert.match(r.stdout, /PASS  API \(\.env\) sous digisante_preprod_app/);
+    assert.match(r.stdout, /PASS  aucune URL du propriétaire dans le \.env de l'API/);
+    for (const [state, message] of [
+      ['audit', /FAIL  rôle digisante_preprod_app : objet possédé, CREATE sur public ou UPDATE\/DELETE\/TRUNCATE sur un registre append-only/],
+      ['grants', /FAIL  rôle digisante_preprod_app sans droits sur les tables : relancer deploy\.sh/],
+      ['absent', /FAIL  rôle d'exécution digisante_preprod_app absent/],
+      ['privilege', /FAIL  rôle d'exécution digisante_preprod_app : privilégié, membre d'un autre rôle/],
+      ['schema', /NOTE  schéma non migré/],
+    ]) {
+      r = f.run(['--verify'], { ...users, FAKE_PG_RUNTIME: state });
+      assert.match(r.stdout, message, state);
+    }
+    // API sous le PROPRIÉTAIRE (configuration d'avant la revue GO) et URL du propriétaire dans le .env : FAIL.
+    writeEnv(envFile, `DATABASE_URL="${owner}"\nMIGRATION_DATABASE_URL="${owner}"\n`);
+    r = f.run(['--verify'], users);
+    assert.match(r.stdout, /FAIL  API \(\.env\) sous digisante_preprod au lieu de digisante_preprod_app/);
+    assert.match(r.stdout, /FAIL  MIGRATION_DATABASE_URL dans le \.env de l'API/);
+    assert.doesNotMatch(r.stdout + r.stderr, /SYNTHETIC_OWNER_VALUE|SYNTHETIC_RUNTIME_VALUE/);
+    assert.notEqual(r.status, 0);
+  } finally { f.clean(); }
+});
+
+test('Valkey : utilisateur ACL de l’API créé par l’entrée standard (#SHA-256), limité au préfixe, persistant (ACL SAVE)', () => {
+  const f = fixture();
+  try {
+    let r = f.run(['--only', 'valkey']);
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stdout, /\[plan\] utilisateur ACL digisante-preprod : ACL SETUSER digisante-preprod reset on #<SHA-256 de VALKEY_APP_PASSWORD, calculée ici> resetkeys ~digisante-preprod:\* resetchannels &digisante-preprod:\* nocommands/);
+    assert.doesNotMatch(f.trace(), MUTATING);
+    r = f.run(['--apply', '--only', 'valkey']);
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    const trace = f.trace();
+    assert.match(trace, /^valkey-write stdin ACL SETUSER digisante-preprod$/m);
+    assert.match(trace, /^valkey-write 0 ACL SAVE$/m);
+    const setuser = readFileSync(`${f.t('trace.log')}.setuser`, 'utf8');
+    const hash = createHash('sha256').update(VALKEY_APP_SECRET).digest('hex');
+    assert.match(setuser, new RegExp(`^ACL SETUSER digisante-preprod reset on #${hash} resetkeys ~digisante-preprod:\\* resetchannels &digisante-preprod:\\* nocommands \\+ping \\+select \\+client\\|setname \\+quit \\+get `));
+    for (const denied of ['+@all', '+keys', '+scan', '+flushdb', '+flushall', '+info', '+config', '+acl', 'allkeys', '~*']) assert.ok(!setuser.split(' ').includes(denied), denied);
+    for (const secret of [VALKEY_APP_SECRET, VALKEY_SECRET]) assert.ok(!(trace + setuser + r.stdout + r.stderr).includes(secret), 'secret transmis ou affiché');
+    assert.match(r.stdout, /REDIS_URL du \.env : redis:\/\/digisante-preprod:<VALKEY_APP_PASSWORD>@127\.0\.0\.1:6379\/5 et REDIS_KEY_PREFIX=digisante-preprod:/);
+    // Réapplication sans nouveau mot de passe : règles reposées, empreinte conservée (pas de reset).
+    r = f.run(['--apply', '--only', 'valkey'], { VALKEY_APP_PASSWORD: '' });
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.match(r.stdout, /PASS  utilisateur ACL digisante-preprod déjà limité à digisante-preprod:\*/);
+    assert.match(readFileSync(`${f.t('trace.log')}.setuser`, 'utf8').trim().split('\n').at(-1), /^ACL SETUSER digisante-preprod on resetkeys /);
+    assert.match(readFileSync(`${f.t('trace.log')}.acl`, 'utf8'), new RegExp(`#${hash}`));
+  } finally { f.clean(); }
+  const p = fixture('production');
+  try {
+    const r = p.run(['--apply', '--only', 'valkey']);
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.match(readFileSync(`${p.t('trace.log')}.setuser`, 'utf8'), /^ACL SETUSER digisante reset on #[0-9a-f]{64} resetkeys ~digisante:\* resetchannels &digisante:\* /);
+  } finally { p.clean(); }
+});
+
+test('Valkey : fichier ACL absent, utilisateur étranger, mot de passe absent/faible/identique ⇒ refus avant toute écriture ; SETUSER/SAVE refusés ⇒ ÉCHEC', () => {
+  const f = fixture();
+  try {
+    for (const [extra, message] of [
+      [{ FAKE_VALKEY_ACLFILE: '' }, /aclfile non configuré/],
+      [{ FAKE_VALKEY_ACL_LIST: 'user digisante-preprod on #abc ~* &* +@all\n' }, /utilisateur ACL digisante-preprod existant avec d'autres clés \(~\* \)/],
+      [{ FAKE_VALKEY_ACL_LIST: 'user digisante-preprod on nopass ~digisante-preprod:* &digisante-preprod:* -@all +get\n', VALKEY_APP_PASSWORD: '' }, /sans mot de passe \(nopass\)/],
+      [{ VALKEY_APP_PASSWORD: 'short' }, /VALKEY_APP_PASSWORD : 32 à 256 caractères/],
+      [{ VALKEY_APP_PASSWORD: 'x'.repeat(40) + '@' }, /VALKEY_APP_PASSWORD : 32 à 256 caractères/],
+      [{ VALKEY_APP_PASSWORD: VALKEY_APP_SECRET, VALKEY_PASSWORD: VALKEY_APP_SECRET, FAKE_VALKEY_PASS: VALKEY_APP_SECRET }, /identique au mot de passe d'administration Valkey/],
+      [{ VALKEY_APP_PASSWORD: '' }, /VALKEY_APP_PASSWORD \(coffre, 32 à 256 caractères \[A-Za-z0-9\._~-\]\) requis pour créer l'utilisateur ACL digisante-preprod — rien n'a été écrit/],
+    ]) {
+      const r = f.run(['--apply', '--only', 'valkey'], extra);
+      assert.equal(r.status, 1, JSON.stringify(extra) + r.stdout + r.stderr);
+      assert.match(r.stderr, message, JSON.stringify(extra));
+      assert.doesNotMatch(f.trace(), MUTATING, JSON.stringify(extra));
+      assert.ok(!(r.stdout + r.stderr).includes(VALKEY_APP_SECRET));
+      rmSync(`${f.t('trace.log')}.acl`, { force: true });
+    }
+    let r = f.run(['--apply', '--only', 'valkey'], { FAKE_VALKEY_SETUSER_DENIED: '1' });
+    assert.equal(r.status, 1); assert.match(r.stderr, /ACL SETUSER digisante-preprod refusé \(réponse non affichée\)/);
+    rmSync(`${f.t('trace.log')}.acl`, { force: true });
+    r = f.run(['--apply', '--only', 'valkey'], { FAKE_VALKEY_ACLSAVE_FAIL: '1' });
+    assert.equal(r.status, 1); assert.match(r.stderr, /ACL SAVE refusé : utilisateur digisante-preprod actif mais NON persistant/);
+  } finally { f.clean(); }
+});
+
+test('--verify : droits ACL effectifs mesurés par ACL DRYRUN, .env sous l’utilisateur et le préfixe de l’environnement', () => {
+  const f = fixture();
+  try {
+    const api = f.t('var/www/digisante-preprod/apps/api'); mkdirSync(api, { recursive: true });
+    const envFile = join(api, '.env');
+    const users = { FAKE_USERS: `digisante-preprod:${APP_UID}:${APP_UID}:digisante-preprod sshusers;digisante-preprod-jobs:${APP_UID - 1}:${APP_UID - 1}:digisante-preprod-jobs` };
+    let r = f.run(['--verify'], users);
+    assert.match(r.stdout, /FAIL  utilisateur ACL digisante-preprod absent/);
+    assert.equal(f.run(['--apply', '--only', 'valkey']).status, 0);
+    writeEnv(envFile, 'REDIS_URL="redis://digisante-preprod:SYNTHETIC_VALKEY_APP@127.0.0.1:6379/5"\nREDIS_KEY_PREFIX=digisante-preprod:\n');
+    r = f.run(['--verify'], users);
+    assert.match(r.stdout, /PASS  utilisateur ACL digisante-preprod actif, avec mot de passe/);
+    assert.match(r.stdout, /PASS  ACL digisante-preprod : préfixe digisante-preprod: seul, aucune commande d'administration \(ACL DRYRUN\)/);
+    assert.match(r.stdout, /NOTE  utilisateur default \(mot de passe d'administration de l'hôte\) : accès à TOUS les index/);
+    assert.match(r.stdout, /PASS  API \(\.env\) sous l'utilisateur ACL digisante-preprod/);
+    assert.match(r.stdout, /PASS  REDIS_KEY_PREFIX=digisante-preprod:/);
+    // Une commande d'administration permise, une clé de l'API refusée : FAIL nommé.
+    r = f.run(['--verify'], { ...users, FAKE_VALKEY_DRYRUN_OK: 'flushall' });
+    assert.match(r.stdout, /FAIL  ACL digisante-preprod : « FLUSHALL » PERMIS/);
+    assert.doesNotMatch(r.stdout, /PASS  ACL digisante-preprod : préfixe/);
+    // .env sous default (mot de passe de l'hôte) et sans préfixe : FAIL.
+    writeEnv(envFile, 'REDIS_URL="redis://:SYNTHETIC_VALKEY_APP@127.0.0.1:6379/5"\n');
+    r = f.run(['--verify'], users);
+    assert.match(r.stdout, /FAIL  API \(\.env\) sous l'utilisateur Valkey « default » au lieu de digisante-preprod/);
+    assert.match(r.stdout, /FAIL  REDIS_KEY_PREFIX absent ou différent de digisante-preprod:/);
+    assert.doesNotMatch(r.stdout + r.stderr, /SYNTHETIC_VALKEY_APP/);
+    assert.notEqual(r.status, 0);
+  } finally { f.clean(); }
+});
+
 test('B4 --verify interroge les fichiers dans la base applicative de chaque environnement, jamais postgres', () => {
   for (const env of ['preproduction', 'production']) {
     const f = fixture(env);
@@ -451,6 +608,11 @@ test('--apply : secrets requis contrôlés AVANT toute écriture ; mot de passe 
       const bad = f.run(['--apply'], { PG_APP_PASSWORD: pw });
       assert.equal(bad.status, 1, pw); assert.doesNotMatch(f.trace(), MUTATING);
     }
+    const noRuntime = f.run(['--apply'], { PG_RUNTIME_PASSWORD: '' });
+    assert.equal(noRuntime.status, 1); assert.match(noRuntime.stderr, /PG_RUNTIME_PASSWORD .* requis pour créer digisante_preprod_app — rien n'a été écrit/);
+    assert.doesNotMatch(f.trace(), MUTATING);
+    const same = f.run(['--apply'], { PG_RUNTIME_PASSWORD: PG_SECRET });
+    assert.equal(same.status, 1); assert.match(same.stderr, /identique à PG_APP_PASSWORD/); assert.doesNotMatch(f.trace(), MUTATING);
     const r2 = f.run(['--apply'], { LETSENCRYPT_EMAIL: '' });
     assert.equal(r2.status, 1); assert.match(r2.stderr, /LETSENCRYPT_EMAIL requis/); assert.doesNotMatch(f.trace(), MUTATING);
   } finally { f.clean(); }
@@ -464,7 +626,11 @@ test('--apply : secrets requis contrôlés AVANT toute écriture ; mot de passe 
     assert.match(trace, /^psql-stdin \\getenv db_role DB_ROLE \\getenv db_pw PG_APP_VERIFIER SELECT format\('CREATE ROLE %I LOGIN NOSUPERUSER/m);
     assert.match(trace, /^psql-env pw= verifier=SCRAM-SHA-256\$4096$/m);
     assert.match(trace, /^createdb-write --owner=digisante_preprod/m);
-    assert.match(trace, /^psql-c REVOKE ALL ON DATABASE "digisante_preprod" FROM PUBLIC; GRANT CONNECT, TEMPORARY ON DATABASE "digisante_preprod" TO "digisante_preprod";$/m);
+    assert.match(trace, /^psql-c REVOKE ALL ON DATABASE "digisante_preprod" FROM PUBLIC; GRANT CONNECT, TEMPORARY ON DATABASE "digisante_preprod" TO "digisante_preprod"; GRANT CONNECT ON DATABASE "digisante_preprod" TO "digisante_preprod_app";$/m);
+    // Rôle d'EXÉCUTION de l'API : créé séparément, son propre vérificateur, jamais le mot de passe en clair.
+    assert.match(trace, /^psql-stdin \\getenv db_role RUN_ROLE \\getenv db_pw PG_RUNTIME_VERIFIER SELECT format\('CREATE ROLE %I LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT/m);
+    assert.equal((trace.match(/^psql-env pw= verifier=SCRAM-SHA-256\$4096$/gm) ?? []).length, 2, trace.split("\n").filter((l) => l.startsWith("psql-")).join("\n"));
+    assert.ok(!trace.includes(PG_RUNTIME_SECRET), 'mot de passe du rôle d’exécution en argument');
     assert.match(trace, /^valkey-write 5 SET digisante:owner preproduction NX$/m);
     assert.ok(!trace.includes(PG_SECRET) && !trace.includes(VALKEY_SECRET), 'secret en argument d’une commande');
     assert.ok(!(r.stdout + r.stderr).includes(PG_SECRET));
@@ -732,15 +898,27 @@ test('pg_hba : première règle trust (accès sans mot de passe) ⇒ FAIL ; sond
   } finally { f.clean(); }
 });
 
-test('Valkey partagé : éviction possible (maxmemory + politique ≠ noeviction) ⇒ FAIL ; CONFIG refusé ou sans persistance ⇒ NOTE', () => {
+test('résiduel 3 : décalage UTC de l’hôte non entier ⇒ refus avant toute écriture ; heures entières (Madrid) acceptées', () => {
+  const f = fixture();
+  try {
+    let r = f.run(['--only', 'cron'], { FAKE_HOST_OFFSET: '+0530' });
+    assert.equal(r.status, 1, r.stdout + r.stderr); assert.match(r.stderr, /décalage UTC de l'hôte \+0530 non entier/);
+    assert.doesNotMatch(f.trace(), MUTATING);
+    r = f.run(['--only', 'cron'], { FAKE_HOST_OFFSET: '+0200' });
+    assert.equal(r.status, 0, r.stdout + r.stderr); assert.match(r.stdout, /PASS  fuseau de l'hôte conservé \(décalage \+0200, heures entières\)/);
+  } finally { f.clean(); }
+});
+
+test('Valkey partagé : éviction possible (maxmemory + politique ≠ noeviction) ⇒ FAIL ; sans persistance ⇒ NOTE ; CONFIG refusé ⇒ refus (fichier ACL)', () => {
   const f = fixture();
   try {
     let r = f.run(['--only', 'valkey'], { FAKE_VALKEY_MAXMEM: '1073741824', FAKE_VALKEY_POLICY: 'allkeys-lru' });
     assert.equal(r.status, 1); assert.match(r.stdout, /FAIL  Valkey : maxmemory=1073741824 avec allkeys-lru/);
     r = f.run(['--only', 'valkey'], { FAKE_VALKEY_MAXMEM: '1073741824', FAKE_VALKEY_POLICY: 'noeviction' });
     assert.equal(r.status, 0, r.stdout + r.stderr); assert.match(r.stdout, /PASS  Valkey : aucune éviction/);
+    // CONFIG refusé : éviction en NOTE, mais fichier ACL non vérifiable ⇒ refus (utilisateur ACL non persistant).
     r = f.run(['--only', 'valkey'], { FAKE_VALKEY_CONFIG_DENIED: '1' });
-    assert.equal(r.status, 0); assert.match(r.stdout, /NOTE  Valkey : CONFIG GET refusé \(ACL\)/);
+    assert.equal(r.status, 1); assert.match(r.stdout, /NOTE  Valkey : CONFIG GET refusé \(ACL\)/); assert.match(r.stderr, /aclfile non configuré \(ou CONFIG GET refusé\)/);
     r = f.run(['--only', 'valkey'], { FAKE_VALKEY_SAVE: '', FAKE_VALKEY_AOF: 'no' });
     assert.equal(r.status, 0); assert.match(r.stdout, /NOTE  Valkey sans persistance/);
     assert.doesNotMatch(f.trace(), MUTATING); assert.doesNotMatch(r.stdout + r.stderr, new RegExp(VALKEY_SECRET));
@@ -980,7 +1158,7 @@ test('--verify sans VALKEY_PASSWORD ⇒ FAIL (marqueur et éviction non vérifi�
   const f = fixture();
   try {
     const r = f.run(['--verify'], { VALKEY_PASSWORD: '', FAKE_USERS: 'digisante-preprod:1001:1001:digisante-preprod sshusers' });
-    assert.notEqual(r.status, 0); assert.match(r.stdout, /FAIL  VALKEY_PASSWORD absent : marqueur et éviction Valkey NON vérifiés/);
+    assert.notEqual(r.status, 0); assert.match(r.stdout, /FAIL  VALKEY_PASSWORD absent : marqueur, éviction et utilisateur ACL Valkey NON vérifiés/);
   } finally { f.clean(); }
 });
 
@@ -988,7 +1166,11 @@ test('statique : jamais de réinstallation, FLUSH, DROP, pg_hba, UFW, fuseau ni 
   const s = readFileSync(resolve(ROOT, SCRIPT_REL), 'utf8');
   const code = s.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
   assert.match(code, /^MODE=dry-run; ACTION=provision/m);
-  assert.doesNotMatch(code, /FLUSHDB|FLUSHALL|dropdb|DROP (DATABASE|ROLE)|userdel|apt-get|apt install|ufw |timedatectl|certbot[^\n]*--nginx|pg_hba\.conf|ALTER ROLE/);
+  // Seule exception : sondes de --verify, jamais exécutées — évaluées par ACL DRYRUN pour
+  // prouver qu'elles sont REFUSÉES à l'utilisateur ACL de l'API.
+  const probes = /^  for probe in FLUSHALL FLUSHDB [^\n]*\n[^\n]*\n    read -r -a words <<<"\$probe"\n    if \[\[ "\$\(valkey_cli ACL DRYRUN "\$VALKEY_APP_USER" "\$\{words\[@\]\}"/m;
+  assert.match(code, probes);
+  assert.doesNotMatch(code.replace(probes, ''), /FLUSHDB|FLUSHALL|dropdb|DROP (DATABASE|ROLE)|userdel|apt-get|apt install|ufw |timedatectl|certbot[^\n]*--nginx|pg_hba\.conf|ALTER ROLE/);
   assert.doesNotMatch(code, /127\.0\.0\.1:300[01]|:3000\b|:3001\b/);
   assert.ok(ROOT_LIST.some((e) => e.path === SCRIPT_REL && e.mode === 0o755), 'script absent de root-scripts.list (B3)');
 });

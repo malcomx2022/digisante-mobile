@@ -92,6 +92,29 @@ split_response() {
   [[ "$HTTP_CODE" =~ ^[0-9]{3}$ ]] || HTTP_CODE=000
 }
 # <<< jobs_user
+# >>> port_owner (résiduel 1 « port squatté » — copie IDENTIQUE dans deploy.sh, healthwatch.sh, verify_deploy.sh, internal_job.sh et fedapay_reconcile.sh ; test de non-dérive)
+# Vrai seulement si le port TCP a au moins un écouteur ET si TOUS ses écouteurs (toutes
+# adresses, IPv4/IPv6) appartiennent au compte attendu. L'uid du socket (`ss -e`, uid de
+# création noté par le noyau) est lisible sans privilège et ne dépend ni d'un pid ni d'un
+# nom de processus ; `ss` ne l'affiche pas pour root, donc un écouteur root est refusé.
+# Sur l'hôte partagé, tout compte local peut écouter sur 127.0.0.1:<port> pendant que
+# l'environnement est arrêté : sans ce contrôle, il recevrait le jeton de service des
+# tâches ou répondrait « ready » à la place de l'API.
+port_owned_by() { # port_owned_by <port> <compte>
+  local want listing line uid n=0
+  [[ "$1" =~ ^[0-9]{1,5}$ ]] || return 1
+  want="$(id -u -- "$2" 2>/dev/null)" || return 1
+  [[ "$want" =~ ^[0-9]+$ && "$want" != 0 ]] || return 1
+  listing="$(ss -Htlne "( sport = :$1 )" 2>/dev/null)" || return 1
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    n=$((n + 1))
+    uid="$(sed -n 's/.*[[:space:]]uid:\([0-9][0-9]*\)[[:space:]].*/\1/p' <<<"$line ")"
+    [[ "$uid" == "$want" ]] || return 1
+  done <<<"$listing"
+  (( n > 0 ))
+}
+# <<< port_owner
 trusted_path "${BASH_SOURCE[0]}" || { echo "[job] ÉCHEC : script lancé depuis un emplacement modifiable par un autre compte ; utiliser la copie installée par install_root_scripts.sh" >&2; exit 1; }
 SELF_ROOT="$(cd "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/../../.." && pwd -P)"
 digisante_profile || exit 1
@@ -108,6 +131,11 @@ if [[ ! -s "$TOKEN_FILE" ]]; then
 fi
 
 jobs_identity || exit 1
+# Résiduel 1 : le jeton ne part que vers un port tenu par l'API de CET environnement.
+if ! port_owned_by "$API_PORT" "$APP_USER"; then
+  log "ÉCHEC : 127.0.0.1:${API_PORT} n'est pas tenu par ${APP_USER} seul (API arrêtée, ou port squatté par un autre compte) : jeton non envoyé"
+  exit 1
+fi
 
 # `--config -` : l'en-tête contenant le jeton est lu sur stdin, jamais sur la ligne de commande ;
 # `-q` : aucun .curlrc. Corps puis code HTTP sur la sortie du curl sans droits.

@@ -19,7 +19,7 @@ Nginx (reverse proxy + SSL Certbot)
   ├─ /        → Next.js  127.0.0.1:3200   (digisante-web, PM2 fork)
   └─ /api/*   → Fastify  127.0.0.1:3201   (digisante-api, PM2 cluster ×2)
 
-PostgreSQL 18.6 natif partagé (bases + rôles séparés) · Valkey natif (6379, auth, /5 préprod, /6 prod) · cron pg_dump chiffré · réconciliation FedaPay 02:30
+PostgreSQL 18.6 natif partagé (bases + rôles séparés) · Valkey natif (6379, /5 préprod, /6 prod, utilisateur ACL + préfixe de clés/canaux par environnement) · cron pg_dump chiffré · réconciliation FedaPay 02:30
 Ports 3000 (ImmiPro) et 3001 (Grafana) pris sur l'hôte — ne jamais les réutiliser pour DigiSanté.
 ```
 
@@ -82,7 +82,7 @@ toujours depuis la copie root de l'environnement (B3). Un environnement par exé
 | `users` | `digisante[-preprod]` (shell bash, groupe propre, **membre de `sshusers`**, mot de passe verrouillé) ; `digisante[-preprod]-jobs` système sans droits (B3). Jamais `docker`, `sudo`, `adm`, `disk`, `shadow`… ni règle sudoers (`sudo -l -U`, `%sshusers`) : refus si un compte existant en relève. Clé de déploiement (`DEPLOY_SSH_PUBKEY`) écrite **`restrict <clé>`** : ni redirection de ports vers Valkey/PG/3000/3001, ni agent, ni PTY |
 | `dirs` | checkout `/var/www/digisante[-preprod]` et journaux (utilisateur, 0750), magasin `/var/lib/digisante[-preprod]-files` (utilisateur, **0700**, B4), `/etc/digisante[-preprod]` et `/var/backups/digisante[-preprod]` (root **0700**), journaux cron root 0750, webroot ACME `/var/www/digisante-acme` |
 | `pg` | rôle `LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`, base `UTF8`/`template0` dont il est propriétaire, `CONNECT` retiré à `PUBLIC`. Mot de passe : seul un **vérificateur SCRAM-SHA-256 calculé sur l'hôte** (Node) part au serveur, par `\getenv` — le mot de passe en clair n'atteint jamais PostgreSQL (journaux, `pg_stat_statements`, `pg_stat_activity`) ni `ps`. **Ne modifie jamais `pg_hba.conf`** ni un rôle/une base existants |
-| `valkey` | réserve l'index (`SET digisante:owner <env> NX`) — aucune autre écriture, **jamais `FLUSHDB`/`FLUSHALL`** ; mot de passe par `REDISCLI_AUTH`, jamais affiché |
+| `valkey` | réserve l'index (`SET digisante:owner <env> NX`) et crée/met à jour l'**utilisateur ACL de l'API** (`digisante[-preprod]`, clés et canaux `digisante[-preprod]:*` seulement, commandes de l'API seulement — bloc `valkey-acl`), `ACL SETUSER` par l'entrée standard avec l'empreinte `#SHA-256` de `VALKEY_APP_PASSWORD`, puis `ACL SAVE` — aucune autre écriture, **jamais `FLUSHDB`/`FLUSHALL`** ; mots de passe par `REDISCLI_AUTH`/environnement, jamais affichés |
 | `runtime` | PM2 `7.0.4` global (seulement s'il est absent), pnpm `9.12.0` mis en **cache corepack** de l'utilisateur — `deploy.sh` place en tête du PATH un shim `pnpm` → `corepack pnpm` (version du `packageManager`, appels imbriqués comme `pnpm -r build` compris), jamais le pnpm global 12.x de l'hôte —, service `pm2-<utilisateur>` au démarrage. Node **jamais** réinstallé (24 exigé). npm/pm2/certbot ne reçoivent jamais les secrets de la session root |
 | `secrets` | `backup.key` générée sur l'hôte (0400, jamais affichée), `reconcile.token` aligné sur le `RECONCILE_TOKEN` du `.env` (0400), modèle `alert.conf` |
 | `nginx` | `nginx -t` vert exigé **avant** toute écriture ; instantané des fichiers DigiSanté (communs + vhost + lien) ; fichiers communs préfixés `digisante` (`conf.d/digisante-rate-limit.conf`, `snippets/digisante-{headers,hsts}.conf`, jamais réécrits si l'autre environnement est actif et qu'ils diffèrent) ; vhost HTTP d'amorçage ACME **chaque fois que le site n'est pas actif** (premier passage ou après `--rollback`) ; certificat par `certbot certonly --webroot` (**`--dry-run` Let's Encrypt d'abord**, `--cert-name` dédié, jamais `--nginx` : Certbot ne réécrit aucun vhost) ; `certbot renew --cert-name … --dry-run` ; puis HSTS et vhost TLS complet, `reload`. Tout refus de `nginx -t` **restaure l'instantané** (fichiers absents avant ⇒ retirés) puis recharge |
@@ -111,8 +111,12 @@ famille d'adresses (`443`/`80` et `[::]:443`/`[::]:80`, ordre de chargement rée
 aucun voisin en IPv6 ⇒ NOTE (DigiSanté y serait le repli IPv6, point 6) ; DNS A = `31.70.148.167` et aucun AAAA vers un
 autre hôte (`HOST_PUBLIC_IP6` si un AAAA vise cet hôte) ; aucune planification root (crontab root, `/etc/crontab`,
 `/etc/cron.d/*`, `/etc/cron.{hourly,daily,weekly,monthly}`) ne lance un chemin du checkout (B3, chemins normalisés).
-En `--apply`, `PG_APP_PASSWORD` (si le rôle est à créer : **24 à 256 caractères ASCII imprimables, sans
-espace** — vérificateur SCRAM sans normalisation ; `openssl rand -hex 24` évite aussi l'encodage d'URL) et
+Deux rôles PostgreSQL par environnement (revue GO du 22/10/2026) : `<base>` **propriétaire/migrateur** et
+`<base>_app` **rôle d'exécution** de l'API (NOINHERIT, aucun privilège ni appartenance ; droits sur les tables posés
+par `deploy.sh` après chaque migration : DML, `audit_logs`/`finance_entries` en INSERT/SELECT seulement).
+En `--apply`, `PG_APP_PASSWORD` (propriétaire) et `PG_RUNTIME_PASSWORD` (exécution, **distinct**), si le rôle est à
+créer (**24 à 256 caractères ASCII imprimables, sans
+espace** — vérificateur SCRAM sans normalisation ; `openssl rand -hex 24` évite aussi l'encodage d'URL), et
 `LETSENCRYPT_EMAIL` (si le certificat est à émettre) sont exigés **avant** la première écriture.
 
 #### Vérifications sur l'hôte AVANT `--apply` (opérateur, lecture seule, aucun secret affiché)
@@ -122,7 +126,12 @@ Le dry-run les évalue, mais elles exigent l'accès à l'hôte et ne sont **pas*
 1. **Index Valkey 5 et 6 libres** — le dry-run interroge `DBSIZE` et le marqueur (mot de passe par
    `REDISCLI_AUTH`, saisi par `read -rs`) ; vérifier aussi (si l'ACL l'autorise) `CONFIG GET databases` ≥ 7 et qu'aucune application
    (ImmiPro, BeninLink, Grafana) n'est configurée sur `/5` ou `/6` (leurs `.env`/configurations, sans copier de
-   secret). Une ACL Valkey par environnement (`VALKEY_USERNAME`) est recommandée (résiduel 2 ci-dessous).
+   secret). L'étape `valkey` crée l'**utilisateur ACL de l'API** de l'environnement (résiduel 2 ci-dessous) ; elle
+   exige un **fichier ACL** déclaré (`CONFIG GET aclfile` non vide, sinon refus avant écriture : l'utilisateur serait
+   perdu au redémarrage) et un compte d'administration Valkey (`VALKEY_PASSWORD`/`VALKEY_USERNAME`) autorisé à
+   `ACL SETUSER`/`ACL SAVE`. Déclarer `aclfile` relève de l'administrateur de l'hôte (jamais `CONFIG REWRITE` du
+   `valkey.conf` partagé par ce script) ; constater aussi qu'aucun utilisateur ACL `digisante`/`digisante-preprod`
+   n'existe déjà avec d'autres clés (sinon refus).
 2. **`pg_hba.conf`** — une ligne `host <base> <rôle> 127.0.0.1/32 scram-sha-256` (et `::1/128`) par environnement,
    ajoutée **à la main**, placée **avant** toute règle `trust`/`all` plus large (la première règle applicable
    décide), puis `SELECT pg_reload_conf()` ; le script ne touche jamais ce fichier et le vérifie par une connexion
@@ -149,8 +158,9 @@ Le dry-run les évalue, mais elles exigent l'accès à l'hôte et ne sont **pas*
 7. **Ports** : `ss -ltnp` — 3100/3101/3200/3201 libres ; 3000 (ImmiPro) et 3001 (Grafana) jamais touchés.
    **Node 24** installé pour tout l'hôte (`/usr/bin/node`, pas un `nvm` réservé à root) : PM2 et `deploy.sh`
    tournent sous le compte applicatif (`--verify` le contrôle sous ce compte).
-8. **Fuseau** (`timedatectl`) : `Africa/Porto-Novo` attendu par `verify_deploy.sh` ; décision du porteur si
-   l'hôte partagé est sur un autre fuseau (résiduel 3).
+8. **Fuseau** (`timedatectl`) : celui de l'hôte partagé est **conservé** (résiduel 3, traité). Constater seulement
+   `TZ=Africa/Porto-Novo date +%z` = `+0100` (tzdata) et `date +%z` en **heures entières** (ex. `+0200` à Madrid) ;
+   sinon le dry-run échoue (garde `cron`).
 9. **Sauvegarde préalable de la configuration de l'hôte** (`/etc/nginx`, `/etc/cron.d`, `/etc/logrotate.d`,
    `pg_dumpall --roles-only`) et fenêtre de maintenance convenue avec les autres applications.
 10. **Valkey** : `valkey-server --version`, `CONFIG GET maxmemory maxmemory-policy appendonly save` (si l'ACL le
@@ -168,6 +178,10 @@ sudo -i                                                  # shell root : secrets 
 export DIGISANTE_ENV=preproduction SUFFIX=-preprod        # prod : DIGISANTE_ENV=production SUFFIX=
 P=/usr/local/lib/digisante${SUFFIX}/infra/deploy/scripts/provision-ionos.sh
 read -rs -p 'VALKEY_PASSWORD (coffre) : ' VALKEY_PASSWORD; echo; export VALKEY_PASSWORD
+# Utilisateur ACL de l'API (distinct, 32 à 256 caractères [A-Za-z0-9._~-] : openssl rand -hex 32) ; seule
+# son empreinte SHA-256 part au serveur, par l'entrée standard de valkey-cli. Facultatif si l'utilisateur
+# existe déjà (règles réappliquées, mot de passe conservé) ; le fournir = rotation.
+read -rs -p 'VALKEY_APP_PASSWORD (coffre) : ' VALKEY_APP_PASSWORD; echo; export VALKEY_APP_PASSWORD
 # export VALKEY_USERNAME=<utilisateur ACL>               # si ACL Valkey
 
 # 1) DRY-RUN (défaut) : gardes + plan, AUCUNE écriture. Relire le plan intégralement.
@@ -175,11 +189,12 @@ bash "$P"
 
 # 2) APPLICATION, éventuellement par étapes (--only users,dirs puis pg,valkey …)
 read -rs -p 'PG_APP_PASSWORD (coffre, 24-256 ASCII sans espace) : ' PG_APP_PASSWORD; echo; export PG_APP_PASSWORD
+read -rs -p 'PG_RUNTIME_PASSWORD (coffre, distinct) : ' PG_RUNTIME_PASSWORD; echo; export PG_RUNTIME_PASSWORD
 export LETSENCRYPT_EMAIL=<contact d'exploitation>
 bash "$P" --apply --only users,dirs,pg,valkey,runtime
 bash "$P" --apply --only nginx      # certificat : dry-run Let's Encrypt, émission, renew --dry-run, vhost TLS
 bash "$P" --apply --only cron
-unset PG_APP_PASSWORD
+unset PG_APP_PASSWORD PG_RUNTIME_PASSWORD
 
 # 3) Checkout applicatif (données seulement : aucun script n'y est lancé en root) puis .env (§2)
 sudo -u digisante${SUFFIX} git clone https://github.com/malcomx2022/digisante-mobile.git /var/www/digisante${SUFFIX}
@@ -199,7 +214,9 @@ unset VALKEY_PASSWORD
 - répertoires : propriétaires et modes exacts (tableau ci-dessus), copie root `root 0755` ;
 - PostgreSQL : rôle sans privilège ni appartenance, base du rôle, `PUBLIC` sans `CONNECT`, `pg_hba` exigeant un
   mot de passe (sonde sans mot de passe refusée) ;
-- Valkey : marqueur `digisante:owner` = environnement sur son index ; aucune éviction ;
+- Valkey : marqueur `digisante:owner` = environnement sur son index ; aucune éviction ; utilisateur ACL de l'API
+  actif avec mot de passe, droits effectifs mesurés par `ACL DRYRUN` (préfixe de l'environnement seul, aucune commande
+  d'administration) ; `.env` de l'API sous cet utilisateur et ce `REDIS_KEY_PREFIX` ;
 - Node 24 **pour le compte applicatif**, service `pm2-<utilisateur>` activé ; `corepack pnpm --version` = 9.12.0 dans
   le checkout, hors ligne (cache de la version utilisée par le shim de `deploy.sh`) ;
 - Nginx : `nginx -t`, vhost activé et **identique** à la copie root, certificat présent, maintenance signalée
@@ -274,10 +291,19 @@ sudo -u digisante-preprod sh -c 'umask 077; grep -E "^NEXT_PUBLIC_" .env.preprod
 # (curl et réponse de l'API sous ce compte, setpriv/no_new_privs ; ni root, ni l'utilisateur applicatif).
 ```
 
-`DATABASE_URL` (PostgreSQL 18 natif partagé, TCP local — règle `pg_hba` scram-sha-256 par rôle, §1.b) :
-`postgresql://digisante_preprod:<mot de passe URL-encodé>@127.0.0.1:5432/digisante_preprod?schema=public` (préprod)
-`postgresql://digisante:<mot de passe URL-encodé>@127.0.0.1:5432/digisante?schema=public` (prod)
-`REDIS_URL` (Valkey) : `redis://:<mot de passe URL-encodé>@127.0.0.1:6379/5` (préprod) · `/6` (prod) — l'index est obligatoire.
+`DATABASE_URL` (PostgreSQL 18 natif partagé, TCP local — règle `pg_hba` scram-sha-256 pour **chacun** des deux rôles, §1.b),
+**rôle d'exécution seulement** (`PG_RUNTIME_PASSWORD`) :
+`postgresql://digisante_preprod_app:<mot de passe URL-encodé>@127.0.0.1:5432/digisante_preprod?schema=public` (préprod)
+`postgresql://digisante_app:<mot de passe URL-encodé>@127.0.0.1:5432/digisante?schema=public` (prod)
+L'URL du **propriétaire** (`postgresql://digisante[_preprod]:<PG_APP_PASSWORD>@…`) n'est **jamais** écrite sur l'hôte :
+secret GitHub `PREPROD_DB_MIGRATION_URL` / `DB_MIGRATION_URL` (transmis par l'entrée standard SSH,
+`scripts/deploy/ssh-deploy.sh`) ou saisie `read -rs` au déploiement manuel. `deploy.sh` refuse un `.env` qui la contient.
+`REDIS_URL` (Valkey) : **utilisateur ACL de l'environnement** (`VALKEY_APP_PASSWORD`, jamais le mot de passe
+d'administration de l'hôte) et index obligatoire ; `REDIS_KEY_PREFIX` = préfixe des clés **et** des canaux :
+`REDIS_URL=redis://digisante-preprod:<VALKEY_APP_PASSWORD>@127.0.0.1:6379/5` + `REDIS_KEY_PREFIX=digisante-preprod:` (préprod)
+`REDIS_URL=redis://digisante:<VALKEY_APP_PASSWORD>@127.0.0.1:6379/6` + `REDIS_KEY_PREFIX=digisante:` (prod)
+`deploy.sh` refuse un autre utilisateur (dont `default`), un autre préfixe ou son absence ; l'API refuse de démarrer
+en production sans préfixe.
 
 ## 3. Premier déploiement
 
@@ -304,7 +330,9 @@ sudo rm -f "$MAINT" && sudo nginx -t && sudo systemctl reload nginx
 ```bash
 # Outillage = deploy.sh de origin/main extrait HORS du checkout (comme les workflows), jamais celui
 # du checkout : bash relit le fichier ouvert même après `git switch` (cf. ci-dessous).
-sudo -u digisante-preprod bash -c 'cd /var/www/digisante-preprod && git fetch origin main \
+# URL du rôle PROPRIÉTAIRE saisie DANS le shell du compte (sudo -u réinitialise l'environnement), jamais en argument.
+sudo -u digisante-preprod bash -c 'read -rs -p "MIGRATION_DATABASE_URL (propriétaire, coffre) : " MIGRATION_DATABASE_URL; echo; export MIGRATION_DATABASE_URL \
+  && cd /var/www/digisante-preprod && git fetch origin main \
   && M="$(git rev-parse --verify "origin/main^{commit}")" && F="$(mktemp)" \
   && git show "$M:infra/deploy/scripts/deploy.sh" > "$F" \
   && DEPLOY_TOOLING_SHA="$M" DEPLOY_REF=<SHA_COMPLET_QUALIFIE> DEPLOY_ENVIRONMENT=preproduction \
@@ -323,8 +351,11 @@ les migrations**. Le verrou `deploy.lock` dans le répertoire de journaux de l'e
 refuse aussi une invocation manuelle concurrente.
 
 Avant l'arrêt PM2 ou une migration, le `.env` API doit cibler les services locaux du
-profil : rôle/base PostgreSQL `digisante_preprod` et Valkey `/5` en préproduction,
-`digisante` et `/6` en production (ports 5432/6379, schéma `public`). Les mots de passe
+profil : base PostgreSQL `digisante_preprod` sous le rôle d'exécution `digisante_preprod_app` et Valkey `/5` en
+préproduction, `digisante`/`digisante_app` et `/6` en production (ports 5432/6379, schéma `public`) ; l'URL du
+propriétaire (`MIGRATION_DATABASE_URL`, même base, rôle `<base>`, mot de passe distinct) doit être fournie par
+l'environnement et ne sert qu'à `migrate deploy` puis aux droits du rôle d'exécution (stade `grants`, contrôlé :
+un écart annule les droits et laisse l'API arrêtée). Elle est retirée de l'environnement avant PM2 ; `bash -x` est refusé. Les mots de passe
 URL-encodés restent acceptés. Une variable héritée `NODE_ENV`, `DATABASE_URL` ou
 `REDIS_URL` différente du fichier est refusée ; aucune valeur secrète n'est affichée.
 
@@ -335,7 +366,9 @@ La maintenance reste obligatoire et aucune migration n'est annulée par le scrip
 
 ```bash
 # Même forme que ci-dessus (outillage = deploy.sh de origin/main hors du checkout), cible ancêtre :
-sudo -u digisante-preprod bash -c 'cd /var/www/digisante-preprod && git fetch origin main \
+# URL du rôle PROPRIÉTAIRE saisie DANS le shell du compte (sudo -u réinitialise l'environnement), jamais en argument.
+sudo -u digisante-preprod bash -c 'read -rs -p "MIGRATION_DATABASE_URL (propriétaire, coffre) : " MIGRATION_DATABASE_URL; echo; export MIGRATION_DATABASE_URL \
+  && cd /var/www/digisante-preprod && git fetch origin main \
   && M="$(git rev-parse --verify "origin/main^{commit}")" && F="$(mktemp)" \
   && git show "$M:infra/deploy/scripts/deploy.sh" > "$F" \
   && DEPLOY_TOOLING_SHA="$M" DEPLOY_REF=<SHA_ANCESTRE_QUALIFIE> DEPLOY_ENVIRONMENT=preproduction \
@@ -525,32 +558,92 @@ Les archives DB ET fichiers sont nécessaires à la restauration. `sudo node $RO
 > dérogation à arbitrer en L11.
 >
 > **Résiduels de l'hôte partagé, à arbitrer avec I2 (L11)** — consignés par la revue du 13/10/2026, non corrigés par le code :
-> 1. *Port libre squatté* : tout compte local peut écouter sur 127.0.0.1:3100/3101/3200/3201 quand le processus de
->    l'environnement est entièrement arrêté (déploiement, crash en boucle, démarrage de l'hôte). Il recevrait alors le
->    trafic Nginx et, des tâches cron, le jeton de service. Détection actuelle : sonde `pm2` de healthwatch (0/2 en
->    ligne). Parade possible : vérifier l'uid du socket à l'écoute avant d'envoyer le jeton, ou socket Unix 0750.
-> 2. *Valkey partagé* : les index /5 et /6 séparent les données, PAS l'accès ni le pub/sub. Le canal `chat:events` est
->    commun aux deux environnements (sans effet fonctionnel : identifiants d'utilisateurs distincts, contenu re-lu en
->    REST). Surtout, le mot de passe de l'hôte (utilisateur `default`) écrit dans chaque `.env` ouvre **tous** les
->    index, y compris ceux d'ImmiPro/BeninLink, et les commandes d'administration (`FLUSHALL`, `CONFIG`, `ACL`) :
->    une compromission de l'API DigiSanté donnerait la main sur le Valkey de l'hôte (et réciproquement). Parade
->    partielle : un utilisateur ACL par environnement `+@all -@dangerous ~* &*` (bloque FLUSH*/CONFIG/ACL/SHUTDOWN,
->    PAS `SELECT` d'un autre index). L'isolement par index (`db=`) exige Valkey ≥ 9.1 — Ubuntu 26.04 livre 9.0.x,
->    à constater (`valkey-server --version`). Isolement complet : préfixe de clés/canaux par environnement (changement
->    de code) ou instance Valkey dédiée — décision porteur. `--verify` exige aussi l'absence d'éviction ; sans
->    persistance, un redémarrage efface verrous OTP et sessions.
-> 3. *Fuseau horaire* : cron n'a pas de fuseau par fichier ; `verify_deploy.sh` exige `Africa/Porto-Novo` pour l'hôte
->    entier, qui est aussi celui d'ImmiPro/BeninLink. Constater `timedatectl` ; changer ou recaler les horaires est une
->    décision du porteur.
+> 1. *Port libre squatté* — **traité le 23/10/2026 (revue GO) pour le jeton et la readiness, détecté pour Nginx** :
+>    tout compte local peut écouter sur 127.0.0.1:3100/3101/3200/3201 quand l'environnement est entièrement arrêté
+>    (déploiement, crash en boucle, démarrage de l'hôte). Un bloc **`port_owner`** identique (`port_owned_by`, test de
+>    non-dérive) n'accepte un port que si **tous** ses écouteurs appartiennent à l'utilisateur de l'environnement
+>    (uid du socket noté par le noyau, `ss -Htlne`, lisible sans privilège ; un écouteur root est refusé) :
+>    - `internal_job.sh` / `fedapay_reconcile.sh` : **jeton de service jamais envoyé** sinon (`ÉCHEC … jeton non
+>      envoyé`, sonde `cron`) ;
+>    - `deploy.sh` : la readiness n'est **jamais crue** tant que les ports API et web ne sont pas tenus par l'utilisateur
+>      (sinon `FAILED`, stade `readiness`, « port squatté ? ») — un squatteur ne peut plus valider un déploiement ;
+>    - `healthwatch.sh` : sonde **`ports`** (ALERTE si un port est libre ou tenu par un autre compte) et readiness non
+>      interrogée sur un port qui n'est pas celui de l'API ; `verify_deploy.sh` : PASS/FAIL par port.
+>    Preuves : `scripts/preproduction/root-scripts.test.mjs` (non-dérive, ordre contrôle → jeton/readiness, `ss` réel sur
+>    un écouteur réel), `operations.test.mjs` (squat, port libre, autre uid : aucune requête ni jeton ; deploy FAILED ;
+>    alerte healthwatch ; FAIL verify). **Limites restantes** : Nginx ne vérifie pas le propriétaire de l'upstream —
+>    pendant un **déploiement** la maintenance (obligatoire, README §3) ne relaie rien ; pendant un **crash** ou au
+>    **démarrage de l'hôte**, un squatteur recevrait le trafic jusqu'à l'alerte `ports` (≤ 5 min) puis l'intervention
+>    humaine. Course résiduelle entre contrôle et connexion si l'API tombe dans l'intervalle. La seule parade complète
+>    (sockets Unix dans un répertoire `digisante[-preprod]:www-data 0750`) changerait les ports documentés et n'est pas
+>    prise en charge par `next start` : décision du porteur.
+> 2. *Valkey partagé* — **traité le 22/10/2026 (revue GO), dans le code et le provisioning** : chaque environnement
+>    se connecte sous **son utilisateur ACL** (`digisante-preprod` / `digisante`), limité aux clés `~<préfixe>*` et
+>    aux canaux `&<préfixe>*` (`REDIS_KEY_PREFIX` : `digisante-preprod:` / `digisante:`, posé par l'API sur toute clé
+>    — ioredis `keyPrefix` — et sur le canal `chat:events`), avec une liste **positive** des seules commandes de l'API
+>    (bloc `valkey-acl` de `provision-ionos.sh`, source unique) : ni `FLUSH*`, ni `KEYS`/`SCAN`/`DBSIZE`, ni
+>    `INFO`/`CONFIG`/`ACL`/`CLIENT LIST`/`MONITOR`/`SWAPDB`/`MOVE`. Le canal n'est plus commun ; un `SELECT` d'un autre
+>    index ne donne accès à aucune clé (hors préfixe). Le mot de passe d'administration de l'hôte n'est plus dans
+>    aucun `.env` (`deploy.sh` refuse `default`). Mot de passe envoyé sous forme d'empreinte `#SHA-256` par l'entrée
+>    standard ; persistance `ACL SAVE` (fichier ACL obligatoire). Preuves : `apps/api/src/lib/valkey-acl.test.ts`
+>    (Redis réel : commandes de l'API, scripts Lua OTP/rate-limit et pub/sub permis ; administration, clés et canaux
+>    hors préfixe refusés, y compris après `SELECT` ; sondes `ACL DRYRUN` de `--verify` au même verdict), suite API
+>    complète rejouée en CI sous l'utilisateur ACL **et** le rôle PostgreSQL d'exécution, `provision-ionos`/
+>    `deploy-order`/`operations` (tests). **Limites restantes** (hôte, décision porteur) : l'utilisateur `default`
+>    de l'hôte garde l'accès complet (affaire de son administrateur) ; mémoire, éviction et persistance restent
+>    communes (`--verify` exige `noeviction` ; sans persistance, un redémarrage efface verrous OTP et sessions) ;
+>    `CLIENT SETNAME`/`SELECT` permis ; une instance dédiée reste la seule séparation de ressources.
+>    **Bascule d'un environnement déjà en service sous `default`** (la préproduction du 15/10/2026), en maintenance :
+>    1. administrateur de l'hôte : fichier ACL déclaré (`aclfile`) et rechargé selon sa procédure ;
+>    2. root, copie root au SHA qui porte ce changement : `read -rs VALKEY_PASSWORD; read -rs VALKEY_APP_PASSWORD;
+>       export …` puis `provision-ionos.sh --apply --only valkey` (crée l'utilisateur, `ACL SAVE`) ;
+>    3. compte applicatif : `apps/api/.env` → `REDIS_URL=redis://<utilisateur>:<VALKEY_APP_PASSWORD>@127.0.0.1:6379/<index>`
+>       et `REDIS_KEY_PREFIX=<utilisateur>:` (0600) ;
+>    4. déploiement (workflow ou §3) puis `provision-ionos.sh --verify` et `verify_deploy.sh` verts.
+>    Effets : les anciennes clés non préfixées de l'index deviennent inaccessibles à l'API — sessions (refresh)
+>    à rouvrir, codes OTP à redemander, compteurs de limitation remis à zéro ; elles expirent seules (TTL), ne
+>    jamais vider l'index (`FLUSHDB` interdit sur l'hôte partagé). Retour arrière : seul un `deploy.sh` antérieur
+>    accepte l'ancien `REDIS_URL` (rollback explicite) ; l'utilisateur ACL peut rester en place.
+> 3. *Fuseau horaire* — **traité le 24/10/2026 (revue GO), sans toucher au fuseau de l'hôte** (ImmiPro/BeninLink le
+>    gardent) :
+>    - **API et web** : `TZ=Africa/Porto-Novo` dans `ecosystem.config.cjs`, et l'API l'**épingle elle-même** au démarrage
+>      (`apps/api/src/lib/timezone.ts`, appelé en premier par `main.ts`, échec `API_TZ_UNAVAILABLE` si tzdata manque).
+>      Constaté dans le code : l'heure des rappels de traitement (`setHours`), le début de journée des générateurs
+>      idempotents (PEV, CPN, observance) et la série d'observance dépendaient du fuseau du **processus** ; sur un hôte en
+>      Europe/Madrid, un rappel de 08:00 serait parti à 06:00 ou 07:00 heure de Porto-Novo selon la saison.
+>    - **Cron** (pas de fuseau par fichier, `CRON_TZ` non garanti) : chaque tâche quotidienne à heure fixe (vaccination,
+>      CPN, sauvegarde, réconciliation, purge des reçus) est lancée **toutes les heures à sa minute** et ne s'exécute que
+>      si l'heure de Porto-Novo vaut l'horaire : `[[ "$(TZ=$LOCAL_TZ date +\%H\%M)" == HHMM ]] && …`. Une exécution
+>      par jour, changements d'heure de l'hôte compris, tant que son décalage UTC est en **heures entières** — contrôlé par
+>      `provision-ionos.sh` (garde avant écriture) et `verify_deploy.sh` (FAIL si non entier ou si tzdata ignore
+>      Porto-Novo ; le fuseau de l'hôte n'est plus qu'une information). Tâches à intervalle et certbot : indifférentes.
+>    Preuves : `timezone.test.ts` (hôte Madrid/UTC/New York ⇒ rappel 08:00 = 07:00 UTC hiver comme été),
+>    `environments.test.mjs` (toutes les tâches à heure fixe gardées ; simulation sur 2026 : exactement une exécution par
+>    jour pour un hôte en UTC, Europe/Madrid, Porto-Novo, New York, aucune pour +05:30 ; ligne cron exécutée par bash avec
+>    `\%` désescapé), `operations`/`provision-ionos` (décalage non entier, tzdata absent). **Limites** : la garde suppose
+>    `date` et tzdata de l'hôte ; horodatages des journaux et noms d'archives restent à l'heure de l'hôte.
 > 4. *Zones de limitation Nginx communes* (choix assumé) : une même IP partage ses quotas entre préproduction et production.
-> 5. *Rôle PostgreSQL unique, propriétaire des tables d'audit* : `provision-ionos.sh` crée un seul rôle par
->    environnement (propriétaire de la base, migrateur ET identité d'exécution ; `deploy.sh` exige d'ailleurs rôle =
->    base). Or CLAUDE.md §8 demande en production un rôle d'exécution **non propriétaire** des tables d'audit : un
->    propriétaire peut `ALTER TABLE audit_logs DISABLE TRIGGER USER` puis modifier/vider le registre (une injection
->    SQL ou une RCE de l'API suffirait). Proposition à arbitrer **avant GO production** : rôle propriétaire/migrateur
->    `<base>` + rôle d'exécution `<base>_app` (LOGIN sans attribut, `ALTER DEFAULT PRIVILEGES` pour le DML, `audit_logs`
->    en INSERT/SELECT seulement), URL de migration distincte dans `deploy.sh`, contrôle `--verify`
->    (`has_table_privilege` UPDATE/DELETE/TRUNCATE refusés). Non implémenté ici : modèle d'accès DB et `deploy.sh`.
+> 5. *Rôle PostgreSQL unique, propriétaire des tables d'audit* — **traité le 22/10/2026 (revue GO)** : l'API tourne sous
+>    `<base>_app` (NOINHERIT, ni privilège, ni appartenance, aucun objet possédé, pas de CREATE), les registres
+>    append-only `audit_logs` et `finance_entries` sont en INSERT/SELECT seulement et `_prisma_migrations` est fermé ;
+>    le propriétaire `<base>` ne sert qu'aux migrations et aux droits (stade `grants` de `deploy.sh`, bloc
+>    `runtime-grants.sql`, contrôlé et transactionnel). Son URL n'est jamais sur l'hôte (cf. §2). Preuves :
+>    `apps/api/src/lib/runtime-role.test.ts` (PostgreSQL réel : UPDATE/DELETE/TRUNCATE/DISABLE TRIGGER refusés par les
+>    DROITS), suite API complète rejouée en CI sous ce rôle, `deploy-order`/`provision-ionos`/`ssh-deploy` (tests).
+>    Limite : pendant un déploiement, l'URL du propriétaire existe dans l'environnement des processus du compte
+>    applicatif (API arrêtée) ; un compte applicatif compromis AVANT le déploiement pourrait la capturer à ce moment.
+>    **Bascule d'un environnement déjà provisionné avec un rôle unique** (la préproduction du 15/10/2026), dans une
+>    fenêtre de maintenance :
+>    1. root, copie root mise à jour au SHA qui porte ce changement : `read -rs PG_RUNTIME_PASSWORD; export …` puis
+>       `provision-ionos.sh --apply --only pg` (crée `<base>_app` + CONNECT ; le propriétaire et son mot de passe ne
+>       changent pas). Si `pg_hba.conf` nomme les rôles, ajouter **à la main** la règle `host <base> <base>_app
+>       127.0.0.1/32 scram-sha-256` (le script ne touche jamais `pg_hba` ; `--verify` sonde les deux rôles) ;
+>    2. compte applicatif : `apps/api/.env` → `DATABASE_URL` sous `<base>_app` (0600) ;
+>    3. GitHub : secret `PREPROD_DB_MIGRATION_URL` (prod : `DB_MIGRATION_URL`) = URL du propriétaire ;
+>    4. déploiement (workflow ou §3) : `deploy.sh` migre sous le propriétaire, applique et contrôle les droits, puis
+>       démarre l'API sous `<base>_app` ; `provision-ionos.sh --verify` et `verify_deploy.sh` doivent être verts.
+>    Retour arrière : remettre l'ancien `DATABASE_URL` dans le `.env` n'est accepté que par un `deploy.sh` antérieur
+>    (rollback explicite, schéma compatible) ; le rôle `<base>_app` peut rester en place.
 > 6. *Capacité de l'hôte (4 Go)* : 3 processus PM2 par environnement à 512 Mo de seuil de redémarrage (non un
 >    plafond), plus le build pendant un déploiement, à côté de PostgreSQL, Valkey, ImmiPro, BeninLink et Grafana.
 >    Constater mémoire, swap et disque avant `--apply` (§1.b, point 11) ; un `MemoryMax` systemd sur

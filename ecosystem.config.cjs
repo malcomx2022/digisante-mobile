@@ -90,6 +90,8 @@ module.exports = {
         NODE_ENV: 'production',
         API_PORT: CONF.apiPort,
         API_HOST: '127.0.0.1',
+        // Fuseau de l'application, indépendant de celui de l'hôte partagé (main.ts l'épingle aussi).
+        TZ: 'Africa/Porto-Novo',
       },
       error_file: `${CONF.logDir}/api-error.log`,
       out_file: `${CONF.logDir}/api-out.log`,
@@ -109,6 +111,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: CONF.webPort,
+        TZ: 'Africa/Porto-Novo',
       },
       error_file: `${CONF.logDir}/web-error.log`,
       out_file: `${CONF.logDir}/web-out.log`,

@@ -7,6 +7,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { setIntegration } from '@/lib/integrations.js';
 import { buildWebhookSignatureHeader } from '@/services/fedapay.js';
 import { fedapayWebhookBody } from '@/test/fedapay-fixture.js';
+import { grantPro } from '@/test/pro-fixture.js';
 import * as finance from './finance.service.js';
 
 const period = () => {
@@ -54,8 +55,7 @@ describe.skipIf(!HAS_INFRA)('Revue L7 — lectures et anomalies intégrées', ()
     const patient = await app.prisma.user.create({ data: { phone: PHONES[1]!, role: 'PATIENT', status: 'ACTIVE', patient: { create: {} } }, include: { patient: true } });
     patientUser = patient.id; patientId = patient.patient!.id;
     adminUser = (await app.prisma.user.create({ data: { phone: PHONES[2]!, role: 'ADMIN', status: 'ACTIVE', adminProfile: { create: { scopes: ['finance:read'] } } } })).id;
-    const buy = await app.inject({ method: 'POST', url: '/api/v1/subscriptions', headers: auth(), payload: { plan: 'PRO', method: 'WALLET', requestId: randomUUID() } });
-    expect(buy.statusCode, buy.body).toBe(200);
+    await grantPro(app, doctorUser);
   });
   afterEach(() => vi.restoreAllMocks());
   afterAll(async () => {

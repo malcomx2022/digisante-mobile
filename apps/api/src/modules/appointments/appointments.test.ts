@@ -1,6 +1,7 @@
 // Tests d'intégration RDV + téléconsultation (via app.inject). Si DB+Redis (CI).
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { grantPro } from '@/test/pro-fixture.js';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 const PHONES = ['+2290194000001', '+2290194000002'];
@@ -41,10 +42,9 @@ describe.skipIf(!HAS_INFRA)('RDV & téléconsultation (intégration)', () => {
     doctorId = doctor.doctor!.id;
     patientToken = app.jwt.sign({ sub: patient.id, role: 'PATIENT' }, { expiresIn: '15m' });
     doctorToken = app.jwt.sign({ sub: doctor.id, role: 'MEDECIN' }, { expiresIn: '15m' });
-    // Fixture L6 : droits issus d'un vrai débit wallet synthétique, jamais d'une colonne PRO.
-    await app.prisma.wallet.create({ data: { userId: doctor.id, balance: 5000 } });
-    const paid = await app.inject({ method: 'POST', url: '/api/v1/subscriptions', headers: auth(doctorToken), payload: { plan: 'PRO', method: 'WALLET', requestId: 'a6000000-0000-4000-8000-000000000001' } });
-    expect(paid.statusCode).toBe(200);
+    // Fixture L6 : droits issus d'une période confirmée par le fournisseur, jamais d'une
+    // colonne PRO (A8 : l'abonnement ne se règle plus par wallet).
+    await grantPro(app, doctor.id);
   });
 
   afterAll(async () => {

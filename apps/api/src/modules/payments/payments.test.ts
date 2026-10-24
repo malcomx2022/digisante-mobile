@@ -154,6 +154,66 @@ describe.skipIf(!HAS_INFRA)('Paiements FedaPay & Wallet (intégration)', () => {
     expect(Number(w1.json().balance)).toBe(6560);
   });
 
+  // ── D-10 (revue GO du 22/10/2026, §5) : approbation FedaPay tardive après un échec ──
+  const balanceOf = async () => Number((await app.inject({ method: 'GET', url: '/api/v1/wallet', headers: auth(patientToken) })).json().balance);
+  const audits = (action: string, targetId: string) => app.prisma.auditLog.count({ where: { action, targetId } });
+
+  it('D-10 : recharge refusée puis approuvée tardivement — statut FAILED, aucun crédit, anomalie signalée une seule fois', async () => {
+    const topup = await app.inject({ method: 'POST', url: '/api/v1/wallet/topup', headers: auth(patientToken), payload: { amountEur: 10, method: 'VISA_MC' } });
+    const paymentId = topup.json().payment.id as string;
+    const fedapayId = topup.json().payment.fedapayId as string;
+    expect((await webhook(fedapayId, 'declined')).statusCode).toBe(200);
+    const before = await balanceOf();
+
+    // Rejeux FedaPay séquentiels ET simultanés de l'approbation tardive.
+    const late = [await webhook(fedapayId), ...(await Promise.all(Array.from({ length: 4 }, () => webhook(fedapayId))))];
+    expect(late.every((r) => r.statusCode === 200 && r.json().idempotent === true && r.json().status === 'FAILED')).toBe(true);
+
+    expect((await app.prisma.payment.findUniqueOrThrow({ where: { id: paymentId } })).status).toBe('FAILED');
+    expect(await balanceOf()).toBe(before);
+    expect(await audits('PAYMENT_CONFIRMED', paymentId)).toBe(0);
+    expect(await audits('PAYMENT_LATE_APPROVAL', paymentId)).toBe(1);
+    const finance = await import('./finance.service.js');
+    expect((await finance.anomalies(app, 1, 100)).data.map((r) => r.id)).toContain(paymentId);
+  });
+
+  it('D-10 : consultation annulée chez FedaPay puis approuvée — aucune capture, signalée', async () => {
+    const appt = await makeAppt();
+    const init = await initConsult(patientToken, appt.id);
+    const paymentId = init.json().payment.id as string;
+    const fedapayId = init.json().payment.fedapayId as string;
+    await webhook(fedapayId, 'canceled');
+    expect((await webhook(fedapayId)).json()).toMatchObject({ idempotent: true, status: 'CANCELLED' });
+    expect(await app.prisma.financeEntry.count({ where: { paymentId } })).toBe(0);
+    expect(await audits('PAYMENT_LATE_APPROVAL', paymentId)).toBe(1);
+  });
+
+  it('D-10 : un paiement confirmé rejoué n’est jamais signalé comme approbation tardive', async () => {
+    const appt = await makeAppt();
+    const init = await initConsult(patientToken, appt.id);
+    const fedapayId = init.json().payment.fedapayId as string;
+    await webhook(fedapayId); await webhook(fedapayId); await webhook(fedapayId, 'declined');
+    expect((await app.prisma.payment.findUniqueOrThrow({ where: { id: init.json().payment.id } })).status).toBe('COMPLETED');
+    expect(await audits('PAYMENT_LATE_APPROVAL', init.json().payment.id)).toBe(0);
+  });
+
+  it('D-10 : échec et approbation simultanés — une seule issue, jamais crédit ET signalement', async () => {
+    const topup = await app.inject({ method: 'POST', url: '/api/v1/wallet/topup', headers: auth(patientToken), payload: { amountEur: 10, method: 'VISA_MC' } });
+    const paymentId = topup.json().payment.id as string;
+    const fedapayId = topup.json().payment.fedapayId as string;
+    const before = await balanceOf();
+    await Promise.all([webhook(fedapayId, 'declined'), webhook(fedapayId)]);
+    const { status } = await app.prisma.payment.findUniqueOrThrow({ where: { id: paymentId } });
+    if (status === 'COMPLETED') {
+      expect(await balanceOf()).toBe(before + 6560);
+      expect(await audits('PAYMENT_LATE_APPROVAL', paymentId)).toBe(0);
+    } else {
+      expect(status).toBe('FAILED');
+      expect(await balanceOf()).toBe(before);
+      expect(await audits('PAYMENT_LATE_APPROVAL', paymentId)).toBe(1);
+    }
+  });
+
   // Non-régression E2 : la route retirée ne doit pas réapparaître. Elle débitait
   // le payeur sans rien régler ni créditer personne, et n'avait aucun appelant.
   it('la route de paiement direct du portefeuille n’existe plus (E2)', async () => {
