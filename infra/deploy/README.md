@@ -428,7 +428,7 @@ Installé par `provision-ionos.sh --apply --only nginx` (§1.b), **toujours depu
 
 | Fichier hôte | Source (copie root) | Portée |
 |---|---|---|
-| `/etc/nginx/conf.d/digisante-rate-limit.conf` | `nginx/rate-limit.conf` | commun aux deux environnements : zones `digisante_rl_*`, format `digisante_noquery` (aucune directive globale imposée à ImmiPro/BeninLink) |
+| `/etc/nginx/conf.d/digisante-rate-limit.conf` | `nginx/rate-limit.conf` | commun aux deux environnements : zones `digisante_rl_*` de production et `digisante_rl_preprod_*` de préproduction (chaque vhost n'applique que les siennes), format `digisante_noquery` (aucune directive globale imposée à ImmiPro/BeninLink) |
 | `/etc/nginx/snippets/digisante-headers.conf` | `nginx/digisante-headers.conf` | commun : `X-Frame-Options`, `nosniff`, `Referrer-Policy` |
 | `/etc/nginx/snippets/digisante-hsts.conf` | `nginx/hsts-after-tls.conf` | commun : HSTS 24 h, installé **après** émission et `renew --dry-run` réussis |
 | `/etc/nginx/sites-available/digisante[-preprod]` (+ lien `sites-enabled`) | `nginx/digisante[-preprod].conf` | un vhost par environnement, `server_name` exacts, upstreams 3100/3101 · 3200/3201, `:80` = ACME + redirection, `:443` TLS Let's Encrypt, `client_max_body_size 8m` (= plus grand `bodyLimit` de l'API), `/api/v1/health` et `/api/v1/ready` non journalisés ; production : `www` → redirection 301 vers l'apex |
@@ -622,7 +622,20 @@ Les archives DB ET fichiers sont nécessaires à la restauration. `sudo node $RO
 >    jour pour un hôte en UTC, Europe/Madrid, Porto-Novo, New York, aucune pour +05:30 ; ligne cron exécutée par bash avec
 >    `\%` désescapé), `operations`/`provision-ionos` (décalage non entier, tzdata absent). **Limites** : la garde suppose
 >    `date` et tzdata de l'hôte ; horodatages des journaux et noms d'archives restent à l'heure de l'hôte.
-> 4. *Zones de limitation Nginx communes* (choix assumé) : une même IP partage ses quotas entre préproduction et production.
+> 4. *Zones de limitation Nginx communes* — **traité le 25/10/2026 (revue GO)** : une paire de zones **par environnement**
+>    dans le fichier commun `conf.d/digisante-rate-limit.conf` — `digisante_rl_api`/`digisante_rl_auth` (production, nom
+>    historique conservé) et `digisante_rl_preprod_api`/`digisante_rl_preprod_auth` (préproduction), mêmes débits
+>    (100 r/min API, 10 r/min authentification) et tailles. Chaque vhost n'applique que ses zones : une même IP (bureau,
+>    NAT d'opérateur, recette) n'épuise plus le quota de la production en testant la préproduction. Preuves :
+>    `environments.test.mjs` (zones déclarées, débits identiques, chaque vhost limité à ses zones, vhosts identiques hors
+>    marqueurs), `check-infra.test.mjs` (toute zone référencée par l'un des vhosts est déclarée). Coût : +20 Mio de
+>    mémoire partagée Nginx (2 zones de 10 Mio, à compter dans la capacité, résiduel 6). Limites : le fichier reste
+>    **commun** (règle des copies root alignées inchangée) ; le contexte `limit_req_status`/`server_tokens` reste au
+>    niveau serveur. **Bascule de la préproduction en service** : copie root au SHA qui porte ce changement puis
+>    `provision-ionos.sh --apply --only nginx` (fichier commun + vhost, `nginx -t` puis rechargement ; si la production
+>    est active, sa copie root doit être alignée, sinon FAIL sans écriture). Le nouveau fichier commun **ajoute** des
+>    zones sans en retirer : un ancien vhost préproduction qui référence encore `digisante_rl_*` reste valide jusqu'à
+>    son remplacement. Effet : compteurs de la préproduction repartis de zéro au rechargement.
 > 5. *Rôle PostgreSQL unique, propriétaire des tables d'audit* — **traité le 22/10/2026 (revue GO)** : l'API tourne sous
 >    `<base>_app` (NOINHERIT, ni privilège, ni appartenance, aucun objet possédé, pas de CREATE), les registres
 >    append-only `audit_logs` et `finance_entries` sont en INSERT/SELECT seulement et `_prisma_migrations` est fermé ;

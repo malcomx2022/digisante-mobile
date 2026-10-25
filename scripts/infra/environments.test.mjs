@@ -183,6 +183,7 @@ test('Nginx : vhost préproduction = production hors marqueurs ; upstreams/ports
   const pre = read('infra/deploy/nginx/digisante-preprod.conf');
   const mapped = toProduction(body(pre), [
     [/\bdigisante_preprod_(web|api)\b/g, 'digisante_$1'],
+    [/\bdigisante_rl_preprod_(api|auth)\b/g, 'digisante_rl_$1'],
     [/127\.0\.0\.1:3100\b/g, '127.0.0.1:3200'],
     [/127\.0\.0\.1:3101\b/g, '127.0.0.1:3201'],
     [/port local 3100 \(DIGISANTE_ENV=preproduction\)/g, 'port local 3200 (DIGISANTE_ENV=production)'],
@@ -232,8 +233,11 @@ test('Nginx : vhost préproduction = production hors marqueurs ; upstreams/ports
       assert.match(main, new RegExp(`^    ${directive.replace(/[.[\]/]/g, '\\$&')}$`, 'm'), `${env} : ${directive}`);
     }
     // Limitation de débit : authentification (zone stricte) et API ; WebSocket sans limite de corps.
-    assert.match(text, /location \/api\/v1\/auth\/ \{[^}]*limit_req zone=digisante_rl_auth burst=5 nodelay;/, `${env} : limite auth`);
-    assert.match(text, /location \/api\/ \{[^}]*limit_req zone=digisante_rl_api burst=20 nodelay;/, `${env} : limite API`);
+    // Zones PROPRES à l'environnement (résiduel 4) : aucune zone de l'autre environnement.
+    const rl = env === 'production' ? 'digisante_rl_' : 'digisante_rl_preprod_';
+    assert.match(text, new RegExp(`location \\/api\\/v1\\/auth\\/ \\{[^}]*limit_req zone=${rl}auth burst=5 nodelay;`), `${env} : limite auth`);
+    assert.match(text, new RegExp(`location \\/api\\/ \\{[^}]*limit_req zone=${rl}api burst=20 nodelay;`), `${env} : limite API`);
+    assert.deepEqual([...new Set([...text.matchAll(/limit_req zone=(\w+)/g)].map((m) => m[1]))].sort(), [`${rl}api`, `${rl}auth`], `${env} : zones de l'environnement seulement`);
     const logSfx = env === 'production' ? '' : '-preprod';
     assert.ok(text.includes(`access_log /var/log/nginx/digisante${logSfx}-access.log digisante_noquery;`), `${env} : journal d'accès`);
     for (const proxied of text.matchAll(/proxy_pass http:\/\/(\w+);/g)) assert.ok(proxied[1] in upstreams, `${env} : ${proxied[1]}`);
@@ -243,6 +247,11 @@ test('Nginx : vhost préproduction = production hors marqueurs ; upstreams/ports
   // Contexte http{} partagé : aucun nom générique, aucune directive globale imposée aux voisins.
   const zones = read('infra/deploy/nginx/rate-limit.conf');
   for (const [, name] of zones.matchAll(/zone=(\w+):/g)) assert.match(name, /^digisante_/, `zone ${name} non préfixée`);
+  // Une paire de zones par environnement, mêmes débits et tailles (résiduel 4) : une IP ne partage
+  // plus son quota entre préproduction et production.
+  const declared = Object.fromEntries([...zones.matchAll(/^limit_req_zone \$binary_remote_addr zone=(\w+):(\S+) rate=(\S+);$/gm)].map((m) => [m[1], `${m[2]} ${m[3]}`]));
+  assert.deepEqual(Object.keys(declared).sort(), ['digisante_rl_api', 'digisante_rl_auth', 'digisante_rl_preprod_api', 'digisante_rl_preprod_auth']);
+  for (const kind of ['api', 'auth']) assert.equal(declared[`digisante_rl_preprod_${kind}`], declared[`digisante_rl_${kind}`], `zone ${kind} : même débit`);
   for (const [, name] of zones.matchAll(/log_format (\w+)/g)) assert.match(name, /^digisante_/, `format ${name} non préfixé`);
   const active = zones.split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
   assert.doesNotMatch(active, /server_tokens|limit_req_status/, 'directive globale imposée à l’hôte partagé');

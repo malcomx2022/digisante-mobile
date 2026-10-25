@@ -62,7 +62,7 @@ Indépendamment du GO préproduction (L11, `docs/suivi/LOT_L11.md`, tout « NON 
 | Bloc | Restant | Propriétaire |
 |---|---|---|
 | **L9 humain** | Traductions FON/YOR natives (232 clés, **6 `sos.*` critiques**), phrasier natif (27 phrases), 7 contreseings cliniques sur le snapshot `3e061d52…` ; **rendu posologie** (fractions, unités, horaires/durées supposés) à corriger puis contresigner | Relecteurs natifs, professionnel de santé, porteur |
-| **Hôte partagé (I2)** | Arbitrage des résiduels de `infra/deploy/README.md` : zones Nginx, capacité 4 Go, trafic Nginx vers un port squatté (détecté seulement, §11) ; rôle PG d'exécution non propriétaire (§9) et **isolement Valkey par utilisateur ACL + préfixe (§10)** préparés dans ce lot, bascules de la préprod à exécuter (fichier ACL Valkey à déclarer par l'administrateur de l'hôte) | Porteur ; administrateur de l'hôte et opérateur pour les bascules |
+| **Hôte partagé (I2)** | Arbitrage des résiduels de `infra/deploy/README.md` : capacité 4 Go, zones Nginx par environnement préparées (§13, bascule de la préprod à exécuter), trafic Nginx vers un port squatté (détecté seulement, §11) ; rôle PG d'exécution non propriétaire (§9) et **isolement Valkey par utilisateur ACL + préfixe (§10)** préparés dans ce lot, bascules de la préprod à exécuter (fichier ACL Valkey à déclarer par l'administrateur de l'hôte) | Porteur ; administrateur de l'hôte et opérateur pour les bascules |
 | **Exploitation** | Provisioning prod (`provision-ionos.sh --apply` production, jamais exécuté), B3/B4 installés côté prod, `ALERT_CMD` d'alerte vers une adresse d'exploitation (D-13), première sauvegarde prod + **restauration indépendante base ET fichiers**, répétition de rollback | Opérateur |
 | **Sécurité** | Pentest externe + re-tests, arbitrage X8 (`unsafe-inline`), Twilio Geo Permissions, hôtes FedaPay **live** jamais observés (B1 reste ouvert en live), HSTS prod après renouvellement vérifié | Prestataire, porteur |
 | **Paiements live** | Bascule clé `sk_live_` + secret webhook live, recette S1/S8 en live à montant plafonné, rapprochement des issues incertaines | Porteur (§5) |
@@ -244,3 +244,28 @@ Limites :
 - Les horodatages des journaux cron et les noms d'archives de sauvegarde restent à l'heure de l'hôte.
 - Les tests Vitest tournent au fuseau du conteneur : `server.ts` n'épingle rien, seule l'entrée `main.ts` le fait. Tout nouveau calcul d'heure locale doit être testé sous TZ épinglé.
 
+
+## 13. Lot post-recette — zones Nginx par environnement (préparé le 25/10/2026, NON fusionnable pendant la recette)
+
+Résiduel 4 de `infra/deploy/README.md`. Constat : le fichier commun `conf.d/digisante-rate-limit.conf` ne déclarait que `digisante_rl_api` (100 r/min) et `digisante_rl_auth` (10 r/min), et les deux vhosts les appliquaient. Une même IP (bureau du porteur, NAT d'opérateur mobile, poste de recette) partageait donc un seul quota entre préproduction et production. Dix demandes OTP en recette suffisaient à bloquer l'authentification de la production pendant une minute pour toute personne derrière cette IP.
+
+Correction :
+- **Fichier commun** : une paire de zones par environnement. Production : `digisante_rl_api` / `digisante_rl_auth` (nom historique conservé). Préproduction : `digisante_rl_preprod_api` / `digisante_rl_preprod_auth`. Débits et tailles identiques. Le préfixe `digisante_rl_` est commun aux quatre zones, donc la garde de `provision-ionos.sh` (aucune zone DigiSanté définie ailleurs sur l'hôte) les couvre sans changement.
+- **Vhost préproduction** : ses trois `limit_req` (API, authentification, refresh/logout) visent ses propres zones. Le vhost de production est inchangé.
+- **Bascule sans rupture** : le nouveau fichier commun ajoute des zones sans en retirer. Un ancien vhost préproduction reste valide jusqu'à son remplacement par `provision-ionos.sh --apply --only nginx`. La règle des fichiers communs reste en vigueur : sans copies root alignées, l'environnement actif bloque l'écriture par un FAIL, et rien n'est écrit.
+- README (résiduel 4 avec la procédure de bascule, tableau des fichiers Nginx), checklist, contrat L10, `CLAUDE.md` et ligne « Hôte partagé » du §4 mis à jour.
+
+Preuves locales :
+- `environments.test.mjs` vérifie que :
+  - les quatre zones déclarées sont exactement celles attendues ;
+  - débits et tailles sont égaux d'un environnement à l'autre ;
+  - chaque vhost n'applique que ses deux zones ;
+  - les vhosts restent identiques hors marqueurs.
+- `check-infra.test.mjs` : toute zone référencée par l'un ou l'autre vhost est déclarée, sinon `nginx -t` échouerait.
+- Suite `scripts/infra` : 85 tests passés, 1 ignoré.
+
+Limites :
+- +20 Mio de mémoire partagée Nginx, à compter dans la capacité de l'hôte (résiduel 6).
+- Le fichier reste commun : une mise à jour exige toujours les deux copies root au même SHA quand l'autre environnement est actif.
+- Les compteurs de la préproduction repartent de zéro au rechargement.
+- Le contrôle reste par IP, sans distinction des utilisateurs derrière un même NAT. La recette CGNAT réelle relève de L10 (X6).
