@@ -8,14 +8,15 @@
 // ─────────────────────────────────────────────────────────────
 import websocket from '@fastify/websocket';
 import fp from 'fastify-plugin';
-import Redis from 'ioredis';
 import type { FastifyInstance } from 'fastify';
 import { WebSocket } from 'ws';
 
-import { env } from '@/lib/env.js';
+import { createRedis, redisChannel } from '@/lib/redis.js';
 
 /** Canal Redis de diffusion des événements de chat. */
-export const CHAT_CHANNEL = 'chat:events';
+// Canal de l'environnement courant (`<REDIS_KEY_PREFIX>chat:events`) : le préprod et la prod
+// partagent le même Valkey, un canal commun diffuserait les événements de l'un chez l'autre.
+export const CHAT_CHANNEL = redisChannel('chat:events');
 
 export interface ChatEvent {
   threadId: string;
@@ -102,7 +103,7 @@ export default fp(async (app: FastifyInstance) => {
   heartbeat.unref();
 
   // Abonné Redis dédié (une connexion distincte de app.redis, requis pour SUBSCRIBE).
-  const subscriber = new Redis(env.REDIS_URL);
+  const subscriber = createRedis();
   await subscriber.subscribe(CHAT_CHANNEL);
   subscriber.on('message', (_channel, payload) => {
     let event: ChatEvent;

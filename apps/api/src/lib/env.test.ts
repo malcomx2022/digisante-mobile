@@ -41,4 +41,13 @@ describe('envSchema — durcissement fail-safe', () => {
     const r = envSchema.safeParse({ ...base, NODE_ENV: 'test', JWT_SECRET: 'ci-secret' });
     expect(r.success).toBe(true);
   });
+
+  it('production : refuse l’absence de REDIS_KEY_PREFIX (isolement Valkey partagé)', () => {
+    const prod = { ...base, NODE_ENV: 'production', JWT_SECRET: LONG, HEALTH_ENCRYPTION_KEY: LONG };
+    expect(envSchema.safeParse(prod).success).toBe(false);
+    expect(envSchema.safeParse({ ...prod, REDIS_KEY_PREFIX: 'digisante-preprod:' }).success).toBe(true);
+    for (const bad of ['digisante', 'Digisante:', 'digisante*:', ':', 'digi sante:']) {
+      expect(envSchema.safeParse({ ...prod, REDIS_KEY_PREFIX: bad }).success, bad).toBe(false);
+    }
+  });
 });

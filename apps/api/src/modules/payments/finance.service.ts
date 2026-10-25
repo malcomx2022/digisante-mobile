@@ -199,7 +199,7 @@ export async function operations(app: FastifyInstance, page: number, pageSize: n
   }, { isolationLevel: 'RepeatableRead' });
 }
 
-/** Héritage non prouvé et retours opérateur non attribués, sans identité médicale. */
+/** Héritage non prouvé, retours opérateur non attribués et approbations fournisseur tardives (D-10), sans identité médicale. */
 export async function anomalies(app: FastifyInstance, page: number, pageSize: number) {
   const rows = await app.prisma.$queryRaw<{ id: string; amount: Prisma.Decimal; currency: string; status: string; type: string; method: string; providerReference: string | null; doctorId: string | null }[]>`
     SELECT p.id, p.amount, p.currency, p.status, p.type, p.method, p."fedapayId" AS "providerReference", a."doctorId"
@@ -207,6 +207,7 @@ export async function anomalies(app: FastifyInstance, page: number, pageSize: nu
     WHERE (p.type = 'CONSULTATION' AND p.status IN ('COMPLETED', 'REFUNDED') AND NOT EXISTS (SELECT 1 FROM finance_entries e WHERE e."paymentId" = p.id AND e.kind = 'CAPTURE'))
     OR (p.type = 'CONSULTATION' AND p.status = 'COMPLETED' AND a.status = 'CANCELLED' AND NOT EXISTS (SELECT 1 FROM finance_entries e WHERE e."paymentId" = p.id AND e.kind = 'REFUND'))
     OR (p.status = 'REFUNDED' AND p.method <> 'WALLET' AND NOT EXISTS (SELECT 1 FROM finance_operation_items i JOIN finance_operations o ON o.id = i."operationId" WHERE i."paymentId" = p.id AND o.kind = 'REFUND'))
+    OR (p.status IN ('FAILED', 'CANCELLED') AND EXISTS (SELECT 1 FROM audit_logs l WHERE l.action = 'PAYMENT_LATE_APPROVAL' AND l."targetId" = p.id))
     ORDER BY p."createdAt", p.id LIMIT ${pageSize + 1} OFFSET ${(page - 1) * pageSize}`;
   return { data: rows.slice(0, pageSize), hasMore: rows.length > pageSize, page };
 }

@@ -7,7 +7,7 @@ import type { PaymentMethod, PaymentType } from '@digisante/shared';
 import { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
-import { writeAudit, writeAuditWithin } from '@/lib/audit.js';
+import { writeAudit, writeAuditOnceWithin, writeAuditWithin } from '@/lib/audit.js';
 import { badRequest, forbidden, notFound, unauthorized } from '@/lib/errors.js';
 import { resolveConfiguredSecrets } from '@/lib/integrations.js';
 import { paymentCallbackUrl } from '@/lib/payment-return.js';
@@ -27,6 +27,8 @@ type ResolvableStatus = 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'PROCESSING';
 
 /** Statuts terminaux : un paiement qui les atteint n'est plus jamais retraité. */
 const TERMINAL_STATUSES = ['COMPLETED', 'FAILED', 'REFUNDED', 'CANCELLED'] as const;
+// Statuts clos SANS règlement : une approbation fournisseur ultérieure est une anomalie (D-10).
+const CLOSED_UNPAID_STATUSES = ['FAILED', 'CANCELLED'] as const;
 
 // Une souscription PRO concurrente garde User/Doctor jusqu'à 25 s ; ces phases
 // locales doivent pouvoir attendre ses verrous, sans appel fournisseur en transaction.
@@ -47,6 +49,7 @@ async function applyPaymentStatus(
 ): Promise<{ idempotent: true; status: string } | { processed: true; status: string }> {
   // Idempotence (lecture rapide) : un paiement déjà terminal n'est pas retraité.
   if ((TERMINAL_STATUSES as readonly string[]).includes(payment.status)) {
+    if (status === 'COMPLETED') await flagLateApproval(app, payment, payment.status, ip, source);
     return { idempotent: true, status: payment.status };
   }
 
@@ -76,10 +79,37 @@ async function applyPaymentStatus(
   });
   if (!won) {
     const current = await app.prisma.payment.findUnique({ where: { id: payment.id }, select: { status: true } });
+    // Approbation perdue face à un échec/annulation concurrent : même signalement.
+    if (status === 'COMPLETED' && current) await flagLateApproval(app, payment, current.status, ip, source);
     return { idempotent: true, status: current?.status ?? payment.status };
   }
 
   return { processed: true, status };
+}
+
+/**
+ * D-10 (revue GO du 22/10/2026, décision du porteur) : une approbation FedaPay reçue
+ * pour un paiement déjà FAILED ou CANCELLED ici — le payeur a pu être débité — n'a
+ * AUCUN effet automatique : ni transition, ni crédit, ni activation, ni capture (le
+ * RDV a pu être annulé et son créneau repris, la commande abandonnée). Elle est
+ * SIGNALÉE : audit `PAYMENT_LATE_APPROVAL` unique par paiement (rejeux FedaPay
+ * compris) et ligne dans les anomalies finance, pour un remboursement opérateur
+ * MANUEL. Avant, elle était ignorée en silence. Les autres statuts clos (COMPLETED,
+ * REFUNDED) restent de simples rejeux.
+ */
+async function flagLateApproval(
+  app: FastifyInstance,
+  payment: { id: string; userId: string; type: PaymentType; fedapayId: string | null },
+  localStatus: string,
+  ip: string | null | undefined,
+  source: 'webhook' | 'reconcile',
+): Promise<void> {
+  if (!(CLOSED_UNPAID_STATUSES as readonly string[]).includes(localStatus)) return;
+  const written = await app.prisma.$transaction((tx) => writeAuditOnceWithin(tx, {
+    action: 'PAYMENT_LATE_APPROVAL', actorId: payment.userId, targetId: payment.id, ip,
+    meta: { fedapayId: payment.fedapayId, type: payment.type, localStatus, source },
+  }));
+  if (written) app.log.warn({ paymentId: payment.id, localStatus }, 'FedaPay : approbation tardive d’un paiement clos — rapprochement manuel requis');
 }
 
 /**

@@ -60,6 +60,29 @@ digisante_profile() {
   : "${CRON_FILE:=/etc/cron.d/digisante${sfx}}" "${WS_LOG:=/var/log/nginx/digisante${sfx}-ws.log}"
 }
 # <<< digisante_profile
+# >>> port_owner (résiduel 1 « port squatté » — copie IDENTIQUE dans deploy.sh, healthwatch.sh, verify_deploy.sh, internal_job.sh et fedapay_reconcile.sh ; test de non-dérive)
+# Vrai seulement si le port TCP a au moins un écouteur ET si TOUS ses écouteurs (toutes
+# adresses, IPv4/IPv6) appartiennent au compte attendu. L'uid du socket (`ss -e`, uid de
+# création noté par le noyau) est lisible sans privilège et ne dépend ni d'un pid ni d'un
+# nom de processus ; `ss` ne l'affiche pas pour root, donc un écouteur root est refusé.
+# Sur l'hôte partagé, tout compte local peut écouter sur 127.0.0.1:<port> pendant que
+# l'environnement est arrêté : sans ce contrôle, il recevrait le jeton de service des
+# tâches ou répondrait « ready » à la place de l'API.
+port_owned_by() { # port_owned_by <port> <compte>
+  local want listing line uid n=0
+  [[ "$1" =~ ^[0-9]{1,5}$ ]] || return 1
+  want="$(id -u -- "$2" 2>/dev/null)" || return 1
+  [[ "$want" =~ ^[0-9]+$ && "$want" != 0 ]] || return 1
+  listing="$(ss -Htlne "( sport = :$1 )" 2>/dev/null)" || return 1
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    n=$((n + 1))
+    uid="$(sed -n 's/.*[[:space:]]uid:\([0-9][0-9]*\)[[:space:]].*/\1/p' <<<"$line ")"
+    [[ "$uid" == "$want" ]] || return 1
+  done <<<"$listing"
+  (( n > 0 ))
+}
+# <<< port_owner
 trusted_path "${BASH_SOURCE[0]}" || { echo "Script lancé depuis un emplacement modifiable par un autre compte : utiliser la copie installée par install_root_scripts.sh" >&2; exit 1; }
 SELF_ROOT="$(cd "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/../../.." && pwd -P)"
 digisante_profile || exit 1
@@ -218,8 +241,49 @@ fi
 
 # 8. Informations (non bloquantes ici, suivies ailleurs)
 curl -sSI --connect-timeout 5 --max-time 15 "https://${DOMAIN}/" | grep -qi '^strict-transport-security' && info "HSTS présent" || info "HSTS absent (PREFLIGHT O1)"
-[[ "$(timedatectl show -p Timezone --value 2>/dev/null)" == "Africa/Porto-Novo" ]] && pass "fuseau Africa/Porto-Novo" || fail "fuseau ≠ Africa/Porto-Novo"
+# Résiduel 3 : le fuseau de l'hôte partagé reste celui de ses administrateurs. L'API épingle
+# Africa/Porto-Novo (main.ts + ecosystem) et les tâches quotidiennes du cron.d se déclenchent
+# sur l'heure locale de Porto-Novo (garde horaire). Il faut seulement : données de fuseau
+# présentes, et décalage UTC de l'hôte en heures entières (sinon la minute cron ne tombe jamais
+# sur l'horaire de Porto-Novo et les tâches quotidiennes ne partent plus).
+info "fuseau de l'hôte : $(timedatectl show -p Timezone --value 2>/dev/null || echo inconnu) (sans effet sur DigiSanté)"
+[[ "$(TZ=Africa/Porto-Novo date +%z 2>/dev/null)" == "+0100" ]] && pass "données de fuseau Africa/Porto-Novo présentes (UTC+1)" \
+  || fail "fuseau Africa/Porto-Novo inconnu de l'hôte (tzdata) : horaires de l'API et des tâches faux"
+HOST_OFFSET="$(date +%z 2>/dev/null)"
+[[ "$HOST_OFFSET" =~ ^[+-][0-9]{2}00$ ]] && pass "décalage UTC de l'hôte en heures entières (${HOST_OFFSET}) : tâches quotidiennes à l'heure de Porto-Novo" \
+  || fail "décalage UTC de l'hôte ${HOST_OFFSET:-inconnu} non entier : les tâches quotidiennes (sauvegarde, réconciliation, rappels PEV/CPN) ne partiraient jamais"
 [[ "$(stat -c '%a' "${APP_DIR}/apps/api/.env" 2>/dev/null)" == "600" ]] && pass ".env API en 600" || fail ".env API absent ou permissions ≠ 600"
+# Revue GO du 22/10/2026 : l'API tourne sous le rôle d'exécution <base>_app, jamais sous le
+# propriétaire (migrations seulement, URL fournie au déploiement). Fichier lu comme DONNÉE
+# (parseEnv, sans suivre de lien) ; seul le NOM d'utilisateur est extrait, jamais affiché d'autre.
+API_DB_USER="$(node -e '
+  const fs = require("node:fs"); const { parseEnv } = require("node:util"); const file = process.argv[1];
+  try { if (fs.realpathSync(file) !== file) process.exit(3); } catch { process.exit(3); }
+  const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+  const env = parseEnv(fs.readFileSync(fd, "utf8"));
+  if (Object.hasOwn(env, "MIGRATION_DATABASE_URL")) process.exit(4);
+  process.stdout.write(decodeURIComponent(new URL(env.DATABASE_URL).username).replace(/[^a-z0-9_]/g, "?"));' "${APP_DIR}/apps/api/.env" 2>/dev/null || echo "?")"
+# Base CANONIQUE du profil (même règle que deploy.sh), jamais un DB_NAME surchargé.
+RUN_ROLE="$(unset DB_NAME; digisante_profile && printf '%s_app' "$DB_NAME")"
+[[ "$API_DB_USER" == "$RUN_ROLE" ]] && pass "API sous le rôle d'exécution ${RUN_ROLE} (non propriétaire)" \
+  || fail "API (.env) sous ${API_DB_USER:-?} au lieu de ${RUN_ROLE}, ou URL du propriétaire présente dans le .env"
+# Valkey partagé : utilisateur ACL et préfixe de CET environnement (droits mesurés par
+# provision-ionos.sh --verify, ACL DRYRUN) ; jamais l'utilisateur default de l'hôte.
+if [[ "$DIGISANTE_ENV" == production ]]; then VALKEY_APP_USER=digisante; else VALKEY_APP_USER=digisante-preprod; fi
+API_VALKEY="$(node -e '
+  const fs = require("node:fs"); const { parseEnv } = require("node:util"); const file = process.argv[1];
+  try { if (fs.realpathSync(file) !== file) process.exit(3); } catch { process.exit(3); }
+  const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+  const env = parseEnv(fs.readFileSync(fd, "utf8"));
+  const clean = (v) => String(v ?? "").replace(/[^a-z0-9:-]/g, "?");
+  process.stdout.write(`${clean(decodeURIComponent(new URL(env.REDIS_URL).username))} ${clean(env.REDIS_KEY_PREFIX)}`);' "${APP_DIR}/apps/api/.env" 2>/dev/null || echo "? ?")"
+[[ "$API_VALKEY" == "${VALKEY_APP_USER} ${VALKEY_APP_USER}:" ]] && pass "API sous l'utilisateur ACL Valkey ${VALKEY_APP_USER}, préfixe ${VALKEY_APP_USER}:" \
+  || fail "API (.env) : utilisateur Valkey/préfixe « ${API_VALKEY} » au lieu de « ${VALKEY_APP_USER} ${VALKEY_APP_USER}: »"
+# Résiduel 1 : ports de l'environnement tenus par ${APP_USER} seul (uid des sockets à l'écoute).
+for p in "$API_PORT" "$WEB_PORT"; do
+  port_owned_by "$p" "$APP_USER" && pass "port ${p} tenu par ${APP_USER} seul" \
+    || fail "port ${p} libre ou écouté par un autre compte que ${APP_USER} (port squatté ? ss -Htlnpe)"
+done
 
 echo
 if (( FAILS > 0 )); then echo "❌ ${FAILS} contrôle(s) en échec (${WARNS} avertissement(s))"; exit 1; fi

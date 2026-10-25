@@ -7,9 +7,24 @@
 # Hôte IONOS partagé : DEPLOY_ENVIRONMENT fixe DIGISANTE_ENV, donc les noms PM2 arrêtés
 # AVANT migration, le port de readiness et le profil passé à ecosystem.config.cjs.
 #
+#   read -rs MIGRATION_DATABASE_URL; export MIGRATION_DATABASE_URL
 #   DEPLOY_REF=<SHA> DEPLOY_ENVIRONMENT=preproduction DEPLOY_MAINTENANCE_READY=1 bash deploy.sh
+#
+# Deux rôles PostgreSQL (revue GO du 22/10/2026) : l'API tourne sous `<base>_app` (.env,
+# DML seulement ; audit_logs et finance_entries en INSERT/SELECT), les migrations et les
+# droits passent par le rôle PROPRIÉTAIRE `<base>`, dont l'URL arrive par l'environnement
+# au moment du déploiement (secret GitHub transmis par l'entrée standard SSH, ou saisie
+# `read -rs`) et n'est JAMAIS écrite dans un fichier lisible par l'API. Un propriétaire
+# peut `ALTER TABLE audit_logs DISABLE TRIGGER` : une injection SQL ou une prise de
+# contrôle de l'API ne doit pas en disposer, et l'API est arrêtée pendant les migrations.
 # ─────────────────────────────────────────────────────────────
 set -euo pipefail
+# xtrace afficherait l'URL du rôle propriétaire (mot de passe compris).
+case "$-" in *x*) echo "bash -x refusé : MIGRATION_DATABASE_URL serait affiché" >&2; exit 1 ;; esac
+# Retiré de l'environnement EXPORTÉ dès maintenant : seuls `migrate deploy` et l'application
+# des droits le reçoivent explicitement ; build, PM2 et API ne le voient jamais.
+MIGRATION_URL="${MIGRATION_DATABASE_URL:-}"
+unset MIGRATION_DATABASE_URL
 
 # >>> digisante_profile (environnement — copie IDENTIQUE dans chaque script d'exploitation ; test de non-dérive)
 # DIGISANTE_ENV est OBLIGATOIRE, sans défaut : préproduction et production cohabitent sur
@@ -36,6 +51,29 @@ digisante_profile() {
   : "${CRON_FILE:=/etc/cron.d/digisante${sfx}}" "${WS_LOG:=/var/log/nginx/digisante${sfx}-ws.log}"
 }
 # <<< digisante_profile
+# >>> port_owner (résiduel 1 « port squatté » — copie IDENTIQUE dans deploy.sh, healthwatch.sh, verify_deploy.sh, internal_job.sh et fedapay_reconcile.sh ; test de non-dérive)
+# Vrai seulement si le port TCP a au moins un écouteur ET si TOUS ses écouteurs (toutes
+# adresses, IPv4/IPv6) appartiennent au compte attendu. L'uid du socket (`ss -e`, uid de
+# création noté par le noyau) est lisible sans privilège et ne dépend ni d'un pid ni d'un
+# nom de processus ; `ss` ne l'affiche pas pour root, donc un écouteur root est refusé.
+# Sur l'hôte partagé, tout compte local peut écouter sur 127.0.0.1:<port> pendant que
+# l'environnement est arrêté : sans ce contrôle, il recevrait le jeton de service des
+# tâches ou répondrait « ready » à la place de l'API.
+port_owned_by() { # port_owned_by <port> <compte>
+  local want listing line uid n=0
+  [[ "$1" =~ ^[0-9]{1,5}$ ]] || return 1
+  want="$(id -u -- "$2" 2>/dev/null)" || return 1
+  [[ "$want" =~ ^[0-9]+$ && "$want" != 0 ]] || return 1
+  listing="$(ss -Htlne "( sport = :$1 )" 2>/dev/null)" || return 1
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    n=$((n + 1))
+    uid="$(sed -n 's/.*[[:space:]]uid:\([0-9][0-9]*\)[[:space:]].*/\1/p' <<<"$line ")"
+    [[ "$uid" == "$want" ]] || return 1
+  done <<<"$listing"
+  (( n > 0 ))
+}
+# <<< port_owner
 
 BRANCH="${DEPLOY_BRANCH:-main}"
 # ROLLBACK explicite : ajouter DEPLOY_ALLOW_ROLLBACK=1 pour redéployer un ancêtre
@@ -88,21 +126,24 @@ export PATH="$PNPM_SHIM_DIR:$PATH"
 # leur ascendance au même ancien HEAD puis se déployer dans l'ordre inverse.
 exec 9>"$LOG_DIR/deploy.lock"
 flock -n 9 || { log "ERREUR : un déploiement de cet environnement est déjà en cours."; exit 1; }
-node - "$ENV_FILE" "$DEPLOY_ENVIRONMENT" <<'JS'
+[[ -n "$MIGRATION_URL" ]] || { log "ERREUR : MIGRATION_DATABASE_URL (rôle propriétaire, coffre) requis par l'environnement ; aucun processus arrêté ni migration lancée."; exit 1; }
+DEPLOY_MIGRATION_URL="$MIGRATION_URL" node - "$ENV_FILE" "$DEPLOY_ENVIRONMENT" <<'JS'
 const fs = require('node:fs'); const { parseEnv } = require('node:util');
 const env = parseEnv(fs.readFileSync(process.argv[2], 'utf8'));
 const profile = process.argv[3] === 'preproduction'
-  ? { database: 'digisante_preprod', redis: '/5' }
-  : { database: 'digisante', redis: '/6' };
+  ? { database: 'digisante_preprod', redis: '/5', valkeyUser: 'digisante-preprod' }
+  : { database: 'digisante', redis: '/6', valkeyUser: 'digisante' };
 const refuse = (message) => { fs.writeSync(2, `${message} ; aucun processus arrêté ni migration lancée.\n`); process.exit(1); };
 if (env.NODE_ENV !== 'production') refuse('NODE_ENV=production requis dans le fichier API');
 // Prisma et l'API (lib/env-file.ts) gardent les variables héritées : contrôler aussi cette
 // priorité, sinon le .env vérifié pourrait différer de la base réellement migrée.
-for (const key of ['NODE_ENV', 'DATABASE_URL', 'REDIS_URL']) {
+for (const key of ['NODE_ENV', 'DATABASE_URL', 'REDIS_URL', 'REDIS_KEY_PREFIX']) {
   if (process.env[key] !== undefined && process.env[key] !== env[key]) refuse(`${key} hérité différent du fichier API`);
 }
-const parsed = (key, protocols, port) => {
-  const raw = env[key];
+// L'URL du propriétaire n'a rien à faire dans le fichier lu par l'API.
+if (Object.hasOwn(env, 'MIGRATION_DATABASE_URL')) refuse('MIGRATION_DATABASE_URL présent dans le fichier API : à retirer (jamais lisible par l’API)');
+const parsed = (key, protocols, port, source = env) => {
+  const raw = source[key];
   if (!raw || raw !== raw.trim() || /[\s\\\u0000-\u001f\u007f]/.test(raw)) refuse(`${key} invalide`);
   let value;
   try { value = new URL(raw); } catch { refuse(`${key} invalide`); }
@@ -110,16 +151,88 @@ const parsed = (key, protocols, port) => {
     || (value.port && value.port !== port) || !value.password || value.hash) refuse(`${key} doit cibler le service local du profil`);
   return value;
 };
-const db = parsed('DATABASE_URL', ['postgresql:', 'postgres:'], '5432');
-let database, role;
-try { database = decodeURIComponent(db.pathname.slice(1)); role = decodeURIComponent(db.username); }
-catch { refuse('DATABASE_URL invalide'); }
-if (database !== profile.database || role !== profile.database
-  || db.searchParams.getAll('schema').some((schema) => schema !== 'public')
-  || db.searchParams.has('host')) refuse('DATABASE_URL ne correspond pas à la base, au rôle ou au schéma du profil');
+const pgTarget = (key, source, expectedRole) => {
+  const url = parsed(key, ['postgresql:', 'postgres:'], '5432', source);
+  let database, role, password;
+  try { database = decodeURIComponent(url.pathname.slice(1)); role = decodeURIComponent(url.username); password = decodeURIComponent(url.password); }
+  catch { refuse(`${key} invalide`); }
+  if (database !== profile.database || role !== expectedRole
+    || url.searchParams.getAll('schema').some((schema) => schema !== 'public')
+    || url.searchParams.has('host')) refuse(`${key} ne correspond pas à la base, au rôle (${expectedRole}) ou au schéma du profil`);
+  return password;
+};
+// API : rôle d'exécution NON propriétaire ; migrations : rôle propriétaire, mot de passe distinct.
+const runtimePassword = pgTarget('DATABASE_URL', env, `${profile.database}_app`);
+const ownerPassword = pgTarget('MIGRATION_DATABASE_URL', { MIGRATION_DATABASE_URL: process.env.DEPLOY_MIGRATION_URL }, profile.database);
+if (runtimePassword === ownerPassword) refuse('mots de passe identiques pour le rôle propriétaire et le rôle d’exécution');
 const redis = parsed('REDIS_URL', ['redis:'], '6379');
 if (redis.pathname !== profile.redis || redis.search) refuse('REDIS_URL ne correspond pas à l’index du profil');
+// Isolement Valkey (revue GO du 22/10/2026) : utilisateur ACL de l'environnement (jamais
+// `default`, dont le mot de passe ouvre tous les index de l'hôte) et préfixe des clés/canaux.
+let valkeyUser;
+try { valkeyUser = decodeURIComponent(redis.username); } catch { refuse('REDIS_URL invalide'); }
+if (valkeyUser !== profile.valkeyUser) refuse(`REDIS_URL doit viser l’utilisateur ACL ${profile.valkeyUser} (jamais default)`);
+if (env.REDIS_KEY_PREFIX !== `${profile.valkeyUser}:`) refuse(`REDIS_KEY_PREFIX=${profile.valkeyUser}: requis dans le fichier API`);
 JS
+# >>> runtime-grants.sql (exécuté sous le rôle PROPRIÉTAIRE ; test PostgreSQL réel : apps/api/src/lib/runtime-role.test.ts)
+# Idempotent, dans UNE transaction : DML sur toutes les tables et séquences, mêmes droits par
+# défaut pour les futures tables, puis registres append-only (audit_logs, finance_entries) en
+# INSERT/SELECT seulement et table des migrations fermée. Le contrôle final refuse tout écart
+# (rôle privilégié ou membre, objet possédé, CREATE, UPDATE/DELETE/TRUNCATE sur un registre)
+# et annule alors l'ensemble ; l'API n'est pas redémarrée.
+runtime_grants_sql() {
+  cat <<'SQL'
+\set ON_ERROR_STOP on
+BEGIN;
+SELECT format('GRANT CONNECT ON DATABASE %I TO %I', current_database(), :'app_role') \gexec
+GRANT USAGE ON SCHEMA public TO :"app_role";
+REVOKE CREATE ON SCHEMA public FROM :"app_role";
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO :"app_role";
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO :"app_role";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO :"app_role";
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO :"app_role";
+REVOKE TRUNCATE, REFERENCES, TRIGGER ON ALL TABLES IN SCHEMA public FROM :"app_role";
+REVOKE UPDATE, DELETE ON TABLE public.audit_logs, public.finance_entries FROM :"app_role";
+REVOKE ALL ON TABLE public._prisma_migrations FROM :"app_role";
+SELECT (
+  :'app_role' <> current_user
+  AND NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'app_role' AND (rolsuper OR rolcreaterole OR rolcreatedb OR rolreplication OR rolbypassrls))
+  AND NOT EXISTS (SELECT 1 FROM pg_auth_members m JOIN pg_roles r ON r.oid = m.member WHERE r.rolname = :'app_role')
+  AND NOT EXISTS (SELECT 1 FROM pg_class c JOIN pg_roles r ON r.oid = c.relowner WHERE r.rolname = :'app_role')
+  AND NOT EXISTS (SELECT 1 FROM pg_namespace n JOIN pg_roles r ON r.oid = n.nspowner WHERE r.rolname = :'app_role')
+  AND NOT has_schema_privilege(:'app_role', 'public', 'CREATE')
+  AND NOT has_database_privilege(:'app_role', current_database(), 'CREATE')
+  AND has_table_privilege(:'app_role', 'public.audit_logs', 'INSERT') AND has_table_privilege(:'app_role', 'public.audit_logs', 'SELECT')
+  AND has_table_privilege(:'app_role', 'public.finance_entries', 'INSERT') AND has_table_privilege(:'app_role', 'public.finance_entries', 'SELECT')
+  AND NOT has_any_column_privilege(:'app_role', 'public.audit_logs', 'UPDATE') AND NOT has_any_column_privilege(:'app_role', 'public.finance_entries', 'UPDATE')
+  AND NOT has_table_privilege(:'app_role', 'public.audit_logs', 'DELETE') AND NOT has_table_privilege(:'app_role', 'public.finance_entries', 'DELETE')
+  AND NOT has_table_privilege(:'app_role', 'public.audit_logs', 'TRUNCATE') AND NOT has_table_privilege(:'app_role', 'public.finance_entries', 'TRUNCATE')
+  AND NOT has_any_column_privilege(:'app_role', 'public._prisma_migrations', 'SELECT')
+) AS runtime_role_ok \gset
+\if :runtime_role_ok
+COMMIT;
+\else
+-- \quit n'a pas de code de sortie : l'erreur (ON_ERROR_STOP) fait sortir psql en échec et annule la transaction.
+DO $$ BEGIN RAISE EXCEPTION 'Rôle d''exécution non conforme (privilège, appartenance, objet possédé ou droit d''écriture sur un registre) : droits annulés'; END $$;
+\endif
+SQL
+}
+# <<< runtime-grants.sql
+# psql reçoit les paramètres du rôle propriétaire par SON environnement (PGPASSWORD…), jamais en
+# argument (`ps`) ; rôle d'exécution = `<base du profil>_app`.
+apply_runtime_grants() {
+  RUNTIME_GRANTS_SQL="$(runtime_grants_sql)" DEPLOY_MIGRATION_URL="$MIGRATION_URL" node - "$DEPLOY_ENVIRONMENT" <<'JS'
+const { spawnSync } = require('node:child_process');
+const database = process.argv[2] === 'preproduction' ? 'digisante_preprod' : 'digisante';
+const url = new URL(process.env.DEPLOY_MIGRATION_URL);
+const env = { ...process.env, PGHOST: url.hostname.replace(/^\[|\]$/g, ''), PGPORT: url.port || '5432', PGDATABASE: database,
+  PGUSER: decodeURIComponent(url.username), PGPASSWORD: decodeURIComponent(url.password), PGCONNECT_TIMEOUT: '10' };
+delete env.DEPLOY_MIGRATION_URL; delete env.RUNTIME_GRANTS_SQL; delete env.DATABASE_URL;
+const r = spawnSync('psql', ['-X', '-q', '-A', '-t', '-v', `app_role=${database}_app`], { input: process.env.RUNTIME_GRANTS_SQL, env, stdio: ['pipe', 'inherit', 'inherit'] });
+process.exit(r.status ?? 1);
+JS
+}
+
 PREVIOUS_SHA="$(git rev-parse HEAD)"
 git check-ref-format --branch "$BRANCH" >/dev/null
 log "Récupération de la branche ${BRANCH}…"
@@ -183,8 +296,13 @@ STAGE=build
 log "Build web + api…"
 pnpm build
 STAGE=migrations
-log "Application des migrations (migrate deploy — jamais db push)…"
-pnpm --filter @digisante/api prisma migrate deploy
+log "Application des migrations sous le rôle propriétaire (migrate deploy — jamais db push)…"
+DATABASE_URL="$MIGRATION_URL" pnpm --filter @digisante/api prisma migrate deploy
+STAGE=grants
+log "Droits du rôle d'exécution (audit et registre financier en INSERT/SELECT seulement)…"
+# Piège ERR non hérité par les fonctions (pas de set -E) : l'échec remonte ici pour être tracé.
+apply_runtime_grants || false
+unset MIGRATION_URL
 STAGE=restart
 log "Démarrage homogène PM2 ${DIGISANTE_ENV} (maintenance conservée)…"
 # Apps de CET environnement (déjà arrêtées) supprimées puis recréées depuis l'ecosystem du
@@ -207,6 +325,12 @@ STAGE=readiness
 log "Healthcheck ${READY_URL} (10 tentatives)…"
 healthy=0
 for i in $(seq 1 10); do
+  # Résiduel 1 : la readiness n'est crue que si les deux ports sont tenus par ${APP_USER}
+  # (un compte local qui aurait pris le port pendant l'arrêt répondrait « ready » à sa place).
+  if ! port_owned_by "$API_PORT" "$APP_USER" || ! port_owned_by "$WEB_PORT" "$APP_USER"; then
+    log "Ports ${API_PORT}/${WEB_PORT} pas encore tenus par ${APP_USER} seul (tentative ${i}/10)…"
+    sleep 3; continue
+  fi
   if curl -fsS --connect-timeout 3 --max-time 5 "$READY_URL" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{try{const r=JSON.parse(d);process.exit(r.status==="ready"&&r.db==="up"&&r.redis==="up"?0:1)}catch{process.exit(1)}})' ; then
     healthy=1
     log "API prête (tentative ${i}) ✓"
@@ -217,7 +341,7 @@ for i in $(seq 1 10); do
 done
 
 if [ "$healthy" -ne 1 ]; then
-  log "ERREUR : l'API ne répond pas sur ${READY_URL} après le déploiement."
+  log "ERREUR : l'API ne répond pas sur ${READY_URL} après le déploiement, ou les ports ${API_PORT}/${WEB_PORT} ne sont pas tenus par ${APP_USER} seul (port squatté ?)."
   record FAILED
   log "État PM2 et schéma à vérifier ; maintenance conservée, aucun ancien code garanti."
   log "Inspecter : pm2 logs ${PM2_API} --lines 100"

@@ -7,6 +7,7 @@ import * as audit from '@/lib/audit.js';
 import * as finance from './finance.service.js';
 import { buildWebhookSignatureHeader } from '@/services/fedapay.js';
 import { fedapayWebhookBody } from '@/test/fedapay-fixture.js';
+import { grantPro } from '@/test/pro-fixture.js';
 import type { Role } from '@digisante/shared';
 
 describe('L7 — contrats purs', () => {
@@ -36,7 +37,6 @@ describe.skipIf(!HAS_INFRA)('L7 — revenus et opérations intégrées', () => {
   const stats = (user = doctorUser) => app.inject({ method: 'GET', url: `/api/v1/professionals/me/revenue?${new URLSearchParams(period())}`, headers: auth(user) });
   const operation = (id: string, action: string, payload?: object, actor = adminId) => app.inject({ method: 'POST', url: `/api/v1/admin/finance/operations/${id}/${action}`, headers: auth(actor, 'ADMIN'), ...(payload ? { payload } : {}) });
   const payout = (paymentIds: string[], requestId = randomUUID(), id = doctorId, extra: object = {}) => app.inject({ method: 'POST', url: '/api/v1/admin/finance/payouts', headers: auth(adminId, 'ADMIN'), payload: { requestId, doctorId: id, paymentIds, ...extra } });
-  const buy = (id: string) => app.inject({ method: 'POST', url: '/api/v1/subscriptions', headers: auth(id), payload: { plan: 'PRO', method: 'WALLET', requestId: randomUUID() } });
   const appointment = (id = doctorId, status: 'COMPLETED' | 'CONFIRMED' = 'COMPLETED') => app.prisma.appointment.create({ data: { patientId, doctorId: id, type: 'PHYSICAL', status, scheduledAt: new Date() } });
   async function paid(id = doctorId, status: 'COMPLETED' | 'CONFIRMED' = 'COMPLETED') {
     const appt = await appointment(id, 'CONFIRMED');
@@ -53,7 +53,7 @@ describe.skipIf(!HAS_INFRA)('L7 — revenus et opérations intégrées', () => {
     const p = await app.prisma.user.create({ data: { phone: PHONES[2]!, role: 'PATIENT', status: 'ACTIVE', patient: { create: {} }, wallet: { create: { balance: 100000 } } }, include: { patient: true } }); patientUser = p.id; patientId = p.patient!.id;
     adminId = (await app.prisma.user.create({ data: { phone: PHONES[3]!, role: 'ADMIN', status: 'ACTIVE', adminProfile: { create: { scopes: ['finance:read', 'finance:write'] } } } })).id;
     readAdmin = (await app.prisma.user.create({ data: { phone: PHONES[4]!, role: 'ADMIN', status: 'ACTIVE', adminProfile: { create: { scopes: ['finance:read'] } } } })).id;
-    expect((await buy(doctorUser)).statusCode).toBe(200); expect((await buy(otherUser)).statusCode).toBe(200);
+    await grantPro(app, doctorUser); await grantPro(app, otherUser);
   });
   afterEach(() => vi.restoreAllMocks());
   afterAll(async () => { if (app) { await app.prisma.user.deleteMany({ where: { phone: { in: PHONES } } }); await app.prisma.integrationConfig.deleteMany({ where: { provider: 'FEDAPAY' } }); await app.redis.del('integration:FEDAPAY'); await app.close(); } });

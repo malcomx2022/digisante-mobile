@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import * as payments from '@/modules/payments/payments.service.js';
+import { grantPro } from '@/test/pro-fixture.js';
 import { requireProWithin } from './subscriptions.effects.js';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
@@ -21,7 +22,6 @@ describe.skipIf(!HAS_INFRA)('Revue L6 — échéance de couverture continue', ()
     userId = (await app.prisma.user.create({ data: {
       phone: PHONE, role: 'MEDECIN', status: 'ACTIVE',
       doctor: { create: { speciality: 'G', licenseNumber: randomUUID(), verifiedAt: new Date(), consultFee: 3000 } },
-      wallet: { create: { balance: 50000 } },
     } })).id;
   });
   afterAll(async () => {
@@ -36,10 +36,8 @@ describe.skipIf(!HAS_INFRA)('Revue L6 — échéance de couverture continue', ()
     const day = 86_400_000;
     const orders: { id: string; paymentId: string; endsAt: Date }[] = [];
     for (let index = 0; index < 3; index++) {
-      const bought = await app.inject({ method: 'POST', url: '/api/v1/subscriptions', headers: auth(),
-        payload: { plan: 'PRO', method: 'WALLET', requestId: randomUUID() } });
-      expect(bought.statusCode, bought.body).toBe(200);
-      const order = await app.prisma.subscriptionOrder.update({ where: { id: bought.json().orderId },
+      const bought = await grantPro(app, userId);
+      const order = await app.prisma.subscriptionOrder.update({ where: { id: bought.id },
         data: { startsAt: new Date(now + (index === 0 ? -2 : index * 2) * day), endsAt: new Date(now + (index + 1) * 2 * day) },
         select: { id: true, paymentId: true, endsAt: true } });
       if (!order.endsAt) throw new Error('Période synthétique sans échéance');

@@ -1,14 +1,11 @@
 import { DOCTOR_SUBSCRIPTION_CATALOG, isFedapayCheckoutUrl, type PaymentMethod } from '@digisante/shared';
 import { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
-import { writeAuditWithin } from '@/lib/audit.js';
 import { openSecret, sealSecret } from '@/lib/crypto.js';
 import { badGateway, badRequest, conflict, forbidden, notFound } from '@/lib/errors.js';
 import { resolveConfiguredSecrets } from '@/lib/integrations.js';
 import { paymentCallbackUrl } from '@/lib/payment-return.js';
-import * as wallet from '@/modules/wallet/wallet.service.js';
 import { createTransaction } from '@/services/fedapay.js';
-import { activateWithin } from './subscriptions.effects.js';
 
 const offer = DOCTOR_SUBSCRIPTION_CATALOG.plans[1];
 const pendingStatuses = ['PENDING', 'PROCESSING'] as const;
@@ -79,9 +76,14 @@ export async function subscribe(app: FastifyInstance, userId: string, input: { p
   if (input.plan === 'FREE') return cancel(app, userId);
   if (input.plan !== 'PRO') throw badRequest('Plan indisponible pendant le pilote');
   if (!input.method || !input.requestId) throw badRequest('Méthode et requestId requis pour un plan payant');
+  // A8 (revue GO du 22/10/2026, décision du porteur) : un médecin n'a pas de
+  // portefeuille (aucun n'est créé à l'inscription, aucune recharge dans l'espace
+  // PRO) ; le choix « Wallet » échouait toujours. Refus explicite AVANT tout effet :
+  // l'abonnement se règle par Mobile Money ou carte via FedaPay.
+  if (input.method === 'WALLET') throw badRequest('L’abonnement PRO se règle par Mobile Money ou carte, pas par le portefeuille');
   const method = input.method;
   const doctor = await doctorFor(app, userId);
-  const cfg = method !== 'WALLET' ? await resolveConfiguredSecrets(app, 'FEDAPAY') : null;
+  const cfg = await resolveConfiguredSecrets(app, 'FEDAPAY');
   const result = await app.prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId} FOR UPDATE`;
     await tx.$queryRaw`SELECT id FROM doctors WHERE id = ${doctor.id} FOR UPDATE`;
@@ -94,22 +96,15 @@ export async function subscribe(app: FastifyInstance, userId: string, input: { p
     }
     const pending = await tx.subscriptionOrder.findFirst({ where: { doctorId: doctor.id, revokedAt: null, payment: { status: { in: [...pendingStatuses] } } } });
     if (pending) throw conflict('Un paiement d’abonnement est déjà en attente', { orderId: pending.id });
-    if (method !== 'WALLET' && (!cfg?.secretKey || !cfg.webhookSecret)) throw badGateway('Paiement FedaPay non configuré');
-    const payment = await tx.payment.create({ data: { userId, type: 'SUBSCRIPTION', method, amount: new Prisma.Decimal(offer.amount), currency: 'XOF', status: method === 'WALLET' ? 'COMPLETED' : 'PENDING' } });
+    if (!cfg?.secretKey || !cfg.webhookSecret) throw badGateway('Paiement FedaPay non configuré');
+    const payment = await tx.payment.create({ data: { userId, type: 'SUBSCRIPTION', method, amount: new Prisma.Decimal(offer.amount), currency: 'XOF', status: 'PENDING' } });
     const order = await tx.subscriptionOrder.create({ data: { doctorId: doctor.id, requestId: input.requestId!, paymentId: payment.id, plan: 'PRO', catalogVersion: DOCTOR_SUBSCRIPTION_CATALOG.version, amount: payment.amount, currency: 'XOF', periodMonths: offer.periodMonths } });
-    if (method === 'WALLET') {
-      const debited = await wallet.debit(app, userId, { amount: offer.amount, description: 'Abonnement médecin PRO' }, tx);
-      await tx.walletTransaction.updateMany({ where: { wallet: { userId }, reference: debited.reference }, data: { reference: payment.id } });
-      await activateWithin(tx, payment.id);
-      await writeAuditWithin(tx, { action: 'PAYMENT_CONFIRMED', actorId: userId, targetId: payment.id, meta: { type: 'SUBSCRIPTION', method, source: 'wallet', orderId: order.id } });
-    } else {
-      const upstream = await createTransaction({ amount: offer.amount, method, description: 'Abonnement médecin PRO — 1 mois', log: app.log, secretKey: cfg!.secretKey,
-        callbackUrl: paymentCallbackUrl('SUBSCRIPTION'), merchantReference: payment.id,
-        customer: { firstname: owner.profile?.firstName, lastname: owner.profile?.lastName, phone: owner.phone, email: owner.email ?? undefined }, timeoutMs: 8000 });
-      if (!isFedapayCheckoutUrl(upstream.paymentUrl)) throw badGateway('Lien FedaPay invalide');
-      await tx.payment.update({ where: { id: payment.id }, data: { fedapayId: upstream.fedapayId } });
-      await tx.subscriptionOrder.update({ where: { id: order.id }, data: { checkoutUrl: sealSecret(upstream.paymentUrl) } });
-    }
+    const upstream = await createTransaction({ amount: offer.amount, method, description: 'Abonnement médecin PRO — 1 mois', log: app.log, secretKey: cfg.secretKey,
+      callbackUrl: paymentCallbackUrl('SUBSCRIPTION'), merchantReference: payment.id,
+      customer: { firstname: owner.profile?.firstName, lastname: owner.profile?.lastName, phone: owner.phone, email: owner.email ?? undefined }, timeoutMs: 8000 });
+    if (!isFedapayCheckoutUrl(upstream.paymentUrl)) throw badGateway('Lien FedaPay invalide');
+    await tx.payment.update({ where: { id: payment.id }, data: { fedapayId: upstream.fedapayId } });
+    await tx.subscriptionOrder.update({ where: { id: order.id }, data: { checkoutUrl: sealSecret(upstream.paymentUrl) } });
     return { id: order.id, paymentId: payment.id, created: true };
   }, { timeout: 25_000, maxWait: 20_000 });
   return checkout(app, userId, result.id);

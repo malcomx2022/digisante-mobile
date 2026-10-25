@@ -1,4 +1,11 @@
-import { isFedapayCheckoutUrl } from '@digisante/shared';
+import { isFedapayCheckoutUrl, PAYMENT_METHODS } from '@digisante/shared';
+
+/**
+ * Moyens de paiement proposés pour l'abonnement PRO : tous sauf le portefeuille.
+ * A8 (revue GO du 22/10/2026) : un médecin n'a pas de portefeuille, ce choix
+ * échouait toujours ; l'API le refuse aussi (400).
+ */
+export const SUBSCRIPTION_METHODS = PAYMENT_METHODS.filter((m) => m !== 'WALLET');
 
 export interface SubscriptionCheckout {
   paymentUrl: string | null;
