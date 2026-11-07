@@ -38,7 +38,7 @@ Compteurs mesurés : 183 REST + 1 WS, 67 pages, 0 appel web vers une route inexi
 | F4 | **Aucune habilitation pharmacie** : pas de `Pharmacy.verifiedAt`, pas d'écran KYC, pas de garde scan/délivrance/stock ; pharmacie non vérifiée visible dans « médicament près de moi » | `schema.prisma` (modèle `Pharmacy`), `kyc.service.ts:228-260`, `pharmacy.routes.ts:40` | Lot « L2-bis pharmacie » : badge + KYC + gardes + filtre recherche (migration additive) |
 | F5 | **Rendu posologie non sûr** (premier entier = dose, fractions perdues, horaires/durée supposés) — déjà ouvert L9 | `packages/shared/src/posology.ts:116-146` | Corriger ou masquer les pictogrammes non sûrs, tests de limites, contreseing (périme l'instantané L9 : coordonner avec la campagne) |
 
-### 2.2 Majeurs [C]
+### 2.2 Majeurs [C] — **corrigés dans le code le 7/11/2026, voir §9**
 
 | # | Écart | Preuve | Action |
 |---|---|---|---|
@@ -213,3 +213,34 @@ Même branche, tests ajoutés pour chaque correctif. **Aucune recette réelle, c
 | `prisma migrate diff` | aucune différence |
 | `validation:check`, `validation:campaign:check` | verts |
 | `metrics:check` | vert : 184 REST, 69 pages, 35 migrations |
+
+---
+
+## 9. Correctifs appliqués le 7 novembre 2026 — écarts majeurs M1 à M6
+
+Même branche. Tests ajoutés pour chaque correctif. **Aucune recette réelle ni aucun déploiement attesté.**
+
+| # | Correctif | Fichiers clés | Preuve |
+|---|---|---|---|
+| M1 | Clôture d'un RDV par son médecin, après l'heure prévue : `POST /appointments/:id/complete` (statut `COMPLETED`) ou `/no-show` (statut `NO_SHOW`).<br>• Transition conditionnelle depuis `CONFIRMED`.<br>• Refus avant l'heure, sur un RDV non confirmé, par un autre médecin ou si une téléconsultation est en cours.<br>• Aucun effet de paiement : un remboursement ne naît que d'une annulation (§5).<br>• Boutons « Terminé / Absent » dans l'agenda. Le RDV `COMPLETED` ouvre l'avis patient. | `appointments.service.ts`, `appointments.routes.ts`, `pro/agenda` | `appointments.visits.test.ts` |
+| M2 | Clôture de téléconsultation avec un champ `report` : le compte rendu est enregistré comme **entrée DMP** via `createRecord`.<br>• Médecin vérifié et consentement actif requis.<br>• Contenu scellé, auteur fixé côté serveur (L1).<br>• L'entrée est créée **avant** la clôture : sans partage du patient, l'API répond 403 et la consultation reste ouverte, le texte saisi est conservé dans l'écran.<br>• Le texte n'est jamais stocké en clair dans `Consultation.notes`.<br>• La vue 360° propose « Ajouter une entrée au dossier » (diagnostic, allergie, maladie chronique, autre). L1 est respecté : l'auteur n'acquiert aucun droit de lecture sur l'entrée. | `consultations.*`, `pro/teleconsult`, `pro/patient`, `lib/api/dmp.ts` | `appointments.test.ts` (403 puis entrée créée) |
+| M3 | `GET /appointments/slots?doctorId&date` donne les créneaux libres d'un médecin vérifié et actif :<br>• heure du Bénin, UTC+1, de 8 h à 17 h ;<br>• pas égal à `slotDuration` ;<br>• créneaux passés et créneaux chevauchant un RDV actif exclus, selon la même règle `overlaps` que la réservation ;<br>• aucune donnée patient renvoyée.<br>La modale de réservation n'utilise plus d'heures codées en dur et recharge la liste sur un 409. La réservation reste l'arbitre. | `appointments.rules.ts`, `BookingModal.tsx` | `appointments.rules.test.ts` (+4), `appointments.visits.test.ts` |
+| M4 | Centre de notifications pour les espaces pharmacie, labo, diaspora et ASC (composant `SpaceNotifications`, réutilisant `NotificationList`). Accès par un lien sur l'accueil de chaque espace et une pastille 🔔 côté pharmacie. | `components/notifications/*`, `app/{pharmacie,labo,diaspora,asc}/notifications` | build (pages générées) |
+| M5 | La mention « audio Fɔ̀ngbè » est retirée : aucun enregistrement n'existe et la lecture vocale utilise une voix fr-FR.<br>• `LANGUAGE_META.FON.hasAudio` vaut `false`, ce qui masque l'icône 🔊 dans les sélecteurs.<br>• Le bouton « Écouter en Fɔ̀ngbè » des résultats devient « Écouter ».<br>• Ne repasser à `true` qu'avec des fichiers audio natifs relus. | `packages/shared/src/i18n.ts`, `patient/results` | — |
+| M6 | Diffusion de campagne **à envoi unique** : la transition `DRAFT → SENT` est conditionnelle et ouvre la transaction, le perdant reçoit 400 sans rien créer.<br>• Destinataires parcourus par curseur et notifications créées par lots de 500.<br>• Statut, notifications et audit atomiques.<br>• Modification et suppression également conditionnelles sur `DRAFT`. | `campaigns.service.ts` | `campaigns.test.ts` (+3, dont 3 envois concurrents → un seul 200) |
+
+**Conséquences** :
+- Nouvel instantané L9 `3e8e9f1a…`, le dossier clinique non signé est régénéré. Cause : nouvelles clés FR/EN dans `messages.ts`. Aucun contenu clinique n'est modifié par M1 à M6.
+- **Clés FON/YOR à traduire (non critiques)** : `teleconsult.report_*` et `pro.entry_*`/`pro.add_entry`. La clé `results.audio` n'est plus utilisée.
+- **Résiduels** :
+  - l'API accepte encore `notes` en clair à la clôture ; l'UI ne l'envoie plus, à retirer ou chiffrer dans un lot dédié ;
+  - les plages horaires par médecin restent à faire (v2) ;
+  - le centre de notifications admin est hors périmètre (§4).
+
+**Contrôles locaux**, tous verts :
+- lint, typecheck ;
+- 745 tests API, 155 tests web ;
+- `test:scripts` : 208 tests ;
+- build web : 74 pages générées ;
+- `validation:check` et `validation:campaign:check` ;
+- `metrics:check` : 187 REST, 73 pages.

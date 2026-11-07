@@ -13,7 +13,7 @@ Porteur : **SEGLA E. Ulrich Gislain** (full-stack, 10+ ans). Collaboratrice : **
 
 **Mission** : répondre aux défis sanitaires béninois — infrastructure médicale limitée, dossiers perdus, connectivité rurale faible — par une plateforme **offline-first**, **multilingue** (FR, EN, Fɔ̀ngbè, Yorùbá — périmètre recentré juin 2026, cf. §8), avec téléconsultation, DMP patient, ordonnances QR, SOS, et paiements Mobile Money + wallet diaspora.
 
-**État au 14 octobre 2026** : socle avancé, **finalisation fonctionnelle et validation avant ouverture** — **184 endpoints REST + 1 canal WebSocket** temps réel / **28 modules** + 5 intégrations, **69 pages frontend** (dont 23 espace patient), **53 modèles Prisma**, 31 enums, 35 migrations, **856 tests** (712 API + 144 web) + 36 e2e (mesure statique des déclarations ; exécution dans la fiche de revue). **7 rôles** (patient · médecin · pharmacie · laboratoire · diaspora · **ASC** · admin). Les vagues d'optimisation 1-12 sont historiques ; elles ne prouvent pas la clôture des abonnements, revenus, hors-ligne médical ou résiduels de sécurité. Les quatre corrections du 6 octobre sont regroupées sur `feat/l0-baseline-review` : baseline et revue locales validées (dont 8 E2E), CI candidates vertes, PR #178/#179 fusionnées sur main `2ee3cfb` ; preuves de fusion et CI main dans `docs/suivi/LOT_L0.md`, aucune mise en production attestée par L0. **Plan actif : `docs/PLAN_Implementations_Restantes_2026-10.md`, lots L0–L11**. Ne plus déclarer le projet « feature-complete » ni « en production » sans les preuves correspondantes.
+**État au 14 octobre 2026** : socle avancé, **finalisation fonctionnelle et validation avant ouverture** — **187 endpoints REST + 1 canal WebSocket** temps réel / **28 modules** + 5 intégrations, **73 pages frontend** (dont 23 espace patient), **53 modèles Prisma**, 31 enums, 35 migrations, **867 tests** (723 API + 144 web) + 36 e2e (mesure statique des déclarations ; exécution dans la fiche de revue). **7 rôles** (patient · médecin · pharmacie · laboratoire · diaspora · **ASC** · admin). Les vagues d'optimisation 1-12 sont historiques ; elles ne prouvent pas la clôture des abonnements, revenus, hors-ligne médical ou résiduels de sécurité. Les quatre corrections du 6 octobre sont regroupées sur `feat/l0-baseline-review` : baseline et revue locales validées (dont 8 E2E), CI candidates vertes, PR #178/#179 fusionnées sur main `2ee3cfb` ; preuves de fusion et CI main dans `docs/suivi/LOT_L0.md`, aucune mise en production attestée par L0. **Plan actif : `docs/PLAN_Implementations_Restantes_2026-10.md`, lots L0–L11**. Ne plus déclarer le projet « feature-complete » ni « en production » sans les preuves correspondantes.
 
 
 **Dérogation cible 13 octobre 2026 (porteur, validée)** : préprod et prod DigiSanté sur le VPS IONOS partagé `srv1.immipro.app` (31.70.148.167, Myvps1, 2-4-120, Ubuntu 26.04.1 LTS, Espagne), déjà hôte d'ImmiPro prod et BeninLink prod/recette. Remplace la cible du contrat initial (VPS Infomaniak distinct, Ubuntu 22.04, PG16 natif, Redis natif). Domaines : préprod `preprod.digisantemobile.app`, prod `digisantemobile.app` + `www.digisantemobile.app`. Ports : préprod web 3100 / api 3101, prod web 3200 / api 3201. Le cas I2 « VPS distinct » est non conforme en l'état ; dérogation documentée, à arbitrer en L11.
@@ -432,3 +432,25 @@ Branche `claude/compassionate-goldberg-5fdh2j`, depuis main `6846fe1`. Revue et 
   - `KycDossier` : dossier KYC médecin et pharmacie, avec accent et pièces proposées.
   
   Les étendre plutôt que dupliquer.
+
+## Reprise — écarts majeurs M1–M6 (7 novembre 2026)
+
+Même branche ; détails : `docs/REVUE_Restant_Finalisation_2026-11-07.md` §9.
+
+- **Clôture d'un RDV** : passe par `closeVisit`, sur `POST /appointments/:id/complete` ou `/no-show`.
+  - Médecin propriétaire, RDV CONFIRMED, après l'heure prévue, aucune téléconsultation en cours.
+  - Transition conditionnelle `updateMany`.
+  - Aucun effet de paiement : jamais de remboursement sur un `NO_SHOW` (§5).
+- **Compte rendu de téléconsultation** : le champ `report` de `/consultations/:id/end` devient une entrée DMP via `createRecord`, **avant** la clôture. Sans consentement actif : 403 et la consultation reste ouverte. Ne jamais l'écrire en clair dans `Consultation.notes`, résiduel encore accepté par l'API. Toute écriture DMP par un médecin passe par `createRecord` (consentement, scellement, auteur serveur).
+- **Créneaux** :
+  - `GET /appointments/slots` utilise `freeSlots`/`beninDayStartMs` (UTC+1 fixe, 8 h–17 h, pas égal à `slotDuration`) et la même règle `overlaps` que `book`.
+  - Le verrou de réservation reste l'arbitre : ne pas réserver à partir de la seule liste.
+  - Toute nouvelle règle de disponibilité doit rester commune aux deux.
+- **Notifications par espace** : `SpaceNotifications` et `NotificationList` pour pharmacie, labo, diaspora et ASC ; `/pro/notifications` pour le médecin. Pas de centre admin (§4).
+- **Audio Fɔ̀ngbè** : `hasAudio` vaut `false` pour toutes les langues tant qu'aucun enregistrement natif relu n'existe. La synthèse vocale fr-FR n'est pas de l'audio Fɔ̀ngbè.
+- **Campagnes** :
+  - prise conditionnelle `DRAFT→SENT` en tête de transaction ;
+  - envoi par lots (`CAMPAIGN_BATCH_SIZE`, curseur sur `id`) ;
+  - audit dans la même transaction ;
+  - ne jamais revenir à « lire le statut puis `createMany` ».
+- **L9** : instantané `3e8e9f1a…`. Toute modification de `messages.ts` impose `validation:prepare` puis la régénération du dossier.
