@@ -10,6 +10,8 @@ export interface AuthUser {
   role: Role;
   status: string;
   lang: Lang;
+  /** Version des CGU acceptée (absente d'un ancien cache = à ré-accepter en ligne). */
+  termsVersion?: string | null;
 }
 
 export interface OtpInfo {
@@ -43,6 +45,9 @@ export interface RegisterBody {
   address?: string;
   // Agent de santé communautaire
   zone?: string;
+  // Consentement explicite aux CGU / politique de confidentialité (version courante).
+  acceptTerms: true;
+  termsVersion: string;
 }
 
 export const authApi = {

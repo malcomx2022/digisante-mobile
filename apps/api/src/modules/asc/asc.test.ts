@@ -1,6 +1,7 @@
 // Tests d'intégration — Agent de Santé Communautaire (ASC). CI (DB+Redis).
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { REGISTER_TERMS } from '@/test/terms-fixture.js';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 const PHONES = ['+2290193300001', '+2290193300002', '+2290193300003', '+2290193300004']; // asc1, asc2, doctor, patient
@@ -39,14 +40,14 @@ describe.skipIf(!HAS_INFRA)('Agent de Santé Communautaire (intégration)', () =
   });
 
   it('inscription ASC crée le profil de rôle (zone)', async () => {
-    const res = await app.inject({ method: 'POST', url: '/api/v1/auth/register', payload: { phone: REG_PHONE, role: 'ASC', firstName: 'New', lastName: 'Asc', zone: 'Village X' } });
+    const res = await app.inject({ method: 'POST', url: '/api/v1/auth/register', payload: { ...REGISTER_TERMS, phone: REG_PHONE, role: 'ASC', firstName: 'New', lastName: 'Asc', zone: 'Village X' } });
     expect(res.statusCode).toBe(201);
     const worker = await app.prisma.communityHealthWorker.findFirst({ where: { zone: 'Village X' }, select: { zone: true } });
     expect(worker?.zone).toBe('Village X');
   });
 
   it('inscription ASC sans zone → refus de validation (422)', async () => {
-    const res = await app.inject({ method: 'POST', url: '/api/v1/auth/register', payload: { phone: '+2290193300006', role: 'ASC', firstName: 'No', lastName: 'Zone' } });
+    const res = await app.inject({ method: 'POST', url: '/api/v1/auth/register', payload: { ...REGISTER_TERMS, phone: '+2290193300006', role: 'ASC', firstName: 'No', lastName: 'Zone' } });
     expect(res.statusCode).toBe(422);
   });
 

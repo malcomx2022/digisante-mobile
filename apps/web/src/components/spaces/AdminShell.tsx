@@ -105,6 +105,7 @@ export const ADMIN_NAV: { labelKey: string; href: string; icon: IconKey; scope?:
   { labelKey: 'admin.education', href: '/admin/education', icon: 'education', scope: 'education:write' },
   { labelKey: 'admin.campaigns', href: '/admin/campaigns', icon: 'campaigns', scope: 'campaigns:write' },
   { labelKey: 'admin.support', href: '/admin/support', icon: 'support', scope: 'support:write' },
+  { labelKey: 'deletions.title', href: '/admin/deletions', icon: 'users', scope: 'users:read' },
   { labelKey: 'admin.integrations', href: '/admin/integrations', icon: 'integrations', scope: 'integrations:read' },
   { labelKey: 'admin.admins', href: '/admin/admins', icon: 'admins', scope: 'admin:manage' },
 ];

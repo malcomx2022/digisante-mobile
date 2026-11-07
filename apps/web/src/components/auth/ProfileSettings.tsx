@@ -9,6 +9,7 @@ import { SyncActions } from '@/components/offline/SyncActions';
 import { VaultControls } from '@/components/offline/VaultControls';
 import { LogoutButton } from '@/components/auth/LogoutButton';
 import { useAuth } from '@/auth/AuthProvider';
+import { PrivacySection } from '@/components/legal/PrivacySection';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { usersApi, type MeFull } from '@/lib/api/users';
 import { cn } from '@/lib/cn';
@@ -161,6 +162,9 @@ export function ProfileSettings({
       <Button variant={accent === 'ocre' ? 'ocre' : accent === 'indigo' ? 'indigo' : 'sante'} full onClick={save} disabled={saving || loading}>
         {t('profile.save')}
       </Button>
+
+      {/* Droits APDP (textes légaux, suppression) : hors comptes admin, gérés à part. */}
+      {user && user.role !== 'ADMIN' && <PrivacySection />}
 
       <LogoutButton variant={logoutVariant} />
     </div>

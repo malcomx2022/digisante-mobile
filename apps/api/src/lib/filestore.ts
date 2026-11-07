@@ -14,7 +14,7 @@
 // DOIT être inclus dans le cron de sauvegarde du VPS.
 // ─────────────────────────────────────────────────────────────
 import { createCipheriv, createDecipheriv, randomBytes, randomUUID } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
 import { env } from './env.js';
@@ -53,6 +53,21 @@ export async function storeEncryptedFile(content: Buffer): Promise<string> {
   await mkdir(storageDir(), { recursive: true });
   await writeFile(join(storageDir(), `${id}.bin`), payload);
   return id;
+}
+
+/**
+ * Supprime un fichier du magasin (droit à l'effacement, retrait d'une pièce).
+ * Idempotent : un fichier déjà absent n'est pas une erreur. Toujours appeler
+ * APRÈS la suppression de la ligne qui le référence (B4 : un fichier référencé
+ * ne doit jamais disparaître).
+ */
+export async function deleteEncryptedFile(id: string): Promise<void> {
+  if (!isValidStorageId(id)) throw new Error('Identifiant de stockage invalide');
+  try {
+    await unlink(join(storageDir(), `${id}.bin`));
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+  }
 }
 
 /** Relit et déchiffre un fichier stocké. Jette si l'id est invalide ou altéré. */

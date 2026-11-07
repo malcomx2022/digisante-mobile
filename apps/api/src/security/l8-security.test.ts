@@ -8,6 +8,7 @@ import { computeAuditHash, writeAudit } from '@/lib/audit.js';
 import { env, envSchema } from '@/lib/env.js';
 import { hashOtp } from '@/modules/auth/auth.otp.js';
 import { sendOtp } from '@/services/twilio.js';
+import { REGISTER_TERMS } from '@/test/terms-fixture.js';
 
 vi.mock('@/services/twilio.js', () => ({ sendOtp: vi.fn(async () => ({ delivered: true, stub: false })) }));
 
@@ -31,7 +32,7 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.REDIS_URL)('L8 — sé
     await app.prisma.user.deleteMany({ where: { phone: { in: phones } } });
     await app.redis.del(...keys()); await app.close(); env.RECONCILE_TOKEN = originalServiceToken;
   });
-  const register = (phone: string, extra = {}) => app.inject({ method: 'POST', url: '/api/v1/auth/register', payload: { ...input(phone), ...extra } });
+  const register = (phone: string, extra = {}) => app.inject({ method: 'POST', url: '/api/v1/auth/register', payload: { ...REGISTER_TERMS, ...input(phone), ...extra } });
   const request = (phone: string) => app.inject({ method: 'POST', url: '/api/v1/auth/otp/request', payload: { phone } });
   const verify = (phone: string, code: string) => app.inject({ method: 'POST', url: '/api/v1/auth/otp/verify', payload: { phone, code } });
 

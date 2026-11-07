@@ -33,6 +33,8 @@ interface PublicUser {
   role: Role;
   status: string;
   lang: string;
+  /** Version des CGU acceptée (null = jamais acceptée → ré-acceptation demandée). */
+  termsVersion: string | null;
 }
 
 interface RegisterInput {
@@ -49,6 +51,8 @@ interface RegisterInput {
   establishmentName?: string;
   address?: string;
   zone?: string;
+  /** Version des CGU acceptée (le schéma impose la version courante). */
+  termsVersion: string;
 }
 
 const otpKey = (phone: string) => `otp:${phone}`;
@@ -82,8 +86,9 @@ function publicUser(u: {
   role: Role;
   status: string;
   lang: string;
+  termsVersion: string | null;
 }): PublicUser {
-  return { id: u.id, phone: u.phone, email: u.email, role: u.role, status: u.status, lang: u.lang };
+  return { id: u.id, phone: u.phone, email: u.email, role: u.role, status: u.status, lang: u.lang, termsVersion: u.termsVersion };
 }
 
 async function ensureNotLocked(app: FastifyInstance, phone: string): Promise<void> {
@@ -147,9 +152,12 @@ export async function register(app: FastifyInstance, input: RegisterInput) {
           role: input.role,
           lang: input.lang,
           status: 'PENDING_VERIFICATION',
+          // Consentement explicite et versionné (validé par le schéma : version courante).
+          termsVersion: input.termsVersion,
+          termsAcceptedAt: new Date(),
           profile: { create: { firstName: input.firstName, lastName: input.lastName } },
         },
-        select: { id: true, phone: true, email: true, role: true, status: true, lang: true },
+        select: { id: true, phone: true, email: true, role: true, status: true, lang: true, termsVersion: true },
       });
 
       switch (input.role) {
@@ -289,7 +297,7 @@ export async function verifyOtp(
 
   const user = await app.prisma.user.findUnique({
     where: { phone },
-    select: { id: true, phone: true, email: true, role: true, status: true, lang: true },
+    select: { id: true, phone: true, email: true, role: true, status: true, lang: true, termsVersion: true },
   });
   if (!user) throw invalidOtp();
 
@@ -336,7 +344,7 @@ export async function refresh(app: FastifyInstance, refreshToken: string) {
   // On renvoie aussi l'utilisateur public → reprise de session en UN appel.
   const user = await app.prisma.user.findUnique({
     where: { id: payload.sub },
-    select: { id: true, phone: true, email: true, role: true, status: true, lang: true },
+    select: { id: true, phone: true, email: true, role: true, status: true, lang: true, termsVersion: true },
   });
   if (!user || user.status === 'SUSPENDED') {
     throw unauthorized('Session révoquée. Contactez le support.');
