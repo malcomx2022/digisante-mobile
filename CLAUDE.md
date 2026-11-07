@@ -13,7 +13,7 @@ Porteur : **SEGLA E. Ulrich Gislain** (full-stack, 10+ ans). Collaboratrice : **
 
 **Mission** : répondre aux défis sanitaires béninois — infrastructure médicale limitée, dossiers perdus, connectivité rurale faible — par une plateforme **offline-first**, **multilingue** (FR, EN, Fɔ̀ngbè, Yorùbá — périmètre recentré juin 2026, cf. §8), avec téléconsultation, DMP patient, ordonnances QR, SOS, et paiements Mobile Money + wallet diaspora.
 
-**État au 14 octobre 2026** : socle avancé, **finalisation fonctionnelle et validation avant ouverture** — **187 endpoints REST + 1 canal WebSocket** temps réel / **28 modules** + 5 intégrations, **73 pages frontend** (dont 23 espace patient), **53 modèles Prisma**, 31 enums, 35 migrations, **867 tests** (723 API + 144 web) + 36 e2e (mesure statique des déclarations ; exécution dans la fiche de revue). **7 rôles** (patient · médecin · pharmacie · laboratoire · diaspora · **ASC** · admin). Les vagues d'optimisation 1-12 sont historiques ; elles ne prouvent pas la clôture des abonnements, revenus, hors-ligne médical ou résiduels de sécurité. Les quatre corrections du 6 octobre sont regroupées sur `feat/l0-baseline-review` : baseline et revue locales validées (dont 8 E2E), CI candidates vertes, PR #178/#179 fusionnées sur main `2ee3cfb` ; preuves de fusion et CI main dans `docs/suivi/LOT_L0.md`, aucune mise en production attestée par L0. **Plan actif : `docs/PLAN_Implementations_Restantes_2026-10.md`, lots L0–L11**. Ne plus déclarer le projet « feature-complete » ni « en production » sans les preuves correspondantes.
+**État au 14 octobre 2026** : socle avancé, **finalisation fonctionnelle et validation avant ouverture** — **193 endpoints REST + 1 canal WebSocket** temps réel / **28 modules** + 5 intégrations, **75 pages frontend** (dont 23 espace patient), **54 modèles Prisma**, 32 enums, 36 migrations, **871 tests** (727 API + 144 web) + 36 e2e (mesure statique des déclarations ; exécution dans la fiche de revue). **7 rôles** (patient · médecin · pharmacie · laboratoire · diaspora · **ASC** · admin). Les vagues d'optimisation 1-12 sont historiques ; elles ne prouvent pas la clôture des abonnements, revenus, hors-ligne médical ou résiduels de sécurité. Les quatre corrections du 6 octobre sont regroupées sur `feat/l0-baseline-review` : baseline et revue locales validées (dont 8 E2E), CI candidates vertes, PR #178/#179 fusionnées sur main `2ee3cfb` ; preuves de fusion et CI main dans `docs/suivi/LOT_L0.md`, aucune mise en production attestée par L0. **Plan actif : `docs/PLAN_Implementations_Restantes_2026-10.md`, lots L0–L11**. Ne plus déclarer le projet « feature-complete » ni « en production » sans les preuves correspondantes.
 
 
 **Dérogation cible 13 octobre 2026 (porteur, validée)** : préprod et prod DigiSanté sur le VPS IONOS partagé `srv1.immipro.app` (31.70.148.167, Myvps1, 2-4-120, Ubuntu 26.04.1 LTS, Espagne), déjà hôte d'ImmiPro prod et BeninLink prod/recette. Remplace la cible du contrat initial (VPS Infomaniak distinct, Ubuntu 22.04, PG16 natif, Redis natif). Domaines : préprod `preprod.digisantemobile.app`, prod `digisantemobile.app` + `www.digisantemobile.app`. Ports : préprod web 3100 / api 3101, prod web 3200 / api 3201. Le cas I2 « VPS distinct » est non conforme en l'état ; dérogation documentée, à arbitrer en L11.
@@ -454,3 +454,28 @@ Même branche ; détails : `docs/REVUE_Restant_Finalisation_2026-11-07.md` §9.
   - audit dans la même transaction ;
   - ne jamais revenir à « lire le statut puis `createMany` ».
 - **L9** : instantané `3e8e9f1a…`. Toute modification de `messages.ts` impose `validation:prepare` puis la régénération du dossier.
+
+## Reprise — conformité APDP/RGPD (7 novembre 2026)
+
+Même branche. Détails dans `docs/CONFORMITE_APDP_2026-11.md` et dans `docs/REVUE_Restant_Finalisation_2026-11-07.md` §10.
+
+- **Consentement versionné** :
+  - Contrôles serveur : `registerSchema` exige `acceptTerms: true` et `termsVersion === TERMS_VERSION` (`@digisante/shared/legal.ts`), sinon 422. `POST /users/me/terms` n'accepte que la version courante.
+  - Tests : toute charge utile de test de `/auth/register` fusionne `REGISTER_TERMS` (`src/test/terms-fixture.ts`).
+  - Changement des textes : toute modification de fond de `apps/web/src/content/legal.ts` **impose d'incrémenter `TERMS_VERSION`**.
+  - `TermsGate` : bloque seulement si le serveur renvoie une version ≠ courante (null compris). Ne bloque jamais hors ligne, ni sur `/patient/sos`, `/patient/emergency` ou `/patient/triage`, ni les admins. Ne jamais rendre l'urgence dépendante de la ré-acceptation.
+- **Textes légaux** :
+  - Ce sont des **PROJETS**. Le bandeau reste affiché tant qu'ils ne sont pas validés juridiquement.
+  - Les champs `[ ]` sont à fournir par le porteur.
+  - Les textes ne sont pas dans `messages.ts` (contenu) : FR fait foi, EN est traduit, FON/YOR retombent sur FR.
+- **Effacement** :
+  - **Circuit** : demande du titulaire (`/users/me/deletion-request`), puis exécution admin (`/admin/deletion-requests/:id/execute`, scope `users:write`). Jamais d'exécution automatique.
+  - **Ce que fait `executeDeletion`** : supprime la santé propre au patient, anonymise l'identité (`phone = deleted:<id>`), ferme le compte (`SUSPENDED` + `deletedAt`), puis supprime les fichiers chiffrés **après** validation.
+  - **Conservés pseudonymisés en attendant D-8** : audit, paiements et finances, RDV, ordonnances, analyses, orientations, avis.
+  - **Règle d'implémentation** : ne pas supprimer la ligne `User` (cascades financières) ; ne jamais écrire le motif de refus en méta d'audit.
+- **Magasin de fichiers** : `deleteEncryptedFile` (idempotent) est appelé APRÈS la suppression de la ligne qui référence le fichier (B4). Le retrait d'une pièce DMP efface désormais le fichier.
+- **Conservation (D-8)** : aucune durée n'est codée ; la proposition figure au dossier de conformité. Une fois D-8 validée :
+  - purges par cron, à ajouter aux deux crontabs ;
+  - mise à jour de la politique de confidentialité ;
+  - incrément de `TERMS_VERSION`.
+- **L9** : instantané courant `393091c6…`.

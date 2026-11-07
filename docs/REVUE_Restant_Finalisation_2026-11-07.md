@@ -73,7 +73,7 @@ Hygiène bonne : 0 `@ts-ignore`, 0 `any` hors tests, 0 TODO réel.
 
 ---
 
-## 4. Reste à faire — sécurité & conformité
+## 4. Reste à faire — sécurité & conformité (S1–S5 traités côté code le 7/11, voir §10)
 
 Invariants contrôlés **conformes** [C] : gardes admin/scopes, routes publiques limitées (auth, health, crons sous `x-service-token` en temps constant), webhook FedaPay (`t=,s=`, 300 s, transition conditionnelle), `resolveDmpScope` sur toutes les lectures DMP/fichiers/export, `assertCareRelationship`, cloisonnement 404, liste positive de rejeu L3, rate-limit Redis, cookie refresh, WS chat.
 
@@ -244,3 +244,42 @@ Même branche. Tests ajoutés pour chaque correctif. **Aucune recette réelle ni
 - build web : 74 pages générées ;
 - `validation:check` et `validation:campaign:check` ;
 - `metrics:check` : 187 REST, 73 pages.
+
+---
+
+## 10. Correctifs du 7 novembre 2026 : conformité APDP/RGPD (S1 à S5)
+
+Décisions du porteur prises le 7/11 :
+- **Effacement** : sur demande du titulaire, exécuté par un admin.
+- **Textes légaux** : publiés comme projets marqués « à valider ».
+
+Dossier complet : `docs/CONFORMITE_APDP_2026-11.md` (registre des traitements, trame d'AIPD, proposition de conservation pour D-8, actions du porteur).
+
+| # | Traitement | État |
+|---|---|---|
+| S1 | Ajouts :<br>• pages publiques `/legal/{cgu,confidentialite,mentions}`, en **projet** ;<br>• case de consentement non cochée à l'inscription : `acceptTerms` est exigé, avec la version `TERMS_VERSION` (422 sinon) ;<br>• `User.termsVersion` et `termsAcceptedAt` ;<br>• écran de ré-acceptation `TermsGate` pour les comptes existants (jamais bloquant hors ligne ni sur SOS, fiche d'urgence ou triage ; admins exclus) ;<br>• audit `TERMS_ACCEPTED`. | Code livré. **Texte juridique à valider et champs [ ] à fournir.** |
+| S2 | Ajouts :<br>• demande depuis le profil (idempotente, auditée) ;<br>• file `/admin/deletions` : lecture avec `users:read`, exécution ou refus motivé avec `users:write` ;<br>• exécution transactionnelle : santé effacée, identité anonymisée, compte fermé, fichiers supprimés après validation. | Code livré. Audit et finances **conservés pseudonymisés** en attendant D-8. |
+| S3 | Projet de registre et trame d'AIPD dans le dossier de conformité. | **Porteur** : déclaration ou autorisation APDP, contrats de sous-traitance, délégué. |
+| S4 | Proposition de durées (non codée). | **Porteur** : décision D-8, puis purges planifiées. |
+| S5 | Le retrait d'une pièce DMP efface le fichier chiffré du disque, après la ligne en base. | Livré (`deleteEncryptedFile`). |
+
+Migration additive `20261107140000_gdpr_terms_and_erasure` : colonnes `users.termsVersion`, `termsAcceptedAt` et `deletedAt` ; table `account_deletion_requests`.
+- Aucun compte existant n'est réputé avoir accepté : la ré-acceptation est demandée à la prochaine session en ligne.
+- **Préprod** : les comptes de recette verront l'écran de ré-acceptation.
+- **e2e** : l'aide d'inscription coche la case (`data-testid="accept-terms"`).
+
+**Contrôles locaux**, tous verts :
+- lint, typecheck ;
+- tests : 749 API, 155 web, 208 scripts ;
+- build web : 78 pages générées ;
+- `prisma migrate diff` : aucune différence ;
+- `validation:check` : instantané L9 `393091c6…` ;
+- `metrics:check` : 193 REST, 75 pages, 54 modèles, 36 migrations.
+
+**Non exécutés en local** :
+- les e2e, couverts par la CI ;
+- le texte juridique et les formalités, hors code.
+
+**Reste** :
+- export PDF patient : mineur ; l'export FHIR existe ;
+- purges de conservation : en attente de D-8.
