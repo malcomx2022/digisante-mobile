@@ -13,7 +13,7 @@ Porteur : **SEGLA E. Ulrich Gislain** (full-stack, 10+ ans). Collaboratrice : **
 
 **Mission** : répondre aux défis sanitaires béninois — infrastructure médicale limitée, dossiers perdus, connectivité rurale faible — par une plateforme **offline-first**, **multilingue** (FR, EN, Fɔ̀ngbè, Yorùbá — périmètre recentré juin 2026, cf. §8), avec téléconsultation, DMP patient, ordonnances QR, SOS, et paiements Mobile Money + wallet diaspora.
 
-**État au 14 octobre 2026** : socle avancé, **finalisation fonctionnelle et validation avant ouverture** — **183 endpoints REST + 1 canal WebSocket** temps réel / **28 modules** + 5 intégrations, **67 pages frontend** (dont 23 espace patient), **53 modèles Prisma**, 31 enums, 34 migrations, **840 tests** (696 API + 144 web) + 36 e2e (mesure statique des déclarations ; exécution dans la fiche de revue). **7 rôles** (patient · médecin · pharmacie · laboratoire · diaspora · **ASC** · admin). Les vagues d'optimisation 1-12 sont historiques ; elles ne prouvent pas la clôture des abonnements, revenus, hors-ligne médical ou résiduels de sécurité. Les quatre corrections du 6 octobre sont regroupées sur `feat/l0-baseline-review` : baseline et revue locales validées (dont 8 E2E), CI candidates vertes, PR #178/#179 fusionnées sur main `2ee3cfb` ; preuves de fusion et CI main dans `docs/suivi/LOT_L0.md`, aucune mise en production attestée par L0. **Plan actif : `docs/PLAN_Implementations_Restantes_2026-10.md`, lots L0–L11**. Ne plus déclarer le projet « feature-complete » ni « en production » sans les preuves correspondantes.
+**État au 14 octobre 2026** : socle avancé, **finalisation fonctionnelle et validation avant ouverture** — **184 endpoints REST + 1 canal WebSocket** temps réel / **28 modules** + 5 intégrations, **69 pages frontend** (dont 23 espace patient), **53 modèles Prisma**, 31 enums, 35 migrations, **856 tests** (712 API + 144 web) + 36 e2e (mesure statique des déclarations ; exécution dans la fiche de revue). **7 rôles** (patient · médecin · pharmacie · laboratoire · diaspora · **ASC** · admin). Les vagues d'optimisation 1-12 sont historiques ; elles ne prouvent pas la clôture des abonnements, revenus, hors-ligne médical ou résiduels de sécurité. Les quatre corrections du 6 octobre sont regroupées sur `feat/l0-baseline-review` : baseline et revue locales validées (dont 8 E2E), CI candidates vertes, PR #178/#179 fusionnées sur main `2ee3cfb` ; preuves de fusion et CI main dans `docs/suivi/LOT_L0.md`, aucune mise en production attestée par L0. **Plan actif : `docs/PLAN_Implementations_Restantes_2026-10.md`, lots L0–L11**. Ne plus déclarer le projet « feature-complete » ni « en production » sans les preuves correspondantes.
 
 
 **Dérogation cible 13 octobre 2026 (porteur, validée)** : préprod et prod DigiSanté sur le VPS IONOS partagé `srv1.immipro.app` (31.70.148.167, Myvps1, 2-4-120, Ubuntu 26.04.1 LTS, Espagne), déjà hôte d'ImmiPro prod et BeninLink prod/recette. Remplace la cible du contrat initial (VPS Infomaniak distinct, Ubuntu 22.04, PG16 natif, Redis natif). Domaines : préprod `preprod.digisantemobile.app`, prod `digisantemobile.app` + `www.digisantemobile.app`. Ports : préprod web 3100 / api 3101, prod web 3200 / api 3201. Le cas I2 « VPS distinct » est non conforme en l'état ; dérogation documentée, à arbitrer en L11.
@@ -403,3 +403,32 @@ Branche `claude/inspiring-shannon-6c26ex` depuis main `b26c1c8`, pour le candida
 - **Erreurs API côté UI** : `apiErrorMessage` (`lib/api/errors.ts`) affiche le refus métier 4xx (422 : champ + règle) ; message générique seulement réseau/5xx/401.
 - **Intégrations** : chaque `PUT` est relu en base (`verifyIntegrationWrite`, 500 `INTEGRATION_WRITE_UNVERIFIED` avant audit) ; domaine Daily validé par `lib/daily-domain.ts`, règle partagée avec le service ; un masque à 4 caractères ne prouve pas qu'une valeur a changé.
 - **Finance admin** : `GET /admin/finance/payments` (tous statuts, filtre) pour retrouver un REFUNDED ; aucune identité payeur.
+
+
+## Reprise — bloquants fonctionnels du pilote (7 novembre 2026)
+
+Branche `claude/compassionate-goldberg-5fdh2j`, depuis main `6846fe1`. Revue et correctifs : `docs/REVUE_Restant_Finalisation_2026-11-07.md` (§2, §8). Aucune recette réelle, contreseing ni déploiement attesté.
+
+- **Miroir push des notifications in-app** : le dispatch envoie en plus un push FCM, au texte **générique** (`pushMirrorText`). Ne jamais y mettre le corps d'une notification SYSTEM (médicament, signalement ASC, motif : §4). Le push passe par `pushToRecipient`, qui relit la liaison et purge un token invalide. Un échec du push ne fait pas échouer l'in-app. Toute nouvelle notification métier peut rester `IN_APP`.
+- **SOS** : `contactNotified` n'est vrai que sur `res.delivered` d'au moins un SMS ; ni stub ni notification in-app du patient. L'écran n'affiche jamais « prévenu » sans cette preuve.
+- **Habilitation pharmacie** (`Pharmacy.verifiedAt`, migration `20261107120000_pharmacy_verification`, sans reprise) :
+  - scan et délivrance passent par `verifiedPharmacyIdOf` ;
+  - la recherche patient filtre sur `verifiedAt` non nul et compte actif ;
+  - l'approbation KYC d'une pharmacie exige `NATIONAL_ID` + `PRACTICE_LICENSE`, toutes pièces vérifiées ;
+  - ne jamais poser le badge en SQL ;
+  - les fixtures de test doivent créer `verifiedAt` pour une pharmacie qui scanne ou délivre.
+- **Posologie** : `parsePosology` ne renseigne une dimension que **sans ambiguïté**. Ne jamais réintroduire :
+  - une répartition horaire par défaut ;
+  - la lecture du premier entier comme dose (teneur en mg/mL) ;
+  - des jours supposés pour une durée sans unité, ou des mois convertis en jours ;
+  - l'illustration d'une consigne niée ;
+  - « pendant le repas » classé en `AFTER` (c'est `DURING`).
+  
+  Les fractions passent par `formatDoseCount`. Les cas POS01 à POS14 sont couverts par des tests et **restent à contresigner**.
+- **L9** : instantané `c9f0471e…`. L'ancien `3e061d52…` et la campagne `L9-2026-10-14` sont archivés dans `docs/validation/archive/L9-3e061d52-2026-11-07/`, à ne pas modifier. `validation:campaign:check` vérifie l'intégrité de ce kit archivé. Une nouvelle campagne exige un nouvel identifiant, une base et un snapshot fixés explicitement : décision du porteur.
+- **i18n** : 8 clés critiques `sos.*` par langue sont sans FON/YOR (6 anciennes + `sos.sms_delivered` et `sos.no_contact_notified`). Relecture native obligatoire, jamais de traduction automatique.
+- **Composants mutualisés** :
+  - `NotificationList` : centre de notifications par espace, avec accent ;
+  - `KycDossier` : dossier KYC médecin et pharmacie, avec accent et pièces proposées.
+  
+  Les étendre plutôt que dupliquer.

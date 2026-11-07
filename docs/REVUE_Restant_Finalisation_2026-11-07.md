@@ -28,7 +28,7 @@ Lots : L0–L4 livrés ; L5–L8 code livré, gates externes ouverts ; L9 techni
 
 Compteurs mesurés : 183 REST + 1 WS, 67 pages, 0 appel web vers une route inexistante, 2 lectures orphelines mineures (`GET /appointments/:id`, `GET /prescriptions/:id`). Écarts de l'audit d'août D1→D7 : **tous fermés** [C].
 
-### 2.1 Bloquants pilote [C]
+### 2.1 Bloquants pilote [C] — **corrigés dans le code le 7/11/2026, voir §8**
 
 | # | Écart | Preuve | Action |
 |---|---|---|---|
@@ -171,3 +171,45 @@ I2 (hôte partagé) · rôle PG non propriétaire de l'audit · isolement Valkey
 6. **Production** : checklist §6.3, restauration tierce, rollback, PV GO/NO-GO L11.
 
 *Revue générée le 7 novembre 2026 par Claude Code (revue en agents parallèles, lecture seule). Les compteurs proviennent d'exécutions locales (Node 22, PostgreSQL 16 natif) et des scripts du dépôt ; les états serveur et recettes proviennent des registres et fiches, non d'un accès à l'hôte.*
+
+---
+
+## 8. Correctifs appliqués le 7 novembre 2026 — bloquants F1 à F5
+
+Même branche, tests ajoutés pour chaque correctif. **Aucune recette réelle, contreseing ni déploiement attesté.**
+
+| # | Correctif | Fichiers clés | Preuve |
+|---|---|---|---|
+| F1 | Toute notification `IN_APP` part aussi en **push FCM** quand le destinataire a un appareil lié. Le texte est **générique** (`pushMirrorText`) : nom de médicament, signalement ASC ou motif ne transitent jamais par FCM ni par l'écran verrouillé (§4). Un échec du push ne fait pas échouer l'in-app. La liaison est relue avant chaque envoi et un token invalide est purgé (helper `pushToRecipient`, partagé avec le canal `PUSH_FCM`). Pas de SMS de repli ajouté pour les rappels (décision de coût à prendre). | `notifications.service.ts`, `notifications.templates.ts` | `notifications.devices.test.ts` (+2) |
+| F2 | Centre de notifications du médecin `/pro/notifications`, avec une tuile et le compteur de non lus sur le tableau de bord PRO. La liste est mutualisée dans le composant `NotificationList`, partagé avec le patient. Le signalement ASC est lisible par le médecin destinataire. | `components/notifications/NotificationList.tsx`, `app/pro/notifications`, `app/pro/page.tsx` | `asc.test.ts` (lecture du signalement par le médecin) |
+| F3 | SOS : `contactNotified` n'est vrai **que si au moins un SMS a été réellement livré** (ni stub, ni notification in-app du patient). L'écran distingue « SMS transmis à vos contacts » et « alerte enregistrée, personne prévenu — appelez le 112 ». Le corps de la notification du patient reflète l'état réel. | `sos.service.ts`, `patient/sos/page.tsx` | `sos.service.test.ts` (stub et absence de contact ⇒ faux) |
+| F4 | Habilitation des pharmacies, migration additive `20261107120000_pharmacy_verification` (`Pharmacy.verifiedAt`, aucun badge déduit de l'historique) :<br>• scan et délivrance exigent une officine vérifiée ;<br>• « médicament près de moi » ne liste que les officines vérifiées et actives ;<br>• l'approbation KYC d'une pharmacie exige un `NATIONAL_ID` et un `PRACTICE_LICENSE` présents et toutes les pièces vérifiées, puis pose le badge ;<br>• `GET /pharmacy/me` ;<br>• écran `/pharmacie/kyc`, avec le dossier KYC mutualisé `KycDossier` partagé avec `/pro/kyc` ;<br>• bannière sur l'écran de scan. | `pharmacy.*`, `kyc.service.ts`, `schema.prisma`, `app/pharmacie/kyc` | `pharmacy.verification.test.ts` (3) + fixtures |
+| F5 | Analyse de posologie conservatrice, couvrant les 14 cas à risque POS01 à POS14 de la campagne L9 :<br>• fractions conservées (½, 1/2, 0,5, « demi ») ;<br>• une teneur ou un volume (mg, mL…) n'est jamais une quantité ;<br>• quantité unique seulement : rien si elle varie selon le moment ou s'il s'agit d'une plage ;<br>• **aucun horaire ajouté** ;<br>• « par semaine », un intervalle ou des heures ne deviennent pas des prises par jour ;<br>• une contradiction entre prises et moments n'est pas résolue par le code ;<br>• une négation n'est jamais illustrée ;<br>• « pendant le repas » est représenté par la nouvelle valeur `DURING` ;<br>• une durée n'est retenue qu'en jours ou en semaines entiers.<br>Le texte original fait toujours foi. | `packages/shared/src/posology.ts`, `PrescriptionPosology.tsx` | `posology.test.ts` (+10), `clinical-review.test.mjs` |
+
+**Conséquences L9** (décision du porteur du 7/11) :
+- L'instantané passe de `3e061d52…` à `c9f0471e…` et le dossier clinique non signé est régénéré.
+- L'ancien instantané et le kit de campagne `L9-2026-10-14` sont archivés tels quels dans `docs/validation/archive/L9-3e061d52-2026-11-07/`. Les retours annoncés restent liés à cette version.
+- `validation:campaign:check` contrôle désormais l'intégrité de ce kit archivé. Une **nouvelle campagne**, avec un nouvel identifiant, est à préparer pour les sources corrigées.
+- Les cas POS01 à POS14 portent la mention « Corrigé 07/11 (à confirmer) ». **Le contreseing clinique reste requis.**
+
+**Dettes ouvertes par ces correctifs** :
+- Nouvelles clés **critiques** `sos.sms_delivered` et `sos.no_contact_notified`, livrées en FR/EN seulement : FON/YOR retombent sur le français. Elles s'ajoutent aux 6 clés `sos.*` déjà ouvertes, soit 8 clés critiques par langue à faire relire par des natifs, jamais par traduction automatique.
+- Clés non critiques à traduire en FON/YOR : `pharmacie.kyc*`, `pharmacie.not_verified` et `posology.meal.DURING`.
+
+**Exploitation** :
+- Après migration, les pharmacies existantes en préproduction ou en production deviennent **non vérifiées** : scan et délivrance sont fermés et elles disparaissent de la recherche jusqu'à une revue KYC complète.
+- Prévenir les officines de recette ; ne pas remplir `verifiedAt` en SQL.
+- Le seed de démonstration pose le badge de la pharmacie synthétique.
+
+**Contrôles exécutés en local** (Node 22, PostgreSQL 16, Redis), tous verts :
+
+| Contrôle | Résultat |
+|---|---|
+| Lint, typecheck | verts |
+| Tests API | 95 fichiers, 734 tests |
+| Tests web | 155 tests |
+| `test:scripts` | 208 tests (avec un faux `ss`, cf. §3) |
+| Build web | 70 pages générées |
+| `prisma migrate diff` | aucune différence |
+| `validation:check`, `validation:campaign:check` | verts |
+| `metrics:check` | vert : 184 REST, 69 pages, 35 migrations |
