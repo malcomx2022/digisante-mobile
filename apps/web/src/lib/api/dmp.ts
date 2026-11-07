@@ -75,6 +75,14 @@ export const dmpApi = {
       headers: { 'x-share-token': shareToken },
     }),
 
+  /**
+   * Entrée rédigée par un MÉDECIN consenti pour un patient (compte rendu,
+   * diagnostic…). Le serveur impose auteur, consentement actif et chiffrement ;
+   * le médecin n'acquiert aucun droit de lecture supplémentaire sur l'entrée.
+   */
+  createForPatient: (patientId: string, input: { type: string; title: string; note: string }) =>
+    postNow<DmpRecord>('/dmp/records', { patientId, type: input.type, title: input.title, data: { note: input.note } }).then(online),
+
   /** Mes auto-mesures (constantes) — entrées DMP de type VITAL_SIGNS, plus récentes d'abord. */
   vitals: () => get<DmpRecord[]>('/dmp/records').then((rs) => rs.filter((r) => r.type === 'VITAL_SIGNS')),
 

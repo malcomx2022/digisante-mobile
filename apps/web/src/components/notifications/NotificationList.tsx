@@ -15,6 +15,7 @@ import { formatDateTime } from '@/i18n/format';
 const ACCENT = {
   sante: { border: 'border-sante-200', dot: 'bg-sante-600' },
   indigo: { border: 'border-indigo-200', dot: 'bg-indigo-600' },
+  ocre: { border: 'border-ocre-200', dot: 'bg-ocre-500' },
 } as const;
 
 export function NotificationList({ accent = 'sante' }: { accent?: keyof typeof ACCENT }) {

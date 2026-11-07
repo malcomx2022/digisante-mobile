@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "sourceSnapshotSha256": "c9f0471e65825e93856ba4484176c5e0b9fd5af2bfe8b1944cb31737137e6740",
+  "sourceSnapshotSha256": "3e8e9f1aa59edda259ca0a8806db0161217e87693c44a2e7c82c5c0b249327bf",
   "sources": [
     {
       "path": "apps/web/src/i18n/messages.ts",
-      "sha256": "a2ed53dc6f9adef53624df281292c2bf2201f8f75021e2b25177c291770ad2b2"
+      "sha256": "692c785a6a1e2d50ae7deedda13f7a904139a0502d1bd1869198619e5ec1b9cd"
     },
     {
       "path": "packages/shared/src/triage.ts",
@@ -1192,6 +1192,14 @@
       "teleconsult.start_error": "Impossible d’ouvrir la salle",
       "teleconsult.end": "Terminer la consultation",
       "teleconsult.end_confirm": "La salle sera fermée et le rendez-vous marqué terminé.",
+      "teleconsult.report_label": "Compte rendu (facultatif) — enregistré dans le dossier du patient",
+      "teleconsult.report_denied": "Compte rendu non enregistré : le patient n’a pas partagé son dossier. Videz le champ pour terminer sans compte rendu.",
+      "pro.add_entry": "Ajouter une entrée au dossier",
+      "pro.entry_type": "Type d’entrée",
+      "pro.entry_title": "Titre",
+      "pro.entry_note": "Note clinique",
+      "pro.entry_save": "Enregistrer l’entrée",
+      "pro.entry_saved": "Entrée ajoutée au dossier du patient.",
       "chat.empty": "Aucun message pour l’instant",
       "pro.no_patient_title": "Aucun patient sélectionné",
       "pro.no_patient_desc": "Scannez le QR de partage du patient pour accéder à son dossier (accès consenti).",
@@ -1777,6 +1785,14 @@
       "teleconsult.start_error": "Unable to open the room",
       "teleconsult.end": "End consultation",
       "teleconsult.end_confirm": "The room will close and the appointment will be marked completed.",
+      "teleconsult.report_label": "Report (optional) — saved to the patient’s record",
+      "teleconsult.report_denied": "Report not saved: the patient has not shared their record. Clear the field to finish without a report.",
+      "pro.add_entry": "Add an entry to the record",
+      "pro.entry_type": "Entry type",
+      "pro.entry_title": "Title",
+      "pro.entry_note": "Clinical note",
+      "pro.entry_save": "Save entry",
+      "pro.entry_saved": "Entry added to the patient’s record.",
       "chat.empty": "No messages yet",
       "pro.no_patient_title": "No patient selected",
       "pro.no_patient_desc": "Scan the patient's sharing QR to access their record (consented access).",
@@ -4310,7 +4326,15 @@
         "teleconsult.rejoin",
         "teleconsult.start_error",
         "teleconsult.end",
-        "teleconsult.end_confirm"
+        "teleconsult.end_confirm",
+        "teleconsult.report_label",
+        "teleconsult.report_denied",
+        "pro.add_entry",
+        "pro.entry_type",
+        "pro.entry_title",
+        "pro.entry_note",
+        "pro.entry_save",
+        "pro.entry_saved"
       ],
       "invalid": [],
       "unknown": []
@@ -4555,7 +4579,15 @@
         "teleconsult.rejoin",
         "teleconsult.start_error",
         "teleconsult.end",
-        "teleconsult.end_confirm"
+        "teleconsult.end_confirm",
+        "teleconsult.report_label",
+        "teleconsult.report_denied",
+        "pro.add_entry",
+        "pro.entry_type",
+        "pro.entry_title",
+        "pro.entry_note",
+        "pro.entry_save",
+        "pro.entry_saved"
       ],
       "invalid": [],
       "unknown": []

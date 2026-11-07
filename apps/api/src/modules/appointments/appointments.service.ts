@@ -10,7 +10,7 @@ import type { FastifyInstance } from 'fastify';
 import { badRequest, conflict, forbidden, notFound } from '@/lib/errors.js';
 import * as payments from '@/modules/payments/payments.service.js';
 import { lockFinance } from '@/modules/payments/finance.effects.js';
-import { isFuture, overlaps } from './appointments.rules.js';
+import { beninDayStartMs, freeSlots, hasStarted, isFuture, overlaps } from './appointments.rules.js';
 
 const fullName = (p: { firstName: string; lastName: string } | null | undefined) =>
   p ? `${p.firstName} ${p.lastName}`.trim() : '—';
@@ -239,4 +239,61 @@ export async function setTriage(app: FastifyInstance, doctorUserId: string, id: 
     where: { id },
     data: { triage: triage as object },
   });
+}
+
+/**
+ * Créneaux libres d'un médecin VÉRIFIÉ pour un jour local (AAAA-MM-JJ). Lecture
+ * seule : la réservation reste l'arbitre (verrou médecin + contrôle de
+ * chevauchement), un créneau affiché libre peut être pris entre-temps (409).
+ */
+export async function availableSlots(app: FastifyInstance, doctorId: string, date: string) {
+  const dayStart = beninDayStartMs(date);
+  if (dayStart == null) throw badRequest('Date invalide (AAAA-MM-JJ attendu)');
+  const doctor = await app.prisma.doctor.findFirst({
+    where: { id: doctorId, verifiedAt: { not: null }, user: { status: 'ACTIVE' } },
+    select: { id: true, slotDuration: true },
+  });
+  if (!doctor) throw notFound('Médecin introuvable');
+  const durationMs = doctor.slotDuration * 60_000;
+  // Fenêtre élargie d'une durée de chaque côté : un RDV qui déborde sur le jour compte.
+  const busy = await app.prisma.appointment.findMany({
+    where: {
+      doctorId: doctor.id,
+      status: { in: ['PENDING', 'CONFIRMED'] },
+      scheduledAt: { gt: new Date(dayStart - durationMs), lt: new Date(dayStart + 24 * 3_600_000 + durationMs) },
+    },
+    select: { scheduledAt: true },
+  });
+  const slots = freeSlots({
+    dayStartMs: dayStart,
+    slotDurationMin: doctor.slotDuration,
+    busyStartsMs: busy.map((b) => b.scheduledAt.getTime()),
+    nowMs: Date.now(),
+  });
+  // Aucune information sur les patients : seulement des heures libres.
+  return { date, slotDuration: doctor.slotDuration, slots: slots.map((ms) => new Date(ms).toISOString()) };
+}
+
+/**
+ * Clôture d'un RDV par son médecin, après l'heure prévue : COMPLETED (vu) ou
+ * NO_SHOW (absent). Transition CONDITIONNELLE depuis CONFIRMED : une annulation
+ * concurrente gagne. Une téléconsultation ouverte se clôt par sa salle
+ * (`POST /consultations/:id/end`), pas ici. Aucun effet de paiement : le
+ * remboursement reste réservé à l'annulation (§5).
+ */
+export async function closeVisit(app: FastifyInstance, doctorUserId: string, id: string, outcome: 'COMPLETED' | 'NO_SHOW') {
+  const appt = await app.prisma.appointment.findUnique({
+    where: { id },
+    include: { doctor: { select: { userId: true } }, consultation: { select: { status: true } } },
+  });
+  if (!appt) throw notFound('Rendez-vous introuvable');
+  if (appt.doctor.userId !== doctorUserId) throw forbidden('Seul le médecin du rendez-vous peut le clôturer');
+  if (appt.status !== 'CONFIRMED') throw badRequest('Seul un rendez-vous confirmé peut être clôturé');
+  if (!hasStarted(appt.scheduledAt.getTime(), Date.now())) throw badRequest('Le rendez-vous n’a pas encore commencé');
+  if (appt.consultation && appt.consultation.status !== 'COMPLETED' && appt.consultation.status !== 'FAILED') {
+    throw badRequest('Téléconsultation en cours : la clôturer depuis la salle');
+  }
+  const closed = await app.prisma.appointment.updateMany({ where: { id, status: 'CONFIRMED' }, data: { status: outcome } });
+  if (closed.count !== 1) throw badRequest('Seul un rendez-vous confirmé peut être clôturé');
+  return app.prisma.appointment.findUniqueOrThrow({ where: { id } });
 }

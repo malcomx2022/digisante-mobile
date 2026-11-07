@@ -335,4 +335,38 @@ describe.skipIf(!HAS_INFRA)('RDV & téléconsultation (intégration)', () => {
     const cancel = await app.inject({ method: 'POST', url: `/api/v1/appointments/${apptId}/cancel`, headers: auth(patientToken), payload: { reason: 'Empêchement' } });
     expect(cancel.json().status).toBe('CANCELLED');
   });
+
+  // M2 : le compte rendu de clôture devient une entrée DMP chiffrée, jamais du
+  // texte en clair sur la consultation ; sans partage du patient, rien n'est clos.
+  it('clôture avec compte rendu : 403 sans consentement (consultation ouverte), puis entrée DMP chiffrée', async () => {
+    const at = new Date(Date.now() + 9 * 3600_000);
+    const book = await app.inject({ method: 'POST', url: '/api/v1/appointments', headers: auth(patientToken), payload: { doctorId, type: 'TELECONSULTATION', scheduledAt: at.toISOString() } });
+    const apptId = book.json().id as string;
+    await app.inject({ method: 'POST', url: `/api/v1/appointments/${apptId}/confirm`, headers: auth(doctorToken) });
+    const start = await app.inject({ method: 'POST', url: '/api/v1/consultations', headers: auth(doctorToken), payload: { appointmentId: apptId } });
+    const consultId = start.json().consultation.id as string;
+    const report = 'Synthétique : évolution favorable, contrôle dans 7 jours.';
+
+    const denied = await app.inject({ method: 'POST', url: `/api/v1/consultations/${consultId}/end`, headers: auth(doctorToken), payload: { report } });
+    expect(denied.statusCode).toBe(403);
+    expect((await app.prisma.consultation.findUniqueOrThrow({ where: { id: consultId } })).status).toBe('ACTIVE');
+
+    const doctorUser = await app.prisma.doctor.findUniqueOrThrow({ where: { id: doctorId }, select: { userId: true } });
+    const shared = await app.prisma.medicalRecord.create({ data: { patientId, type: 'OTHER', title: 'Entrée partagée synthétique' } });
+    const expiresAt = new Date(Date.now() + 3600_000);
+    await app.prisma.consent.create({
+      data: { patientId, granteeId: doctorUser.userId, expiresAt, grantedVia: 'share-token', records: { create: { recordId: shared.id, expiresAt } } },
+    });
+
+    const ok = await app.inject({ method: 'POST', url: `/api/v1/consultations/${consultId}/end`, headers: auth(doctorToken), payload: { report } });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json().status).toBe('COMPLETED');
+    expect(ok.json().notes).toBeNull();
+    const written = await app.prisma.medicalRecord.findFirstOrThrow({ where: { patientId, title: 'Compte rendu de téléconsultation' }, orderBy: { createdAt: 'desc' } });
+    expect(written.authorId).toBe(doctorUser.userId);
+    expect(written.authorRole).toBe('MEDECIN');
+    // Le scellement suit `sealMedicalData` (chiffré dès que HEALTH_ENCRYPTION_KEY est posée,
+    // couvert par les tests DMP) ; ici on vérifie que le texte ne vit pas sur la consultation.
+    expect(written.encryptedData ?? written.data).not.toBeNull();
+  });
 });

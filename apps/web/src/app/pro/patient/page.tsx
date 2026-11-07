@@ -35,9 +35,10 @@ function Patient360Inner({ patientId, initialToken }: { patientId: string | null
   const [parseError, setParseError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
 
+  const [reloadTick, setReloadTick] = useState(0);
   const { data, loading, error, errorStatus } = useApi<DmpRecord[]>(
     () => (patientId && token ? dmpApi.recordsForPatient(patientId, token) : Promise.resolve([])),
-    [patientId, token],
+    [patientId, token, reloadTick],
   );
 
   /** Traite un lien de partage (collé OU scanné) contenant patientId + token. */
@@ -205,9 +206,59 @@ function Patient360Inner({ patientId, initialToken }: { patientId: string | null
           </CardPagne>
         )}
 
+        {/* Écriture d'une entrée : seulement avec un partage consenti actif (le
+            serveur le revérifie). L'entrée rédigée n'entre pas dans la portée de
+            lecture du médecin (L1) : elle n'apparaît pas forcément ci-dessus. */}
+        {token && !loading && !error && patientId && <AddEntryForm patientId={patientId} onSaved={() => setReloadTick((n) => n + 1)} />}
+
         <ConsentNote />
       </main>
     </>
+  );
+}
+
+const ENTRY_TYPES = ['DIAGNOSIS', 'ALLERGY', 'CHRONIC_DISEASE', 'OTHER'] as const;
+
+function AddEntryForm({ patientId, onSaved }: { patientId: string; onSaved: () => void }) {
+  const { t } = useLocale();
+  const [type, setType] = useState<(typeof ENTRY_TYPES)[number]>('DIAGNOSIS');
+  const [title, setTitle] = useState('');
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'saved' | 'error'>('idle');
+
+  async function save() {
+    if (busy || !title.trim() || !note.trim()) return;
+    setBusy(true);
+    setStatus('idle');
+    try {
+      await dmpApi.createForPatient(patientId, { type, title: title.trim(), note: note.trim() });
+      setTitle('');
+      setNote('');
+      setStatus('saved');
+      onSaved();
+    } catch {
+      setStatus('error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const field = 'w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base pagne-focus focus:outline-none focus:border-indigo-600';
+  return (
+    <CardPagne stitch="indigo" className="p-4 space-y-2">
+      <p className="font-display font-extrabold text-[0.8125rem] text-stone-700">{t('pro.add_entry')}</p>
+      <select value={type} onChange={(e) => setType(e.target.value as (typeof ENTRY_TYPES)[number])} aria-label={t('pro.entry_type')} className={field}>
+        {ENTRY_TYPES.map((ty) => <option key={ty} value={ty}>{t(`record.${ty}`)}</option>)}
+      </select>
+      <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} placeholder={t('pro.entry_title')} aria-label={t('pro.entry_title')} className={field} />
+      <textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={5000} rows={4} placeholder={t('pro.entry_note')} aria-label={t('pro.entry_note')} className={field} />
+      <Button variant="indigo" full disabled={busy || !title.trim() || !note.trim()} onClick={() => void save()}>
+        {t('pro.entry_save')}
+      </Button>
+      {status === 'saved' && <p className="text-[0.75rem] text-sante-700 font-bold" role="status">{t('pro.entry_saved')}</p>}
+      {status === 'error' && <p className="text-[0.75rem] text-sos-600 font-bold" role="alert">{t('auth.error')}</p>}
+    </CardPagne>
   );
 }
 

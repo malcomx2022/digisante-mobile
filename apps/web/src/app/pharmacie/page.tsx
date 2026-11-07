@@ -96,6 +96,9 @@ export default function PharmaciePage() {
           <p className="text-[0.75rem] text-white/80">{t('pharmacie.scan')}</p>
         </div>
         <div className="flex items-center gap-2">
+          <Link href="/pharmacie/notifications" aria-label={t('notifications.title')} className="card-pagne bg-white/15 border border-white/20 px-3 py-1.5 text-[0.75rem] font-display font-bold">
+            <span aria-hidden>🔔</span>
+          </Link>
           <Link href="/pharmacie/history" className="card-pagne bg-white/15 border border-white/20 px-3 py-1.5 text-[0.75rem] font-display font-bold">
             {t('pharmacie.history')}
           </Link>

@@ -4,7 +4,8 @@ import { useMemo, useState } from 'react';
 
 import { Badge, Button, CardPagne } from '@/components/ui';
 import { useLocale } from '@/i18n/LocaleProvider';
-import { ApiRequestError, post } from '@/lib/api/client';
+import { ApiRequestError, get, post } from '@/lib/api/client';
+import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
 import { formatDate, formatDateTime, formatNumber } from '@/i18n/format';
 
@@ -24,11 +25,21 @@ interface BookedAppointment {
   type: ApptType;
 }
 
-// Pas d'endpoint de disponibilité côté API : on propose des créneaux candidats
-// (prochains jours ouvrés × heures de cabinet). Le backend valide l'absence de
-// conflit (409) au moment de la réservation.
-const SLOT_HOURS = [8, 9, 10, 11, 14, 15, 16, 17];
+// Créneaux LIBRES réels (`GET /appointments/slots`) : pas = durée de créneau du
+// médecin, RDV déjà pris retirés. La réservation reste l'arbitre (409 si un
+// créneau est pris entre-temps → la liste est rechargée).
 const DAYS_AHEAD = 5;
+
+/** Jour local AAAA-MM-JJ (l'appareil est supposé à l'heure du Bénin). */
+function isoDay(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+interface SlotsResponse {
+  date: string;
+  slotDuration: number;
+  slots: string[];
+}
 
 function buildDays(): Date[] {
   const days: Date[] = [];
@@ -55,18 +66,18 @@ export function BookingModal({
   const { t } = useLocale();
   const days = useMemo(() => buildDays(), []);
   const [day, setDay] = useState<Date>(days[0]);
-  const [hour, setHour] = useState<number | null>(null);
+  const [slot, setSlot] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
   const [type, setType] = useState<ApptType>('PHYSICAL');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<BookedAppointment | null>(null);
 
-  const scheduledAt = useMemo(() => {
-    if (hour === null) return null;
-    const d = new Date(day);
-    d.setHours(hour, 0, 0, 0);
-    return d;
-  }, [day, hour]);
+  const slots = useApi<SlotsResponse>(
+    () => get<SlotsResponse>(`/appointments/slots?doctorId=${encodeURIComponent(doctor.id)}&date=${isoDay(day)}`),
+    [doctor.id, day.getTime(), reload],
+  );
+  const scheduledAt = useMemo(() => (slot ? new Date(slot) : null), [slot]);
 
   async function confirm() {
     if (!scheduledAt) return;
@@ -89,6 +100,8 @@ export function BookingModal({
     } catch (e) {
       if (e instanceof ApiRequestError && e.status === 409) {
         setError(t('booking.slot_taken'));
+        setSlot(null);
+        setReload((n) => n + 1);
       } else {
         setError(t('booking.error'));
       }
@@ -150,7 +163,7 @@ export function BookingModal({
                     type="button"
                     onClick={() => {
                       setDay(d);
-                      setHour(null);
+                      setSlot(null);
                     }}
                     className={cn(
                       'shrink-0 card-pagne px-3 py-2 text-center min-w-[58px] border',
@@ -169,20 +182,25 @@ export function BookingModal({
 
             {/* Étape 2 — heure */}
             <p className="font-display font-bold text-[0.75rem] text-stone-600 mt-4 mb-2">{t('booking.choose_slot')}</p>
+            {slots.loading && <p className="text-[0.75rem] text-stone-400">{t('common.loading')}</p>}
+            {!slots.loading && slots.error && <p className="text-[0.75rem] text-sos-600 font-bold">{t('booking.error')}</p>}
+            {!slots.loading && !slots.error && (slots.data?.slots.length ?? 0) === 0 && (
+              <p className="text-[0.75rem] text-stone-400">{t('booking.slot_taken')}</p>
+            )}
             <div className="grid grid-cols-4 gap-2">
-              {SLOT_HOURS.map((h) => {
-                const active = hour === h;
+              {(slots.data?.slots ?? []).map((iso) => {
+                const active = slot === iso;
                 return (
                   <button
-                    key={h}
+                    key={iso}
                     type="button"
-                    onClick={() => setHour(h)}
+                    onClick={() => setSlot(iso)}
                     className={cn(
-                      'card-pagne py-2 font-display font-bold text-[0.8125rem] border',
+                      'pagne-focus card-pagne py-2 font-display font-bold text-[0.8125rem] border',
                       active ? 'bg-sante-600 text-white border-sante-700' : 'bg-white text-stone-700 border-stone-200',
                     )}
                   >
-                    {String(h).padStart(2, '0')}:00
+                    {formatDateTime(iso, { hour: '2-digit', minute: '2-digit' })}
                   </button>
                 );
               })}
