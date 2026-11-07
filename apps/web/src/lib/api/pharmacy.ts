@@ -54,7 +54,15 @@ export interface AvailabilityItem {
   distanceKm: number | null;
 }
 
+export interface PharmacyStatus {
+  name: string;
+  verified: boolean;
+  verifiedAt: string | null;
+}
+
 export const pharmacyApi = {
+  // Habilitation de l'officine courante (scan/délivrance fermés tant que non vérifiée).
+  me: () => get<PharmacyStatus>('/pharmacy/me'),
   scan: (qrCode: string) => postNow<ScanResult>('/pharmacy/scan', { qrCode }).then(online),
   dispense: (prescriptionId: string, items: { itemId: string; status: LineStatus }[], qrCode: string) =>
     postNow<{ prescriptionId: string; status: string }>(`/pharmacy/prescriptions/${prescriptionId}/dispense`, { items, qrCode }).then(online),

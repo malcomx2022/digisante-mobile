@@ -112,7 +112,7 @@ describe.skipIf(!HAS_INFRA)('Audit de release 2026-09 (intégration)', () => {
       data: {
         phone: PHONES[4], role: 'PHARMACIE', status: 'ACTIVE', lang: 'FR',
         profile: { create: { firstName: 'Ph', lastName: 'X' } },
-        pharmacy: { create: { name: 'Pharmacie Audit', address: 'Cotonou', phone: PHONES[4] } },
+        pharmacy: { create: { name: 'Pharmacie Audit', address: 'Cotonou', phone: PHONES[4], verifiedAt: new Date() } },
       },
     });
     tokens.pharma = sign(pharma.id, 'PHARMACIE');

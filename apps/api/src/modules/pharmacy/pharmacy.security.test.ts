@@ -59,7 +59,7 @@ describe.skipIf(!HAS_INFRA)('Pharmacie — délivrance protégée', () => {
     pharmacyIds = [];
     for (let i = 0; i < 2; i++) {
       const phone = '+' + randomUUID();
-      const pharmacy = await app.prisma.user.create({ data: { phone, role: 'PHARMACIE', status: 'ACTIVE', pharmacy: { create: { name: 'Synthétique', address: 'Synthétique', phone } } }, include: { pharmacy: true } });
+      const pharmacy = await app.prisma.user.create({ data: { phone, role: 'PHARMACIE', status: 'ACTIVE', pharmacy: { create: { name: 'Synthétique', address: 'Synthétique', phone, verifiedAt: new Date() } } }, include: { pharmacy: true } });
       userIds.push(pharmacy.id);
       pharmacyIds.push(pharmacy.pharmacy!.id);
       pharmacyTokens.push(app.jwt.sign({ sub: pharmacy.id, role: 'PHARMACIE' }, { expiresIn: '15m' }));

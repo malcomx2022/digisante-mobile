@@ -10,7 +10,7 @@ from xml.etree import ElementTree as ET
 from zipfile import ZipFile
 
 ROOT = Path(__file__).resolve().parents[2]
-DIRECTORY = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "docs/validation/L9/campaign-2026-10-14"
+DIRECTORY = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "docs/validation/archive/L9-3e061d52-2026-11-07/campaign-2026-10-14"
 W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 CLINICAL_SCOPES = ("triage", "pev", "maternity", "phrasebook", "prescriptions", "vitals", "education")
 LANGUAGES = {"fon": "Fɔ̀ngbè", "yor": "Yorùbá"}

@@ -83,6 +83,12 @@ describe.skipIf(!HAS_INFRA)('Agent de Santé Communautaire (intégration)', () =
     expect(relay.statusCode).toBe(200);
     const after = await app.prisma.notification.count({ where: { recipient: { phone: PHONES[2] } } });
     expect(after).toBe(before + 1);
+    // Le médecin destinataire LIT le signalement via son centre de notifications.
+    const docUser = await app.prisma.user.findUniqueOrThrow({ where: { phone: PHONES[2] } });
+    const docTok = app.jwt.sign({ sub: docUser.id, role: 'MEDECIN' }, { expiresIn: '15m' });
+    const inbox = await app.inject({ method: 'GET', url: '/api/v1/notifications', headers: auth(docTok) });
+    expect(inbox.statusCode).toBe(200);
+    expect(inbox.json().some((n: { body: string }) => n.body.includes('Merci de voir ce patient'))).toBe(true);
 
     const bad = await app.inject({ method: 'POST', url: `/api/v1/asc/beneficiaries/${bId}/relay`, headers: auth(asc1), payload: { doctorId: 'ck00000000000000000000000', message: 'x' } });
     expect(bad.statusCode).toBe(404);

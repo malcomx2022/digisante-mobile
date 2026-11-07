@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "sourceSnapshotSha256": "3e061d5232d7bc11fe4dc92134a1b2e8d0dc1753b503c38ba261365b514944ed",
+  "sourceSnapshotSha256": "c9f0471e65825e93856ba4484176c5e0b9fd5af2bfe8b1944cb31737137e6740",
   "sources": [
     {
       "path": "apps/web/src/i18n/messages.ts",
-      "sha256": "07facf165413639a2483d8f68e1f92fdcff1545621067be11a1b76f6ddd77b01"
+      "sha256": "a2ed53dc6f9adef53624df281292c2bf2201f8f75021e2b25177c291770ad2b2"
     },
     {
       "path": "packages/shared/src/triage.ts",
@@ -56,7 +56,7 @@
     },
     {
       "path": "packages/shared/src/posology.ts",
-      "sha256": "086900284f763f042e7c0f55b887ab01031a07b409e2f448fb3d8f114f7323d0"
+      "sha256": "3b8edbc0b85e6f0a204f480c75e919eebb7c3ce392b6c240a162f021c0b2ee1e"
     },
     {
       "path": "apps/api/src/modules/prescriptions/prescriptions.rules.ts",
@@ -80,7 +80,7 @@
     },
     {
       "path": "apps/web/src/components/patient/PrescriptionPosology.tsx",
-      "sha256": "f6eb3016b822916f2365684eee6460d27fd34ed17e21b6a8604753b61e7f01c6"
+      "sha256": "9521687209b89e82949a5b8336a19de63ffecd7ad08987522af32bdea0f8f883"
     },
     {
       "path": "apps/web/src/app/patient/vitals/page.tsx",
@@ -108,7 +108,7 @@
     },
     {
       "path": "apps/api/prisma/seed.ts",
-      "sha256": "b6a9a63ddc7eaad857c31e1f08ff1296dc5eda9844db648e1c2556679820bd4e"
+      "sha256": "c3958b3cd82d796fa7158c1cd4711e7b60f2a39246c705c98b3328c077b66d0f"
     }
   ],
   "evidenceStatus": "AWAITING_REFERENCES_AND_SIGNED_RETURNS",
@@ -320,6 +320,7 @@
       "posology.form.SUPPOSITORY": "suppositoire",
       "posology.meal.BEFORE": "avant le repas",
       "posology.meal.AFTER": "après le repas",
+      "posology.meal.DURING": "pendant le repas",
       "posology.meal.FASTING": "à jeun",
       "vaccinations.title": "Vaccination",
       "vaccinations.subtitle": "Carnet PEV — vous et vos enfants",
@@ -453,6 +454,8 @@
       "sos.tap": "Appuyez en cas d’urgence",
       "sos.locating": "Localisation…",
       "sos.sent": "Alerte envoyée aux secours",
+      "sos.sms_delivered": "Alerte transmise par SMS à vos contacts d’urgence",
+      "sos.no_contact_notified": "Alerte enregistrée, mais personne n’a pu être prévenu — appelez le 112 ou envoyez le SMS ci-dessous",
       "sos.fallback": "Alerte non transmise — utilisez le SMS de secours ci-dessous",
       "sos.sms_body": "URGENCE DigiSanté — besoin d’aide.",
       "sos.sms": "Envoyer par SMS (hors-ligne)",
@@ -666,6 +669,10 @@
       "pharmacie.history": "Historique",
       "pharmacie.history_sub": "Mes délivrances",
       "pharmacie.no_history": "Aucune délivrance enregistrée",
+      "pharmacie.kyc": "Habilitation de l’officine",
+      "pharmacie.kyc_required": "Pièce d’identité du responsable et autorisation d’exercice requises",
+      "pharmacie.not_verified": "Officine non encore vérifiée : le scan et la délivrance s’ouvrent après validation de votre dossier.",
+      "pharmacie.kyc_cta": "Compléter mon dossier",
       "pharmacie.line.DISPENSED": "Délivré",
       "pharmacie.line.PARTIALLY_DISPENSED": "Partiel",
       "pharmacie.line.UNAVAILABLE": "Indisponible",
@@ -1420,6 +1427,7 @@
       "posology.form.SUPPOSITORY": "suppository",
       "posology.meal.BEFORE": "before meal",
       "posology.meal.AFTER": "after meal",
+      "posology.meal.DURING": "with meal",
       "posology.meal.FASTING": "empty stomach",
       "vaccinations.title": "Vaccination",
       "vaccinations.subtitle": "EPI record — you and your children",
@@ -1593,6 +1601,10 @@
       "pharmacie.scan": "Scan a prescription",
       "pharmacie.verify": "Verify",
       "pharmacie.dispense": "Dispense",
+      "pharmacie.kyc": "Pharmacy accreditation",
+      "pharmacie.kyc_required": "Manager’s ID and practice licence required",
+      "pharmacie.not_verified": "Pharmacy not verified yet: scanning and dispensing open once your file is approved.",
+      "pharmacie.kyc_cta": "Complete my file",
       "labo.title": "Laboratory",
       "labo.publish": "Publish & alert",
       "admin.metrics": "Metrics",
@@ -1794,6 +1806,8 @@
       "scan.fallback": "Close and enter the code manually.",
       "sos.locating": "Locating…",
       "sos.sent": "Alert sent to emergency services",
+      "sos.sms_delivered": "Alert sent by SMS to your emergency contacts",
+      "sos.no_contact_notified": "Alert recorded, but nobody could be notified — call 112 or send the SMS below",
       "sos.fallback": "Alert not delivered — use the backup SMS below",
       "sos.sms_body": "DigiSanté EMERGENCY — I need help.",
       "sos.samu": "SAMU 112",
@@ -4174,6 +4188,9 @@
         "labkyc.licenseNumber",
         "labkyc.save",
         "labkyc.documents",
+        "posology.meal.DURING",
+        "sos.sms_delivered",
+        "sos.no_contact_notified",
         "subscriptions.failed",
         "subscriptions.cancelled_payment",
         "subscriptions.refunded",
@@ -4218,6 +4235,10 @@
         "beneficiaries.no_account",
         "beneficiaries.send_confirm",
         "beneficiaries.sent",
+        "pharmacie.kyc",
+        "pharmacie.kyc_required",
+        "pharmacie.not_verified",
+        "pharmacie.kyc_cta",
         "dmpdoc.title",
         "dmpdoc.empty",
         "dmpdoc.add",
@@ -4412,6 +4433,9 @@
         "labkyc.licenseNumber",
         "labkyc.save",
         "labkyc.documents",
+        "posology.meal.DURING",
+        "sos.sms_delivered",
+        "sos.no_contact_notified",
         "subscriptions.failed",
         "subscriptions.cancelled_payment",
         "subscriptions.refunded",
@@ -4456,6 +4480,10 @@
         "beneficiaries.no_account",
         "beneficiaries.send_confirm",
         "beneficiaries.sent",
+        "pharmacie.kyc",
+        "pharmacie.kyc_required",
+        "pharmacie.not_verified",
+        "pharmacie.kyc_cta",
         "dmpdoc.title",
         "dmpdoc.empty",
         "dmpdoc.add",
@@ -4538,6 +4566,8 @@
     "sos.tap",
     "sos.locating",
     "sos.sent",
+    "sos.sms_delivered",
+    "sos.no_contact_notified",
     "sos.fallback",
     "sos.sms_body",
     "sos.sms",
@@ -4697,6 +4727,11 @@
       "key": "posology.meal.AFTER",
       "fr": "après le repas",
       "en": "after meal"
+    },
+    {
+      "key": "posology.meal.DURING",
+      "fr": "pendant le repas",
+      "en": "with meal"
     },
     {
       "key": "posology.meal.FASTING",
@@ -6263,14 +6298,12 @@
         "duration": "5"
       },
       "parsed": {
-        "timings": [
-          "MORNING"
-        ],
+        "timings": [],
         "timesPerDay": 1,
-        "doseCount": 0,
+        "doseCount": 0.5,
         "form": "TABLET",
         "meal": null,
-        "days": 5,
+        "days": null,
         "recognized": true
       }
     },
@@ -6281,11 +6314,9 @@
         "duration": "5 jours"
       },
       "parsed": {
-        "timings": [
-          "MORNING"
-        ],
+        "timings": [],
         "timesPerDay": 1,
-        "doseCount": 500,
+        "doseCount": null,
         "form": null,
         "meal": null,
         "days": 5,
@@ -6299,16 +6330,12 @@
         "duration": "1 mois"
       },
       "parsed": {
-        "timings": [
-          "MORNING",
-          "NOON",
-          "EVENING"
-        ],
+        "timings": [],
         "timesPerDay": 3,
         "doseCount": 1,
         "form": "TABLET",
         "meal": null,
-        "days": 30,
+        "days": null,
         "recognized": true
       }
     }

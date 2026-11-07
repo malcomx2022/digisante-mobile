@@ -48,3 +48,21 @@ export function localize(
   const byLang = TEMPLATES[type];
   return byLang?.[lang] ?? byLang?.FR ?? fallback;
 }
+
+/**
+ * Texte du MIROIR push d'une notification in-app (§4, minimisation).
+ * Un push transite par FCM et s'affiche sur l'écran verrouillé : il ne porte
+ * jamais le contenu libre d'une notification SYSTEM (nom de médicament,
+ * signalement ASC, motif…). Les types à gabarit sont déjà génériques ; les
+ * autres reçoivent un texte neutre, le détail restant dans l'application.
+ */
+const MIRROR: Partial<Record<Lang, Template>> = {
+  FR: { title: 'DigiSanté', body: 'Vous avez une nouvelle notification. Ouvrez l’application pour la consulter.' },
+  EN: { title: 'DigiSanté', body: 'You have a new notification. Open the app to view it.' },
+};
+
+export function pushMirrorText(type: NotificationType, lang: Lang): Template {
+  const generic = MIRROR[lang] ?? MIRROR.FR!;
+  const byLang = TEMPLATES[type];
+  return byLang?.[lang] ?? byLang?.FR ?? generic;
+}

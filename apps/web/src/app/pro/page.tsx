@@ -9,6 +9,7 @@ import { Empty, ErrorState , SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { get, post } from '@/lib/api/client';
 import { educationApi } from '@/lib/api/education';
+import { notificationsApi, type AppNotification } from '@/lib/api/notifications';
 import { useApi } from '@/lib/api/useApi';
 import { formatDateTime } from '@/i18n/format';
 
@@ -28,6 +29,10 @@ export default function ProDashboard() {
   // Un médecin NON vérifié reçoit 403 : on masque alors la tuile au lieu
   // d'afficher une entrée qui mènerait à un écran en erreur.
   const review = useApi<{ total: number }>(() => educationApi.reviewQueue(1, 1), []);
+  // Signalements d'ASC, orientations… arrivent en notification in-app : la
+  // tuile en montre le nombre non lu (sinon ils restaient invisibles).
+  const notifs = useApi<AppNotification[]>(() => notificationsApi.list(), []);
+  const unread = (notifs.data ?? []).filter((n) => !n.readAt && n.status !== 'READ').length;
   const [confirmed, setConfirmed] = useState<Set<string>>(new Set());
 
   const [confirmError, setConfirmError] = useState(false);
@@ -73,6 +78,13 @@ export default function ProDashboard() {
         </CardPagne>
 
         <div className="grid grid-cols-2 gap-3">
+          <Link
+            href="/pro/notifications"
+            className="flex items-center gap-2 bg-white card-pagne border border-stone-200 px-4 py-3 font-display font-bold text-[0.8125rem] text-indigo-700"
+          >
+            <span aria-hidden>🔔</span> {t('notifications.title')}
+            {unread > 0 && <Badge variant="priorite">{unread}</Badge>}
+          </Link>
           <Link
             href="/pro/referrals"
             className="flex items-center gap-2 bg-white card-pagne border border-stone-200 px-4 py-3 font-display font-bold text-[0.8125rem] text-indigo-700"

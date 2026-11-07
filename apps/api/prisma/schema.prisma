@@ -816,6 +816,7 @@ model Pharmacy {
   address         String
   phone           String
   licenseNumber   String?
+  verifiedAt      DateTime? // Habilitation KYC ; NULL = non vérifiée (aucun badge déduit de l'historique).
   geolat          Float?
   geolong         Float?
   servicesOffered String[] @default([])

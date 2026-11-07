@@ -3,7 +3,7 @@
 // Après création de l'alerte Sos, on alerte RÉELLEMENT :
 //   • SMS au contact d'urgence (Profile.emergencyContact) du patient ;
 //   • SMS au numéro de secours public si configuré (SOS_PUBLIC_NUMBER) ;
-//   • Notification in-app SOS_ALERT ;
+//   • Notification in-app SOS_ALERT (traçabilité, ne prévient aucun tiers) ;
 //   • journal d'audit immuable (action 'SOS_ALERT').
 // Tout part DANS LA LANGUE DU PATIENT (SMS critiques — CLAUDE.md §4).
 // L'urgence prime : un échec d'envoi NE FAIT JAMAIS échouer la création de
@@ -41,7 +41,8 @@ export interface TriggerSosInput {
 
 /**
  * Crée l'alerte SOS puis déclenche l'alerte serveur (SMS + notification + audit).
- * Renvoie l'alerte créée (avec contactNotified à jour si au moins un envoi a réussi).
+ * Renvoie l'alerte créée ; `contactNotified` n'est vrai que si au moins un SMS
+ * a été réellement livré (ni stub, ni notification in-app du patient).
  */
 export async function triggerSos(app: FastifyInstance, input: TriggerSosInput) {
   const { patientId, latitude, longitude } = input;
@@ -76,9 +77,10 @@ export async function triggerSos(app: FastifyInstance, input: TriggerSosInput) {
     for (const to of recipients) {
       try {
         const res = await sendSms({ app, to, body, lang });
-        // Stub (Twilio non configuré) compris : on considère l'alerte « notifiée »
-        // dès qu'au moins un envoi a abouti (réel OU stub journalisé).
-        if (res.delivered || res.stub) notified = true;
+        // Seule une livraison RÉELLE compte : un stub (Twilio non configuré)
+        // n'a prévenu personne. Afficher « contacts prévenus » à tort est pire
+        // que l'échec, le patient cesserait de chercher de l'aide.
+        if (res.delivered) notified = true;
       } catch (err) {
         app.log.error({ err, to: maskPhone(to) }, '[SOS] échec envoi SMS au contact');
       }
@@ -93,17 +95,20 @@ export async function triggerSos(app: FastifyInstance, input: TriggerSosInput) {
             type: 'SOS_ALERT',
             channel: 'IN_APP',
             title: 'Alerte SOS',
-            body: "Une alerte d'urgence a été déclenchée et vos contacts ont été prévenus.",
+            body: notified
+              ? "Une alerte d'urgence a été déclenchée et un SMS a été transmis à vos contacts."
+              : "Une alerte d'urgence a été déclenchée, mais aucun contact n'a pu être prévenu. Appelez les secours.",
             status: 'PENDING',
           },
         });
-        notified = true;
+        // Traçabilité seulement : la notification du patient lui-même ne
+        // prévient aucun tiers et ne compte pas dans `contactNotified`.
       } catch (err) {
         app.log.error({ err, sosId: alert.id }, '[SOS] échec création notification');
       }
     }
 
-    // 4) Marque l'alerte comme notifiée si au moins un canal a abouti.
+    // 4) Marque l'alerte comme notifiée si au moins un SMS a été réellement livré.
     let result = alert;
     if (notified) {
       result = await app.prisma.sos.update({
