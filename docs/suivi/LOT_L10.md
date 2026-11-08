@@ -214,3 +214,23 @@ Correctifs post-recette L10 (PR #213, fiche `docs/REVUE_Correctifs_post-L10_2026
 - Les 50 preuves de `ec6b0dc` restent rattachées à ce SHA (gate clos en l'état) ; aucune n'est reportée sur `ace0c689`. Chaque cas rejoué devient un nouveau record sur `ace0c689`, instantané L10 `d6bfcba2…` (inchangé par #213).
 - Rejeu prioritaire convenu avec l'opérateur : RESEND-R6 (campagne EMAIL DRAFT → SENT), `/admin/support` (I1), domaine Daily depuis le formulaire (I2), « Renouveler un mois PRO » (C2).
 - Déploiement constaté sur la base du retour opérateur : non observable depuis l'extérieur (maintenance). Aucune levée de maintenance sans décision explicite du porteur.
+
+## Candidate `8ed7e540` déclarée (8 novembre 2026)
+
+Décision du porteur du 08/11/2026 : déployer en préproduction `main` après fusion de la PR #228, et abandonner la recette de `ace0c689`. La candidate porte :
+- les PR #232 et #233 : bloquants, écarts majeurs, conformité APDP, dépendances, risques résiduels ;
+- la PR #228 : rôle PostgreSQL d'exécution, utilisateur ACL Valkey, zones Nginx, fuseau, port squatté, R1, A8, D-10.
+
+Elle est fusionnée sur `main` `8ed7e540d2c5fe8724b7d9628ab1e1f4169368f8`, CI `main` run 42442126623.
+
+| Candidate | Déploiement préprod | Registre | Gate |
+|---|---|---|---|
+| `8ed7e540d2c5fe8724b7d9628ab1e1f4169368f8` | **Non déployée.** Procédure : `docs/suivi/PLAN_Deploiement_Preprod_2026-11-08.md` (copie root, `provision-ionos.sh --only pg,valkey,nginx,cron`, `.env`, workflow manuel) | `evidence.json` : bloc candidat + CI 42442126623, `records: []` ; registre précédent archivé tel quel dans `docs/preproduction/archive/L10-ace0c689-2026-11-08/` (15 records PASS ; SHA-256 `d4d3aedc…`) | `preprod:gate --expected-sha 8ed7e540d2c5fe8724b7d9628ab1e1f4169368f8` : 100 points ouverts (preuves absentes), bloc candidat accepté ; instantané L10 `e782821d…` |
+
+- Les 15 preuves de `ace0c689` restent rattachées à ce SHA (gate clos en l'état). Aucune n'est reportée : les **100 cas** se rejouent sur `8ed7e540`.
+- Gestes de recette induits par la candidate (plan §5) :
+  - ré-acceptation des CGU par les comptes de recette ;
+  - nouveau dossier KYC des pharmacies de recette (badge `verifiedAt` remis à NULL par la migration) ;
+  - verrous OTP par couple numéro + IP.
+- Maintenance préprod maintenue ; aucune levée sans décision explicite du porteur.
+
