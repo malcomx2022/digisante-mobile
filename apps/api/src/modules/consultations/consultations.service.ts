@@ -143,7 +143,6 @@ export async function end(
   app: FastifyInstance,
   doctorUserId: string,
   consultationId: string,
-  notes?: string,
   report?: { text: string; ip?: string | null },
 ) {
   const consult = await loadConsultation(app, consultationId);
@@ -164,7 +163,7 @@ export async function end(
   // Une échéance ou un patient suspendu ne doit pas empêcher le médecin de clôturer.
   const updated = await app.prisma.$transaction(async (tx) => {
     const result = await tx.consultation.updateMany({
-      where: { id: consultationId, status: 'ACTIVE' }, data: { status: 'COMPLETED', endedAt: new Date(), notes },
+      where: { id: consultationId, status: 'ACTIVE' }, data: { status: 'COMPLETED', endedAt: new Date() },
     });
     if (!result.count) throw badRequest('La consultation n’est pas active');
     // Clôturer le média ne doit pas écraser une annulation du RDV et son remboursement.

@@ -79,7 +79,7 @@ Une AIPD est attendue : il s'agit de données de santé à grande échelle, de p
    - pentest ;
    - rôle de base de données non propriétaire de l'audit ;
    - ACL Valkey ;
-   - arbitrage de la CSP `unsafe-inline` ;
+   - recette de la CSP à nonce sur mobile (arbitrage `unsafe-inline` tranché le 08/11) ;
    - contrats avec les sous-traitants ;
    - politique de conservation.
 6. **Avis** : du délégué ou du conseil, [à recueillir] ; puis consultation de l'APDP si le risque résiduel reste élevé.

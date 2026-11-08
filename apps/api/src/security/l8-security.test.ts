@@ -116,7 +116,8 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.REDIS_URL)('L8 — sé
     expect((await verify(phones[2], nextCode)).statusCode).toBe(200);
   });
   it('Redis indisponible : aucune session délivrée ni quota ignoré', async () => {
-    vi.spyOn(app.redis, 'get').mockRejectedValueOnce(new Error('synthetic outage'));
+    // Le contrôle de verrou (premier accès Redis) lit global + couple numéro/IP en un MGET.
+    vi.spyOn(app.redis, 'mget').mockRejectedValueOnce(new Error('synthetic outage'));
     expect((await request(phones[2])).statusCode).toBe(500);
   });
   it('audit concurrent sous horloge figée puis reculée : chaîne unique, ordre strict et hash recalculables', async () => {

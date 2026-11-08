@@ -312,3 +312,29 @@ Décisions du porteur : montée **Next 15.5** et **zod 4**.
 - `pnpm audit` : 0.
 
 §5 : la logique de paiement n'est pas modifiée ; les tests webhooks passent.
+
+## 12. Correctifs du 8 novembre 2026 : risques résiduels de sécurité (S9 à S11)
+
+Décisions du porteur :
+- **CSP** : nonce par requête et rendu dynamique ;
+- **OTP** : verrou par couple numéro + IP, avec un plafond global par numéro.
+
+| # | Correctif | Preuve |
+|---|---|---|
+| S9 (X8) | `src/middleware.ts` génère un nonce de 128 bits par requête, avec `script-src 'self' 'nonce-…' 'strict-dynamic'` et **sans `'unsafe-inline'`** pour les scripts. Le layout racine impose le rendu dynamique (`connection()`), sinon une page prérendue n'aurait pas de nonce. Les styles gardent `'unsafe-inline'`. Le service worker, la page hors ligne et le manifeste ont une CSP fixe `script-src 'self'` ; la CSP du SW FCM est inchangée. Le shell hors ligne reste cohérent : une navigation précachée est stockée avec ses propres en-têtes. | `middleware.test.ts` ; e2e `security-headers` (nonce présent sur chaque script, différent à chaque requête, aucune violation CSP) |
+| S10 (X4) | Les échecs sont comptés par couple numéro + IP : 5 échecs verrouillent ce couple 30 minutes. L'IP est stockée sous forme d'étiquette HMAC, jamais en clair. Un plafond global de 20 échecs par heure et par numéro, toutes IP confondues, borne le brute-force distribué ; une fois atteint, le code est détruit. Un attaquant ne prive plus la victime de son code : elle se connecte depuis sa propre IP. La console support affiche le compteur global et le nombre de sources verrouillées (sans IP), et le déverrouillage purge tout. L'audit `AUTH_LOCKOUT` indique la portée (`PHONE_IP` ou `PHONE`). | `auth.test.ts` (victime / attaquant, plafond réparti sur 4 IP), `admin.test.ts` |
+| S11 | **Audit des pièces DMP** : `DMP_DOCUMENT_ADD`/`REMOVE` sont écrits dans la transaction de la ligne ; un fichier écrit avant un échec est effacé, et un retrait concurrent renvoie 404 avec un seul audit. **Reçus L3 v2** : sous-clés HMAC et AES distinctes ; la réponse est liée à l'identité de mutation (AAD), donc un chiffré recopié vers un autre reçu ne s'ouvre plus. Les reçus v1 (14 j au plus) restent lisibles. **Consentements** : un échec de chargement s'affiche comme une erreur, plus comme « aucun accès ». **`Consultation.notes`** : le champ en clair est refusé en 422 ; le compte rendu passe uniquement par `report` vers le DMP chiffré. **`/showcase`** (données fictives) : 404 en production, sauf `NEXT_PUBLIC_SHOWCASE=1`. | `idempotency.test.ts`, `sync.test.ts`, `appointments.test.ts` |
+
+### 12.1 Restant, non traité dans le code
+
+| Point | Raison | Suite |
+|---|---|---|
+| Pentest externe (S8, X15) | Prestataire requis | Inclure la CSP à nonce, le verrou OTP par IP et les timings d'OTP |
+| Rôle PostgreSQL d'exécution non propriétaire de l'audit, ACL Valkey, port squatté, fuseau, zones Nginx (S6, S7) | Déjà traités par la PR #228, conditionnée au PV GO préprod | Ne pas dupliquer ; fusion selon décision du porteur |
+| Labo suspendu : les demandes attribuées restent bloquées | Règle L2 voulue (pas de remise en pool automatique) | Décision du porteur : réattribution administrative explicite |
+| Horloge de l'appareil (clés de mutation L3, TTL des lectures L4) | Une horloge falsifiée hors ligne n'est pas détectable côté client ; le serveur borne déjà la dérive à +5 min et l'âge à 7 j | Hors garantie, documentée dans les contrats L3/L4 |
+| Course FCM : un message déjà en vol n'est pas révocable | Limite du fournisseur | Le texte du push reste générique (F1), donc sans donnée de santé |
+| Navigateurs très anciens (CSP1, sans nonce) | Les scripts en ligne de Next y sont bloqués ; les navigateurs CSP2 appliquent le nonce et `'self'`, les CSP3 `'strict-dynamic'` | À confirmer en recette mobile L10 (anciens Android, WebView) |
+| Colonne `Consultation.notes` | Valeurs historiques éventuelles, jamais en production | Effacement ou migration à trancher avec D-8 |
+
+L9 : instantané `87af2b2b…` (`dmp.service.ts` et page DMP modifiés).

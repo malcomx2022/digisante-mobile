@@ -15,7 +15,6 @@ const PHONE_LOGOUT = '+2290196000781';
 const PHONE_SUSPEND = '+2290196000782';
 const ALL_PHONES = [PHONE, PHONE_DOC, PHONE_DOC_KO, PHONE_ADMIN, PHONE_LOGOUT, PHONE_SUSPEND];
 const otpKeysFor = (p: string) => [`otp:${p}`, `otp:attempts:${p}`, `otp:lock:${p}`];
-const otpKeys = otpKeysFor(PHONE);
 const allOtpKeys = ALL_PHONES.flatMap(otpKeysFor);
 
 describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
@@ -272,6 +271,54 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
     expect(locked.statusCode).toBe(429);
     expect(locked.json().code).toBe('TOO_MANY_REQUESTS');
 
-    await app.redis.del(...otpKeys); // libère le verrou pour les exécutions suivantes
+    await resetOtp(PHONE); // libère le verrou pour les exécutions suivantes
+  });
+
+  // Décision du porteur (08/11/2026) : verrou par couple numéro + IP, plafond global par numéro.
+  const verify = (code: string, ip: string) =>
+    app.inject({ method: 'POST', url: '/api/v1/auth/otp/verify', payload: { phone: PHONE, code }, remoteAddress: ip });
+  const askCode = (ip: string) =>
+    app.inject({ method: 'POST', url: '/api/v1/auth/otp/request', payload: { phone: PHONE }, remoteAddress: ip });
+  const resetOtp = async (phone: string) => {
+    const { purgeOtpLocks } = await import('@/modules/auth/auth.service.js');
+    await purgeOtpLocks(app, phone);
+    await app.redis.del(`otp:${phone}`);
+  };
+
+  it("verrou par IP : 5 échecs d'un attaquant ne privent pas la victime de son code", async () => {
+    await resetOtp(PHONE);
+    const code = (await askCode('198.51.100.7')).json().devCode as string;
+    const wrong = code === '000000' ? '111111' : '000000';
+    for (let i = 0; i < 4; i++) expect((await verify(wrong, '203.0.113.7')).statusCode).toBe(401);
+    expect((await verify(wrong, '203.0.113.7')).statusCode).toBe(429);
+    // L'IP de l'attaquant reste verrouillée, même avec le bon code.
+    expect((await verify(code, '203.0.113.7')).statusCode).toBe(429);
+    // La victime, depuis sa propre IP, se connecte avec le même code.
+    const ok = await verify(code, '198.51.100.7');
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json().accessToken).toBeTruthy();
+    const lockout = await app.prisma.auditLog.findFirst({ where: { action: 'AUTH_LOCKOUT', meta: { path: ['phone'], equals: PHONE } }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] });
+    expect(lockout?.meta).toMatchObject({ scope: 'PHONE_IP' });
+    await resetOtp(PHONE);
+  });
+
+  it('plafond global : 20 échecs répartis sur plusieurs IP bloquent le numéro et détruisent le code', async () => {
+    await resetOtp(PHONE);
+    const code = (await askCode('198.51.100.8')).json().devCode as string;
+    const wrong = code === '000000' ? '111111' : '000000';
+    const ips = ['203.0.113.21', '203.0.113.22', '203.0.113.23', '203.0.113.24'];
+    let last = 0;
+    for (const ip of ips) for (let i = 0; i < 5; i++) last = (await verify(wrong, ip)).statusCode;
+    expect(last).toBe(429);
+    // Une IP neuve, même avec le bon code, est refusée : le numéro a atteint son plafond.
+    expect((await verify(code, '203.0.113.99')).statusCode).toBe(429);
+    expect((await askCode('203.0.113.99')).statusCode).toBe(429);
+    expect(await app.redis.get(`otp:${PHONE}`)).toBeNull();
+    const lockout = await app.prisma.auditLog.findFirst({ where: { action: 'AUTH_LOCKOUT', meta: { path: ['phone'], equals: PHONE } }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] });
+    expect(lockout?.meta).toMatchObject({ scope: 'PHONE' });
+    // Aucune IP en clair dans Redis : seules des étiquettes HMAC.
+    const keys = await app.redis.keys(`otp:*${PHONE}*`);
+    expect(keys.some((k) => k.includes('203.0.113'))).toBe(false);
+    await resetOtp(PHONE);
   });
 });

@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { writeAudit } from '@/lib/audit.js';
 import { notFound } from '@/lib/errors.js';
 import { zParse } from '@/lib/validation.js';
+import { otpLockState, purgeOtpLocks } from '@/modules/auth/auth.service.js';
 
 import { adminGuards, idParams } from './admin.shared.js';
 
@@ -25,9 +26,8 @@ export default async function adminSupportRoutes(app: FastifyInstance) {
       select: { id: true, phone: true, email: true, role: true, status: true, lang: true, createdAt: true, profile: { select: { firstName: true, lastName: true } } },
     });
     if (!user) throw notFound('Compte introuvable');
-    const [locked, attempts, notes, activity] = await Promise.all([
-      app.redis.get(`otp:lock:${user.phone}`),
-      app.redis.get(`otp:attempts:${user.phone}`),
+    const [lockout, notes, activity] = await Promise.all([
+      otpLockState(app, user.phone),
       app.prisma.supportNote.findMany({ where: { userId: id }, orderBy: { createdAt: 'desc' }, take: 50 }),
       app.prisma.auditLog.findMany({
         where: {
@@ -41,15 +41,15 @@ export default async function adminSupportRoutes(app: FastifyInstance) {
         select: { id: true, action: true, ip: true, createdAt: true },
       }),
     ]);
-    return { user, lockout: { locked: Boolean(locked), attempts: Number(attempts ?? 0) }, notes, activity };
+    return { user, lockout, notes, activity };
   });
 
-  // Déverrouillage OTP : purge le verrou Redis (lock + compteur + fenêtre d'envoi).
+  // Déverrouillage OTP : purge le plafond global, les verrous/compteurs par IP et la fenêtre d'envoi.
   app.post('/support/account/:id/unlock', withScope('otp:write'), async (request) => {
     const { id } = zParse(idParams, request.params);
     const user = await app.prisma.user.findUnique({ where: { id }, select: { id: true, phone: true } });
     if (!user) throw notFound('Compte introuvable');
-    await app.redis.del(`otp:lock:${user.phone}`, `otp:attempts:${user.phone}`, `otp:send:${user.phone}`);
+    await purgeOtpLocks(app, user.phone);
     await writeAudit(app.prisma, { action: 'OTP_RESET', actorId: request.user.sub, targetId: id, ip: request.ip, meta: { phone: user.phone } });
     return { unlocked: true };
   });

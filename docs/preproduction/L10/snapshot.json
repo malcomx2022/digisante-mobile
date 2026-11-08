@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d",
+  "sourceSnapshotSha256": "53913a5e3cc873b9031b035d07d2555c51f75cb46b68395d8f46e64de720b0a2",
   "sources": {
     ".github/workflows/ci.yml": "b2dd66e634f137fe14200fc302536a4f5510182814f3c6996c3aaa101260526d",
     ".github/workflows/preproduction.yml": "055bf59c9c4b40c4acd8a5ddf53b94b7caafb050f37f754006b077d9d98d384c",
@@ -44,7 +44,7 @@
     "infra/deploy/scripts/provision.sh": "48aa409a87f1bb2fa7981760bad6f6b84833b1d0ac42e1ba935e4e0013f769df",
     "infra/deploy/scripts/verify_deploy.sh": "b6b4af1c426037dbb2274c9de2f34f2f3da219b516f6cff774b93b17cb293382",
     "infra/deploy/scripts/verify_restore.sh": "300a3e59ed437f921a7dd969cb582515de8895968c8a5c1170ef7a74c01f908c",
-    "package.json": "ba152835a501e4d65eca1d6ede2f8bbb5f7aa750590919ca30bfb8a76cb89f5e",
+    "package.json": "9b69e95774ad07bdbd791cb84f9d136a8d17cea386de605fab6080c750abae4e",
     "scripts/preproduction/check-backup.mjs": "3e0c6a0f7ff4d410baa015fd02d0ba934ba6c0f34f1e04dcb96c7478d56c7901",
     "scripts/preproduction/check-l10-gate.mjs": "2462aed14459f21d20011067064df07199dda54b0e77cc8b0c500cbd33927b44",
     "scripts/preproduction/fedapay-s8.d.mts": "92e323bf1c4d827e47806e80724f216b67342c774cef06a2ea064145255e40dd",

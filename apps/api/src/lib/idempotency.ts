@@ -13,7 +13,33 @@ import { AppError, badRequest, conflict, forbidden, unauthorized } from './error
 // Séparation d'usage de la clé santé ; fallback synthétique exclusivement en test.
 const secret = env.HEALTH_ENCRYPTION_KEY ?? (env.NODE_ENV === 'test' ? 'synthetic-test-only-mutation-receipts' : undefined);
 if (!secret) throw new Error('HEALTH_ENCRYPTION_KEY requise pour les reçus');
-const KEY = deriveKey(`digisante-mutation-receipts-v1:${secret}`);
+// v1 (lecture seule des reçus existants, ≤ 14 j) : une même clé servait au HMAC du
+// corps et à l'AES-GCM de la réponse, sans données associées. v2 : sous-clés
+// distinctes par usage, et réponse liée à l'identité de mutation (AAD) — un
+// chiffré recopié vers un autre reçu ne se déchiffre plus.
+const LEGACY_KEY = deriveKey(`digisante-mutation-receipts-v1:${secret}`);
+const HMAC_KEY = deriveKey(`digisante-mutation-receipts-v2:hmac:${secret}`);
+const AES_KEY = deriveKey(`digisante-mutation-receipts-v2:aes:${secret}`);
+const V2 = 'v2:';
+
+type ReceiptScope = { userId: string; method: string; route: string; key: string };
+const receiptAad = (s: ReceiptScope) => `digisante-receipt-v2|${s.userId}|${s.method}|${s.route}|${s.key}`;
+const bodyHash = (key: Buffer, body: unknown) => createHmac('sha256', key).update(JSON.stringify(canonicalJson(body ?? null))).digest('hex');
+
+/** Scelle une réponse (v2 : sous-clé AES dédiée + AAD de l'identité). */
+export function sealReceiptResponse(scope: ReceiptScope, value: unknown): string {
+  return V2 + encryptWithKey(AES_KEY, value, receiptAad(scope));
+}
+
+/** Ouvre une réponse scellée, v2 ou héritée v1. */
+export function openReceiptResponse(scope: ReceiptScope, sealed: string): unknown {
+  return sealed.startsWith(V2) ? decryptWithKey(AES_KEY, sealed.slice(V2.length), receiptAad(scope)) : decryptWithKey(LEGACY_KEY, sealed);
+}
+
+/** Empreinte du corps selon la version du reçu comparé. */
+export function receiptRequestHash(body: unknown, version: 'v1' | 'v2' = 'v2'): string {
+  return bodyHash(version === 'v2' ? HMAC_KEY : LEGACY_KEY, body);
+}
 
 export async function mutateOnce<T>(app: FastifyInstance, request: FastifyRequest, options: {
   path: string;
@@ -36,7 +62,7 @@ export async function mutateOnce<T>(app: FastifyInstance, request: FastifyReques
     if (age < -MUTATION_CLOCK_SKEW_MS) throw new AppError('MUTATION_CLOCK_INVALID', 'Horloge de mutation invalide', 400);
     key = header.toLowerCase();
   }
-  const requestHash = createHmac('sha256', KEY).update(JSON.stringify(canonicalJson(request.body ?? null))).digest('hex');
+  const requestHash = receiptRequestHash(request.body);
   return app.prisma.$transaction(async (tx) => {
     // Sérialise deux workers/onglets et une suspension gagnante au verrou User.
     await tx.$queryRaw`SELECT id FROM users WHERE id = ${request.user.sub} FOR UPDATE`;
@@ -49,13 +75,15 @@ export async function mutateOnce<T>(app: FastifyInstance, request: FastifyReques
     // Chaque rejeu repasse le contrôle d'appartenance, AVANT de déchiffrer.
     await options.authorize(tx, Boolean(receipt), receipt?.resourceId ?? null);
     if (receipt) {
-      if (receipt.requestHash !== requestHash) throw conflict('Clé déjà utilisée avec un autre contenu');
-      return { value: decryptWithKey(KEY, receipt.encryptedResponse) as T, replayed: true };
+      const v2 = receipt.encryptedResponse.startsWith(V2);
+      const expected = v2 ? requestHash : receiptRequestHash(request.body, 'v1');
+      if (receipt.requestHash !== expected) throw conflict('Clé déjà utilisée avec un autre contenu');
+      return { value: openReceiptResponse(scope as ReceiptScope, receipt.encryptedResponse) as T, replayed: true };
     }
     const value = await options.execute(tx);
     if (scope) {
       await tx.mutationReceipt.create({ data: { ...scope, requestHash, responseStatus: options.status ?? 200,
-        encryptedResponse: encryptWithKey(KEY, value), resourceId: options.resourceId?.(value), expiresAt: new Date(Date.now() + MUTATION_RECEIPT_TTL_MS) } });
+        encryptedResponse: sealReceiptResponse(scope, value), resourceId: options.resourceId?.(value), expiresAt: new Date(Date.now() + MUTATION_RECEIPT_TTL_MS) } });
     }
     return { value, replayed: false };
   });

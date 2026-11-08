@@ -33,7 +33,7 @@ export default function DmpPage() {
   const [actionError, setActionError] = useState(false);
   const { data, loading, error } = useApi<DmpRecord[]>(() => dmpApi.myRecords(), []);
   const { data: me } = useApi<MeFull>(() => usersApi.me(), []);
-  const { data: consents } = useApi<DmpConsent[]>(() => dmpApi.listConsents(), [revokeTick]);
+  const { data: consents, error: consentsError } = useApi<DmpConsent[]>(() => dmpApi.listConsents(), [revokeTick]);
 
   async function revoke(granteeId: string) {
     setActionError(false);
@@ -97,7 +97,16 @@ export default function DmpPage() {
 
         {actionError && <ErrorState label={t('auth.error')} />}
 
-        {(consents?.length ?? 0) > 0 && (
+        {/* Échec de chargement ≠ « aucun accès accordé » : le patient ne doit pas
+            croire qu'aucun soignant ne lit son dossier quand la liste n'a pas chargé. */}
+        {consentsError && (
+          <CardPagne className="p-4">
+            <p className="font-display font-extrabold text-[0.8125rem] text-stone-700">{t('dmp.access_section_title')}</p>
+            <ErrorState label={t('auth.error')} />
+          </CardPagne>
+        )}
+
+        {!consentsError && (consents?.length ?? 0) > 0 && (
           <CardPagne className="p-4">
             <p className="font-display font-extrabold text-[0.8125rem] text-stone-700">{t('dmp.access_section_title')}</p>
             <div className="mt-2 space-y-2">
