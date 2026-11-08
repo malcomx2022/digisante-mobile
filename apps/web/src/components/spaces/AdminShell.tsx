@@ -2,6 +2,7 @@
 
 import type { AdminScope } from '@digisante/shared';
 import Link from 'next/link';
+import type { ReactElement } from 'react';
 import { usePathname } from 'next/navigation';
 
 import { HeaderLogout } from '@/components/auth/HeaderLogout';
@@ -24,7 +25,7 @@ import { cn } from '@/lib/cn';
 export type IconKey = 'dashboard' | 'users' | 'kyc' | 'audit' | 'education' | 'support' | 'admins' | 'finance' | 'ops' | 'integrations' | 'campaigns';
 
 export function NavIcon({ name }: { name: IconKey }) {
-  const paths: Record<IconKey, JSX.Element> = {
+  const paths: Record<IconKey, ReactElement> = {
     dashboard: (
       <>
         <rect width="7" height="9" x="3" y="3" rx="1" />

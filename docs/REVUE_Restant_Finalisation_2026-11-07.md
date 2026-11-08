@@ -60,7 +60,7 @@ Compteurs mesurés : 183 REST + 1 WS, 67 pages, 0 appel web vers une route inexi
 
 | Priorité | Point | Action |
 |---|---|---|
-| Bloquant GO | `next@14.2.35` : 3 critiques + ~10 hautes (dont SSRF via rewrites, DoS Server Components) ; correctifs en 15.5.x | **Arbitrage porteur requis** (Next 14 verrouillé §2) : montée Next 15 ou acceptation écrite du risque avec mesures compensatoires |
+| ~~Bloquant GO~~ **corrigé 08/11 (§11)** | `next@14.2.35` : 3 critiques + ~10 hautes (dont SSRF via rewrites, DoS Server Components) ; correctifs en 15.5.x | **Arbitrage porteur requis** (Next 14 verrouillé §2) : montée Next 15 ou acceptation écrite du risque avec mesures compensatoires |
 | Bloquant GO | `fast-jwt@5.0.6` via `@fastify/jwt@9.1.0` : 3 critiques (confusion d'algo, secret vide…) — atténué par HS256 épinglé | Monter `@fastify/jwt` (fast-jwt ≥ 6.3.1), re-tests auth |
 | Bloquant GO | `fastify@5.8.5`, `find-my-way`, `fast-uri` : hautes (contournement auth/validation, SSRF) | `pnpm update` semver (fastify ≥ 5.12.2), revue lockfile, **re-tests webhooks §5** |
 | Majeur | `scripts/infra/deploy-order.test.mjs` dépend du `ss` de l'hôte (`deploy.sh:169`) | Faux `ss` dans le `bin` simulé du test |
@@ -283,3 +283,32 @@ Migration additive `20261107140000_gdpr_terms_and_erasure` : colonnes `users.ter
 **Reste** :
 - export PDF patient : mineur ; l'export FHIR existe ;
 - purges de conservation : en attente de D-8.
+
+---
+
+## 11. Correctifs du 8 novembre 2026 : vulnérabilités des dépendances
+
+Décisions du porteur : montée **Next 15.5** et **zod 4**.
+
+`pnpm audit` passe de **65 vulnérabilités en production (6 critiques)** à **0**, dépendances de dev comprises.
+
+| Avant | Après | Remarque |
+|---|---|---|
+| next 14.2.35, React 18 | next 15.5.29, React 19 | `await params` ; `ReactElement` au lieu de `JSX` |
+| fastify 5.8.5, @fastify/jwt 9 (fast-jwt 5) | fastify 5.12.8, @fastify/jwt 10.2.7 (fast-jwt 6.3) | HS256 épinglé inchangé |
+| zod 3.25.76 | zod 4.6.7 | `z.record` à 2 arguments ; `z.partialRecord` pour les traductions |
+| vitest 2.1 (vite 5) | vitest 4.1, vite 7 | dev seulement |
+| dépendances transitives | overrides pnpm bornés à leur version majeure | minimatch 11 vérifié avec lint et typedoc |
+
+**Régression évitée** : en zod 4, `education/:id/translations` aurait rejeté tout jeu partiel de langues (422), donc cassé l'éditeur de traductions du CMS. Le test existant ne vérifiait pas le code retour ; il le vérifie désormais.
+
+**Contrôles locaux**, tous verts :
+- lint, typecheck ;
+- tests : 749 API, 155 web, 208 scripts ;
+- build : 78 pages générées ;
+- **e2e : 39 sur 39**, en-têtes de sécurité et CSP compris ;
+- scan des secrets du bundle ;
+- `validation:check` et `metrics:check` ;
+- `pnpm audit` : 0.
+
+§5 : la logique de paiement n'est pas modifiée ; les tests webhooks passent.

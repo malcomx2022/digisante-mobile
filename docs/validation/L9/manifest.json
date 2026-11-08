@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "sourceSnapshotSha256": "393091c6162dc8c72372797b26776bef4fbbcc23804a52223d7c310a8f22ba21",
+  "sourceSnapshotSha256": "5f67ab290acba933a4e3d5178bccd35dc3e3c679be43da33a7f437d0d0d31be2",
   "artifacts": {
-    "snapshot.json": "84717bba23579c7938b12199ead517ea4eb6a34b9d76ef26724ff12ecb73b74d",
+    "snapshot.json": "2b8d3106703c16f19efa60b8b54cc7bd4e8c62d5aca3505dea769c34e3359de5",
     "messages.fon.csv": "028aa5e002c87ec435ff47b0632a5b27ec90d8f06e236fc025efc48f25d27f79",
     "phrasebook.fon.csv": "7d4f6f71f95ac758cd04689c21ebcdf841bbcfed219a9f49ee811d73c15e7f2f",
     "messages.yor.csv": "3a3fcebfbb38115e6371e1636a49e1c9b44a62d9e08c1403567d003c880d3f7e",

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceSnapshotSha256": "393091c6162dc8c72372797b26776bef4fbbcc23804a52223d7c310a8f22ba21",
+  "sourceSnapshotSha256": "5f67ab290acba933a4e3d5178bccd35dc3e3c679be43da33a7f437d0d0d31be2",
   "sources": [
     {
       "path": "apps/web/src/i18n/messages.ts",
@@ -12,7 +12,7 @@
     },
     {
       "path": "apps/web/src/app/patient/triage/page.tsx",
-      "sha256": "5ed91a2a0ebe5d710d35aefdd1818fa152398d9d991d139825183788ba3be448"
+      "sha256": "3e868a69682e77116e70e40166243285d2fdcb4ba57760fe08b137fa63b7f40b"
     },
     {
       "path": "packages/shared/src/pev.ts",

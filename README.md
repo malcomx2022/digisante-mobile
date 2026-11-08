@@ -16,14 +16,14 @@ Offline-first · multilingue (FR, EN, Fɔ̀ngbè, Yorùbá) · téléconsultatio
 Monorepo **pnpm** :
 
 ```
-apps/web      Next.js 14 (App Router, PWA) — 75 pages
+apps/web      Next.js 15 (App Router, React 19, PWA) — 75 pages
 apps/api      Fastify — 193 endpoints REST + 1 WebSocket / 28 modules + Prisma + Valkey (compatible Redis)
 packages/shared   types, enums, schémas zod partagés
 packages/config   tsconfig de base
 infra/        docker-compose dev (Postgres 16 + Redis) · scripts deploy VPS
 ```
 
-**Stack** : Next.js 14 · Fastify · Prisma · PostgreSQL natif (18.6 sur l'hôte IONOS partagé) · Valkey (compatible Redis) · Daily.co · FedaPay · Firebase FCM · Twilio · Resend.
+**Stack** : Next.js 15 · Fastify · Prisma · PostgreSQL natif (18.6 sur l'hôte IONOS partagé) · Valkey (compatible Redis) · Daily.co · FedaPay · Firebase FCM · Twilio · Resend.
 **Prod** : VPS IONOS partagé `srv1.immipro.app` (31.70.148.167, Ubuntu 26.04) — dérogation porteur 13/10/2026 (remplace VPS Infomaniak distinct). Préprod `preprod.digisantemobile.app` (web 3100 / api 3101), prod `digisantemobile.app` (web 3200 / api 3201). Jamais Supabase/Railway/Vercel.
 
 ## Démarrage local

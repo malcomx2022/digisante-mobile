@@ -72,7 +72,7 @@ Porteur : **SEGLA E. Ulrich Gislain** (full-stack, 10+ ans). Collaboratrice : **
 
 | Couche | Technologie |
 |---|---|
-| Frontend | **Next.js 14** (App Router) + Tailwind CSS — PWA, service worker |
+| Frontend | **Next.js 15.5** (App Router, React 19) + Tailwind CSS — PWA, service worker (montée 14 → 15 décidée par le porteur le 08/11/2026 : failles critiques non corrigées en 14) |
 | Backend | **Fastify** (Node.js) — clustering PM2 ×2 |
 | ORM / DB | **Prisma** + **PostgreSQL 18.6 natif** (PG18, dérogation 13/10 ; PG16 initial) |
 | Cache / files | **Valkey** 6379 (compatible Redis, auth, index dédiés /5 préprod /6 prod, jamais FLUSHDB/FLUSHALL) — cache, OTP, allowlist refresh, **pub/sub temps réel chat** |
@@ -479,3 +479,27 @@ Même branche. Détails dans `docs/CONFORMITE_APDP_2026-11.md` et dans `docs/REV
   - mise à jour de la politique de confidentialité ;
   - incrément de `TERMS_VERSION`.
 - **L9** : instantané courant `393091c6…`.
+
+## Reprise — vulnérabilités des dépendances (8 novembre 2026)
+
+Branche `claude/compassionate-goldberg-5fdh2j` repartie de main `7908753` (après fusion de #232). `pnpm audit` (prod **et** dev) : **0 vulnérabilité** ; il y en avait 65 en prod, dont 6 critiques. Décisions du porteur du 08/11 : montée **Next 15.5** et **zod 4**.
+
+- **Montées directes** :
+  - `next` 15.5.29 et React 19 (`eslint-config-next`/`@next/bundle-analyzer` 15.5.29, `@types/react` 19) ;
+  - `fastify` 5.12.8 et `@fastify/jwt` 10.2.7 (fast-jwt 6.3) ;
+  - `zod` 4.6.7 (API + shared) ;
+  - `vitest` 4.1 avec `vite` 7 en devDependency directe (vitest 4 exige vite ≥ 6 ; sans dépendance directe, pnpm réutilisait vite 5 comme peer).
+- **Next 15** :
+  - `params` des pages dynamiques est une **Promise** (`await params`) ;
+  - plus de namespace global `JSX` : utiliser `ReactElement` (import `react`).
+  - `next-env.d.ts` : **ne pas committer** la référence `.next/types/routes.d.ts` ajoutée par le build. Sur un clone frais, le typecheck de la CI, qui passe avant le build, échouerait.
+  - `next lint` est déprécié (Next 16) ; la migration vers le CLI ESLint reste à faire avant Next 16.
+- **zod 4** :
+  - `z.record` exige **deux** arguments (`z.record(z.string(), …)`).
+  - Avec une clé **enum**, `z.record` est **exhaustif**. Pour un jeu partiel (traductions), utiliser `z.partialRecord`. Le bug a été vu sur `education/:id/translations`, et le test vérifie désormais le 200.
+  - `.flatten()`, `.email()`, `.cuid()` et `ZodIssueCode` restent disponibles (dépréciés).
+- **Overrides pnpm** (`package.json` racine) : dépendances transitives **bornées à leur version majeure** (`paquet@N` → `^N.x.y`) : fast-uri, postcss, nanoid, source-map-js, grpc-js, protobufjs, brace-expansion, js-yaml, markdown-it, browserslist, fast-copy, postcss-selector-parser, esbuild.
+  - Seule exception : `minimatch@9/10 → ^11`. Les dernières versions de typescript-eslint et typedoc dépendent encore de la 10 ; lint et `docs:generate` ont été vérifiés.
+  - **Ne jamais accepter les overrides non bornés (`>=`) de `pnpm audit --fix`**, qui forcent des montées majeures.
+- §5 : la logique de paiement est inchangée. Les re-tests des webhooks (HMAC ✓/✗, idempotence, réconciliation) passent avec Fastify 5.12 et zod 4.
+- L9 : instantané `5f67ab29…`, à cause de `triage/page.tsx` (`ReactElement`).

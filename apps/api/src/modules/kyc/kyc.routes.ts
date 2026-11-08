@@ -28,7 +28,7 @@ const documentSchema = z.object({
 const reviewSchema = z.object({
   decision: z.enum(['APPROVED', 'REJECTED', 'NEEDS_REVISION']),
   notes: z.string().max(2000).optional(),
-  checklist: z.record(z.unknown()).optional(),
+  checklist: z.record(z.string(), z.unknown()).optional(),
 });
 
 const queueSchema = paginationSchema.extend({
