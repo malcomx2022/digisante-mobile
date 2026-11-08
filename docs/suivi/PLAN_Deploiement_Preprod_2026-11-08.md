@@ -132,10 +132,11 @@
 
 ## 6. Registre L10 de la nouvelle candidate
 
-Après la fusion de #228 (Claude Code peut le préparer en PR) :
+Après la fusion de #228 (Claude Code le prépare dans cette PR) :
 
-1. archiver le registre `docs/preproduction/L10/evidence.json` de `ace0c689` **tel quel** dans
-   `docs/preproduction/archive/L10-ace0c689-<date>/`, avec son empreinte, comme pour `ec6b0dc` ;
+1. ✅ **fait le 08/11/2026** : registre de `ace0c689` archivé tel quel dans
+   `docs/preproduction/archive/L10-ace0c689-2026-11-08/` (15 records PASS, instantané `d6bfcba2…`, SHA-256
+   `d4d3aedc…`), comme pour `ec6b0dc`. Le registre courant n'est pas encore remplacé : il le sera au point 2 ;
 2. déclarer le bloc candidat `<SHA_CANDIDAT>` (CI qualifiée) avec un registre vide, puis `pnpm preprod:prepare` et
    `pnpm preprod:check` ;
 3. `pnpm preprod:gate --expected-sha <SHA_CANDIDAT>` : 100 points ouverts attendus.
