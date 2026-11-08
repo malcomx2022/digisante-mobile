@@ -1,0 +1,147 @@
+{
+  "candidate": {
+    "ciRunId": 39687976461,
+    "dedicatedHostRef": "srv1.immipro.app (31.70.148.167), VPS IONOS partagé — dérogation porteur du 13/10/2026 ; cas I2 non conforme, arbitrage L11",
+    "domain": "preprod.digisantemobile.app",
+    "environment": "preproduction",
+    "sha": "ace0c689686204348e33c56e95cbc387d3b438b2"
+  },
+  "records": [
+    {
+      "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
+      "caseId": "I1",
+      "evidenceRef": "GitHub Actions ci.yml run 39687976461 (run 474, main, push, SHA ace0c689) : build-and-test et e2e success, job deploy skipped (opt-in désactivé) ; fin du run 2026-10-21T22:43:00Z.",
+      "executedAt": "2026-10-21T22:43:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
+      "caseId": "I3",
+      "evidenceRef": "Historique de déploiement serveur : ec6b0dc → ace0c689, status=SUCCESS, stage=complete (2026-10-21T23:59:17+01:00) ; HEAD du checkout préprod confirmé à ace0c689 le 22/10/2026 ; 34 migrations appliquées, aucune nouvelle (manifeste de sauvegarde du 22/10 : rows._prisma_migrations=34) ; PM2 api (cluster ×2) et web en ligne, 0 redémarrage ; maintenance Nginx posée.",
+      "executedAt": "2026-10-21T22:59:17.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
+      "caseId": "I4",
+      "evidenceRef": "Préprod ace0c689, maintenance Nginx posée (403 hors IP autorisées) : HTTPS 200 depuis IP autorisée, certificat valide jusqu’au 2027-01-12 ; certbot renew --dry-run réussi pour preprod.digisantemobile.app (simulation complète vers 07:16Z le 22/10, certificats réels intacts) ; HSTS présent max-age=86400, actif depuis le provisionnement des 14–15/10, condition « renouvellement vérifié » satisfaite par ce dry-run ; GET /api/v1/ready → ready, db:up, redis:up (08:50:37Z) ; poignée WebSocket route chat 101 via Nginx relevée dans le journal WS préprod (08:51:02Z), puis grep -c token= sur ce journal = 0 (09:12Z).",
+      "executedAt": "2026-10-22T09:12:00.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
+      "caseId": "I5",
+      "evidenceRef": "Préprod ace0c689 : .env de l’API en 0600 (propriétaire digisante-preprod), backup.key en 0400 root:root ; magasin de fichiers /var/lib/digisante-preprod-files en 700, propriétaire applicatif, hors checkout ; backup.key et HEALTH_ENCRYPTION_KEY conservées hors VPS dans le coffre du porteur (attestations des 16/10 et 20/10, clés inchangées par le candidat) ; héritage d’audit vérifié sans réécriture : export psql ordonné (createdAt, id) en session UTC passé à scripts/audit/verify-chain.mjs du checkout ace0c689 → 77 entrées, 0 chaînage rompu, 0 hash non recalculable, code de sortie 0 (contrôle répété deux fois).",
+      "executedAt": "2026-10-22T11:24:36.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d",
+      "caseId": "I6",
+      "executedAt": "2026-10-22T08:50:03.000Z",
+      "evidenceRef": "Journaux cron préprod du 22/10/2026, tous postérieurs au déploiement ace0c689 et en HTTP 200 (heures Porto-Novo, UTC+1) : purge sync_receipts 03:10:04 (deleted=0), vaccination_reminders 06:30:04 (generated=0), maternity_reminders 06:40:04 (generated=0), appt_reminders */15 min (ex. 09:45:02, generated=0), med_reminders */5 min (ex. 09:50:03, generated=0) ; aucun rappel généré ce jour, donc aucun doublon ; dispatch */2 min actif (notification de recette dispatchée le 21/10 à 23:28Z)."
+    },
+    {
+      "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
+      "caseId": "I7",
+      "evidenceRef": "Réconciliation FedaPay par cron le 22/10/2026 à 02:30 (Porto-Novo) sur ace0c689 : HTTP 200, réponse {scanned:3, resolved:0, failed:0} (aucun « non configuré »), aucun effet produit, donc sans double traitement ; healthwatch post-déploiement au matin du 22/10 : backlog 0 notification > 15 min, 0 webhook FedaPay rejeté en 1 h, aucune alerte ouverte ; alertes en syslog local de l’hôte (aucun ALERT_CMD), destinataire autorisé pour la préproduction par décision D-13 du porteur du 22/10/2026 (ALERT_CMD vers une adresse d’exploitation requis avant GO production).",
+      "executedAt": "2026-10-22T07:01:41.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
+      "caseId": "I8",
+      "evidenceRef": "Première sauvegarde cible après déploiement ace0c689 : cron 01:30 (Porto-Novo) du 22/10/2026, trio 20261022_013005 (DB chiffrée, fichiers chiffrés, manifeste), journal « Terminé ✓ » ; SHA256 des deux archives recalculés et conformes au manifeste, files_missing=0, comptages cohérents avec la base (34 migrations, 77 audits) ; copie du trio conservée hors VPS par l’opérateur (confirmation du 22/10/2026, comme pour le trio du 20/10), copie de transit sur le serveur supprimée après téléchargement ; clé de chiffrement backup.key conservée hors VPS dans le coffre du porteur. Exercice de restauration complète sur ce candidat reporté à FINANCE-F8/L11.",
+      "executedAt": "2026-10-22T12:09:42.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d",
+      "caseId": "I9",
+      "executedAt": "2026-10-22T08:53:42.000Z",
+      "evidenceRef": "Build ace0c689 vérifié le 22/10 à 08:52:04Z : configuration publique Firebase et clé VAPID présentes dans les chunks servis ; processus API PM2 en NODE_ENV=production ; demande d’OTP sur un numéro de recette fictif à 08:53:42Z → réponse {channel:SMS, expiresInSec:300}, sans devCode, code ni stub ; configurations fournisseurs chiffrées en base, activées, dernier test Firebase OK ; priorité base : le resolver lib/integrations sert exclusivement la ligne en base dès qu’elle existe (repli .env seulement sans ligne, jamais pour une ligne illisible) — le .env portait 10 variables fournisseurs renseignées depuis le provisionnement du 15/10 (fichier non modifié depuis), non utilisées tant que les lignes existent ; retirées le 22/10 sur décision D-14."
+    },
+    {
+      "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
+      "caseId": "FEDAPAY-S1",
+      "evidenceRef": "Recharge du portefeuille diaspora par l’interface, redirection vers la page FedaPay bac à sable (hôte constaté en S8) puis paiement carte de test : paiement WALLET_TOPUP de 6 560 XOF créé à 14:24:49Z, PENDING → COMPLETED à 14:25:15Z ; un seul audit PAYMENT_CONFIRMED (14:25:15.403Z) avec source=webhook (relu en base) ; portefeuille crédité une seule fois, 13 120 → 19 680 XOF (vérifié en base) ; retour navigateur sur /diaspora/wallet (GET 200 à 14:25:17Z), conforme au callback_url par type du correctif C5. Référence opaque.",
+      "executedAt": "2026-10-22T14:25:15.403Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
+      "caseId": "FEDAPAY-S2",
+      "evidenceRef": "Consultation Mobile Money : patient de recette payant un RDV confirmé (26/10) en MTN MoMo bac à sable ; paiement CONSULTATION, méthode MTN_MOMO, 5 000 XOF = tarif du médecin fixé côté serveur, créé à 15:22:37Z, COMPLETED à 15:23:02Z ; audit PAYMENT_CONFIRMED source=webhook à 15:23:02.413Z (vérifié en base) ; retour navigateur sur /patient/appointments (GET 200 à 15:23:04Z), conforme au callback_url par type du correctif C5. Référence opaque.",
+      "executedAt": "2026-10-22T15:23:02.413Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
+      "caseId": "FEDAPAY-S3",
+      "evidenceRef": "Consultation payée par portefeuille : RDV physique (23/10) confirmé par le médecin, payé par le patient de recette via le portefeuille ; paiement CONSULTATION, méthode WALLET, 5 000 XOF, COMPLETED immédiatement à 18:03:31Z, sans transaction FedaPay (aucun identifiant fournisseur) ; portefeuille débité une seule fois (5 000 → 0 XOF) ; audit PAYMENT_CONFIRMED method=WALLET, source=wallet à 18:03:31.770Z, sans webhook — vérifié en base. Référence opaque.",
+      "executedAt": "2026-10-22T18:03:31.770Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
+      "caseId": "FEDAPAY-S4",
+      "evidenceRef": "Webhook rejeté : secret webhook FedaPay de la configuration en base temporairement falsifié, puis recharge diaspora bac à sable de 6 560 XOF (créée à 18:19:14Z) ; trois livraisons rejetées pour signature invalide, chacune avec un audit AUTH_FAIL source=fedapay_webhook reason=bad_signature (18:20:47Z, 18:21:10Z, 18:21:15Z), statut inchangé, aucune confirmation ni crédit pendant la fenêtre ; secret d’origine restauré à 18:21:34Z (audit INTEGRATION_UPDATE, test d’intégration OK à 18:21:35Z) ; relivraison confirmée une seule fois (PAYMENT_CONFIRMED source=webhook à 18:21:57Z), portefeuille crédité une fois 19 680 → 26 240 XOF — vérifié en base et au journal. Référence opaque.",
+      "executedAt": "2026-10-22T18:20:47.501Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
+      "caseId": "FEDAPAY-S7",
+      "evidenceRef": "Rejeu du webhook transaction.approved de FEDAPAY-S1 depuis la page du webhook du tableau de bord FedaPay bac à sable : une relivraison (18:55:38Z) puis une rafale de trois relivraisons à une seconde d’intervalle (19:04:37Z, 19:04:38Z, 19:04:39Z), toutes HTTP 200 au journal Nginx ; aucun nouvel audit PAYMENT_CONFIRMED (confirmation de S1 unique à 14:25:15.403Z), paiement S1 non réécrit, portefeuille diaspora non recrédité (26 240 XOF) — vérifié en base. Réponse idempotent:true établie par déduction, le journal FedaPay n’affichant aucun corps : réponses des quatre relivraisons de 40 octets, taille de {idempotent:true,status:COMPLETED}, contre 39 octets pour une confirmation initiale ({processed:true,status:COMPLETED}, constaté sur S4). Référence opaque.",
+      "executedAt": "2026-10-22T19:04:39.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
+      "caseId": "FEDAPAY-S8",
+      "evidenceRef": "Sonde S8 (SMOKE_FEDAPAY_S8=1) avec gardes L10 (préproduction, SHA du candidat, base et Redis dédiés) : transaction bac à sable de 100 XOF créée (HTTP 200), jamais payée, aucun Payment ni audit local ; lien généré (HTTP 200) ; verdict PASS, code HOTE_AUTORISE ; hôte exact du lien sandbox-process.fedapay.com, chemin = jeton opaque sans identifiant ni paramètre de requête, forme brute sans anomalie ; redirection effective constatée en FEDAPAY-S1. Référence de sonde ds-recette-s8-20261022140254-a772.",
+      "executedAt": "2026-10-22T14:02:54.000Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    },
+    {
+      "candidateSha": "ace0c689686204348e33c56e95cbc387d3b438b2",
+      "caseId": "RESEND-R6",
+      "evidenceRef": "Campagne EMAIL de recette créée dans /admin/campaigns, audience ADMIN, passage DRAFT→SENT le 2026-10-21T23:26:11Z (audienceCount=1, vérifié en base) ; 1 notification EMAIL tracée puis dispatchée, statut DELIVERED (sentAt 2026-10-21T23:28:02Z, vérifié en base) ; e-mail reçu en FR dans la boîte de l'opérateur (capture conservée hors dépôt).",
+      "executedAt": "2026-10-21T23:28:02.006Z",
+      "operator": "malcomx2022",
+      "result": "PASS",
+      "sourceSnapshotSha256": "d6bfcba2cd3a7afbc5e51d934b4881435e5f893e6cf33c62f2a569fddb040a6d"
+    }
+  ],
+  "schemaVersion": 1
+}
