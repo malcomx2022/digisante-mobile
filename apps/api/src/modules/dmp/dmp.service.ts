@@ -13,7 +13,7 @@ import { writeAudit, writeAuditWithin } from '@/lib/audit.js';
 import { openMedicalData, sealMedicalData } from '@/lib/crypto.js';
 import { assertDmpAccess, resolveDmpScope, syncLegacyConsentExpiry, withDmpConsentLock } from '@/lib/dmp-consent.js';
 import { badRequest, forbidden, notFound } from '@/lib/errors.js';
-import { readEncryptedFile, storeEncryptedFile } from '@/lib/filestore.js';
+import { deleteEncryptedFile, readEncryptedFile, storeEncryptedFile } from '@/lib/filestore.js';
 import { checksumOf, decodeUpload } from '@/lib/upload.js';
 
 interface Actor {
@@ -206,7 +206,7 @@ export async function readDocumentFile(app: FastifyInstance, actor: Actor, docum
 export async function removeDocument(app: FastifyInstance, patientUserId: string, documentId: string, ip?: string | null) {
   const doc = await app.prisma.document.findUnique({
     where: { id: documentId },
-    select: { id: true, medicalRecord: { select: { id: true, patient: { select: { userId: true } } } } },
+    select: { id: true, encryptedUrl: true, medicalRecord: { select: { id: true, patient: { select: { userId: true } } } } },
   });
   if (!doc) throw notFound('Pièce jointe introuvable');
   if (doc.medicalRecord.patient.userId !== patientUserId) throw forbidden('Seul le patient propriétaire peut supprimer');
@@ -219,9 +219,14 @@ export async function removeDocument(app: FastifyInstance, patientUserId: string
     ip,
     meta: { documentId: doc.id },
   });
-  // Le fichier chiffré reste sur disque (aucun secret n'en sort : sans la ligne
-  // en base, plus personne ne peut le retrouver). La purge disque relève du cron
-  // de maintenance du VPS.
+  // Effacement réel du fichier chiffré, APRÈS la ligne (B4 : jamais de fichier
+  // référencé manquant). Un échec disque est journalisé sans annuler le retrait :
+  // le fichier orphelin reste illisible sans sa ligne et sera revu en maintenance.
+  try {
+    await deleteEncryptedFile(doc.encryptedUrl);
+  } catch (err) {
+    app.log.error({ err, documentId: doc.id }, '[DMP] fichier chiffré non supprimé du magasin');
+  }
   return { removed: true };
 }
 

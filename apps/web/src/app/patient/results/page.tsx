@@ -63,7 +63,7 @@ export default function ResultsPage() {
                     onClick={() => listen(o)}
                     className="mt-2 text-[0.8125rem] text-sante-700 underline decoration-dotted underline-offset-4"
                   >
-                    {t('results.audio')}
+                    <span aria-hidden="true">🔊</span> {t('posology.listen')}
                   </button>
                 )}
               </div>

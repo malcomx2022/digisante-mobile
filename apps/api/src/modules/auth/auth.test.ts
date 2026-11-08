@@ -3,6 +3,7 @@
 // sinon le bloc est ignoré (pnpm test reste vert en local sans infra).
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { REGISTER_TERMS } from '@/test/terms-fixture.js';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 const PHONE = '+2290196000777';
@@ -40,7 +41,7 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
     const reg = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/register',
-      payload: { phone: PHONE, role: 'PATIENT', lang: 'FR', firstName: 'Test', lastName: 'User' },
+      payload: { ...REGISTER_TERMS, phone: PHONE, role: 'PATIENT', lang: 'FR', firstName: 'Test', lastName: 'User' },
     });
     expect(reg.statusCode).toBe(201);
     const devCode = reg.json().otp.devCode as string;
@@ -91,7 +92,7 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
     const reg = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/register',
-      payload: {
+      payload: { ...REGISTER_TERMS,
         phone: PHONE_DOC,
         role: 'MEDECIN',
         lang: 'FR',
@@ -115,7 +116,7 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
     const reg = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/register',
-      payload: {
+      payload: { ...REGISTER_TERMS,
         phone: PHONE_DOC_KO,
         role: 'MEDECIN',
         lang: 'FR',
@@ -134,7 +135,7 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
     const reg = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/register',
-      payload: {
+      payload: { ...REGISTER_TERMS,
         phone: PHONE_ADMIN,
         role: 'ADMIN',
         lang: 'FR',
@@ -152,7 +153,7 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
     const reg = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/register',
-      payload: { phone: PHONE_LOGOUT, role: 'PATIENT', lang: 'FR', firstName: 'Log', lastName: 'Out' },
+      payload: { ...REGISTER_TERMS, phone: PHONE_LOGOUT, role: 'PATIENT', lang: 'FR', firstName: 'Log', lastName: 'Out' },
     });
     expect(reg.statusCode).toBe(201);
     const devCode = reg.json().otp.devCode as string;
@@ -200,7 +201,7 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
     const reg = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/register',
-      payload: { phone: PHONE_SUSPEND, role: 'PATIENT', lang: 'FR', firstName: 'Sus', lastName: 'Pendu' },
+      payload: { ...REGISTER_TERMS, phone: PHONE_SUSPEND, role: 'PATIENT', lang: 'FR', firstName: 'Sus', lastName: 'Pendu' },
     });
     expect(reg.statusCode).toBe(201);
     const verify = await app.inject({

@@ -58,7 +58,7 @@ export async function removeStock(app: FastifyInstance, pharmacyId: string, id: 
 }
 
 /**
- * Recherche patient : pharmacies ayant le médicament (statut ≠ OUT). Si la
+ * Recherche patient : pharmacies VÉRIFIÉES ayant le médicament (statut ≠ OUT). Si la
  * position du patient est fournie, calcule et TRIE par distance ; sinon tri par
  * statut (IN_STOCK avant LOW) puis récence. Renvoie au plus 30 résultats.
  */
@@ -70,7 +70,13 @@ export async function searchAvailability(
   if (needle.length < 2) return { items: [] };
 
   const rows = await app.prisma.pharmacyStock.findMany({
-    where: { status: { not: 'OUT' }, medicationName: { contains: needle } },
+    // Seules les officines VÉRIFIÉES (KYC) et actives sont proposées au patient :
+    // un stock déclaré avant habilitation reste invisible jusqu'à l'approbation.
+    where: {
+      status: { not: 'OUT' },
+      medicationName: { contains: needle },
+      pharmacy: { verifiedAt: { not: null }, user: { status: 'ACTIVE' } },
+    },
     take: 60,
     orderBy: [{ status: 'asc' }, { updatedAt: 'desc' }],
     select: {

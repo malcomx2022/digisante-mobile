@@ -10,6 +10,9 @@ import { forbidden, notFound } from '@/lib/errors.js';
 import { requireRole } from '@/lib/rbac.js';
 import { zParse } from '@/lib/validation.js';
 import { registerDevice } from './users.devices.service.js';
+import * as privacy from './users.privacy.js';
+
+const termsSchema = z.object({ version: z.string().min(1).max(40) });
 
 const deviceSchema = z.object({
   fcmToken: z.string().trim().min(1).max(512),
@@ -49,11 +52,25 @@ export default async function usersRoutes(app: FastifyInstance) {
   app.get('/me', { preHandler: [app.authenticate] }, async (request) => {
     const me = await app.prisma.user.findUnique({
       where: { id: request.user.sub },
-      select: { id: true, phone: true, email: true, role: true, status: true, lang: true, ...meInclude },
+      select: { id: true, phone: true, email: true, role: true, status: true, lang: true, termsVersion: true, termsAcceptedAt: true, ...meInclude },
     });
     if (!me) throw notFound('Utilisateur introuvable');
     return me;
   });
+
+  // ── Conformité APDP : consentement versionné et droit à l'effacement ──
+  // Acceptation de la version courante des CGU / politique de confidentialité.
+  app.post('/me/terms', { preHandler: [app.authenticate] }, async (request) => {
+    const { version } = zParse(termsSchema, request.body);
+    return privacy.acceptTerms(app, request.user.sub, version, request.ip);
+  });
+
+  // Demande d'effacement du compte (traitée par un admin, jamais automatique).
+  app.get('/me/deletion-request', { preHandler: [app.authenticate] }, async (request) =>
+    (await privacy.myDeletionRequest(app, request.user.sub)) ?? { status: null });
+
+  app.post('/me/deletion-request', { preHandler: [app.authenticate] }, async (request, reply) =>
+    reply.code(201).send(await privacy.requestDeletion(app, request.user.sub, request.ip)));
 
   // Mise à jour du profil + langue d'UI + langues parlées.
   app.patch('/me', { preHandler: [app.authenticate] }, async (request) => {

@@ -7,6 +7,7 @@ import { Suspense, useState } from 'react';
 import { LaboratoryGate } from '@/components/auth/LaboratoryGate';
 import { Button, CardPagne } from '@/components/ui';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { NotificationsLink } from '@/components/notifications/SpaceNotifications';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
 import { useLocale } from '@/i18n/LocaleProvider';
 import { labApi, type SubmitResult } from '@/lib/api/laboratory';
@@ -121,6 +122,7 @@ function LaboResult() {
     <>
       <SpaceHeader title={t('labo.title')} subtitle={t('labo.result')} headerClass="bg-ocre-900" profileHref="/labo/profile" />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto">
+        <NotificationsLink href="/labo/notifications" />
         <Link href="/labo/orders" className="block w-full text-center bg-ocre-400 text-stone-900 font-display font-extrabold card-pagne py-3">
           <span aria-hidden="true">📥</span> {t('labo.orders_title')}
         </Link>

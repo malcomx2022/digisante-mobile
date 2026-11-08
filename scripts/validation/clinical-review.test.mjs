@@ -36,22 +36,30 @@ test('aucun retour humain, contreseing ou GO fabriqué ; entrées synthétiques 
   assert.equal(JSON.stringify(review).includes('"decision":"APPROVED"'), false);
 });
 
-test('cas posologie enregistrent les divergences réelles sans les transformer en attentes médicales acceptées', () => {
-  assert.equal(find('POS01').observedOutput.parsed.output.doseCount, 0);
-  assert.equal(find('POS02').observedOutput.parsed.output.doseCount, 1);
-  assert.equal(find('POS03').observedOutput.parsed.output.doseCount, 1);
-  assert.equal(find('POS04').observedOutput.parsed.output.doseCount, 500);
-  assert.equal(find('POS04').observedOutput.parsed.output.form, null);
-  assert.equal(find('POS05').observedOutput.parsed.output.form, 'TABLET');
-  assert.equal(find('POS05').observedOutput.parsed.output.doseCount, 500);
-  assert.equal(find('POS06').observedOutput.parsed.output.doseCount, 2);
-  assert.equal(find('POS07').observedOutput.parsed.output.timesPerDay, 2);
-  assert.equal(find('POS08').observedOutput.parsed.output.days, 48);
-  assert.deepEqual(find('POS11').observedOutput.parsed.output.timings, ['EVENING']);
-  assert.equal(find('POS12').observedOutput.parsed.output.meal, 'AFTER');
-  assert.equal(find('POS12').observedOutput.parsed.output.days, 7);
-  assert.equal(find('POS13').observedOutput.parsed.output.days, 2);
-  assert.equal(find('POS14').observedOutput.parsed.output.recognized, false);
+test('cas posologie : sortie corrigée enregistrée telle qu’exécutée, sans valoir acceptation médicale', () => {
+  // Correctifs du 7 novembre 2026 : sortie conservatrice, rien d'inventé (à contresigner).
+  const out = (id) => find(id).observedOutput.parsed.output;
+  assert.equal(out('POS01').doseCount, 0.5);
+  assert.deepEqual(out('POS01').timings, []);
+  assert.equal(out('POS01').days, null);
+  assert.equal(out('POS02').doseCount, 0.5);
+  assert.equal(out('POS03').doseCount, 0.5);
+  assert.equal(out('POS04').doseCount, null);
+  assert.equal(out('POS04').form, null);
+  assert.equal(out('POS05').form, 'TABLET');
+  assert.equal(out('POS05').doseCount, null);
+  assert.equal(out('POS06').doseCount, null);
+  assert.deepEqual(out('POS06').timings, []);
+  assert.equal(out('POS07').timesPerDay, null);
+  assert.equal(out('POS08').days, null);
+  assert.deepEqual(out('POS09').timings, []);
+  assert.equal(out('POS09').timesPerDay, null);
+  assert.equal(out('POS10').doseCount, null);
+  assert.deepEqual(out('POS11').timings, []);
+  assert.equal(out('POS12').meal, 'DURING');
+  assert.equal(out('POS12').days, null);
+  assert.equal(out('POS13').days, null);
+  assert.equal(out('POS14').recognized, true);
   for (const entry of review.cases.filter((candidate) => candidate.caseId.startsWith('POS'))) {
     assert.equal(entry.observedOutput.parsed.method, 'EXECUTED_PURE_SOURCE');
     assert.deepEqual(entry.observedOutput.parsed.output, JSON.parse(JSON.stringify(content.parsePosology(entry.input))));

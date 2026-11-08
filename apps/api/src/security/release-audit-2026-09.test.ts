@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { redactAuditMetaForAdmin } from '@/lib/audit.js';
 import { isValidServiceToken } from '@/lib/service-token.js';
 import { linkCare } from '@/test/care-fixture.js';
+import { REGISTER_TERMS } from '@/test/terms-fixture.js';
 
 describe('Jeton de service (tâches cron) — comparaison fail-closed', () => {
   const SECRET = 'x'.repeat(40);
@@ -112,7 +113,7 @@ describe.skipIf(!HAS_INFRA)('Audit de release 2026-09 (intégration)', () => {
       data: {
         phone: PHONES[4], role: 'PHARMACIE', status: 'ACTIVE', lang: 'FR',
         profile: { create: { firstName: 'Ph', lastName: 'X' } },
-        pharmacy: { create: { name: 'Pharmacie Audit', address: 'Cotonou', phone: PHONES[4] } },
+        pharmacy: { create: { name: 'Pharmacie Audit', address: 'Cotonou', phone: PHONES[4], verifiedAt: new Date() } },
       },
     });
     tokens.pharma = sign(pharma.id, 'PHARMACIE');
@@ -147,7 +148,7 @@ describe.skipIf(!HAS_INFRA)('Audit de release 2026-09 (intégration)', () => {
   it('OTP : redemander un code NE remet PAS le compteur d’échecs à zéro', async () => {
     const reg = await app.inject({
       method: 'POST', url: '/api/v1/auth/register',
-      payload: { phone: PHONES[7], role: 'PATIENT', lang: 'FR', firstName: 'Otp', lastName: 'Test' },
+      payload: { ...REGISTER_TERMS, phone: PHONES[7], role: 'PATIENT', lang: 'FR', firstName: 'Otp', lastName: 'Test' },
     });
     expect(reg.statusCode).toBe(201);
     const verify = (code: string) =>

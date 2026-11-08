@@ -166,4 +166,49 @@ describe.skipIf(!HAS_INFRA)('Admin — diffusion / veille sanitaire (intégratio
     });
     expect(res.statusCode).toBe(422);
   });
+
+  // M6 : une seule diffusion même sous double clic / deux workers, et envoi par lots.
+  const draft = async (title: string) => {
+    const res = await app.inject({
+      method: 'POST', url: '/api/v1/admin/campaigns', headers: auth(contentToken),
+      payload: { category: 'VACCINATION', translations: { FR: { title, body: 'Corps synthétique' }, EN: { title, body: 'Synthetic body' } }, audienceRole: 'PATIENT', audienceLang: 'EN' },
+    });
+    expect(res.statusCode).toBe(201);
+    return res.json().id as string;
+  };
+
+  it('diffusions concurrentes : une seule gagne, aucune notification en double', async () => {
+    const id = await draft('Concurrence M6');
+    const results = await Promise.all([1, 2, 3].map(() => app.inject({ method: 'POST', url: `/api/v1/admin/campaigns/${id}/send`, headers: auth(contentToken) })));
+    const codes = results.map((r) => r.statusCode).sort();
+    expect(codes).toEqual([200, 400, 400]);
+    const winner = results.find((r) => r.statusCode === 200)!;
+    const created = await app.prisma.notification.count({ where: { title: 'Concurrence M6' } });
+    expect(created).toBe(winner.json().audienceCount);
+    expect(await app.prisma.auditLog.count({ where: { action: 'CAMPAIGN_SENT', targetId: id } })).toBe(1);
+    await app.prisma.notification.deleteMany({ where: { title: 'Concurrence M6' } });
+  });
+
+  it('envoi par lots (curseur) : chaque destinataire reçoit exactement une notification', async () => {
+    const { sendCampaign } = await import('./campaigns.service.js');
+    const id = await draft('Lots M6');
+    const reach = await app.inject({ method: 'GET', url: '/api/v1/admin/campaigns/audience?audienceRole=PATIENT&audienceLang=EN', headers: auth(contentToken) });
+    const { audienceCount } = await sendCampaign(app, id, { id: adminIds[0]! }, { batchSize: 1 });
+    expect(audienceCount).toBe(reach.json().audienceCount);
+    const rows = await app.prisma.notification.findMany({ where: { title: 'Lots M6' }, select: { recipientId: true } });
+    expect(rows).toHaveLength(audienceCount);
+    expect(new Set(rows.map((r) => r.recipientId)).size).toBe(audienceCount);
+    await app.prisma.notification.deleteMany({ where: { title: 'Lots M6' } });
+  });
+
+  it('modification concurrente d’une campagne diffusée : refusée', async () => {
+    const id = await draft('Edition M6');
+    await app.inject({ method: 'POST', url: `/api/v1/admin/campaigns/${id}/send`, headers: auth(contentToken) });
+    const edit = await app.inject({
+      method: 'PUT', url: `/api/v1/admin/campaigns/${id}`, headers: auth(contentToken),
+      payload: { category: 'VACCINATION', translations: { FR: { title: 'Modifié', body: 'x' } } },
+    });
+    expect(edit.statusCode).toBe(400);
+    await app.prisma.notification.deleteMany({ where: { title: 'Edition M6' } });
+  });
 });

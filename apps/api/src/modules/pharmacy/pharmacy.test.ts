@@ -34,7 +34,7 @@ describe.skipIf(!HAS_INFRA)('Pharmacie & Laboratoire (intégration)', () => {
     const doctor = await app.prisma.user.create({
       data: { phone: PHONES[1], role: 'MEDECIN', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Awa', lastName: 'K' } }, doctor: { create: { speciality: 'Bio', licenseNumber: 'BJ-MED-5001', consultFee: 3000, verifiedAt: new Date() } } },
     });
-    const pharma = await app.prisma.user.create({ data: { phone: PHONES[2], role: 'PHARMACIE', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Pharma', lastName: 'X' } }, pharmacy: { create: { name: 'Pharmacie Centrale', address: 'Cotonou', phone: PHONES[2] } } } });
+    const pharma = await app.prisma.user.create({ data: { phone: PHONES[2], role: 'PHARMACIE', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Pharma', lastName: 'X' } }, pharmacy: { create: { name: 'Pharmacie Centrale', address: 'Cotonou', phone: PHONES[2], verifiedAt: new Date() } } } });
     const labTech = await app.prisma.user.create({ data: { phone: PHONES[3], role: 'LABORATOIRE', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Labo', lastName: 'Y' } }, lab: { create: { name: 'Labo Central', address: 'Cotonou', phone: PHONES[3], servicesOffered: [], verifiedAt: new Date(), licenseNumber: 'L2-FIXTURE' } } } });
 
     patientId = patient.patient!.id;

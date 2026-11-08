@@ -5,6 +5,8 @@
 // ─────────────────────────────────────────────────────────────
 import { z } from 'zod';
 
+import { TERMS_VERSION } from './legal.js';
+
 import { LANGS, ROLES } from './enums.js';
 
 // ── Primitifs réutilisables ──
@@ -101,8 +103,15 @@ export const registerSchema = z
     address: z.string().trim().max(255).optional(),
     /** Zone / village de l'agent de santé communautaire (obligatoire si role ASC). */
     zone: z.string().trim().min(1).max(160).optional(),
+    /** Acceptation explicite des CGU et de la politique de confidentialité (loi 2017-20). */
+    acceptTerms: z.literal(true),
+    /** Version des textes acceptés : doit être la version courante. */
+    termsVersion: z.string().min(1).max(40),
   })
   .superRefine((data, ctx) => {
+    if (data.termsVersion !== TERMS_VERSION) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['termsVersion'], message: 'Version des conditions périmée : rechargez la page' });
+    }
     // L'admin ne se crée jamais par auto-inscription (seed uniquement, CLAUDE.md §4).
     if (data.role === 'ADMIN') {
       ctx.addIssue({

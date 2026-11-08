@@ -9,7 +9,11 @@ import { zParse } from '@/lib/validation.js';
 import * as consultations from './consultations.service.js';
 
 const startSchema = z.object({ appointmentId: z.string().cuid() });
-const endSchema = z.object({ notes: z.string().max(5000).optional() });
+const endSchema = z.object({
+  notes: z.string().max(5000).optional(),
+  // Compte rendu : enregistré dans le DMP (chiffré, auteur serveur), jamais en clair ici.
+  report: z.string().trim().min(1).max(5000).optional(),
+});
 const idParams = z.object({ id: z.string().cuid() });
 
 export default async function consultationsRoutes(app: FastifyInstance) {
@@ -44,7 +48,7 @@ export default async function consultationsRoutes(app: FastifyInstance) {
   // Clôture (médecin).
   app.post('/:id/end', doctorOnly, async (request) => {
     const { id } = zParse(idParams, request.params);
-    const { notes } = zParse(endSchema, request.body);
-    return consultations.end(app, request.user.sub, id, notes);
+    const { notes, report } = zParse(endSchema, request.body);
+    return consultations.end(app, request.user.sub, id, notes, report ? { text: report, ip: request.ip } : undefined);
   });
 }

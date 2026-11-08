@@ -47,6 +47,8 @@ export async function registerAndLogin(
   }
 
   await page.getByLabel(/téléphone|phone/i).fill(phone);
+  // Consentement explicite aux CGU (APDP) : case non cochée par défaut.
+  await page.getByTestId('accept-terms').check();
   await page.getByRole('button', { name: /recevoir le code|send code/i }).click();
 
   // L'indice porte le code ; sans lui le scénario ne peut pas avancer.

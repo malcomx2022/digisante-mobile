@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ConsultationRoom, ConsultationRoomFallback } from '@/components/consult/ConsultationRoom';
 import { ConfirmDialog } from '@/components/ui';
 import { useLocale } from '@/i18n/LocaleProvider';
-import { post } from '@/lib/api/client';
+import { ApiRequestError, postNow } from '@/lib/api/client';
 
 // D-06 (PRO) — Téléconsultation côté MÉDECIN. Même salle que le patient ; en plus,
 // la clôture (`POST /consultations/:id/end`, médecin uniquement) qui passe la
@@ -17,18 +17,25 @@ function ProTeleconsult() {
   const consultationId = useSearchParams().get('id');
   const [confirmEnd, setConfirmEnd] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Compte rendu facultatif : enregistré côté serveur comme entrée DMP chiffrée
+  // (auteur = médecin authentifié), seulement si le patient a partagé son dossier.
+  const [report, setReport] = useState('');
+  const [endError, setEndError] = useState<string | null>(null);
 
   async function end() {
     if (!consultationId || busy) return;
     setBusy(true);
+    setEndError(null);
     try {
-      await post(`/consultations/${consultationId}/end`, {});
+      const text = report.trim();
+      // Effet immédiat, jamais mis en file (clôture + écriture clinique).
+      await postNow(`/consultations/${consultationId}/end`, text ? { report: text } : {});
       router.push('/pro/agenda');
-    } catch {
-      // Échec de clôture : on reste dans la salle plutôt que de faire croire à une
-      // consultation terminée côté médecin alors qu'elle reste ACTIVE en base.
+    } catch (e) {
+      // Échec : on reste dans la salle (consultation toujours ACTIVE en base) et le
+      // texte saisi est conservé. 403 = pas de partage DMP : clore sans compte rendu.
       setBusy(false);
-      setConfirmEnd(false);
+      setEndError(e instanceof ApiRequestError && e.status === 403 ? t('teleconsult.report_denied') : t('auth.error'));
     }
   }
 
@@ -50,7 +57,19 @@ function ProTeleconsult() {
         busy={busy}
         onConfirm={() => void end()}
         onCancel={() => setConfirmEnd(false)}
-      />
+      >
+        <label className="block">
+          <span className="block font-display font-bold text-[0.75rem] text-stone-600 mb-1">{t('teleconsult.report_label')}</span>
+          <textarea
+            value={report}
+            onChange={(e) => setReport(e.target.value)}
+            maxLength={5000}
+            rows={4}
+            className="w-full bg-white card-pagne border border-stone-300 px-3 py-2 text-base pagne-focus focus:outline-none focus:border-indigo-600"
+          />
+        </label>
+        {endError && <p className="mt-2 text-[0.75rem] text-sos-600 font-bold" role="alert">{endError}</p>}
+      </ConfirmDialog>
     </>
   );
 }

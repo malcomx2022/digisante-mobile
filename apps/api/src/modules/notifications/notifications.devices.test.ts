@@ -95,4 +95,35 @@ describe.skipIf(!HAS_INFRA)('Dispatch FCM — liaisons courantes (intégration)'
     await dispatchPending(app);
     expect(vi.mocked(sendPush).mock.calls.map(([message]) => message.token)).toEqual(['synthetic-priority-device', null]);
   });
+
+  it('miroir push d’une notification in-app : texte générique, jamais le contenu libre (§4)', async () => {
+    await app.prisma.notification.create({
+      data: { recipientId: userId, type: 'SYSTEM', channel: 'IN_APP', title: 'Rappel : Amoxicilline', body: 'Prendre Amoxicilline 500 mg', status: 'PENDING' },
+    });
+    vi.mocked(sendPush).mockResolvedValue({ delivered: true, stub: false });
+    await dispatchPending(app);
+    expect(sendPush).toHaveBeenCalledTimes(1);
+    const sent = vi.mocked(sendPush).mock.calls[0]![0];
+    expect(sent.token).toBe('synthetic-old-device');
+    expect(JSON.stringify([sent.title, sent.body])).not.toContain('Amoxicilline');
+    const n = await app.prisma.notification.findFirstOrThrow({ where: { recipientId: userId } });
+    expect(n.status).toBe('DELIVERED');
+    expect(n.body).toBe('Prendre Amoxicilline 500 mg');
+  });
+
+  it('miroir push : aucun envoi sans appareil, et un échec push ne fait pas échouer l’in-app', async () => {
+    await app.prisma.user.update({ where: { id: userId }, data: { fcmToken: null } });
+    await app.prisma.notification.create({
+      data: { recipientId: userId, type: 'APPOINTMENT_REMINDER', channel: 'IN_APP', title: 'RDV', body: 'demain', status: 'PENDING' },
+    });
+    await app.prisma.notification.create({
+      data: { recipientId: otherId, type: 'CONSULTATION_START', channel: 'IN_APP', title: 'Salle', body: 'ouverte', status: 'PENDING' },
+    });
+    vi.mocked(sendPush).mockRejectedValue(new Error('fournisseur indisponible'));
+    const res = await dispatchPending(app);
+    expect(res.failed).toBe(0);
+    expect(vi.mocked(sendPush).mock.calls.map(([m]) => m.token)).toEqual(['synthetic-priority-device']);
+    const statuses = await app.prisma.notification.findMany({ where: { recipientId: { in: [userId, otherId] } }, select: { status: true } });
+    expect(statuses.every((s) => s.status === 'DELIVERED')).toBe(true);
+  });
 });

@@ -16,8 +16,8 @@ Offline-first · multilingue (FR, EN, Fɔ̀ngbè, Yorùbá) · téléconsultatio
 Monorepo **pnpm** :
 
 ```
-apps/web      Next.js 14 (App Router, PWA) — 67 pages
-apps/api      Fastify — 183 endpoints REST + 1 WebSocket / 28 modules + Prisma + Valkey (compatible Redis)
+apps/web      Next.js 14 (App Router, PWA) — 75 pages
+apps/api      Fastify — 193 endpoints REST + 1 WebSocket / 28 modules + Prisma + Valkey (compatible Redis)
 packages/shared   types, enums, schémas zod partagés
 packages/config   tsconfig de base
 infra/        docker-compose dev (Postgres 16 + Redis) · scripts deploy VPS
@@ -90,7 +90,7 @@ release patients réels, B1). Les e2e restent `pnpm test:e2e` (build dédié, cf
 
 - pages Next.js → `apps/web/src/app/`
 - modules Fastify → `apps/api/src/modules/<domaine>/` (1 dossier par domaine, fichier `*.routes.ts` enregistré dans `src/server.ts`)
-- schéma Prisma (53 modèles, 31 enums) → remplacer `apps/api/prisma/schema.prisma`
+- schéma Prisma (54 modèles, 32 enums) → remplacer `apps/api/prisma/schema.prisma`
 - types partagés → `packages/shared/src/`
 
 ## CI / Déploiement

@@ -21,10 +21,12 @@ interface SosAlert {
 }
 
 // D-07 — SOS : bouton octogonal, géoloc, alerte API en ligne + repli SMS hors-ligne.
-// 'sent' = alerte transmise au serveur ; 'failed' = échec POST → seul le SMS de secours reste.
+// 'sent' = au moins un SMS RÉELLEMENT livré par le serveur (`contactNotified`) ;
+// 'unnotified' = alerte enregistrée mais personne prévenu (aucun contact, Twilio
+// indisponible) ; 'failed' = échec POST → seul le SMS de secours reste.
 export default function SosPage() {
   const { t } = useLocale();
-  const [status, setStatus] = useState<'idle' | 'locating' | 'sent' | 'failed'>('idle');
+  const [status, setStatus] = useState<'idle' | 'locating' | 'sent' | 'unnotified' | 'failed'>('idle');
   const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
   // Historique + clôture (écart D6) : `Sos.status`/`resolvedAt` n'étaient écrits
   // NULLE PART après la création — toute alerte restait ACTIVE indéfiniment.
@@ -71,7 +73,11 @@ export default function SosPage() {
         // Hors-ligne, la mutation est mise en file (`{ queued }`) : l'alerte n'est PAS
         // confirmée reçue → on bascule sur le repli SMS plutôt que d'afficher « envoyé ».
         if (res && typeof res === 'object' && 'queued' in res) setStatus('failed');
-        else setStatus('sent');
+        // Ne jamais afficher « prévenu » sur la seule réception serveur : seul un
+        // SMS réellement livré l'autorise (sinon le patient cesse de chercher de l'aide).
+        else if (res && typeof res === 'object' && (res as { contactNotified?: unknown }).contactNotified === true) setStatus('sent');
+        else setStatus('unnotified');
+        setTick((n) => n + 1);
       } catch {
         // POST échoué (serveur) → l'alerte n'est PAS confirmée envoyée ;
         // seul le repli SMS reste disponible ci-dessous.
@@ -101,7 +107,9 @@ export default function SosPage() {
             {status === 'locating' ? (
               t('sos.locating')
             ) : status === 'sent' ? (
-              <><span aria-hidden="true">✓</span> {t('sos.sent')}</>
+              <><span aria-hidden="true">✓</span> {t('sos.sms_delivered')}</>
+            ) : status === 'unnotified' ? (
+              <span className="font-bold text-sos-600"><span aria-hidden="true">⚠️</span> {t('sos.no_contact_notified')}</span>
             ) : status === 'failed' ? (
               <><span aria-hidden="true">⚠️</span> {t('sos.fallback')}</>
             ) : (

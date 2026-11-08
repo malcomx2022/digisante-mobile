@@ -21,10 +21,10 @@ describe.skipIf(!HAS_INFRA)('Pharmacie — stock & disponibilité (intégration)
     await cleanup();
 
     const p1 = await app.prisma.user.create({
-      data: { phone: PHONES[0], role: 'PHARMACIE', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Ph', lastName: 'Un' } }, pharmacy: { create: { name: 'Pharmacie Cotonou', address: 'Cotonou', phone: PHONES[0], geolat: 6.3703, geolong: 2.3912 } } },
+      data: { phone: PHONES[0], role: 'PHARMACIE', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Ph', lastName: 'Un' } }, pharmacy: { create: { name: 'Pharmacie Cotonou', address: 'Cotonou', phone: PHONES[0], geolat: 6.3703, geolong: 2.3912, verifiedAt: new Date() } } },
     });
     const p2 = await app.prisma.user.create({
-      data: { phone: PHONES[1], role: 'PHARMACIE', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Ph', lastName: 'Deux' } }, pharmacy: { create: { name: 'Pharmacie Bohicon', address: 'Bohicon', phone: PHONES[1], geolat: 7.178, geolong: 2.0667 } } },
+      data: { phone: PHONES[1], role: 'PHARMACIE', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Ph', lastName: 'Deux' } }, pharmacy: { create: { name: 'Pharmacie Bohicon', address: 'Bohicon', phone: PHONES[1], geolat: 7.178, geolong: 2.0667, verifiedAt: new Date() } } },
     });
     const pat = await app.prisma.user.create({
       data: { phone: PHONES[2], role: 'PATIENT', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Pat', lastName: 'Ient' } }, patient: { create: {} } },

@@ -45,6 +45,8 @@ test.describe('inscription et session', () => {
     await page.getByLabel(/prénom|first name/i).fill('Yao');
     await page.getByLabel(/^nom$|last name/i).fill('Doublon');
     await page.getByLabel(/téléphone|phone/i).fill(phone);
+    // Consentement explicite aux CGU exigé à toute inscription (APDP).
+    await page.getByTestId('accept-terms').check();
     await page.getByRole('button', { name: /recevoir le code|send code/i }).click();
 
     await expect(page.getByText(/si ce numéro|if this number/i)).toBeVisible();

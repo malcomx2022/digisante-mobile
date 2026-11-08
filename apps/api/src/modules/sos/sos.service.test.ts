@@ -1,6 +1,6 @@
 // Tests unitaires du service SOS — sans infra (prisma & twilio simulés).
-// Couvre : alerte créée → contactNotified passe true ; notification SOS_ALERT
-// créée ; envoi SMS appelé (au contact d'urgence). Twilio est mocké.
+// Couvre : alerte créée → contactNotified vrai SEULEMENT si un SMS est réellement
+// livré ; notification SOS_ALERT créée ; envoi SMS au contact d'urgence. Twilio mocké.
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Env minimal pour permettre le chargement de @/lib/env (sinon process.exit).
@@ -10,9 +10,9 @@ beforeAll(() => {
   process.env.JWT_SECRET ??= 'test-secret-test-secret-test-secret';
 });
 
-// Mock du service Twilio : on observe les appels et renvoie un stub « livré ».
+// Mock du service Twilio : par défaut livraison réelle ; certains tests simulent un stub.
 const sendSmsMock = vi.fn((_opts: { to: string; lang: string }) =>
-  Promise.resolve({ delivered: false, stub: true }),
+  Promise.resolve({ delivered: true, stub: false }),
 );
 vi.mock('@/services/twilio.js', () => ({
   sendSms: (opts: { to: string; lang: string }) => sendSmsMock(opts),
@@ -58,6 +58,7 @@ function makeApp(opts: { emergencyContact: string | null }) {
 describe('triggerSos', () => {
   beforeEach(() => {
     sendSmsMock.mockClear();
+    sendSmsMock.mockImplementation(() => Promise.resolve({ delivered: true, stub: false }));
     writeAuditMock.mockClear();
   });
 
@@ -83,7 +84,7 @@ describe('triggerSos', () => {
     expect(writeAuditMock).toHaveBeenCalled();
   });
 
-  it("notifie quand même (via notification in-app) sans contact d'urgence", async () => {
+  it("sans contact d'urgence : alerte tracée in-app mais contactNotified reste faux", async () => {
     const { triggerSos } = await import('./sos.service.js');
     const { app, prisma } = makeApp({ emergencyContact: null });
 
@@ -91,9 +92,23 @@ describe('triggerSos', () => {
 
     // pas de contact d'urgence ni numéro public → aucun SMS
     expect(sendSmsMock).not.toHaveBeenCalled();
-    // mais la notification in-app est créée → notified = true
+    // la notification in-app du patient ne prévient aucun tiers
     expect(prisma.notification.create).toHaveBeenCalledOnce();
-    expect(result.contactNotified).toBe(true);
+    const notifArg = prisma.notification.create.mock.calls[0]?.[0] as { data: { body: string } };
+    expect(notifArg.data.body).toContain('aucun contact');
+    expect(prisma.sos.update).not.toHaveBeenCalled();
+    expect(result.contactNotified).toBe(false);
+  });
+
+  it('SMS en stub (Twilio non configuré) : personne n’est prévenu, contactNotified reste faux', async () => {
+    sendSmsMock.mockImplementation(() => Promise.resolve({ delivered: false, stub: true }));
+    const { triggerSos } = await import('./sos.service.js');
+    const { app } = makeApp({ emergencyContact: '+2290190000000' });
+
+    const result = await triggerSos(app, { patientId: 'pat_1', latitude: 6.36, longitude: 2.42 });
+
+    expect(sendSmsMock).toHaveBeenCalled();
+    expect(result.contactNotified).toBe(false);
   });
 
   it("SMS SOS dans la langue du patient (FR/EN/FON)", async () => {

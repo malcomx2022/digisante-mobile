@@ -3,6 +3,7 @@
 // sinon le bloc est ignoré (pnpm test reste vert en local sans infra).
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { REGISTER_TERMS } from '@/test/terms-fixture.js';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 
@@ -16,7 +17,7 @@ describe.skipIf(!HAS_INFRA)('Chat (intégration)', () => {
 
   /** Inscrit + active un compte et renvoie { userId, accessToken }. */
   async function registerAndLogin(payload: Record<string, unknown>) {
-    const reg = await app.inject({ method: 'POST', url: '/api/v1/auth/register', payload });
+    const reg = await app.inject({ method: 'POST', url: '/api/v1/auth/register', payload: { ...REGISTER_TERMS, ...payload } });
     if (reg.statusCode !== 201) throw new Error(`register ${reg.statusCode}: ${reg.body}`);
     const devCode = reg.json().otp.devCode as string;
     const userId = reg.json().user.id as string;

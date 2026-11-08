@@ -204,7 +204,7 @@ export async function reviewSubmission(
 ) {
   const submission = await app.prisma.kycSubmission.findUnique({
     where: { id: submissionId },
-    include: { user: { select: { id: true, role: true, doctor: { select: { id: true, licenseNumber: true } } } } },
+    include: { user: { select: { id: true, role: true, doctor: { select: { id: true, licenseNumber: true } }, pharmacy: { select: { id: true } } } } },
   });
   if (!submission) throw notFound('Dossier KYC introuvable');
   if (submission.user.role === 'LABORATOIRE') return laboratory.review(app, adminId, submission.user.id, submissionId, input, ip);
@@ -242,6 +242,16 @@ export async function reviewSubmission(
     });
     if (decided.count !== 1) throw forbidden('Seuls les dossiers en revue peuvent être traités');
 
+    // Officine : une approbation exige l'identité du responsable ET l'autorisation
+    // d'exercice, chaque pièce cochée vérifiée par l'admin (même rigueur que L2).
+    if (input.decision === 'APPROVED' && account.role === 'PHARMACIE') {
+      const docs = await tx.kycDocument.findMany({ where: { submissionId }, select: { type: true, verified: true } });
+      const has = (type: string) => docs.some((d) => d.type === type);
+      if (!has('NATIONAL_ID') || !has('PRACTICE_LICENSE') || docs.some((d) => !d.verified)) {
+        throw badRequest('Pièce d’identité et autorisation d’exercice vérifiées requises');
+      }
+    }
+
     await tx.kycReview.create({
       data: {
         submissionId,
@@ -257,6 +267,10 @@ export async function reviewSubmission(
       if (submission.user.doctor) {
         // Badge « vérifié » → débloque les consultations payantes.
         await tx.doctor.update({ where: { id: submission.user.doctor.id }, data: { verifiedAt: new Date() } });
+      }
+      if (submission.user.pharmacy) {
+        // Badge officine → ouvre scan/délivrance et la visibilité patient.
+        await tx.pharmacy.update({ where: { id: submission.user.pharmacy.id }, data: { verifiedAt: new Date() } });
       }
     }
     // §4 : TOUTE décision de revue est journalisée — approbation, rejet ET renvoi

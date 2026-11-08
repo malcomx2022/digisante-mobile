@@ -31,6 +31,12 @@ describe.skipIf(!HAS_INFRA)('KYC — suspension utilisateur', () => {
     });
     userIds.push(user.id);
     const submission = await app.prisma.kycSubmission.create({ data: { userId: user.id, status: 'UNDER_REVIEW', submittedAt: new Date() } });
+    if (role === 'PHARMACIE') {
+      // Une officine n'est approuvable qu'avec identité + autorisation vérifiées.
+      await app.prisma.kycDocument.createMany({
+        data: (['NATIONAL_ID', 'PRACTICE_LICENSE'] as const).map((type) => ({ submissionId: submission.id, type, fileUrl: 'synthetic-' + type, verified: true, verifiedAt: new Date() })),
+      });
+    }
     return { user, submission };
   };
   const review = (submissionId: string, decision: typeof DECISIONS[number]) => app.inject({
@@ -90,6 +96,9 @@ describe.skipIf(!HAS_INFRA)('KYC — suspension utilisateur', () => {
       expect(response.json().status).toBe('APPROVED');
       if (role === 'MEDECIN') expect(response.json().cnom.source).toBe('FORMAT_HEURISTIC');
       expect((await app.prisma.user.findUniqueOrThrow({ where: { id: user.id } })).status).toBe('ACTIVE');
+      if (role === 'PHARMACIE') {
+        expect((await app.prisma.pharmacy.findUniqueOrThrow({ where: { userId: user.id } })).verifiedAt).not.toBeNull();
+      }
     });
 
     it(`${role} : une suspension gagnante au verrou interdit l’approbation engagée en parallèle`, async () => {

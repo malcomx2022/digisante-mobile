@@ -19,20 +19,24 @@ export type PosologyForm =
   | 'INHALER'
   | 'CREAM'
   | 'SUPPOSITORY';
-export type PosologyMeal = 'BEFORE' | 'AFTER' | 'FASTING';
+export type PosologyMeal = 'BEFORE' | 'DURING' | 'AFTER' | 'FASTING';
 
 export interface ParsedPosology {
   /** Moments de prise, ordonnés matin→nuit, dédupliqués ; `[]` si inconnu. */
   timings: PosologyTiming[];
   /** Nombre de prises par jour (explicite ou dérivé des moments) ; `null` si inconnu. */
   timesPerDay: number | null;
-  /** Quantité par prise (ex. 2 comprimés) ; `null` si inconnu. */
+  /**
+   * Nombre d'UNITÉS par prise (ex. 2 comprimés, ½ comprimé = 0,5) ; `null` si
+   * inconnu OU ambigu (teneur en mg/mL, quantités variables, plage « 1 à 2 »).
+   * Jamais une masse ni un volume.
+   */
   doseCount: number | null;
   /** Forme galénique ; `null` si inconnue. */
   form: PosologyForm | null;
   /** Relation au repas ; `null` si non précisé. */
   meal: PosologyMeal | null;
-  /** Durée du traitement en jours ; `null` si inconnu. */
+  /** Durée en jours, seulement si exprimée en jours ou semaines entiers ; `null` sinon. */
   days: number | null;
   /** Vrai si AU MOINS une dimension exploitable a été reconnue. */
   recognized: boolean;
@@ -55,25 +59,53 @@ const NUMBER_WORDS: Record<string, number> = {
   six: 6,
 };
 
-/** Premier entier trouvé (chiffres ou mots), ou null. */
-function findNumber(text: string): number | null {
-  const digit = text.match(/\d+/);
-  if (digit) return parseInt(digit[0], 10);
-  for (const [word, value] of Object.entries(NUMBER_WORDS)) {
-    if (new RegExp(`\\b${word}\\b`).test(text)) return value;
+/** Valeur d'un nombre isolé (chiffres ou mot), ou null. */
+function wordOrDigit(token: string): number | null {
+  if (/^\d+$/.test(token)) return parseInt(token, 10);
+  return NUMBER_WORDS[token] ?? null;
+}
+
+// Unités COMPTABLES (une prise = N unités). Une masse ou un volume (mg, mL…)
+// n'est jamais un nombre d'unités : le confondre était le défaut POS04/POS05.
+const COUNT_UNIT = String.raw`(?:comprimes?|cp|gelules?|capsules?|sachets?|gouttes?|bouffees?|suppositoires?|ampoules?|tablets?|drops?|puffs?|caps?)`;
+const MASS_OR_VOLUME = /\d\s*(?:mg|g|µg|mcg|ug|ml|cl|l|ui|iu|%)\b/;
+const FRACTIONS: Record<string, number> = { '½': 0.5, '¼': 0.25, '¾': 0.75 };
+
+/** Quantité (entier, décimal, fraction, mot, « demi ») ou null. */
+function quantityValue(raw: string): number | null {
+  const q = raw.trim();
+  if (FRACTIONS[q] != null) return FRACTIONS[q]!;
+  if (/^(?:un |une )?demie?$/.test(q)) return 0.5;
+  const frac = q.match(/^(\d+)\/(\d+)$/);
+  if (frac) {
+    const den = parseInt(frac[2]!, 10);
+    return den > 0 ? parseInt(frac[1]!, 10) / den : null;
   }
-  return null;
+  if (/^\d+[.,]\d+$/.test(q)) return parseFloat(q.replace(',', '.'));
+  return wordOrDigit(q);
+}
+
+/**
+ * Nombre d'unités par prise, SEULEMENT s'il est unique et sans ambiguïté :
+ * une seule quantité directement suivie d'une unité comptable, aucune masse
+ * ni volume, aucun autre nombre (quantités variables « 1 le matin, 2 le soir »,
+ * plages « 1 à 2 »). Sinon null : le texte original fait foi.
+ */
+function detectDoseCount(doseText: string): number | null {
+  if (MASS_OR_VOLUME.test(doseText)) return null;
+  const quantity = String.raw`(\d+[.,]\d+|\d+\/\d+|\d+|[½¼¾]|(?:un |une )?demie?|un|une|deux|trois|quatre|cinq|six|one|two|three|four|five)`;
+  const re = new RegExp(String.raw`(?:^|[^\w/.,])${quantity}[\s-]*${COUNT_UNIT}\b`, 'g');
+  const matches = [...doseText.matchAll(re)];
+  if (matches.length !== 1) return null;
+  // Un autre nombre ailleurs (chiffre, fraction, mot) rend la quantité variable.
+  const rest = doseText.replace(matches[0]![0], ' ');
+  if (/\d|[½¼¾]/.test(rest)) return null;
+  if (/\b(?:un|une|deux|trois|quatre|cinq|six|one|two|three|four|five|demie?)\b/.test(rest)) return null;
+  const value = quantityValue(matches[0]![1]!);
+  return value != null && value > 0 ? value : null;
 }
 
 const TIMING_ORDER: PosologyTiming[] = ['MORNING', 'NOON', 'EVENING', 'NIGHT'];
-
-// Distribution par défaut quand seul le nombre de prises/jour est connu.
-const DEFAULT_TIMINGS: Record<number, PosologyTiming[]> = {
-  1: ['MORNING'],
-  2: ['MORNING', 'EVENING'],
-  3: ['MORNING', 'NOON', 'EVENING'],
-  4: ['MORNING', 'NOON', 'EVENING', 'NIGHT'],
-};
 
 function detectTimings(text: string): PosologyTiming[] {
   const set = new Set<PosologyTiming>();
@@ -84,12 +116,25 @@ function detectTimings(text: string): PosologyTiming[] {
   return TIMING_ORDER.filter((t) => set.has(t));
 }
 
+/** Nombre de prises PAR JOUR, seulement si l'unité « jour » est explicite. */
 function detectTimesPerDay(text: string): number | null {
-  // « 3 fois par jour », « 3 fois/jour », « 3x/j », « 3 times a day », « twice a day ».
-  if (/\b(deux fois|twice)\b/.test(text)) return 2;
-  const m = text.match(/(\d+|un|une|deux|trois|quatre|cinq|six|one|two|three|four|five)\s*(fois|x|times)\b/);
-  if (m) return findNumber(m[1]);
-  return null;
+  // « 3 fois par jour », « 3 fois/jour », « 3x/j », « 3 times a day », « twice daily ».
+  // « 2 fois par semaine » ou « toutes les 8 heures » ne sont PAS des prises/jour (POS07/POS08).
+  const perDay = String.raw`\s*(?:par|/|a|per|each)?\s*(?:jour|j|day|24\s?h)\b`;
+  if (new RegExp(String.raw`\b(?:deux fois|twice)${perDay}`).test(text) || /\btwice daily\b/.test(text)) return 2;
+  if (new RegExp(String.raw`\b(?:une fois|once)${perDay}`).test(text) || /\bonce daily\b/.test(text)) return 1;
+  const m = text.match(new RegExp(String.raw`\b(\d+|un|une|deux|trois|quatre|cinq|six|one|two|three|four|five)\s*(?:fois|x|times)${perDay}`));
+  return m ? wordOrDigit(m[1]!) : null;
+}
+
+/** Négation / exclusion : une interdiction ne doit jamais devenir une consigne (POS11). */
+function hasNegation(text: string): boolean {
+  return /\b(?:ne|n|pas|jamais|sauf|eviter|evitez|not|never|avoid|except|without|sans)\b/.test(text);
+}
+
+/** Horaires ou intervalles (« 8h », « toutes les 8 heures ») : non représentés (POS08/POS13). */
+function hasClockOrInterval(text: string): boolean {
+  return /\b\d{1,2}\s*h(?:\d{2})?\b|\b\d{1,2}:\d{2}\b|toutes les|every|heures?\b|hours?\b/.test(text);
 }
 
 function detectForm(text: string): PosologyForm | null {
@@ -107,47 +152,66 @@ function detectForm(text: string): PosologyForm | null {
 
 function detectMeal(text: string): PosologyMeal | null {
   if (/a jeun|empty stomach|fasting/.test(text)) return 'FASTING';
-  if (/avant (le )?(repas|manger)|before (the )?(meal|food|eating)/.test(text)) return 'BEFORE';
-  if (/apres (le )?(repas|manger)|pendant (le )?repas|au repas|after (the )?(meal|food)|with food|with meal/.test(text)) return 'AFTER';
+  if (/avant (le |les )?(repas|manger)|before (the )?(meal|food|eating)/.test(text)) return 'BEFORE';
+  // « Pendant / au repas » n'est PAS « après » (défaut POS12).
+  if (/pendant (le |les )?repas|au (cours du )?repas|aux repas|during (the )?meals?|with (food|meals?)/.test(text)) return 'DURING';
+  if (/apres (le |les )?(repas|manger)|after (the )?(meal|food|eating)/.test(text)) return 'AFTER';
   return null;
 }
 
+/**
+ * Durée en jours, seulement si elle est exacte : entier explicite suivi de
+ * « jour(s) » ou « semaine(s) ». Sans unité (POS01), en heures (POS08), en mois
+ * (28–31 j), décimale (POS12) ou en plage (POS13) → null.
+ */
 function detectDays(duration: string): number | null {
-  const text = normalize(duration);
-  const n = findNumber(text);
-  if (n == null) {
-    if (/semaine|week/.test(text)) return 7;
-    if (/mois|month/.test(text)) return 30;
-    return null;
-  }
-  if (/semaine|week/.test(text)) return n * 7;
-  if (/mois|month/.test(text)) return n * 30;
-  if (/jour|day/.test(text)) return n;
-  // Nombre seul sans unité claire : on suppose des jours (durée d'ordonnance).
-  return n;
+  const text = normalize(duration).trim();
+  if (!text) return null;
+  const m = text.match(/^(?:pendant |during |for )?(\d+|un|une|deux|trois|quatre|cinq|six|one|two|three|four|five)\s*(jours?|j|days?|semaines?|weeks?)$/);
+  if (!m) return null;
+  const n = wordOrDigit(m[1]!);
+  if (n == null || n <= 0) return null;
+  return /^(semaine|week)/.test(m[2]!) ? n * 7 : n;
 }
 
-/** Analyse une ligne d'ordonnance en tokens structurés (fonction pure). */
+/**
+ * Analyse une ligne d'ordonnance en tokens structurés (fonction pure).
+ * Principe : une dimension n'est renseignée que si elle est SANS ambiguïté ;
+ * sinon `null` / `[]` et le texte original du prescripteur fait foi. Aucun
+ * horaire n'est ajouté (plus de répartition « par défaut » matin/soir).
+ */
 export function parsePosology(input: { dosage?: string; frequency?: string; duration?: string }): ParsedPosology {
   const freqText = normalize(`${input.frequency ?? ''} ${input.dosage ?? ''}`);
   const doseText = normalize(input.dosage ?? '');
 
-  let timings = detectTimings(freqText);
-  let timesPerDay = detectTimesPerDay(freqText);
-
-  if (timings.length === 0 && timesPerDay != null && DEFAULT_TIMINGS[timesPerDay]) {
-    timings = DEFAULT_TIMINGS[timesPerDay];
+  // Négation ou horaires/intervalles : la fréquence n'est pas représentable en
+  // pictogrammes sans risque de contresens.
+  const frequencyUsable = !hasNegation(freqText) && !hasClockOrInterval(freqText);
+  let timings = frequencyUsable ? detectTimings(freqText) : [];
+  let timesPerDay = frequencyUsable ? detectTimesPerDay(freqText) : null;
+  // Contradiction « 3 fois par jour, matin et soir » : ne pas choisir (POS09).
+  if (timings.length > 0 && timesPerDay != null && timings.length !== timesPerDay) {
+    timings = [];
+    timesPerDay = null;
   }
-  if (timesPerDay == null && timings.length > 0) {
-    timesPerDay = timings.length;
-  }
+  if (timesPerDay == null && timings.length > 0) timesPerDay = timings.length;
 
-  const doseCount = findNumber(doseText);
+  const doseCount = detectDoseCount(doseText);
   const form = detectForm(`${doseText} ${normalize(input.frequency ?? '')}`);
-  const meal = detectMeal(freqText);
+  const meal = frequencyUsable ? detectMeal(freqText) : null;
   const days = detectDays(input.duration ?? '');
 
-  const recognized = timings.length > 0 || timesPerDay != null || doseCount != null || form != null || meal != null;
+  const recognized = timings.length > 0 || timesPerDay != null || doseCount != null || form != null || meal != null || days != null;
 
   return { timings, timesPerDay, doseCount, form, meal, days, recognized };
+}
+
+/** Quantité lisible (fractions usuelles conservées : ½, ¼, ¾, 1½…). */
+export function formatDoseCount(n: number): string {
+  const whole = Math.floor(n);
+  const rest = Math.round((n - whole) * 100) / 100;
+  const glyph = rest === 0.5 ? '½' : rest === 0.25 ? '¼' : rest === 0.75 ? '¾' : null;
+  if (rest === 0) return String(whole);
+  if (glyph) return whole > 0 ? `${whole}${glyph}` : glyph;
+  return String(n).replace('.', ',');
 }

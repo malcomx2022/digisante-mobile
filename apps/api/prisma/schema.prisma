@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────
 // DigiSanté Mobile — schéma Prisma complet
-// 53 modèles + 31 enums (cf. DocTech §5), dont la table d'audit immuable (§4).
+// 54 modèles + 32 enums (cf. DocTech §5), dont la table d'audit immuable (§4).
 // Cible : PostgreSQL 16 natif (dev local docker, prod VPS Infomaniak).
 //
 // Décisions (arbitrées) :
@@ -263,6 +263,11 @@ model User {
   lang         Lang       @default(FR)
   fcmToken     String?
   passwordHash String?
+  // Consentement aux CGU / politique de confidentialité (version acceptée + date).
+  termsVersion    String?
+  termsAcceptedAt DateTime?
+  // Effacement exécuté (droit à l'effacement) : identité anonymisée, compte fermé.
+  deletedAt       DateTime?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
@@ -283,6 +288,7 @@ model User {
   adminProfile     AdminProfile?   @relation("AdminProfileUser")
   supportNotes     SupportNote[]   @relation("SupportNoteUser")
   healthCampaigns  HealthCampaign[] @relation("HealthCampaignAuthor")
+  deletionRequests AccountDeletionRequest[] @relation("DeletionRequester")
 
   @@index([role])
   @@index([status])
@@ -816,6 +822,7 @@ model Pharmacy {
   address         String
   phone           String
   licenseNumber   String?
+  verifiedAt      DateTime? // Habilitation KYC ; NULL = non vérifiée (aucun badge déduit de l'historique).
   geolat          Float?
   geolong         Float?
   servicesOffered String[] @default([])
@@ -1371,4 +1378,30 @@ model SubscriptionOrder {
   @@unique([doctorId, requestId])
   @@index([doctorId, endsAt])
   @@map("subscription_orders")
+}
+
+// Droit à l'effacement (loi 2017-20 / RGPD) : demande du titulaire, traitée par un
+// admin (scope users:write). Exécution = anonymisation de l'identité + effacement
+// des données de santé propres au patient ; audit et finances conservés
+// pseudonymisés en attendant la politique de conservation (D-8).
+enum DeletionRequestStatus {
+  PENDING
+  COMPLETED
+  REJECTED
+}
+
+model AccountDeletionRequest {
+  id            String                @id @default(cuid())
+  userId        String
+  status        DeletionRequestStatus @default(PENDING)
+  requestedAt   DateTime              @default(now())
+  processedAt   DateTime?
+  processedById String?               // admin ; sans FK pour garder la preuve
+  rejectReason  String?
+
+  user User @relation("DeletionRequester", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([userId])
+  @@map("account_deletion_requests")
 }

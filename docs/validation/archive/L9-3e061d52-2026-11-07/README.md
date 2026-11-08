@@ -1,0 +1,5 @@
+# Instantané L9 et campagne conservés avant correctifs pilote du 7 novembre 2026
+
+Version source `3e061d5232d7bc11fe4dc92134a1b2e8d0dc1753b503c38ba261365b514944ed`, présente sur `main` `6846fe1` (base des correctifs). Copie exacte des artefacts publics, du dossier clinique non signé et du kit de campagne `L9-2026-10-14` (`campaign-2026-10-14/`), avant la correction de l'analyse de posologie (cas POS01–POS14), du statut SOS et de l'habilitation pharmacie, décidée par le porteur le 7 novembre 2026.
+
+Aucune approbation ajoutée : `native` et `clinical` vides. Les retours annoncés sur la campagne du 14 octobre restent rattachés à **cette** version ; ils ne valident pas l'instantané courant. Ne pas modifier ces artefacts. `pnpm validation:campaign:check` contrôle désormais l'intégrité de ce kit archivé (empreintes du manifeste, inventaire, ZIP, DOCX) ; une nouvelle campagne exige un nouvel identifiant, une base, des références actualisées et un snapshot fixé explicitement. Les pièces/signatures privées restent hors dépôt.

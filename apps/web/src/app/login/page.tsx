@@ -3,9 +3,10 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
-import { normalizeBeninPhone, type Role } from '@digisante/shared';
+import { normalizeBeninPhone, TERMS_VERSION, type Role } from '@digisante/shared';
 
 import { Button, KenteBar, StatusBar } from '@/components/ui';
+import { LegalLinks } from '@/components/legal/LegalDocument';
 import { useAuth } from '@/auth/AuthProvider';
 import { spaceFor } from '@/auth/spaces';
 import { type RegisterBody } from '@/lib/api/auth';
@@ -38,6 +39,8 @@ export default function LoginPage() {
   const [address, setAddress] = useState('');
   // Champ agent de santé communautaire
   const [zone, setZone] = useState('');
+  // Consentement explicite (APDP) : case non cochée par défaut.
+  const [acceptTerms, setAcceptTerms] = useState(false);
 
   const [code, setCode] = useState('');
   const [hint, setHint] = useState<string | null>(null);
@@ -50,7 +53,7 @@ export default function LoginPage() {
 
   /** Construit le corps d'inscription selon le rôle sélectionné. */
   function buildBody(): RegisterBody {
-    const body: RegisterBody = { phone: normalizeBeninPhone(phone), role, lang, firstName, lastName };
+    const body: RegisterBody = { phone: normalizeBeninPhone(phone), role, lang, firstName, lastName, acceptTerms: true, termsVersion: TERMS_VERSION };
     if (email.trim()) body.email = email.trim();
     if (isDoctor) {
       body.speciality = speciality.trim();
@@ -73,6 +76,7 @@ export default function LoginPage() {
     if (isDoctor && (!speciality.trim() || !licenseNumber.trim())) return t('auth.err_doctor_required');
     if (isEstablishment && !establishmentName.trim()) return t('auth.err_establishment_required');
     if (isAsc && !zone.trim()) return t('auth.err_zone_required');
+    if (!acceptTerms) return t('legal.accept_required');
     return null;
   }
 
@@ -186,6 +190,15 @@ export default function LoginPage() {
                   </>
                 )}
                 <input className={inputCls} inputMode="tel" placeholder={t('auth.phone')} aria-label={t('auth.phone')} value={phone} onChange={(e) => setPhone(e.target.value)} />
+                {mode === 'register' && (
+                  <div className="space-y-1">
+                    <label className="flex items-start gap-2 text-[0.8125rem] text-stone-700">
+                      <input type="checkbox" checked={acceptTerms} onChange={(e) => setAcceptTerms(e.target.checked)} className="mt-1 h-5 w-5 accent-sante-600" data-testid="accept-terms" />
+                      <span>{t('legal.accept_label')}</span>
+                    </label>
+                    <LegalLinks className="pl-7 text-[0.75rem] text-sante-700" />
+                  </div>
+                )}
                 <Button variant="sante" full onClick={sendCode} disabled={busy}>
                   {t('auth.send_code')}
                 </Button>
