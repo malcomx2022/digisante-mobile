@@ -81,20 +81,20 @@ function reviewCase(caseId, scope, input, observedOutput, risk, question, propos
 export function buildClinicalReview(snapshot, content = loadPureContent()) {
   const cases = [];
   const posologyCases = [
-    ['POS01', { dosage: '0,5 comprimé', frequency: 'une fois par jour', duration: '5' }, 'Fraction tronquée ; valeur zéro ensuite omise de la phrase accessible ; horaire et unité de durée ajoutés.', 'Quel repli fidèle au texte exact remplace cette interprétation ?'],
-    ['POS02', { dosage: '1/2 comprimé', frequency: 'le soir', duration: '7 jours' }, 'Fraction transformée en entier.', 'Comment préserver la fraction sans la convertir en nombre d’unités entières ?'],
-    ['POS03', { dosage: 'un demi comprimé', frequency: 'le soir', duration: '7 jours' }, 'Le mot demi ne participe pas à la quantité reconnue.', 'Comment préserver le texte fractionnaire sans ajouter une instruction ?'],
-    ['POS04', { dosage: '500 mg', frequency: 'une fois par jour', duration: '5 jours' }, 'La masse devient doseCount sans unité ; un moment non prescrit est ajouté.', 'Comment distinguer teneur, quantité et unité, ou retirer l’interprétation ?'],
-    ['POS05', { dosage: '500 mg (1 comprimé)', frequency: 'une fois par jour', duration: '5 jours' }, 'La première valeur numérique de teneur devient le nombre de comprimés.', 'Le pharmacien confirme-t-il le retrait de toute représentation qui confond teneur et unités ?'],
-    ['POS06', { dosage: '2,5 ml de sirop', frequency: '3 fois par jour', duration: '5 jours' }, 'Décimale tronquée ; le rendu de forme ne conserve pas l’unité mL ; horaires ajoutés.', 'Quelle représentation conserve le volume et son unité, sans conversion choisie par le code ?'],
-    ['POS07', { dosage: '1 comprimé', frequency: '2 fois par semaine', duration: '1 mois' }, 'La fréquence hebdomadaire est détectée comme nombre de prises par jour.', 'Quel contrôle empêche de transformer par semaine en par jour ?'],
-    ['POS08', { dosage: '1 comprimé', frequency: 'toutes les 8 heures', duration: '48 heures' }, 'Intervalle non reconnu ; durée horaire interprétée en jours.', 'Comment préserver heures et intervalle exact sans produire une durée différente ?'],
-    ['POS09', { dosage: '1 comprimé', frequency: '3 fois par jour, matin et soir', duration: '5 jours' }, 'Le nombre de prises et les deux moments se contredisent ; le résumé choisit les moments.', 'Comment demander clarification au prescripteur plutôt que choisir une instruction ?'],
-    ['POS10', { dosage: '1 comprimé le matin, 2 le soir', duration: '5 jours' }, 'Une quantité unique est associée à plusieurs moments aux quantités distinctes.', 'Faut-il retirer le résumé pour toute posologie variable selon le moment ?'],
-    ['POS11', { dosage: '1 comprimé', frequency: 'ne pas prendre le soir', duration: '5 jours' }, 'Le mot soir est reconnu sans tenir compte de sa négation.', 'Comment empêcher qu’une interdiction devienne une consigne positive ?'],
-    ['POS12', { dosage: '1 comprimé', frequency: 'pendant le repas', duration: '1,5 semaines' }, 'Pendant le repas est classé AFTER ; fraction de durée tronquée.', 'Les relations repas et les durées doivent-elles rester verbatim dans ce cas ?'],
-    ['POS13', { dosage: '1 comprimé', frequency: '8h et 20h', duration: '2 à 3 jours' }, 'Heures non reconnues ; intervalle de durée réduit au premier entier.', 'Comment éviter qu’un résumé partiel soit présenté comme instruction complète ?'],
-    ['POS14', { duration: '5 jours' }, 'La durée seule n’active pas recognized ; le bloc illustré et son bouton audio restent conditionnés à recognized.', 'Quel comportement d’affichage est attendu lorsqu’une seule dimension est reconnue ?'],
+    ['POS01', { dosage: '0,5 comprimé', frequency: 'une fois par jour', duration: '5' }, 'Corrigé 07/11 (à confirmer) : fraction 0,5 conservée, aucun horaire ajouté, durée sans unité non interprétée.', 'Quel repli fidèle au texte exact remplace cette interprétation ?'],
+    ['POS02', { dosage: '1/2 comprimé', frequency: 'le soir', duration: '7 jours' }, 'Corrigé 07/11 (à confirmer) : 1/2 lu comme 0,5 et affiché ½.', 'Comment préserver la fraction sans la convertir en nombre d’unités entières ?'],
+    ['POS03', { dosage: 'un demi comprimé', frequency: 'le soir', duration: '7 jours' }, 'Corrigé 07/11 (à confirmer) : « demi » lu comme 0,5.', 'Comment préserver le texte fractionnaire sans ajouter une instruction ?'],
+    ['POS04', { dosage: '500 mg', frequency: 'une fois par jour', duration: '5 jours' }, 'Corrigé 07/11 (à confirmer) : une teneur en mg n’est plus une quantité ; aucun moment ajouté.', 'Comment distinguer teneur, quantité et unité, ou retirer l’interprétation ?'],
+    ['POS05', { dosage: '500 mg (1 comprimé)', frequency: 'une fois par jour', duration: '5 jours' }, 'Corrigé 07/11 (à confirmer) : teneur et quantité mêlées → aucune quantité illustrée.', 'Le pharmacien confirme-t-il le retrait de toute représentation qui confond teneur et unités ?'],
+    ['POS06', { dosage: '2,5 ml de sirop', frequency: '3 fois par jour', duration: '5 jours' }, 'Corrigé 07/11 (à confirmer) : volume non converti en quantité, aucun horaire ajouté ; le mL reste dans le texte original.', 'Quelle représentation conserve le volume et son unité, sans conversion choisie par le code ?'],
+    ['POS07', { dosage: '1 comprimé', frequency: '2 fois par semaine', duration: '1 mois' }, 'Corrigé 07/11 (à confirmer) : « par semaine » n’est plus lu comme prises/jour ; mois non converti.', 'Quel contrôle empêche de transformer par semaine en par jour ?'],
+    ['POS08', { dosage: '1 comprimé', frequency: 'toutes les 8 heures', duration: '48 heures' }, 'Corrigé 07/11 (à confirmer) : intervalle et durée en heures non illustrés (texte original).', 'Comment préserver heures et intervalle exact sans produire une durée différente ?'],
+    ['POS09', { dosage: '1 comprimé', frequency: '3 fois par jour, matin et soir', duration: '5 jours' }, 'Corrigé 07/11 (à confirmer) : contradiction détectée, ni moments ni nombre de prises illustrés.', 'Comment demander clarification au prescripteur plutôt que choisir une instruction ?'],
+    ['POS10', { dosage: '1 comprimé le matin, 2 le soir', duration: '5 jours' }, 'Corrigé 07/11 (à confirmer) : quantités variables → aucune quantité unique illustrée.', 'Faut-il retirer le résumé pour toute posologie variable selon le moment ?'],
+    ['POS11', { dosage: '1 comprimé', frequency: 'ne pas prendre le soir', duration: '5 jours' }, 'Corrigé 07/11 (à confirmer) : négation détectée, aucune consigne de moment/repas illustrée.', 'Comment empêcher qu’une interdiction devienne une consigne positive ?'],
+    ['POS12', { dosage: '1 comprimé', frequency: 'pendant le repas', duration: '1,5 semaines' }, 'Corrigé 07/11 (à confirmer) : « pendant le repas » = DURING ; durée décimale non tronquée (non illustrée).', 'Les relations repas et les durées doivent-elles rester verbatim dans ce cas ?'],
+    ['POS13', { dosage: '1 comprimé', frequency: '8h et 20h', duration: '2 à 3 jours' }, 'Corrigé 07/11 (à confirmer) : horaires et plage de durée non résumés.', 'Comment éviter qu’un résumé partiel soit présenté comme instruction complète ?'],
+    ['POS14', { duration: '5 jours' }, 'Corrigé 07/11 (à confirmer) : une durée exacte seule est désormais reconnue et illustrée.', 'Quel comportement d’affichage est attendu lorsqu’une seule dimension est reconnue ?'],
   ];
   for (const [id, input, risk, question] of posologyCases) {
     const parsed = content.parsePosology(input);
@@ -105,7 +105,7 @@ export function buildClinicalReview(snapshot, content = loadPureContent()) {
         originalTextDisplayed: true,
         illustrationsRequireRecognized: true,
         audioAvailableCondition: 'speechSupported() && parsed.recognized',
-        quantityInAccessibleFragments: parsed.doseCount === 0 ? 'Le zéro est omis par filter(Boolean).' : 'Quantité issue de doseCount, sans conservation autonome de l’unité d’entrée.',
+        quantityInAccessibleFragments: parsed.doseCount == null ? 'Aucune quantité illustrée : le texte original fait foi.' : 'Quantité issue de doseCount, formatée par formatDoseCount (fractions conservées).',
         actualSpeechNotExecuted: true,
       }),
     }, risk, question, PRESERVE_TEXT, ['REF-MEDICATION'], id === 'POS14' ? 'REVIEW' : 'BLOCKER'));

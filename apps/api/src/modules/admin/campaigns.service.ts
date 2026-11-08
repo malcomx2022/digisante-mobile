@@ -9,7 +9,7 @@ import { LANGS, type CampaignStatus, type Lang } from '@digisante/shared';
 import { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
-import { writeAudit } from '@/lib/audit.js';
+import { writeAuditWithin } from '@/lib/audit.js';
 import { badRequest, notFound } from '@/lib/errors.js';
 
 /** Un contenu de campagne dans une langue. */
@@ -104,37 +104,47 @@ export async function updateCampaign(app: FastifyInstance, id: string, input: Ca
   const existing = await app.prisma.healthCampaign.findUnique({ where: { id }, select: { status: true } });
   if (!existing) throw notFound('Campagne introuvable');
   if (existing.status === 'SENT') throw badRequest('Campagne déjà diffusée (non modifiable)');
-  return app.prisma.healthCampaign.update({
-    where: { id },
+  // Conditionnel : une diffusion concurrente gagne, le contenu envoyé reste figé.
+  const changed = await app.prisma.healthCampaign.updateMany({
+    where: { id, status: 'DRAFT' },
     data: {
       category: input.category,
       translations: input.translations as unknown as Prisma.InputJsonValue,
       audienceRole: (input.audienceRole ?? null) as Prisma.HealthCampaignUpdateInput['audienceRole'],
       audienceLang: (input.audienceLang ?? null) as Prisma.HealthCampaignUpdateInput['audienceLang'],
       channel: input.channel ?? 'IN_APP',
-    },
-    select: campaignSelect,
+    } as Prisma.HealthCampaignUpdateManyMutationInput,
   });
+  if (changed.count !== 1) throw badRequest('Campagne déjà diffusée (non modifiable)');
+  return app.prisma.healthCampaign.findUniqueOrThrow({ where: { id }, select: campaignSelect });
 }
 
 export async function deleteCampaign(app: FastifyInstance, id: string) {
   const existing = await app.prisma.healthCampaign.findUnique({ where: { id }, select: { status: true } });
   if (!existing) throw notFound('Campagne introuvable');
   if (existing.status === 'SENT') throw badRequest('Campagne déjà diffusée (non supprimable)');
-  await app.prisma.healthCampaign.delete({ where: { id } });
+  const removed = await app.prisma.healthCampaign.deleteMany({ where: { id, status: 'DRAFT' } });
+  if (removed.count !== 1) throw badRequest('Campagne déjà diffusée (non supprimable)');
   return { removed: true };
 }
 
+/** Taille d'un lot de création de notifications (borne mémoire et requête). */
+export const CAMPAIGN_BATCH_SIZE = 500;
+
 /**
  * Diffuse la campagne : crée une Notification PENDING par destinataire dans SA
- * langue (repli FR), passe la campagne en SENT. Idempotent au sens « une seule
- * diffusion » : une campagne déjà SENT est refusée (400). Le dispatch existant
- * (cron) enverra ensuite chaque Notification via son canal.
+ * langue (repli FR), passe la campagne en SENT. Une SEULE diffusion, même sous
+ * double clic ou deux workers : la transition DRAFT → SENT est CONDITIONNELLE et
+ * ouvre la transaction ; le perdant reçoit 400 sans rien créer. Destinataires
+ * parcourus par curseur et notifications créées par lots (pas de `createMany`
+ * non borné) ; tout est atomique : un échec annule statut, notifications et
+ * audit. Le dispatch existant (cron) enverra ensuite chaque Notification.
  */
 export async function sendCampaign(
   app: FastifyInstance,
   id: string,
   actor: { id: string; ip?: string | null },
+  opts: { batchSize?: number } = {},
 ): Promise<{ audienceCount: number }> {
   const campaign = await app.prisma.healthCampaign.findUnique({ where: { id } });
   if (!campaign) throw notFound('Campagne introuvable');
@@ -142,52 +152,69 @@ export async function sendCampaign(
 
   const translations = campaign.translations as unknown as CampaignTranslations;
   if (!translations?.FR?.title || !translations.FR.body) throw badRequest('Traduction FR (titre + corps) obligatoire');
+  const batchSize = opts.batchSize ?? CAMPAIGN_BATCH_SIZE;
 
-  const recipients = await app.prisma.user.findMany({
-    where: audienceWhere(campaign.audienceRole, campaign.audienceLang, campaign.channel),
-    select: { id: true, lang: true },
-  });
-
-  if (recipients.length > 0) {
-    const now = new Date();
-    await app.prisma.notification.createMany({
-      data: recipients.map((r) => {
-        const text = pickText(translations, r.lang as Lang);
-        return {
-          recipientId: r.id,
-          type: 'SYSTEM' as const,
-          channel: campaign.channel,
-          title: text.title,
-          body: text.body,
-          status: 'PENDING' as const,
-          scheduledAt: now,
-        };
-      }),
+  const audienceCount = await app.prisma.$transaction(async (tx) => {
+    const claimed = await tx.healthCampaign.updateMany({
+      where: { id, status: 'DRAFT' },
+      data: { status: 'SENT' satisfies CampaignStatus as CampaignStatus, sentAt: new Date() },
     });
-  }
+    if (claimed.count !== 1) throw badRequest('Campagne déjà diffusée');
+    // Contenu relu APRÈS la prise : c'est exactement ce qui part (aucune édition possible ensuite).
+    const frozen = await tx.healthCampaign.findUniqueOrThrow({ where: { id } });
+    const frozenTexts = frozen.translations as unknown as CampaignTranslations;
+    if (!frozenTexts?.FR?.title || !frozenTexts.FR.body) throw badRequest('Traduction FR (titre + corps) obligatoire');
 
-  const updated = await app.prisma.healthCampaign.update({
-    where: { id },
-    data: { status: 'SENT' satisfies CampaignStatus as CampaignStatus, sentAt: new Date(), audienceCount: recipients.length },
-    select: campaignSelect,
-  });
+    const now = new Date();
+    let count = 0;
+    let cursor: string | undefined;
+    for (;;) {
+      const batch = await tx.user.findMany({
+        where: audienceWhere(frozen.audienceRole, frozen.audienceLang, frozen.channel),
+        select: { id: true, lang: true },
+        orderBy: { id: 'asc' },
+        take: batchSize,
+        ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+      });
+      if (batch.length === 0) break;
+      await tx.notification.createMany({
+        data: batch.map((r) => {
+          const text = pickText(frozenTexts, r.lang as Lang);
+          return {
+            recipientId: r.id,
+            type: 'SYSTEM' as const,
+            channel: frozen.channel,
+            title: text.title,
+            body: text.body,
+            status: 'PENDING' as const,
+            scheduledAt: now,
+          };
+        }),
+      });
+      count += batch.length;
+      cursor = batch[batch.length - 1]!.id;
+      if (batch.length < batchSize) break;
+    }
 
-  // Audit : on ne journalise QUE des métadonnées (jamais le contenu médical/DMP).
-  await writeAudit(app.prisma, {
-    action: 'CAMPAIGN_SENT',
-    actorId: actor.id,
-    targetId: id,
-    ip: actor.ip ?? null,
-    meta: {
-      category: campaign.category,
-      channel: campaign.channel,
-      audienceRole: campaign.audienceRole,
-      audienceLang: campaign.audienceLang,
-      audienceCount: recipients.length,
-    },
-  });
+    await tx.healthCampaign.update({ where: { id }, data: { audienceCount: count } });
+    // Audit : métadonnées seulement (jamais le contenu), dans la même transaction.
+    await writeAuditWithin(tx, {
+      action: 'CAMPAIGN_SENT',
+      actorId: actor.id,
+      targetId: id,
+      ip: actor.ip ?? null,
+      meta: {
+        category: frozen.category,
+        channel: frozen.channel,
+        audienceRole: frozen.audienceRole,
+        audienceLang: frozen.audienceLang,
+        audienceCount: count,
+      },
+    });
+    return count;
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted, timeout: 120_000 });
 
-  return { audienceCount: updated.audienceCount };
+  return { audienceCount };
 }
 
 /** Langues supportées (pour l'édition côté client). */

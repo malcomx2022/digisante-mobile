@@ -3,6 +3,7 @@
 // sinon le bloc est ignoré (pnpm test reste vert en local sans infra).
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { REGISTER_TERMS } from '@/test/terms-fixture.js';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 const PHONE = '+2290196000777';
@@ -14,7 +15,6 @@ const PHONE_LOGOUT = '+2290196000781';
 const PHONE_SUSPEND = '+2290196000782';
 const ALL_PHONES = [PHONE, PHONE_DOC, PHONE_DOC_KO, PHONE_ADMIN, PHONE_LOGOUT, PHONE_SUSPEND];
 const otpKeysFor = (p: string) => [`otp:${p}`, `otp:attempts:${p}`, `otp:lock:${p}`];
-const otpKeys = otpKeysFor(PHONE);
 const allOtpKeys = ALL_PHONES.flatMap(otpKeysFor);
 
 describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
@@ -40,7 +40,7 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
     const reg = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/register',
-      payload: { phone: PHONE, role: 'PATIENT', lang: 'FR', firstName: 'Test', lastName: 'User' },
+      payload: { ...REGISTER_TERMS, phone: PHONE, role: 'PATIENT', lang: 'FR', firstName: 'Test', lastName: 'User' },
     });
     expect(reg.statusCode).toBe(201);
     const devCode = reg.json().otp.devCode as string;
@@ -91,7 +91,7 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
     const reg = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/register',
-      payload: {
+      payload: { ...REGISTER_TERMS,
         phone: PHONE_DOC,
         role: 'MEDECIN',
         lang: 'FR',
@@ -115,7 +115,7 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
     const reg = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/register',
-      payload: {
+      payload: { ...REGISTER_TERMS,
         phone: PHONE_DOC_KO,
         role: 'MEDECIN',
         lang: 'FR',
@@ -134,7 +134,7 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
     const reg = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/register',
-      payload: {
+      payload: { ...REGISTER_TERMS,
         phone: PHONE_ADMIN,
         role: 'ADMIN',
         lang: 'FR',
@@ -152,7 +152,7 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
     const reg = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/register',
-      payload: { phone: PHONE_LOGOUT, role: 'PATIENT', lang: 'FR', firstName: 'Log', lastName: 'Out' },
+      payload: { ...REGISTER_TERMS, phone: PHONE_LOGOUT, role: 'PATIENT', lang: 'FR', firstName: 'Log', lastName: 'Out' },
     });
     expect(reg.statusCode).toBe(201);
     const devCode = reg.json().otp.devCode as string;
@@ -200,7 +200,7 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
     const reg = await app.inject({
       method: 'POST',
       url: '/api/v1/auth/register',
-      payload: { phone: PHONE_SUSPEND, role: 'PATIENT', lang: 'FR', firstName: 'Sus', lastName: 'Pendu' },
+      payload: { ...REGISTER_TERMS, phone: PHONE_SUSPEND, role: 'PATIENT', lang: 'FR', firstName: 'Sus', lastName: 'Pendu' },
     });
     expect(reg.statusCode).toBe(201);
     const verify = await app.inject({
@@ -271,6 +271,62 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
     expect(locked.statusCode).toBe(429);
     expect(locked.json().code).toBe('TOO_MANY_REQUESTS');
 
-    await app.redis.del(...otpKeys); // libère le verrou pour les exécutions suivantes
+    await resetOtp(PHONE); // libère le verrou pour les exécutions suivantes
+  });
+
+  // Décision du porteur (08/11/2026) : verrou par couple numéro + IP, plafond global par numéro.
+  const verify = (code: string, ip: string) =>
+    app.inject({ method: 'POST', url: '/api/v1/auth/otp/verify', payload: { phone: PHONE, code }, remoteAddress: ip });
+  const askCode = (ip: string) =>
+    app.inject({ method: 'POST', url: '/api/v1/auth/otp/request', payload: { phone: PHONE }, remoteAddress: ip });
+  const resetOtp = async (phone: string) => {
+    const { purgeOtpLocks } = await import('@/modules/auth/auth.service.js');
+    await purgeOtpLocks(app, phone);
+    await app.redis.del(`otp:${phone}`);
+  };
+
+  it("verrou par IP : 5 échecs d'un attaquant ne privent pas la victime de son code", async () => {
+    await resetOtp(PHONE);
+    const code = (await askCode('198.51.100.7')).json().devCode as string;
+    const wrong = code === '000000' ? '111111' : '000000';
+    for (let i = 0; i < 4; i++) expect((await verify(wrong, '203.0.113.7')).statusCode).toBe(401);
+    expect((await verify(wrong, '203.0.113.7')).statusCode).toBe(429);
+    // L'IP de l'attaquant reste verrouillée, même avec le bon code.
+    expect((await verify(code, '203.0.113.7')).statusCode).toBe(429);
+    // La victime, depuis sa propre IP, se connecte avec le même code.
+    const ok = await verify(code, '198.51.100.7');
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json().accessToken).toBeTruthy();
+    const lockout = await app.prisma.auditLog.findFirst({ where: { action: 'AUTH_LOCKOUT', meta: { path: ['phone'], equals: PHONE } }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] });
+    expect(lockout?.meta).toMatchObject({ scope: 'PHONE_IP' });
+    // Déverrouillage support : l'IP de l'attaquant est libérée (nouvelle époque).
+    await resetOtp(PHONE);
+    await askCode('198.51.100.7');
+    expect((await verify('000000', '203.0.113.7')).statusCode).not.toBe(429);
+    await resetOtp(PHONE);
+  });
+
+  it('plafond global : 20 échecs répartis sur plusieurs IP bloquent le numéro et détruisent le code', async () => {
+    await resetOtp(PHONE);
+    const code = (await askCode('198.51.100.8')).json().devCode as string;
+    const wrong = code === '000000' ? '111111' : '000000';
+    const ips = ['203.0.113.21', '203.0.113.22', '203.0.113.23', '203.0.113.24'];
+    let last = 0;
+    for (const ip of ips) for (let i = 0; i < 5; i++) last = (await verify(wrong, ip)).statusCode;
+    expect(last).toBe(429);
+    // Une IP neuve, même avec le bon code, est refusée : le numéro a atteint son plafond.
+    expect((await verify(code, '203.0.113.99')).statusCode).toBe(429);
+    expect((await askCode('203.0.113.99')).statusCode).toBe(429);
+    expect(await app.redis.get(`otp:${PHONE}`)).toBeNull();
+    const lockout = await app.prisma.auditLog.findFirst({ where: { action: 'AUTH_LOCKOUT', meta: { path: ['phone'], equals: PHONE } }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] });
+    expect(lockout?.meta).toMatchObject({ scope: 'PHONE' });
+    // Clé réellement utilisée : étiquette HMAC de l'IP, jamais l'IP en clair (pas de KEYS/SCAN :
+    // l'utilisateur ACL Valkey de la CI ne les a pas).
+    const { otpIpTag, otpRedisKeys } = await import('@/modules/auth/auth.otp.js');
+    const epoch = (await app.redis.get(otpRedisKeys.epoch(PHONE))) ?? '0';
+    const tagged = otpRedisKeys.attempts(PHONE, epoch, otpIpTag('203.0.113.21'));
+    expect(await app.redis.get(tagged)).toBe('5');
+    expect(tagged).not.toContain('203.0.113');
+    await resetOtp(PHONE);
   });
 });

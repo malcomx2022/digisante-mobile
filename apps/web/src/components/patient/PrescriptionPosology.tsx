@@ -1,6 +1,6 @@
 'use client';
 
-import { parsePosology, type PosologyForm, type PosologyMeal, type PosologyTiming } from '@digisante/shared';
+import { formatDoseCount, parsePosology, type PosologyForm, type PosologyMeal, type PosologyTiming } from '@digisante/shared';
 import { useEffect, useState } from 'react';
 
 import { useLocale } from '@/i18n/LocaleProvider';
@@ -11,6 +11,9 @@ import { speak, speechSupported, stopSpeaking } from '@/lib/speech';
 // pour les patients peu alphabétisés ou non francophones (barrière linguistique
 // FON·YOR, CLAUDE.md §1). Les pictogrammes sont 100% SVG/CSS (aucune image
 // bitmap, §5 design). Le texte original reste affiché = source de vérité.
+// L'analyse ne renseigne une dimension que si elle est sans ambiguïté (cas à
+// risque POS01–POS14 de la campagne L9) : aucun horaire, quantité ou durée
+// n'est inventé ; ce qui n'est pas reconnu n'est simplement pas illustré.
 
 interface Item {
   id: string;
@@ -110,9 +113,12 @@ export function PrescriptionPosology({ item }: { item: Item }) {
 
   // Phrase d'instruction (lecture vocale + aria-label). Assemblée à partir des
   // fragments reconnus ; les fragments non traduits en FON/YOR retombent sur FR.
+  // Quantité seulement si l'analyse l'a reconnue sans ambiguïté (jamais une
+  // teneur en mg/mL) ; fractions conservées (½, 1½…), jamais tronquées.
+  const quantity = parsed.doseCount != null ? formatDoseCount(parsed.doseCount) : null;
   const parts: string[] = [];
-  if (parsed.doseCount != null || parsed.form) {
-    parts.push([t('posology.take'), parsed.doseCount ?? '', parsed.form ? formLabel(parsed.form) : ''].filter(Boolean).join(' '));
+  if (quantity != null || parsed.form) {
+    parts.push([t('posology.take'), quantity, parsed.form ? formLabel(parsed.form) : null].filter((x): x is string => x != null && x !== '').join(' '));
   }
   if (parsed.timings.length) parts.push(parsed.timings.map(timingLabel).join(', '));
   else if (parsed.timesPerDay != null) parts.push(t('posology.per_day', { count: String(parsed.timesPerDay) }));
@@ -161,9 +167,9 @@ export function PrescriptionPosology({ item }: { item: Item }) {
             </Tile>
           )}
           {parsed.form && (
-            <Tile label={[parsed.doseCount, formLabel(parsed.form)].filter((x) => x != null && x !== '').join(' ')} accent="sante">
+            <Tile label={[quantity, formLabel(parsed.form)].filter((x): x is string => x != null && x !== '').join(' ')} accent="sante">
               <span className="text-sante-700 flex items-center gap-0.5">
-                {parsed.doseCount != null && parsed.doseCount > 1 && <span className="font-display font-extrabold text-[0.9rem]">{parsed.doseCount}</span>}
+                {quantity != null && parsed.doseCount !== 1 && <span className="font-display font-extrabold text-[0.9rem]">{quantity}</span>}
                 <FormIcon f={parsed.form} />
               </span>
             </Tile>

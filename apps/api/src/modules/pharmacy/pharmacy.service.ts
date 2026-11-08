@@ -17,6 +17,25 @@ export async function pharmacyIdOf(app: FastifyInstance, userId: string): Promis
   return p.id;
 }
 
+/**
+ * Comme `pharmacyIdOf`, mais exige l'habilitation KYC (`verifiedAt`) : scan et
+ * délivrance exposent l'identité du patient et ses traitements, ils sont donc
+ * réservés à une officine vérifiée (même principe que L2 pour les laboratoires).
+ */
+export async function verifiedPharmacyIdOf(app: FastifyInstance, userId: string): Promise<string> {
+  const p = await app.prisma.pharmacy.findUnique({ where: { userId }, select: { id: true, verifiedAt: true } });
+  if (!p) throw forbidden('Profil pharmacie requis');
+  if (!p.verifiedAt) throw forbidden('Pharmacie non vérifiée : habilitation KYC requise');
+  return p.id;
+}
+
+/** État d'habilitation de la pharmacie courante (aucune donnée tierce). */
+export async function myPharmacy(app: FastifyInstance, userId: string) {
+  const p = await app.prisma.pharmacy.findUnique({ where: { userId }, select: { name: true, verifiedAt: true } });
+  if (!p) throw forbidden('Profil pharmacie requis');
+  return { name: p.name, verified: p.verifiedAt !== null, verifiedAt: p.verifiedAt };
+}
+
 /** Scanne un QR d'ordonnance : vérifie l'authenticité et renvoie le contenu. */
 export async function scan(app: FastifyInstance, qrCode: string) {
   const presc = await app.prisma.prescription.findUnique({

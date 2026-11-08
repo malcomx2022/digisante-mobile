@@ -140,6 +140,8 @@ async function main() {
           address: 'Carrefour Cadjèhoun, Cotonou',
           phone: '+2290197000003',
           licenseNumber: 'BJ-PHARM-0001',
+          // Démonstration seulement : en réel, le badge vient de la revue KYC.
+          verifiedAt: new Date(),
           servicesOffered: ['Délivrance', 'Conseil', 'Garde'],
         },
       },

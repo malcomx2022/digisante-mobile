@@ -15,3 +15,4 @@ export * from './i18n.js';
 
 export * from './sync.js';
 export * from './subscriptions.js';
+export * from './legal.js';

@@ -7,13 +7,14 @@
 import { randomBytes } from 'node:crypto';
 
 import type { MedicalRecordType, Role, ShareType } from '@digisante/shared';
+import { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
 import { writeAudit, writeAuditWithin } from '@/lib/audit.js';
 import { openMedicalData, sealMedicalData } from '@/lib/crypto.js';
 import { assertDmpAccess, resolveDmpScope, syncLegacyConsentExpiry, withDmpConsentLock } from '@/lib/dmp-consent.js';
 import { badRequest, forbidden, notFound } from '@/lib/errors.js';
-import { readEncryptedFile, storeEncryptedFile } from '@/lib/filestore.js';
+import { deleteEncryptedFile, readEncryptedFile, storeEncryptedFile } from '@/lib/filestore.js';
 import { checksumOf, decodeUpload } from '@/lib/upload.js';
 
 interface Actor {
@@ -159,27 +160,37 @@ export async function addDocument(app: FastifyInstance, actor: Actor, recordId: 
   const content = decodeUpload(input.dataBase64, input.mimeType, input.maxBytes);
   const storageId = await storeEncryptedFile(content);
 
-  const doc = await app.prisma.document.create({
-    data: {
-      medicalRecordId: record.id,
-      filename: input.filename,
-      mimeType: input.mimeType,
-      size: content.length,
-      encryptedUrl: storageId,
-      checksum: checksumOf(content),
-    },
-    select: { id: true, filename: true, mimeType: true, size: true, createdAt: true },
-  });
-
-  await writeAudit(app.prisma, {
-    action: 'DMP_DOCUMENT_ADD',
-    actorId: actor.sub,
-    targetId: record.patientId,
-    ip,
-    // Métadonnées seulement : ni le contenu, ni le titre de l'entrée (§4).
-    meta: { recordId: record.id, documentId: doc.id, mimeType: doc.mimeType, size: doc.size },
-  });
-  return doc;
+  // Ligne + audit dans UNE transaction : jamais de pièce ajoutée sans trace, ni
+  // de trace sans pièce. Le fichier, écrit avant, est effacé si elle échoue.
+  try {
+    return await app.prisma.$transaction(async (tx) => {
+      const doc = await tx.document.create({
+        data: {
+          medicalRecordId: record.id,
+          filename: input.filename,
+          mimeType: input.mimeType,
+          size: content.length,
+          encryptedUrl: storageId,
+          checksum: checksumOf(content),
+        },
+        select: { id: true, filename: true, mimeType: true, size: true, createdAt: true },
+      });
+      await writeAuditWithin(tx, {
+        action: 'DMP_DOCUMENT_ADD',
+        actorId: actor.sub,
+        targetId: record.patientId,
+        ip,
+        // Métadonnées seulement : ni le contenu, ni le titre de l'entrée (§4).
+        meta: { recordId: record.id, documentId: doc.id, mimeType: doc.mimeType, size: doc.size },
+      });
+      return doc;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
+  } catch (err) {
+    await deleteEncryptedFile(storageId).catch((cleanupErr: unknown) => {
+      app.log.error({ err: cleanupErr }, '[DMP] fichier chiffré orphelin non supprimé après échec');
+    });
+    throw err;
+  }
 }
 
 /** Lit une pièce jointe (déchiffrée) — portée identique à celle de son entrée. */
@@ -206,22 +217,32 @@ export async function readDocumentFile(app: FastifyInstance, actor: Actor, docum
 export async function removeDocument(app: FastifyInstance, patientUserId: string, documentId: string, ip?: string | null) {
   const doc = await app.prisma.document.findUnique({
     where: { id: documentId },
-    select: { id: true, medicalRecord: { select: { id: true, patient: { select: { userId: true } } } } },
+    select: { id: true, encryptedUrl: true, medicalRecord: { select: { id: true, patient: { select: { userId: true } } } } },
   });
   if (!doc) throw notFound('Pièce jointe introuvable');
   if (doc.medicalRecord.patient.userId !== patientUserId) throw forbidden('Seul le patient propriétaire peut supprimer');
 
-  await app.prisma.document.delete({ where: { id: doc.id } });
-  await writeAudit(app.prisma, {
-    action: 'DMP_DOCUMENT_REMOVE',
-    actorId: patientUserId,
-    targetId: doc.medicalRecord.id,
-    ip,
-    meta: { documentId: doc.id },
-  });
-  // Le fichier chiffré reste sur disque (aucun secret n'en sort : sans la ligne
-  // en base, plus personne ne peut le retrouver). La purge disque relève du cron
-  // de maintenance du VPS.
+  // Retrait conditionnel + audit dans UNE transaction ; un retrait concurrent
+  // déjà gagné renvoie 404 (un seul audit).
+  await app.prisma.$transaction(async (tx) => {
+    const removed = await tx.document.deleteMany({ where: { id: doc.id } });
+    if (removed.count !== 1) throw notFound('Pièce jointe introuvable');
+    await writeAuditWithin(tx, {
+      action: 'DMP_DOCUMENT_REMOVE',
+      actorId: patientUserId,
+      targetId: doc.medicalRecord.id,
+      ip,
+      meta: { documentId: doc.id },
+    });
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
+  // Effacement réel du fichier chiffré, APRÈS la ligne (B4 : jamais de fichier
+  // référencé manquant). Un échec disque est journalisé sans annuler le retrait :
+  // le fichier orphelin reste illisible sans sa ligne et sera revu en maintenance.
+  try {
+    await deleteEncryptedFile(doc.encryptedUrl);
+  } catch (err) {
+    app.log.error({ err, documentId: doc.id }, '[DMP] fichier chiffré non supprimé du magasin');
+  }
   return { removed: true };
 }
 

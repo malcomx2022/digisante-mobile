@@ -6,6 +6,7 @@ import { Fragment, useEffect } from 'react';
 import type { Role } from '@digisante/shared';
 
 import { useAuth } from '@/auth/AuthProvider';
+import { TermsGate } from '@/components/legal/TermsGate';
 import { spaceFor } from '@/auth/spaces';
 import { useLocale } from '@/i18n/LocaleProvider';
 
@@ -30,5 +31,5 @@ export function Protected({ role, children }: { role?: Role; children: React.Rea
       </div>
     );
   }
-  return <Fragment key={user?.id}>{children}</Fragment>;
+  return <Fragment key={user?.id}><TermsGate>{children}</TermsGate></Fragment>;
 }

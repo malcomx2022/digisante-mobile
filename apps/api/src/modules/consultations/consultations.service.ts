@@ -7,12 +7,13 @@ import { localize } from '@/modules/notifications/notifications.templates.js';
 import { createMeetingToken, createRoom, deleteRoom, ejectParticipants, ROOM_TTL_SECONDS, uniqueRoomName } from '@/services/daily.js';
 import { nextMode } from './consultations.rules.js';
 import { requireProWithin } from '@/modules/subscriptions/subscriptions.effects.js';
+import { createRecord } from '@/modules/dmp/dmp.service.js';
 
 const participantSelect = { userId: true, user: { select: { role: true, status: true } } } as const;
 async function loadConsultation(app: FastifyInstance, consultationId: string) {
   const consult = await app.prisma.consultation.findUnique({
     where: { id: consultationId },
-    include: { appointment: { select: { status: true, doctor: { select: { ...participantSelect, verifiedAt: true } }, patient: { select: participantSelect } } } },
+    include: { appointment: { select: { status: true, doctor: { select: { ...participantSelect, verifiedAt: true } }, patient: { select: { ...participantSelect, id: true } } } } },
   });
   if (!consult) throw notFound('Consultation introuvable');
   return consult;
@@ -138,13 +139,31 @@ export async function downgrade(app: FastifyInstance, userId: string, consultati
   }
 }
 
-export async function end(app: FastifyInstance, doctorUserId: string, consultationId: string, notes?: string) {
+export async function end(
+  app: FastifyInstance,
+  doctorUserId: string,
+  consultationId: string,
+  report?: { text: string; ip?: string | null },
+) {
   const consult = await loadConsultation(app, consultationId);
   if (!assertParticipant(consult, doctorUserId).isDoctor) throw forbidden('Seul le médecin peut clôturer la consultation');
+  if (consult.status !== 'ACTIVE') throw badRequest('La consultation n’est pas active');
+  // Compte rendu → entrée DMP AVANT la clôture : mêmes règles que toute écriture
+  // de soignant (médecin vérifié + consentement actif, contenu chiffré, auteur
+  // serveur, §4/L1). Sans partage du patient : 403 et la consultation reste
+  // ouverte, pour que le texte ne soit jamais perdu en silence.
+  if (report) {
+    await createRecord(
+      app,
+      { sub: doctorUserId, role: 'MEDECIN' },
+      { patientId: consult.appointment.patient.id, type: 'OTHER', title: 'Compte rendu de téléconsultation', data: { note: report.text, consultationId } },
+      report.ip,
+    );
+  }
   // Une échéance ou un patient suspendu ne doit pas empêcher le médecin de clôturer.
   const updated = await app.prisma.$transaction(async (tx) => {
     const result = await tx.consultation.updateMany({
-      where: { id: consultationId, status: 'ACTIVE' }, data: { status: 'COMPLETED', endedAt: new Date(), notes },
+      where: { id: consultationId, status: 'ACTIVE' }, data: { status: 'COMPLETED', endedAt: new Date() },
     });
     if (!result.count) throw badRequest('La consultation n’est pas active');
     // Clôturer le média ne doit pas écraser une annulation du RDV et son remboursement.

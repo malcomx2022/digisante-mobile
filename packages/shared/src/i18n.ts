@@ -42,7 +42,10 @@ export interface LanguageMeta {
 export const LANGUAGE_META: Record<Lang, LanguageMeta> = {
   FR: { code: 'FR', name: 'Français', nativeName: 'Français', dir: 'ltr', hasAudio: false },
   EN: { code: 'EN', name: 'Anglais', nativeName: 'English', dir: 'ltr', hasAudio: false },
-  FON: { code: 'FON', name: 'Fon', nativeName: 'Fɔ̀ngbè', dir: 'ltr', hasAudio: true },
+  // Aucun enregistrement Fɔ̀ngbè n'existe : la lecture vocale utilise une voix
+  // fr-FR (lib/speech). Ne repasser à `true` qu'avec des fichiers audio natifs
+  // relus — annoncer un audio inexistant trompait l'utilisateur (écart M5).
+  FON: { code: 'FON', name: 'Fon', nativeName: 'Fɔ̀ngbè', dir: 'ltr', hasAudio: false },
   YOR: { code: 'YOR', name: 'Yoruba', nativeName: 'Yorùbá', dir: 'ltr', hasAudio: false },
 };
 

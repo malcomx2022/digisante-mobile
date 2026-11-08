@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { KenteBar, LangSwitcher, StatusBar } from '@/components/ui';
 import { HeaderLogout } from '@/components/auth/HeaderLogout';
 import { ProfileSettings } from '@/components/auth/ProfileSettings';
@@ -25,7 +27,11 @@ export default function PharmacieProfilePage() {
         <KenteBar className="absolute -bottom-1 left-0 right-0" />
       </div>
       <div className="flex-1 bg-creme wax-ocre text-nuit px-6 py-6">
-        <div className="lg:max-w-2xl lg:mx-auto">
+        <div className="lg:max-w-2xl lg:mx-auto space-y-4">
+          {/* Dossier d'habilitation toujours accessible (badge vérifié requis pour scanner). */}
+          <Link href="/pharmacie/kyc" className="pagne-focus block card-pagne bg-white border border-stone-200 px-4 py-3 font-display font-bold text-[0.8125rem] text-ocre-600">
+            {t('pharmacie.kyc')} →
+          </Link>
           <ProfileSettings accent="ocre" logoutVariant="outline" />
         </div>
       </div>

@@ -2,7 +2,8 @@
 # ─────────────────────────────────────────────────────────────
 # Restauration VÉRIFIÉE des deux archives d'une même sauvegarde — B5.
 # À exécuter sur une MACHINE TIERCE isolée (jamais sur la production), avec un
-# PostgreSQL 16 local et la clé de sauvegarde copiée hors VPS.
+# PostgreSQL local de même version majeure que l'hôte (18, dérogation du 13/10/2026 ;
+# PG_MAJOR pour un autre hôte) et la clé de sauvegarde copiée hors VPS.
 #
 #   sudo STAMP=20260922_020000 BACKUP_DIR=/chemin/archives KEY_FILE=/chemin/backup.key \
 #        WORK_DIR=/srv/b5 bash verify_restore.sh            # restaure + contrôle
@@ -54,8 +55,10 @@ for f in "$DB_ARCHIVE" "$FILES_ARCHIVE"; do
 done
 (( FAILS == 0 )) || { echo "❌ archives inutilisables — arrêt avant restauration"; exit 1; }
 
-# 4. Restauration dans une base PostgreSQL 16 VIERGE (refus si elle existe déjà)
-psql -d postgres -Atc 'SHOW server_version' | grep -q '^16\.' && pass "PostgreSQL 16" || fail "PostgreSQL ≠ 16"
+# 4. Restauration dans une base VIERGE (refus si elle existe déjà), sur la MÊME version majeure
+#    que l'hôte : un dump PostgreSQL 18 peut contenir une syntaxe refusée par une version antérieure.
+PG_MAJOR="${PG_MAJOR:-18}"
+psql -d postgres -Atc 'SHOW server_version' | grep -q "^${PG_MAJOR}\." && pass "PostgreSQL ${PG_MAJOR}" || fail "PostgreSQL ≠ ${PG_MAJOR} (version majeure de l'hôte)"
 if psql -d postgres -Atc "SELECT 1 FROM pg_database WHERE datname='${RESTORE_DB}'" | grep -q 1; then
   echo "FAIL la base ${RESTORE_DB} existe déjà — lancer --cleanup d'abord"; exit 1
 fi

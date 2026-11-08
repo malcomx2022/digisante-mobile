@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 
 import { Button, CardPagne, Nkyinkyim } from '@/components/ui';
+import { NotificationsLink } from '@/components/notifications/SpaceNotifications';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
 import { Empty, ErrorState, SkeletonCards } from '@/components/ui/States';
 import { formatDate } from '@/i18n/format';
@@ -43,6 +44,7 @@ export default function AscRosterPage() {
     <>
       <SpaceHeader title={t('asc.title')} subtitle={t('asc.subtitle')} headerClass="bg-sante-900" />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto lg:w-full">
+        <NotificationsLink href="/asc/notifications" />
         <CardPagne stitch className="p-4">
           <h2 className="font-display font-extrabold text-[0.9375rem] text-sante-800">{t('asc.add')}</h2>
           <Nkyinkyim className="my-2" />

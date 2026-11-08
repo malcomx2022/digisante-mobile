@@ -18,11 +18,16 @@
 | `CORS_ORIGIN` | ✅ | `https://digisantemobile.app` |
 | `HEALTH_ENCRYPTION_KEY` | ✅ | **chiffrement santé AES-256 (§4)** — `openssl rand -base64 48`. Sauvegarder hors VPS. |
 | `RECONCILE_TOKEN` | ✅ | jeton des crons internes (réconciliation / dispatch) — `openssl rand -hex 32` ; **doit correspondre** à `/etc/digisante/reconcile.token` |
-| `FEDAPAY_SECRET_KEY` / `FEDAPAY_PUBLIC_KEY` / `FEDAPAY_WEBHOOK_SECRET` | ✅ paiements | sans clé résolue → 502 en production ; le webhook ne valide pas sans `FEDAPAY_WEBHOOK_SECRET` |
-| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` | ✅ SMS/OTP | fallback numéro long (§8) |
-| `RESEND_API_KEY` | ✅ emails | — |
-| `DAILY_API_KEY` / `DAILY_DOMAIN` | ✅ téléconsult | — |
-| `FIREBASE_PROJECT_ID` / `FIREBASE_CLIENT_EMAIL` / `FIREBASE_PRIVATE_KEY` | ✅ push | clé privée sur une ligne (`\n` échappés) |
+| `FEDAPAY_SECRET_KEY` / `FEDAPAY_PUBLIC_KEY` / `FEDAPAY_WEBHOOK_SECRET` | ❌ **laisser vide** (D-14) | saisis en base via `/admin/integrations` ; sans clé résolue → 502 en production, le webhook ne valide pas sans secret |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_FROM_NUMBER` | ❌ **laisser vide** (D-14) | en base ; fallback numéro long (§8) |
+| `RESEND_API_KEY` | ❌ **laisser vide** (D-14) | en base |
+| `DAILY_API_KEY` / `DAILY_DOMAIN` | ❌ **laisser vide** (D-14) | en base |
+| `FIREBASE_PROJECT_ID` / `FIREBASE_CLIENT_EMAIL` / `FIREBASE_PRIVATE_KEY` | ❌ **laisser vide** (D-14) | en base ; clé privée sur une ligne (`\n` échappés) si un repli `.env` était un jour décidé |
+
+> **Décision D-14 (porteur, 22/10/2026)** : aucune variable fournisseur dans le `.env` des environnements
+> du VPS. Les secrets d'intégration vivent **uniquement en base**, chiffrés (`/admin/integrations`, scope
+> `integrations:write`). Le repli `.env` existe dans le code mais n'est pas utilisé : une valeur oubliée
+> dans le `.env` masquerait une ligne absente en base. Après saisie, « Tester » chaque fournisseur.
 
 ### Frontière des secrets (infra vs intégration) — cf. `PLAN_Gestion_API_Admin.md`
 
@@ -39,7 +44,9 @@
   `https://sandbox-api.fedapay.com/v1`, repli fail-safe). **Il n'existe PAS de variable
   `FEDAPAY_ENV`** — ne pas en ajouter : un réglage séparé peut diverger de la clé, alors que la
   dérivation rend impossible de pointer une clé de test vers la production, ou l'inverse.
-  **Mise en production = remplacer les 3 secrets, rien d'autre** (aucun redéploiement de code) :
+  **Mise en production = remplacer les 3 secrets, rien d'autre** (aucun redéploiement de code), dans
+  **une seule saisie** `/admin/integrations` → FedaPay (le `PUT` remplace le jeu complet ; D-14 : jamais
+  dans le `.env`), à quatre yeux selon `PLAN_Bascule_FedaPay_Live.md` :
   1. `FEDAPAY_SECRET_KEY` : `sk_sandbox_…` → `sk_live_…`
   2. `FEDAPAY_PUBLIC_KEY` : `pk_sandbox_…` → `pk_live_…`
   3. `FEDAPAY_WEBHOOK_SECRET` : le secret du endpoint **de production** (`wh_…`), **différent** de
@@ -81,12 +88,14 @@
 
 | Fichier | Rôle | Génération |
 |---|---|---|
-| `/etc/digisante/backup.key` | clé de chiffrement des sauvegardes pg_dump | `openssl rand -base64 48` |
-| `/etc/digisante/reconcile.token` | jeton du cron de réconciliation (= `RECONCILE_TOKEN`) | `openssl rand -hex 32` |
+| `/etc/digisante${SUFFIX}/backup.key` | clé de chiffrement des sauvegardes (base + fichiers) | **générée sur l'hôte** par `provision-ionos.sh --apply --only secrets` si absente (0400, jamais affichée) ; jamais à la main. **Copie hors VPS** par l'opérateur, distincte par environnement |
+| `/etc/digisante${SUFFIX}/reconcile.token` | jeton des tâches internes (= `RECONCILE_TOKEN`) | `RECONCILE_TOKEN` (`openssl rand -hex 32`) se pose dans le `.env` ; le fichier est **aligné** dessus par `--only secrets` (0400) |
+
+`${SUFFIX}` = `-preprod` en préproduction, vide en production.
 
 ## Secrets GitHub Actions (déploiement SSH)
 
-`VPS_HOST` · `VPS_USER` · `VPS_SSH_KEY` (clé privée) · `VPS_FINGERPRINT` (empreinte d’hôte, obligatoire) · `VPS_SSH_PORT` (si ≠ 22)
+`VPS_HOST` · `VPS_USER` · `VPS_SSH_KEY` (clé privée) · `VPS_FINGERPRINT` (empreinte d’hôte, obligatoire) · `DB_MIGRATION_URL` (rôle propriétaire PostgreSQL, voir le tableau ci-dessus) · `VPS_SSH_PORT` (si ≠ 22)
 \+ **variables** `DEPLOY_ENABLED=true` **et** `DEPLOY_MAINTENANCE_READY=true` pour activer le job `deploy`, seulement dans une fenêtre autorisée, maintenance Nginx vérifiée.
 
 ## Build et déploiement de production

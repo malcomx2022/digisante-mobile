@@ -9,7 +9,7 @@ import { ProHeader } from '@/components/pro/ProHeader';
 import { Button, CardPagne } from '@/components/ui';
 import { Empty, ErrorState , SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
-import { get, post } from '@/lib/api/client';
+import { get, post, postNow } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
 import { formatDate, formatTime } from '@/i18n/format';
 
@@ -47,6 +47,10 @@ export default function AgendaPage() {
   // l'agenda pour une pastille (réseaux lents).
   const [triaged, setTriaged] = useState<Record<string, TriageLevel>>({});
   const [triageOpen, setTriageOpen] = useState<string | null>(null);
+  // Clôture d'un RDV présentiel (vu / absent) : sans elle, un RDV physique
+  // restait CONFIRMED à vie et l'avis patient n'était jamais possible.
+  const [closed, setClosed] = useState<Partial<Record<string, 'COMPLETED' | 'NO_SHOW'>>>({});
+  const [closingId, setClosingId] = useState<string | null>(null);
   // Fenêtre 7 jours calculée à chaque montage (et non figée au chargement du
   // bundle) — sinon en PWA persistante l'agenda resterait bloqué sur le jour
   // d'ouverture de l'app.
@@ -82,6 +86,22 @@ export default function AgendaPage() {
     }
   }
 
+  async function closeVisit(appointmentId: string, outcome: 'COMPLETED' | 'NO_SHOW') {
+    if (closingId) return;
+    setClosingId(appointmentId);
+    setStartError(null);
+    try {
+      // Effet immédiat, jamais mis en file : un statut clinique posé plus tard
+      // sans retour serait trompeur.
+      await postNow(`/appointments/${appointmentId}/${outcome === 'COMPLETED' ? 'complete' : 'no-show'}`);
+      setClosed((s) => ({ ...s, [appointmentId]: outcome }));
+    } catch {
+      setStartError(t('auth.error'));
+    } finally {
+      setClosingId(null);
+    }
+  }
+
   // Priorisation d'une demande (écart D5) : l'endpoint existait sans appelant.
   async function setTriage(appointmentId: string, level: TriageLevel) {
     setTriageOpen(null);
@@ -113,10 +133,14 @@ export default function AgendaPage() {
         {(data ?? []).map((a) => {
           const p = a.patient?.user?.profile;
           // Salle ouvrable : téléconsultation confirmée, pas encore de consultation.
-          const canStart = a.type === 'TELECONSULTATION' && a.status === 'CONFIRMED' && !a.consultation;
+          const canStart = a.type === 'TELECONSULTATION' && (closed[a.id] ?? a.status) === 'CONFIRMED' && !a.consultation;
           // Salle déjà ouverte et toujours active → le médecin la rejoint.
           const canRejoin = a.consultation?.status === 'ACTIVE';
           const level = triaged[a.id] ?? a.triage?.level ?? null;
+          const status = closed[a.id] ?? a.status;
+          // Clôture possible après l'heure prévue, hors téléconsultation en cours.
+          const canClose = status === 'CONFIRMED' && new Date(a.scheduledAt).getTime() <= Date.now()
+            && (!a.consultation || a.consultation.status === 'COMPLETED' || a.consultation.status === 'FAILED');
           return (
             <CardPagne key={a.id} className="p-4 flex items-center gap-3 flex-wrap">
               <div className="text-center w-14 shrink-0">
@@ -126,7 +150,7 @@ export default function AgendaPage() {
               <span className={`w-1 self-stretch rounded-full ${a.status === 'CONFIRMED' ? 'bg-indigo-500' : 'bg-ocre-400'}`} />
               <div className="flex-1 min-w-0">
                 <p className="font-display font-bold text-[0.875rem] truncate">{p ? `${p.firstName} ${p.lastName}` : t('role.PATIENT')}</p>
-                <p className="text-[0.75rem] text-stone-400">{t(`appt.type.${a.type}`)} · {t(`appt.status.${a.status}`)}</p>
+                <p className="text-[0.75rem] text-stone-400">{t(`appt.type.${a.type}`)} · {t(`appt.status.${status}`)}</p>
               </div>
               {(canStart || canRejoin) && (
                 <Button
@@ -141,6 +165,17 @@ export default function AgendaPage() {
                 >
                   {canRejoin ? t('teleconsult.rejoin') : t('teleconsult.start')}
                 </Button>
+              )}
+
+              {canClose && (
+                <div className="flex gap-1.5 shrink-0">
+                  <Button variant="indigo" className="text-[0.6875rem] px-2.5 py-1.5" disabled={closingId === a.id} onClick={() => void closeVisit(a.id, 'COMPLETED')}>
+                    {t('appt.status.COMPLETED')}
+                  </Button>
+                  <Button variant="outline" className="text-[0.6875rem] px-2.5 py-1.5" disabled={closingId === a.id} onClick={() => void closeVisit(a.id, 'NO_SHOW')}>
+                    {t('appt.status.NO_SHOW')}
+                  </Button>
+                </div>
               )}
 
               {/* Priorisation (écart D5) : le niveau courant sert de bouton. */}

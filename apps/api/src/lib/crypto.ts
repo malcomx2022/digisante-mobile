@@ -14,19 +14,22 @@ export function deriveKey(secret: string): Buffer {
 }
 
 /** Chiffre une valeur JSON avec une clé donnée (fonction pure, testable). */
-export function encryptWithKey(key: Buffer, value: unknown): string {
+export function encryptWithKey(key: Buffer, value: unknown, aad?: string): string {
   const iv = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', key, iv);
+  // Données associées (facultatives) : lient le chiffré à son contexte (ex. reçu ↔ identité de mutation).
+  if (aad !== undefined) cipher.setAAD(Buffer.from(aad, 'utf8'));
   const data = Buffer.concat([cipher.update(JSON.stringify(value), 'utf8'), cipher.final()]);
   const tag = cipher.getAuthTag();
   return [iv.toString('base64'), tag.toString('base64'), data.toString('base64')].join(':');
 }
 
 /** Déchiffre une charge "iv:tag:ciphertext" avec une clé donnée. */
-export function decryptWithKey(key: Buffer, payload: string): unknown {
+export function decryptWithKey(key: Buffer, payload: string, aad?: string): unknown {
   const [ivB, tagB, dataB] = payload.split(':');
   if (!ivB || !tagB || !dataB) throw new Error('Charge chiffrée invalide');
   const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(ivB, 'base64'));
+  if (aad !== undefined) decipher.setAAD(Buffer.from(aad, 'utf8'));
   decipher.setAuthTag(Buffer.from(tagB, 'base64'));
   const out = Buffer.concat([decipher.update(Buffer.from(dataB, 'base64')), decipher.final()]);
   return JSON.parse(out.toString('utf8'));

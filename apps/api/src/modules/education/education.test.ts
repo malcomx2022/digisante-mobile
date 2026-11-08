@@ -67,7 +67,9 @@ describe.skipIf(!HAS_INFRA)('Éducation & Admin (intégration)', () => {
     expect(review.statusCode).toBe(200);
     expect(review.json().status).toBe('TRANSLATION');
 
-    await app.inject({ method: 'PATCH', url: `/api/v1/education/${id}/translations`, headers: auth(adminToken), payload: { translations: { FON: { title: 'Sɔ́…', body: '…' } } } });
+    // Jeu partiel de langues (FON seul) accepté : régression zod 4 (`z.record` à clé enum exhaustive).
+    const translated = await app.inject({ method: 'PATCH', url: `/api/v1/education/${id}/translations`, headers: auth(adminToken), payload: { translations: { FON: { title: 'Sɔ́…', body: '…' } } } });
+    expect(translated.statusCode).toBe(200);
 
     const publish = await app.inject({ method: 'POST', url: `/api/v1/education/${id}/publish`, headers: auth(adminToken) });
     expect(publish.statusCode).toBe(200);

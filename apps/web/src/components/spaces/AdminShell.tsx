@@ -2,6 +2,7 @@
 
 import type { AdminScope } from '@digisante/shared';
 import Link from 'next/link';
+import type { ReactElement } from 'react';
 import { usePathname } from 'next/navigation';
 
 import { HeaderLogout } from '@/components/auth/HeaderLogout';
@@ -24,7 +25,7 @@ import { cn } from '@/lib/cn';
 export type IconKey = 'dashboard' | 'users' | 'kyc' | 'audit' | 'education' | 'support' | 'admins' | 'finance' | 'ops' | 'integrations' | 'campaigns';
 
 export function NavIcon({ name }: { name: IconKey }) {
-  const paths: Record<IconKey, JSX.Element> = {
+  const paths: Record<IconKey, ReactElement> = {
     dashboard: (
       <>
         <rect width="7" height="9" x="3" y="3" rx="1" />
@@ -105,6 +106,7 @@ export const ADMIN_NAV: { labelKey: string; href: string; icon: IconKey; scope?:
   { labelKey: 'admin.education', href: '/admin/education', icon: 'education', scope: 'education:write' },
   { labelKey: 'admin.campaigns', href: '/admin/campaigns', icon: 'campaigns', scope: 'campaigns:write' },
   { labelKey: 'admin.support', href: '/admin/support', icon: 'support', scope: 'support:write' },
+  { labelKey: 'deletions.title', href: '/admin/deletions', icon: 'users', scope: 'users:read' },
   { labelKey: 'admin.integrations', href: '/admin/integrations', icon: 'integrations', scope: 'integrations:read' },
   { labelKey: 'admin.admins', href: '/admin/admins', icon: 'admins', scope: 'admin:manage' },
 ];

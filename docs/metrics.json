@@ -1,18 +1,18 @@
 {
-  "rest": 183,
+  "rest": 193,
   "websocket": 1,
   "modules": 28,
-  "pages": 67,
+  "pages": 75,
   "patientPages": 23,
-  "models": 53,
-  "enums": 31,
-  "migrations": 34,
-  "apiTestFiles": 97,
-  "webTestFiles": 19,
+  "models": 54,
+  "enums": 32,
+  "migrations": 36,
+  "apiTestFiles": 101,
+  "webTestFiles": 20,
   "e2eSpecFiles": 13,
   "smokeTestFiles": 6,
-  "apiTests": 711,
-  "webTests": 145,
+  "apiTests": 748,
+  "webTests": 149,
   "e2eTests": 36,
-  "unitTests": 856
+  "unitTests": 897
 }

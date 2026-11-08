@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
+import { cpSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { buildCampaignArtifacts, writeNewCampaign, objectsCsv } from './prepare-review-campaign.mjs';
+import { ARCHIVE_ROOT, buildCampaignArtifacts, checkArchivedCampaign, DEFAULT_DIR, objectsCsv, SOURCE_SNAPSHOT, writeNewCampaign } from './prepare-review-campaign.mjs';
 import { buildSnapshot, ROOT, sha256 } from './content.mjs';
 import { CLINICAL_SCOPES, contentHash, gateIssues } from './check-l9-gate.mjs';
 import { parseCsv, plan } from '../i18n/import-validated.mjs';
@@ -11,7 +11,9 @@ import { parseCsv, plan } from '../i18n/import-validated.mjs';
 test('campagne complète sans fabriquer une clôture humaine ou changer les registres', () => {
   const evidencePath = resolve(ROOT, 'docs/validation/L9/evidence.json');
   const bytes = readFileSync(evidencePath);
-  const snapshot = buildSnapshot();
+  // Les sources ont évolué depuis la campagne archivée : la logique de génération
+  // reste exercée sur le contenu courant, sous l'identité de l'instantané figé.
+  const snapshot = { ...buildSnapshot(), sourceSnapshotSha256: SOURCE_SNAPSHOT };
   const { campaign, files } = buildCampaignArtifacts(snapshot);
   assert.deepEqual(campaign.scopes.map((row) => row.scope), CLINICAL_SCOPES);
   assert.equal(campaign.nativeScopes.length, 4);
@@ -70,4 +72,15 @@ test('les retours CSV conservent exactement unités, accents, virgules et retour
   const records = [{ key: 'synthetic', text: '0,5 mL — Fɔ̀ngbè\n« citation, \"texte\" »', current: { timings: ['EVENING'], days: null }, proposal: '' }];
   const parsed = parseCsv(objectsCsv(records));
   assert.deepEqual(parsed[1], ['synthetic', records[0].text, JSON.stringify(records[0].current), '']);
+});
+
+test('le kit archivé reste vérifiable et toute altération est refusée', () => {
+  checkArchivedCampaign(DEFAULT_DIR, resolve(ARCHIVE_ROOT, 'Dossier_Clinique_L9.docx'));
+  const temp = mkdtempSync(join(tmpdir(), 'l9-archive-'));
+  try {
+    const copy = join(temp, 'campaign');
+    cpSync(DEFAULT_DIR, copy, { recursive: true });
+    writeFileSync(join(copy, 'clinical-cases.csv'), 'altéré\n');
+    assert.throws(() => checkArchivedCampaign(copy, resolve(ARCHIVE_ROOT, 'Dossier_Clinique_L9.docx')), /Kit archivé modifié/);
+  } finally { rmSync(temp, { recursive: true, force: true }); }
 });

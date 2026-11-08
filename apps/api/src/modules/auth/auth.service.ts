@@ -15,8 +15,12 @@ import { forbidden, tooManyRequests, unauthorized } from '@/lib/errors.js';
 import {
   generateOtp,
   hashOtp,
+  OTP_GLOBAL_MAX_FAILURES,
+  OTP_GLOBAL_WINDOW_SECONDS,
   OTP_LOCK_SECONDS,
   OTP_MAX_ATTEMPTS,
+  otpIpTag,
+  otpRedisKeys,
   OTP_SEND_MAX,
   OTP_SEND_WINDOW_SECONDS,
   OTP_TTL_SECONDS,
@@ -33,6 +37,8 @@ interface PublicUser {
   role: Role;
   status: string;
   lang: string;
+  /** Version des CGU acceptée (null = jamais acceptée → ré-acceptation demandée). */
+  termsVersion: string | null;
 }
 
 interface RegisterInput {
@@ -49,11 +55,11 @@ interface RegisterInput {
   establishmentName?: string;
   address?: string;
   zone?: string;
+  /** Version des CGU acceptée (le schéma impose la version courante). */
+  termsVersion: string;
 }
 
 const otpKey = (phone: string) => `otp:${phone}`;
-const attemptsKey = (phone: string) => `otp:attempts:${phone}`;
-const lockKey = (phone: string) => `otp:lock:${phone}`;
 const sendKey = (phone: string) => `otp:send:${phone}`;
 const refreshKey = (jti: string) => `refresh:${jti}`;
 
@@ -82,14 +88,51 @@ function publicUser(u: {
   role: Role;
   status: string;
   lang: string;
+  termsVersion: string | null;
 }): PublicUser {
-  return { id: u.id, phone: u.phone, email: u.email, role: u.role, status: u.status, lang: u.lang };
+  return { id: u.id, phone: u.phone, email: u.email, role: u.role, status: u.status, lang: u.lang, termsVersion: u.termsVersion };
 }
 
-async function ensureNotLocked(app: FastifyInstance, phone: string): Promise<void> {
-  if (await app.redis.get(lockKey(phone))) {
+/**
+ * Refuse si le numéro a atteint son plafond global d'échecs (toutes IP) ou si
+ * le couple numéro + IP de la requête est verrouillé. Le verrou d'une autre IP
+ * ne bloque pas la victime (décision du porteur, 08/11/2026).
+ */
+async function ensureNotLocked(app: FastifyInstance, phone: string, ip: string | null | undefined): Promise<void> {
+  const epoch = await currentEpoch(app, phone);
+  const [global, lock] = await Promise.all([
+    app.redis.get(otpRedisKeys.global(phone)),
+    app.redis.get(otpRedisKeys.lock(phone, epoch, otpIpTag(ip))),
+  ]);
+  if (Number(global ?? 0) >= OTP_GLOBAL_MAX_FAILURES || lock) {
     throw tooManyRequests('Compte temporairement verrouillé. Réessayez dans quelques minutes.');
   }
+}
+
+async function currentEpoch(app: FastifyInstance, phone: string): Promise<string> {
+  return (await app.redis.get(otpRedisKeys.epoch(phone))) ?? '0';
+}
+
+/** État du verrou OTP d'un numéro pour la console support (aucune IP exposée). */
+export async function otpLockState(app: FastifyInstance, phone: string) {
+  const epoch = await currentEpoch(app, phone);
+  const [global, sources] = await Promise.all([
+    app.redis.get(otpRedisKeys.global(phone)),
+    app.redis.get(otpRedisKeys.lockedSources(phone, epoch)),
+  ]);
+  const attempts = Number(global ?? 0);
+  const lockedSources = Number(sources ?? 0);
+  return { locked: attempts >= OTP_GLOBAL_MAX_FAILURES || lockedSources > 0, attempts, lockedSources };
+}
+
+/**
+ * Purge l'état de verrou OTP d'un numéro (déverrouillage support) : plafond global et
+ * fenêtre d'envoi supprimés, époque incrémentée (tous les verrous par IP deviennent
+ * inopérants d'un coup, sans énumération).
+ */
+export async function purgeOtpLocks(app: FastifyInstance, phone: string): Promise<void> {
+  await app.redis.incr(otpRedisKeys.epoch(phone));
+  await app.redis.del(otpRedisKeys.global(phone), sendKey(phone));
 }
 
 /** Signe access + refresh et enregistre le jti du refresh dans l'allowlist Redis. */
@@ -131,12 +174,12 @@ async function generateAndSendOtp(
  * Sans cette création de rôle, DMP/SOS/wallet/RDV/consultations/KYC/annuaire
  * seraient cassés pour tout compte créé via l'API (cf. bug racine).
  */
-export async function register(app: FastifyInstance, input: RegisterInput) {
+export async function register(app: FastifyInstance, input: RegisterInput, ip?: string | null) {
   // Réforme ARCEP 2024 : canonicaliser le numéro (8 → 10 chiffres) AVANT
   // persistance pour que User.phone (et Pharmacy/Lab.phone) reste canonique.
   // Les numéros diaspora (autre indicatif) sont laissés intacts par le helper.
   const phone = normalizeBeninPhone(input.phone);
-  await ensureNotLocked(app, phone);
+  await ensureNotLocked(app, phone, ip);
   await assertSendQuota(app, phone);
   try {
     const user = await app.prisma.$transaction(async (tx) => {
@@ -147,9 +190,12 @@ export async function register(app: FastifyInstance, input: RegisterInput) {
           role: input.role,
           lang: input.lang,
           status: 'PENDING_VERIFICATION',
+          // Consentement explicite et versionné (validé par le schéma : version courante).
+          termsVersion: input.termsVersion,
+          termsAcceptedAt: new Date(),
           profile: { create: { firstName: input.firstName, lastName: input.lastName } },
         },
-        select: { id: true, phone: true, email: true, role: true, status: true, lang: true },
+        select: { id: true, phone: true, email: true, role: true, status: true, lang: true, termsVersion: true },
       });
 
       switch (input.role) {
@@ -230,10 +276,11 @@ export async function register(app: FastifyInstance, input: RegisterInput) {
 export async function requestOtp(
   app: FastifyInstance,
   input: { phone: string; channel: OtpChannel },
+  ip?: string | null,
 ) {
   // Réforme ARCEP 2024 : aligner sur la clé canonique stockée (cf. register).
   const phone = normalizeBeninPhone(input.phone);
-  await ensureNotLocked(app, phone);
+  await ensureNotLocked(app, phone, ip);
   const user = await app.prisma.user.findUnique({
     where: { phone },
     select: { phone: true, lang: true },
@@ -250,29 +297,59 @@ export async function verifyOtp(
 ) {
   // Réforme ARCEP 2024 : même clé canonique que register/requestOtp (lookup + hashOtp).
   const phone = normalizeBeninPhone(input.phone);
-  await ensureNotLocked(app, phone);
+  await ensureNotLocked(app, phone, ip);
+  const tag = otpIpTag(ip);
+  const epoch = await currentEpoch(app, phone);
+  const attemptsKey = otpRedisKeys.attempts(phone, epoch, tag);
+  const lockKey = otpRedisKeys.lock(phone, epoch, tag);
+  const sourcesKey = otpRedisKeys.lockedSources(phone, epoch);
+  const globalKey = otpRedisKeys.global(phone);
+  // Verrou du couple numéro + IP et comptage des sources verrouillées (console support).
+  const lockSource = () => app.redis.eval(`
+    redis.call('SET', KEYS[1], '1', 'EX', ARGV[1])
+    redis.call('INCR', KEYS[2])
+    redis.call('EXPIRE', KEYS[2], ARGV[1])
+    return 1
+  `, 2, lockKey, sourcesKey, OTP_LOCK_SECONDS);
 
   const stored = await app.redis.get(otpKey(phone));
 
-  // Compté AVANT la comparaison (INCR atomique) : des vérifications lancées en
+  // Comptés AVANT la comparaison (INCR atomique) : des vérifications lancées en
   // parallèle obtiennent chacune un rang distinct, donc au plus OTP_MAX_ATTEMPTS
-  // codes sont réellement évalués — auparavant toutes passaient le contrôle de
-  // verrou avant que l'une d'elles ne le pose.
-  const attempts = await app.redis.incr(attemptsKey(phone));
-  await app.redis.expire(attemptsKey(phone), OTP_LOCK_SECONDS);
-  if (attempts > OTP_MAX_ATTEMPTS) {
-    await app.redis.set(lockKey(phone), '1', 'EX', OTP_LOCK_SECONDS);
+  // codes évalués par couple numéro + IP, et OTP_GLOBAL_MAX_FAILURES par numéro
+  // et par heure toutes IP confondues (brute-force distribué). Un renvoi de
+  // code ne remet jamais ces compteurs à zéro.
+  // Fenêtre globale FIXE (TTL posé au premier échec, jamais prolongé).
+  const [attempts, globalAttempts] = (await app.redis.eval(`
+    local a = redis.call('INCR', KEYS[1])
+    redis.call('EXPIRE', KEYS[1], ARGV[1])
+    local g = redis.call('INCR', KEYS[2])
+    if redis.call('TTL', KEYS[2]) < 0 then redis.call('EXPIRE', KEYS[2], ARGV[2]) end
+    return { a, g }
+  `, 2, attemptsKey, globalKey, OTP_LOCK_SECONDS, OTP_GLOBAL_WINDOW_SECONDS)) as [number, number];
+  if (globalAttempts > OTP_GLOBAL_MAX_FAILURES) {
+    // Plafond global : le code en cours est détruit (toutes IP), nouveau code après la fenêtre.
     await app.redis.del(otpKey(phone));
+    throw tooManyRequests("Trop d'échecs sur ce numéro. Réessayez dans une heure.");
+  }
+  if (attempts > OTP_MAX_ATTEMPTS) {
+    await app.redis.set(lockKey, '1', 'EX', OTP_LOCK_SECONDS);
     throw tooManyRequests("Trop d'échecs. Compte verrouillé 30 minutes.");
   }
 
   if (!stored || !safeEqualHex(stored, hashOtp(phone, input.code))) {
-    await writeAudit(app.prisma, { action: 'AUTH_FAIL', ip, meta: { phone, attempts } });
+    await writeAudit(app.prisma, { action: 'AUTH_FAIL', ip, meta: { phone, attempts, globalAttempts } });
 
-    if (attempts >= OTP_MAX_ATTEMPTS) {
-      await app.redis.set(lockKey(phone), '1', 'EX', OTP_LOCK_SECONDS);
+    if (globalAttempts >= OTP_GLOBAL_MAX_FAILURES) {
       await app.redis.del(otpKey(phone));
-      await writeAudit(app.prisma, { action: 'AUTH_LOCKOUT', ip, meta: { phone } });
+      await writeAudit(app.prisma, { action: 'AUTH_LOCKOUT', ip, meta: { phone, scope: 'PHONE' } });
+      throw tooManyRequests("Trop d'échecs sur ce numéro. Réessayez dans une heure.");
+    }
+    if (attempts >= OTP_MAX_ATTEMPTS) {
+      // Verrou du seul couple numéro + IP : le code reste valable depuis une
+      // autre IP (la victime n'est pas privée de son code par un attaquant).
+      await lockSource();
+      await writeAudit(app.prisma, { action: 'AUTH_LOCKOUT', ip, meta: { phone, scope: 'PHONE_IP' } });
       throw tooManyRequests("Trop d'échecs. Compte verrouillé 30 minutes.");
     }
     throw invalidOtp();
@@ -280,16 +357,20 @@ export async function verifyOtp(
 
   // Un seul vérificateur peut consommer le code ; un renvoi concurrent ne doit
   // pas être effacé par la vérification de l'ancien code lu avant ce renvoi.
+  // La tentative réussie ne compte pas dans le plafond global : décrément par SET KEEPTTL
+  // (DECR est hors de la liste ACL de l'utilisateur Valkey ; la fenêtre fixe est conservée).
   const consumed = await app.redis.eval(`
     if redis.call('GET', KEYS[1]) ~= ARGV[1] then return 0 end
     redis.call('DEL', KEYS[1], KEYS[2])
+    local g = tonumber(redis.call('GET', KEYS[3]) or '0')
+    if g > 0 then redis.call('SET', KEYS[3], g - 1, 'KEEPTTL') end
     return 1
-  `, 2, otpKey(phone), attemptsKey(phone), stored);
+  `, 3, otpKey(phone), attemptsKey, globalKey, stored);
   if (consumed !== 1) throw invalidOtp();
 
   const user = await app.prisma.user.findUnique({
     where: { phone },
-    select: { id: true, phone: true, email: true, role: true, status: true, lang: true },
+    select: { id: true, phone: true, email: true, role: true, status: true, lang: true, termsVersion: true },
   });
   if (!user) throw invalidOtp();
 
@@ -336,7 +417,7 @@ export async function refresh(app: FastifyInstance, refreshToken: string) {
   // On renvoie aussi l'utilisateur public → reprise de session en UN appel.
   const user = await app.prisma.user.findUnique({
     where: { id: payload.sub },
-    select: { id: true, phone: true, email: true, role: true, status: true, lang: true },
+    select: { id: true, phone: true, email: true, role: true, status: true, lang: true, termsVersion: true },
   });
   if (!user || user.status === 'SUSPENDED') {
     throw unauthorized('Session révoquée. Contactez le support.');

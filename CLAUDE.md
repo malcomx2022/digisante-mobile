@@ -13,7 +13,7 @@ Porteur : **SEGLA E. Ulrich Gislain** (full-stack, 10+ ans). Collaboratrice : **
 
 **Mission** : répondre aux défis sanitaires béninois — infrastructure médicale limitée, dossiers perdus, connectivité rurale faible — par une plateforme **offline-first**, **multilingue** (FR, EN, Fɔ̀ngbè, Yorùbá — périmètre recentré juin 2026, cf. §8), avec téléconsultation, DMP patient, ordonnances QR, SOS, et paiements Mobile Money + wallet diaspora.
 
-**État au 14 octobre 2026** : socle avancé, **finalisation fonctionnelle et validation avant ouverture** — **183 endpoints REST + 1 canal WebSocket** temps réel / **28 modules** + 5 intégrations, **67 pages frontend** (dont 23 espace patient), **53 modèles Prisma**, 31 enums, 34 migrations, **856 tests** (711 API + 145 web) + 36 e2e (mesure statique des déclarations ; exécution dans la fiche de revue). **7 rôles** (patient · médecin · pharmacie · laboratoire · diaspora · **ASC** · admin). Les vagues d'optimisation 1-12 sont historiques ; elles ne prouvent pas la clôture des abonnements, revenus, hors-ligne médical ou résiduels de sécurité. Les quatre corrections du 6 octobre sont regroupées sur `feat/l0-baseline-review` : baseline et revue locales validées (dont 8 E2E), CI candidates vertes, PR #178/#179 fusionnées sur main `2ee3cfb` ; preuves de fusion et CI main dans `docs/suivi/LOT_L0.md`, aucune mise en production attestée par L0. **Plan actif : `docs/PLAN_Implementations_Restantes_2026-10.md`, lots L0–L11**. Ne plus déclarer le projet « feature-complete » ni « en production » sans les preuves correspondantes.
+**État au 14 octobre 2026** : socle avancé, **finalisation fonctionnelle et validation avant ouverture** — **193 endpoints REST + 1 canal WebSocket** temps réel / **28 modules** + 5 intégrations, **75 pages frontend** (dont 23 espace patient), **54 modèles Prisma**, 32 enums, 36 migrations, **897 tests** (748 API + 149 web) + 36 e2e (mesure statique des déclarations ; exécution dans la fiche de revue). **7 rôles** (patient · médecin · pharmacie · laboratoire · diaspora · **ASC** · admin). Les vagues d'optimisation 1-12 sont historiques ; elles ne prouvent pas la clôture des abonnements, revenus, hors-ligne médical ou résiduels de sécurité. Les quatre corrections du 6 octobre sont regroupées sur `feat/l0-baseline-review` : baseline et revue locales validées (dont 8 E2E), CI candidates vertes, PR #178/#179 fusionnées sur main `2ee3cfb` ; preuves de fusion et CI main dans `docs/suivi/LOT_L0.md`, aucune mise en production attestée par L0. **Plan actif : `docs/PLAN_Implementations_Restantes_2026-10.md`, lots L0–L11**. Ne plus déclarer le projet « feature-complete » ni « en production » sans les preuves correspondantes.
 
 
 **Dérogation cible 13 octobre 2026 (porteur, validée)** : préprod et prod DigiSanté sur le VPS IONOS partagé `srv1.immipro.app` (31.70.148.167, Myvps1, 2-4-120, Ubuntu 26.04.1 LTS, Espagne), déjà hôte d'ImmiPro prod et BeninLink prod/recette. Remplace la cible du contrat initial (VPS Infomaniak distinct, Ubuntu 22.04, PG16 natif, Redis natif). Domaines : préprod `preprod.digisantemobile.app`, prod `digisantemobile.app` + `www.digisantemobile.app`. Ports : préprod web 3100 / api 3101, prod web 3200 / api 3201. Le cas I2 « VPS distinct » est non conforme en l'état ; dérogation documentée, à arbitrer en L11.
@@ -72,7 +72,7 @@ Porteur : **SEGLA E. Ulrich Gislain** (full-stack, 10+ ans). Collaboratrice : **
 
 | Couche | Technologie |
 |---|---|
-| Frontend | **Next.js 14** (App Router) + Tailwind CSS — PWA, service worker |
+| Frontend | **Next.js 15.5** (App Router, React 19) + Tailwind CSS — PWA, service worker (montée 14 → 15 décidée par le porteur le 08/11/2026 : failles critiques non corrigées en 14) |
 | Backend | **Fastify** (Node.js) — clustering PM2 ×2 |
 | ORM / DB | **Prisma** + **PostgreSQL 18.6 natif** (PG18, dérogation 13/10 ; PG16 initial) |
 | Cache / files | **Valkey** 6379 (compatible Redis, index dédiés /5 préprod /6 prod, **utilisateur ACL + préfixe de clés/canaux par environnement**, jamais FLUSHDB/FLUSHALL) — cache, OTP, allowlist refresh, **pub/sub temps réel chat** |
@@ -269,7 +269,7 @@ Les scripts shell complets sont dans la Documentation technique v2 (`DocTech_Dig
 - **Zones sûres PWA — le HAUT comptait autant que le bas (corrigé août 2026)** : `viewportFit: 'cover'` + `appleWebApp.statusBarStyle: 'black-translucent'` étendent le document **sous** l'encoche ET sous l'indicateur d'accueil. `.pb-safe` existait (BottomNav) ; **`.pt-safe` manquait** ⇒ en PWA installée sur iPhone, le contenu de l'en-tête passait **sous l'heure système et la Dynamic Island**. `.pt-safe` est désormais porté par `StatusBar`, qui coiffe chaque écran mobile — ne pas le retirer, et l'ajouter à tout nouvel élément placé en tête de page hors `StatusBar`.
 - **Pas de fausse barre d'OS (corrigé août 2026)** : `StatusBar` affichait une **heure figée « 9:41 »** — l'heure des maquettes Apple, héritée des écrans D-01…D-26 et jamais retirée. En navigateur elle imitait une barre système sans en être une ; en PWA installée elle affichait une heure **fausse et figée juste sous l'heure réelle du téléphone**. Retirée : le composant ne porte plus que les actions (langue, déconnexion, profil). **Ne jamais réintroduire d'horloge** — celle de l'appareil est déjà à l'écran.
 - **Focus clavier sur `card-pagne` : l'utilitaire `.pagne-focus` est OBLIGATOIRE** — le `clip-path` **rogne l'outline par défaut**, donc un `<button class="card-pagne">` brut n'a **aucun** indicateur de focus visible (WCAG 2.4.7). Les composants `<Button>`/`<Link>` du DS le gèrent déjà ; tout bouton BRUT doit porter `pagne-focus` (ou `focus-visible:ring-inset`). Balayage de contrôle : `grep -rn "card-pagne" apps/web/src --include=*.tsx | grep -E "<button|onClick=" | grep -v "ring-inset|pagne-focus"` → doit renvoyer **0**.
-- **Frontend / CSP** : `next.config.mjs` pose une CSP + en-têtes de sécurité ; `frame-src` autorise **Daily.co** (téléconsult), `connect-src` large pour FCM/WebSocket ; `script-src` conserve `'unsafe-inline'/'unsafe-eval'` requis par Next (pas de nonce). Ne pas resserrer sans tester Daily/FCM.
+- **Frontend / CSP (nonce depuis le 08/11/2026)** : la CSP des documents est posée par `apps/web/src/middleware.ts` (nonce par requête, `script-src 'self' 'nonce-…' 'strict-dynamic'`, sans `'unsafe-inline'` pour les scripts ; styles inchangés). `next.config.mjs` ne garde que les autres en-têtes, la CSP fixe des fichiers publics (`sw.js`, `offline.html`, `manifest.json`) et celle du SW FCM. Le layout racine impose le rendu dynamique (`connection()`) : ne jamais le retirer, une page prérendue aurait des scripts sans nonce. Ne jamais ajouter de `<script>` en ligne sans le nonce (`headers().get('x-nonce')`). `frame-src` Daily, `connect-src` explicite.
 
 ---
 
@@ -320,7 +320,7 @@ L8 livré sur main par PR #188 (`4fc62c1`), fusion le 8 octobre à 06:50:09 Afri
 - Audit : sous le verrou 4021957, tri createdAt DESC/id DESC et horloge logique max(maintenant, dernier+1 ms). Un CUID au même horodatage ne prouve pas l’ordre causal. Avant bascule, vérifier l’héritage sans réécrire les lignes immuables ; arrêter les anciens workers. Mutations des consentements DMP, KYC et prise en charge/résultat critique labo incluent leur audit dans la même transaction READ COMMITTED. Les lectures/refus gardent leurs audits séparés.
 - Logs : aucune query/fragment ou exception arbitraire ; messages Prisma minimisés, logs 4xx code seulement. Nginx access_log global noquery sans Referer ; error_log de requêtes désactivé car non expurgeable, statuts via accès et diagnostic API structuré. Vérifier aussi les anciens journaux/collecteurs en L10/L11, sans supprimer une preuve arbitrairement.
 - FedaPay §5 : helper partagé n’accepte que HTTPS checkout.fedapay.com / sandbox-checkout.fedapay.com, port standard/443, sans credentials/espaces/backslash. Redirections API refusées, id upstream opaque, aucun corps/exception brut journalisé ; absence de clé refuse les transactions factices en production. Reconcile utilise isValidServiceToken ; HMAC, CAS, wallet, commission, L6/L7 inchangés. Aucun transfert externe automatique ni DLQ ajoutés.
-- FCM : parser le lien puis contrôler l’origine, refuser backslash/séparateur encodé/contrôle, normaliser avant stockage notification et au clic. CSP production sans unsafe-eval ni connect-src générique ; Daily/Google explicites, exception gstatic réservée au SW FCM. unsafe-inline Next sans nonce reste un résiduel à arbitrer avant GO, aucune acceptation de risque inventée. HSTS snippet seulement après certificat valide et renouvellement vérifié ; Twilio Geo Permissions et pentest externes restent L10/L11.
+- FCM : parser le lien puis contrôler l’origine, refuser backslash/séparateur encodé/contrôle, normaliser avant stockage notification et au clic. CSP production sans unsafe-eval ni connect-src générique ; Daily/Google explicites, exception gstatic réservée au SW FCM. unsafe-inline Next fermé le 08/11/2026 par la CSP à nonce (voir la reprise « risques résiduels »), recette sur mobile et fournisseurs réels encore à faire. HSTS snippet seulement après certificat valide et renouvellement vérifié ; Twilio Geo Permissions et pentest externes restent L10/L11.
 
 
 ## Reprise L9 — langues natives et validation clinique (8 octobre 2026)
@@ -408,3 +408,142 @@ Branche `claude/inspiring-shannon-6c26ex` depuis main `b26c1c8`, pour le candida
 - **Erreurs API côté UI** : `apiErrorMessage` (`lib/api/errors.ts`) affiche le refus métier 4xx (422 : champ + règle) ; message générique seulement réseau/5xx/401.
 - **Intégrations** : chaque `PUT` est relu en base (`verifyIntegrationWrite`, 500 `INTEGRATION_WRITE_UNVERIFIED` avant audit) ; domaine Daily validé par `lib/daily-domain.ts`, règle partagée avec le service ; un masque à 4 caractères ne prouve pas qu'une valeur a changé.
 - **Finance admin** : `GET /admin/finance/payments` (tous statuts, filtre) pour retrouver un REFUNDED ; aucune identité payeur.
+
+
+## Reprise — bloquants fonctionnels du pilote (7 novembre 2026)
+
+Branche `claude/compassionate-goldberg-5fdh2j`, depuis main `6846fe1`. Revue et correctifs : `docs/REVUE_Restant_Finalisation_2026-11-07.md` (§2, §8). Aucune recette réelle, contreseing ni déploiement attesté.
+
+- **Miroir push des notifications in-app** : le dispatch envoie en plus un push FCM, au texte **générique** (`pushMirrorText`). Ne jamais y mettre le corps d'une notification SYSTEM (médicament, signalement ASC, motif : §4). Le push passe par `pushToRecipient`, qui relit la liaison et purge un token invalide. Un échec du push ne fait pas échouer l'in-app. Toute nouvelle notification métier peut rester `IN_APP`.
+- **SOS** : `contactNotified` n'est vrai que sur `res.delivered` d'au moins un SMS ; ni stub ni notification in-app du patient. L'écran n'affiche jamais « prévenu » sans cette preuve.
+- **Habilitation pharmacie** (`Pharmacy.verifiedAt`, migration `20261107120000_pharmacy_verification`, sans reprise) :
+  - scan et délivrance passent par `verifiedPharmacyIdOf` ;
+  - la recherche patient filtre sur `verifiedAt` non nul et compte actif ;
+  - l'approbation KYC d'une pharmacie exige `NATIONAL_ID` + `PRACTICE_LICENSE`, toutes pièces vérifiées ;
+  - ne jamais poser le badge en SQL ;
+  - les fixtures de test doivent créer `verifiedAt` pour une pharmacie qui scanne ou délivre.
+- **Posologie** : `parsePosology` ne renseigne une dimension que **sans ambiguïté**. Ne jamais réintroduire :
+  - une répartition horaire par défaut ;
+  - la lecture du premier entier comme dose (teneur en mg/mL) ;
+  - des jours supposés pour une durée sans unité, ou des mois convertis en jours ;
+  - l'illustration d'une consigne niée ;
+  - « pendant le repas » classé en `AFTER` (c'est `DURING`).
+  
+  Les fractions passent par `formatDoseCount`. Les cas POS01 à POS14 sont couverts par des tests et **restent à contresigner**.
+- **L9** : instantané `c9f0471e…`. L'ancien `3e061d52…` et la campagne `L9-2026-10-14` sont archivés dans `docs/validation/archive/L9-3e061d52-2026-11-07/`, à ne pas modifier. `validation:campaign:check` vérifie l'intégrité de ce kit archivé. Une nouvelle campagne exige un nouvel identifiant, une base et un snapshot fixés explicitement : décision du porteur.
+- **i18n** : 8 clés critiques `sos.*` par langue sont sans FON/YOR (6 anciennes + `sos.sms_delivered` et `sos.no_contact_notified`). Relecture native obligatoire, jamais de traduction automatique.
+- **Composants mutualisés** :
+  - `NotificationList` : centre de notifications par espace, avec accent ;
+  - `KycDossier` : dossier KYC médecin et pharmacie, avec accent et pièces proposées.
+  
+  Les étendre plutôt que dupliquer.
+
+## Reprise — écarts majeurs M1–M6 (7 novembre 2026)
+
+Même branche ; détails : `docs/REVUE_Restant_Finalisation_2026-11-07.md` §9.
+
+- **Clôture d'un RDV** : passe par `closeVisit`, sur `POST /appointments/:id/complete` ou `/no-show`.
+  - Médecin propriétaire, RDV CONFIRMED, après l'heure prévue, aucune téléconsultation en cours.
+  - Transition conditionnelle `updateMany`.
+  - Aucun effet de paiement : jamais de remboursement sur un `NO_SHOW` (§5).
+- **Compte rendu de téléconsultation** : le champ `report` de `/consultations/:id/end` devient une entrée DMP via `createRecord`, **avant** la clôture. Sans consentement actif : 403 et la consultation reste ouverte. Ne jamais l'écrire en clair dans `Consultation.notes`, résiduel encore accepté par l'API. Toute écriture DMP par un médecin passe par `createRecord` (consentement, scellement, auteur serveur).
+- **Créneaux** :
+  - `GET /appointments/slots` utilise `freeSlots`/`beninDayStartMs` (UTC+1 fixe, 8 h–17 h, pas égal à `slotDuration`) et la même règle `overlaps` que `book`.
+  - Le verrou de réservation reste l'arbitre : ne pas réserver à partir de la seule liste.
+  - Toute nouvelle règle de disponibilité doit rester commune aux deux.
+- **Notifications par espace** : `SpaceNotifications` et `NotificationList` pour pharmacie, labo, diaspora et ASC ; `/pro/notifications` pour le médecin. Pas de centre admin (§4).
+- **Audio Fɔ̀ngbè** : `hasAudio` vaut `false` pour toutes les langues tant qu'aucun enregistrement natif relu n'existe. La synthèse vocale fr-FR n'est pas de l'audio Fɔ̀ngbè.
+- **Campagnes** :
+  - prise conditionnelle `DRAFT→SENT` en tête de transaction ;
+  - envoi par lots (`CAMPAIGN_BATCH_SIZE`, curseur sur `id`) ;
+  - audit dans la même transaction ;
+  - ne jamais revenir à « lire le statut puis `createMany` ».
+- **L9** : instantané `3e8e9f1a…`. Toute modification de `messages.ts` impose `validation:prepare` puis la régénération du dossier.
+
+## Reprise — conformité APDP/RGPD (7 novembre 2026)
+
+Même branche. Détails dans `docs/CONFORMITE_APDP_2026-11.md` et dans `docs/REVUE_Restant_Finalisation_2026-11-07.md` §10.
+
+- **Consentement versionné** :
+  - Contrôles serveur : `registerSchema` exige `acceptTerms: true` et `termsVersion === TERMS_VERSION` (`@digisante/shared/legal.ts`), sinon 422. `POST /users/me/terms` n'accepte que la version courante.
+  - Tests : toute charge utile de test de `/auth/register` fusionne `REGISTER_TERMS` (`src/test/terms-fixture.ts`).
+  - Changement des textes : toute modification de fond de `apps/web/src/content/legal.ts` **impose d'incrémenter `TERMS_VERSION`**.
+  - `TermsGate` : bloque seulement si le serveur renvoie une version ≠ courante (null compris). Ne bloque jamais hors ligne, ni sur `/patient/sos`, `/patient/emergency` ou `/patient/triage`, ni les admins. Ne jamais rendre l'urgence dépendante de la ré-acceptation.
+- **Textes légaux** :
+  - Ce sont des **PROJETS**. Le bandeau reste affiché tant qu'ils ne sont pas validés juridiquement.
+  - Les champs `[ ]` sont à fournir par le porteur.
+  - Les textes ne sont pas dans `messages.ts` (contenu) : FR fait foi, EN est traduit, FON/YOR retombent sur FR.
+- **Effacement** :
+  - **Circuit** : demande du titulaire (`/users/me/deletion-request`), puis exécution admin (`/admin/deletion-requests/:id/execute`, scope `users:write`). Jamais d'exécution automatique.
+  - **Ce que fait `executeDeletion`** : supprime la santé propre au patient, anonymise l'identité (`phone = deleted:<id>`), ferme le compte (`SUSPENDED` + `deletedAt`), puis supprime les fichiers chiffrés **après** validation.
+  - **Conservés pseudonymisés en attendant D-8** : audit, paiements et finances, RDV, ordonnances, analyses, orientations, avis.
+  - **Règle d'implémentation** : ne pas supprimer la ligne `User` (cascades financières) ; ne jamais écrire le motif de refus en méta d'audit.
+- **Magasin de fichiers** : `deleteEncryptedFile` (idempotent) est appelé APRÈS la suppression de la ligne qui référence le fichier (B4). Le retrait d'une pièce DMP efface désormais le fichier.
+- **Conservation (D-8)** : aucune durée n'est codée ; la proposition figure au dossier de conformité. Une fois D-8 validée :
+  - purges par cron, à ajouter aux deux crontabs ;
+  - mise à jour de la politique de confidentialité ;
+  - incrément de `TERMS_VERSION`.
+- **L9** : instantané courant `393091c6…`.
+
+## Reprise — vulnérabilités des dépendances (8 novembre 2026)
+
+Branche `claude/compassionate-goldberg-5fdh2j` repartie de main `7908753` (après fusion de #232). `pnpm audit` (prod **et** dev) : **0 vulnérabilité** ; il y en avait 65 en prod, dont 6 critiques. Décisions du porteur du 08/11 : montée **Next 15.5** et **zod 4**.
+
+- **Montées directes** :
+  - `next` 15.5.29 et React 19 (`eslint-config-next`/`@next/bundle-analyzer` 15.5.29, `@types/react` 19) ;
+  - `fastify` 5.12.8 et `@fastify/jwt` 10.2.7 (fast-jwt 6.3) ;
+  - `zod` 4.6.7 (API + shared) ;
+  - `vitest` 4.1 avec `vite` 7 en devDependency directe (vitest 4 exige vite ≥ 6 ; sans dépendance directe, pnpm réutilisait vite 5 comme peer).
+- **Next 15** :
+  - `params` des pages dynamiques est une **Promise** (`await params`) ;
+  - plus de namespace global `JSX` : utiliser `ReactElement` (import `react`).
+  - `next-env.d.ts` : **ne pas committer** la référence `.next/types/routes.d.ts` ajoutée par le build. Sur un clone frais, le typecheck de la CI, qui passe avant le build, échouerait.
+  - `next lint` est déprécié (Next 16) ; la migration vers le CLI ESLint reste à faire avant Next 16.
+- **zod 4** :
+  - `z.record` exige **deux** arguments (`z.record(z.string(), …)`).
+  - Avec une clé **enum**, `z.record` est **exhaustif**. Pour un jeu partiel (traductions), utiliser `z.partialRecord`. Le bug a été vu sur `education/:id/translations`, et le test vérifie désormais le 200.
+  - `.flatten()`, `.email()`, `.cuid()` et `ZodIssueCode` restent disponibles (dépréciés).
+- **Overrides pnpm** (`package.json` racine) : dépendances transitives **bornées à leur version majeure** (`paquet@N` → `^N.x.y`) : fast-uri, postcss, nanoid, source-map-js, grpc-js, protobufjs, brace-expansion, js-yaml, markdown-it, browserslist, fast-copy, postcss-selector-parser, esbuild.
+  - Seule exception : `minimatch@9/10 → ^11`. Les dernières versions de typescript-eslint et typedoc dépendent encore de la 10 ; lint et `docs:generate` ont été vérifiés.
+  - **Ne jamais accepter les overrides non bornés (`>=`) de `pnpm audit --fix`**, qui forcent des montées majeures.
+- §5 : la logique de paiement est inchangée. Les re-tests des webhooks (HMAC ✓/✗, idempotence, réconciliation) passent avec Fastify 5.12 et zod 4.
+- L9 : instantané `5f67ab29…`, à cause de `triage/page.tsx` (`ReactElement`).
+
+## Reprise — risques résiduels de sécurité (8 novembre 2026)
+
+Même branche `claude/compassionate-goldberg-5fdh2j` (PR #233). Détails : `docs/REVUE_Restant_Finalisation_2026-11-07.md` §12. Décisions du porteur : CSP à nonce + rendu dynamique ; OTP verrouillé par couple numéro + IP.
+
+- **CSP à nonce** : voir le piège « Frontend / CSP » (§8). L'e2e `security-headers` exige un nonce sur chaque `<script>`, différent à chaque requête, et aucune violation CSP.
+- **OTP** :
+  - **Compteurs** : 5 échecs par couple numéro + IP verrouillent ce couple 30 min (`otp:attempts|lock:<phone>:<époque>:<tag>`, étiquette HMAC de l'IP, jamais en clair). Le plafond global `otp:global:<phone>` est de 20 échecs/heure en fenêtre fixe ; au-delà, le code est détruit. Les compteurs sont incrémentés (Lua) AVANT la comparaison. Un renvoi de code ne les remet jamais à zéro ; un succès ne décompte que le global (`SET … KEEPTTL`).
+  - **Commandes Valkey autorisées seulement** (utilisateur ACL de la PR #228 : `GET/SET/DEL/GETDEL/INCR/EXPIRE/TTL/EVAL…`) : jamais `MGET`, `DECR`, `SCAN` ni `KEYS`, refusés en `NOPERM`. Le déverrouillage support incrémente l'**époque** du numéro (`otp:epoch:<phone>`) au lieu d'énumérer les clés par IP, qui expirent seules ; le nombre de sources verrouillées est un compteur dédié (`otp:iplocks:<phone>:<époque>`). Toute nouvelle commande Redis doit d'abord entrer dans la liste `valkey-acl` de `provision-ionos.sh`.
+  - **Code partagé entre clients** : clés dans `auth.otp.ts` (`otpRedisKeys`), lecture et purge dans `otpLockState` / `purgeOtpLocks` (`auth.service.ts`), réutilisées par la console support. Ne pas recopier les noms de clés.
+  - **IP du client** : `register` et `requestOtp` reçoivent `request.ip` (`trustProxy: 'loopback'`).
+  - **Tests** : `remoteAddress` dans `app.inject`, et nettoyage par `purgeOtpLocks`.
+- **Pièces DMP** : ligne et audit `DMP_DOCUMENT_*` dans une même transaction. Fichier écrit puis effacé si la transaction échoue ; retrait par `deleteMany` conditionnel (404 si déjà retiré).
+- **Reçus L3 v2** :
+  - **Écriture** : `sealReceiptResponse`, qui préfixe `v2:`, avec des sous-clés HMAC et AES distinctes et une AAD = identité de mutation.
+  - **Lecture** : `openReceiptResponse` lit v2 et l'héritage v1 ; la version du HMAC suit le préfixe. Pas de migration (`requestHash` reste en 64 hex).
+  - **Interdit** : réutiliser une même clé pour deux usages, ou chiffrer un reçu sans AAD.
+- **`POST /consultations/:id/end`** : schéma strict, seul `report` est accepté. L'ancien champ `notes` en clair donne un 422 et n'est jamais écrit ni ignoré en silence.
+- **`/showcase`** : 404 en production sauf `NEXT_PUBLIC_SHOWCASE=1` (variable ajoutée aux trois `.env*.example`, parité testée).
+- **Restant** (§12.1 de la revue) :
+  - pentest ;
+  - PR #228 : rôle PG, Valkey, port, fuseau, zones ;
+  - réattribution labo après suspension (décision du porteur) ;
+  - limites horloge et FCM ;
+  - navigateurs CSP1 ;
+  - colonne `Consultation.notes` historique (D-8).
+- **L9** : instantané `87af2b2b…`.
+
+## Reprise — incohérences documentaires (8 novembre 2026)
+
+Même branche. Détails : `docs/REVUE_Restant_Finalisation_2026-11-07.md` §13.
+
+- **Restauration** : `verify_restore.sh` exige la version majeure PostgreSQL de l'hôte (`PG_MAJOR`, défaut 18). Elle se fait toujours avec le trio base + fichiers + manifeste, jamais la base seule (B4).
+- **Premier déploiement** : `git switch --detach <SHA qualifié>` après le clone, sinon le candidat est vu comme un ancêtre de `main`.
+- **Job `deploy` de `ci.yml`** : tant que les deux variables valent `true`, chaque push sur `main` déploie `github.sha` sans qualification. `DEPLOY_MAINTENANCE_READY` est déclaratif. Comportement documenté, logique non modifiée (PR #228).
+- **Secrets fournisseurs** : jamais dans le `.env` des environnements du VPS (D-14), uniquement en base via `/admin/integrations`.
+- **Documents de septembre** : `SUIVI_B3` et `SUIVI_B5` portent un bandeau daté. Leurs commandes suivent la cible IONOS ; leurs résultats historiques ne sont pas réécrits.
+- **L10** : instantané `cb01f260…`.
+

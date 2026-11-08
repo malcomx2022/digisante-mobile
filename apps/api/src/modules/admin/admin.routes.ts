@@ -12,6 +12,7 @@ import type { FastifyInstance } from 'fastify';
 import adminAdminsRoutes from './admin.admins.routes.js';
 import adminAuditRoutes from './admin.audit.routes.js';
 import adminDashboardRoutes from './admin.dashboard.routes.js';
+import adminDeletionsRoutes from './admin.deletions.routes.js';
 import adminFinanceRoutes from './admin.finance.routes.js';
 import adminOpsRoutes from './admin.ops.routes.js';
 import adminSupportRoutes from './admin.support.routes.js';
@@ -26,4 +27,5 @@ export default async function adminRoutes(app: FastifyInstance) {
   await app.register(adminSupportRoutes); //   /support/*
   await app.register(adminFinanceRoutes); //   /finance/*  (⚠️ §5 — relocation seule)
   await app.register(adminOpsRoutes); //       /ops/*
+  await app.register(adminDeletionsRoutes); // /deletion-requests* (droit à l'effacement)
 }

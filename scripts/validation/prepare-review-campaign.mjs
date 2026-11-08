@@ -15,7 +15,10 @@ import { REFERENCES, CONSULTED_ON } from './review-references.mjs';
 export const CAMPAIGN_ID = 'L9-2026-10-14';
 export const BASE_COMMIT = '3e2eb7f2f72d9b5d9d4aee2a74d4b7f16ec7c620';
 export const SOURCE_SNAPSHOT = '3e061d5232d7bc11fe4dc92134a1b2e8d0dc1753b503c38ba261365b514944ed';
-export const DEFAULT_DIR = resolve(ROOT, 'docs/validation/L9/campaign-2026-10-14');
+// Kit archivé le 7 novembre 2026 avec son instantané (correctifs pilote : les
+// sources ont changé). Les retours de cette campagne restent liés à 3e061d52….
+export const ARCHIVE_ROOT = resolve(ROOT, 'docs/validation/archive/L9-3e061d52-2026-11-07');
+export const DEFAULT_DIR = resolve(ARCHIVE_ROOT, 'campaign-2026-10-14');
 const ARCHIVE = 'Kit_Relecteurs_L9.zip';
 const GENERATOR_SOURCES = ['scripts/validation/prepare-review-campaign.mjs', 'scripts/validation/clinical-review.mjs', 'scripts/validation/linguistic-review.mjs', 'scripts/validation/review-references.mjs', 'scripts/docs/generate-l9-review-kit.cjs'];
 const EXTRA_SOURCES = ['apps/web/src/lib/speech.ts', 'apps/web/src/components/chat/PhrasebookPanel.tsx'];
@@ -182,12 +185,43 @@ export function checkCampaign(out, expectedFiles) {
   zip(out, 'check');
 }
 
+/**
+ * Intégrité d'un kit ARCHIVÉ (snapshot courant différent) : empreintes du
+ * manifeste, inventaire exact, ZIP et dossier clinique identique à celui de
+ * l'archive. Ne régénère rien et n'approuve rien.
+ */
+export function checkArchivedCampaign(out, archivedDossier) {
+  const manifest = JSON.parse(readFileSync(join(out, 'manifest.json'), 'utf8'));
+  if (manifest.schemaVersion !== 1 || manifest.campaignId !== CAMPAIGN_ID) throw new Error('Manifest de campagne invalide');
+  const names = Object.keys(manifest.artifacts ?? {});
+  if (JSON.stringify(readdirSync(out).sort()) !== JSON.stringify([...names, 'manifest.json', ARCHIVE].sort())) throw new Error('Fichier inattendu dans le kit archivé');
+  for (const name of names) {
+    if (sha256(readFileSync(join(out, name))) !== manifest.artifacts[name]) throw new Error(`Kit archivé modifié : ${name}`);
+  }
+  const source = JSON.parse(readFileSync(join(out, 'source-snapshot.json'), 'utf8'));
+  if (source.sourceSnapshotSha256 !== SOURCE_SNAPSHOT) throw new Error('Kit archivé rattaché à un autre instantané');
+  if (!readFileSync(join(out, 'Dossier_Clinique_L9.docx')).equals(readFileSync(archivedDossier))) throw new Error('Dossier clinique différent de celui de l’archive');
+  zip(out, 'check');
+}
+
 export async function main(args = process.argv.slice(2)) {
   if (args.some((arg) => !['--check', '--output-dir'].includes(arg) && args[args.indexOf(arg) - 1] !== '--output-dir')) throw new Error('Argument inconnu');
   const index = args.indexOf('--output-dir');
   if (index >= 0 && (!args[index + 1] || args[index + 1].startsWith('--'))) throw new Error('--output-dir exige un nouveau chemin');
   const out = resolve(index >= 0 ? args[index + 1] : DEFAULT_DIR);
-  const { campaign, files } = buildCampaignArtifacts();
+  const current = buildSnapshot();
+  if (current.sourceSnapshotSha256 !== SOURCE_SNAPSHOT) {
+    // Sources modifiées depuis la campagne : seul le contrôle d'intégrité du kit
+    // archivé reste possible ; préparer une campagne exige un nouvel identifiant.
+    if (!args.includes('--check')) throw new Error('Version source différente : préparer explicitement une nouvelle campagne, sans réutiliser les dates ni la base du kit L9-2026-10-14.');
+    checkArchivedCampaign(out, resolve(ARCHIVE_ROOT, 'Dossier_Clinique_L9.docx'));
+    const archived = spawnSync('python3', [resolve(ROOT, 'scripts/docs/validate-l9-review-kit.py'), out], { encoding: 'utf8' });
+    if (archived.status !== 0) throw new Error(archived.stderr || archived.stdout || 'DOCX invalide');
+    console.log(archived.stdout.trim());
+    console.log(`Kit archivé ${CAMPAIGN_ID} intègre : ${out}, snapshot ${SOURCE_SNAPSHOT}. Instantané courant ${current.sourceSnapshotSha256} : nouvelle campagne à préparer ; aucun avis humain ajouté.`);
+    return;
+  }
+  const { campaign, files } = buildCampaignArtifacts(current);
   if (args.includes('--check')) checkCampaign(out, files);
   else {
     if (existsSync(out)) throw new Error('Dossier existant : aucun écrasement autorisé. Utiliser --check ou un nouveau --output-dir.');

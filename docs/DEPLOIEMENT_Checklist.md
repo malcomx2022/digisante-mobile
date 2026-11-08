@@ -66,8 +66,8 @@
       ⚠️ Les générateurs **vaccination** et **CPN** n'étaient PAS planifiés avant août 2026 : sans eux, aucun rappel de vaccination ni de consultation prénatale n'est émis — en silence.
 
 ## 6. Déploiement continu (GitHub Actions)
-- [ ] Secrets repo : `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `VPS_FINGERPRINT` (empreinte d’hôte, obligatoire) (+ `VPS_SSH_PORT`).
-- [ ] **Variables** `DEPLOY_ENABLED=true` ET `DEPLOY_MAINTENANCE_READY=true`, seulement dans une fenêtre autorisée/maintenance Nginx vérifiée ; désactiver hors fenêtre.
+- [ ] Secrets repo : `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY`, `VPS_FINGERPRINT` (empreinte d’hôte, obligatoire), `DB_MIGRATION_URL` (rôle propriétaire PostgreSQL, jamais dans le `.env`) (+ `VPS_SSH_PORT`).
+- [ ] **Variables** `DEPLOY_ENABLED=true` ET `DEPLOY_MAINTENANCE_READY=true`, seulement dans une fenêtre autorisée/maintenance Nginx vérifiée ; désactiver hors fenêtre. ⚠️ Pendant la fenêtre, **chaque push sur `main` au vert déploie `github.sha`**, sans qualification de candidat ; `DEPLOY_MAINTENANCE_READY` est une déclaration humaine, la maintenance n'est pas contrôlée par le job. Ne fusionner sur `main` pendant la fenêtre que le candidat qualifié.
 - [ ] Clé publique de déploiement installée par `provision-ionos.sh --apply --only users` (`DEPLOY_SSH_PUBKEY`) : ligne **`restrict <clé>`** dans `~digisante/.ssh/authorized_keys` (préproduction : `~digisante-preprod`, secrets `PREPROD_VPS_*`) ; à la main, toujours avec `restrict` (sinon `--verify` : FAIL).
 - [ ] Les deux workflows de déploiement partagent le groupe de concurrence `deploy-ionos-srv1` : un seul build/déploiement DigiSanté à la fois sur l'hôte.
 - [ ] Push sur `main` → CI (`build-and-test` **et** `e2e`) → `deploy` SSH (`deploy.sh`) si l'opt-in est actif. La PR L0 ne déploie pas.
@@ -98,10 +98,10 @@
 
 ---
 
-**Contrôles techniques actuels ; ouverture pilote non attestée.** Le code (backend **28 modules** / **183 endpoints REST + 1 WS**
-+ frontend **7 espaces**, **67 pages**) est testé (**856 tests verts** — 711 API + 145 web (déclarations statiques, résultats d’exécution détaillés dans LOT_Revue_2026-10-14), + 24 e2e
-Playwright — preuves du 7 octobre 2026 dans LOT_L4), l'infra scriptée. Restent la livraison L7 et la finalisation L8–L11, la validation humaine et l'exécution sur
-le VPS réel (étapes ci-dessus).
+**Contrôles techniques actuels ; ouverture pilote non attestée.** Le code (backend **28 modules** / **193 endpoints REST + 1 WS**
++ frontend **7 espaces**, **75 pages**) est testé (**897 tests verts** — 748 API + 149 web (déclarations statiques, résultats d’exécution détaillés dans LOT_Revue_2026-10-14), + 36 e2e
+Playwright déclarés — dernière exécution locale complète le 8 novembre 2026, `docs/REVUE_Restant_Finalisation_2026-11-07.md` §11-12), l'infra scriptée. Restent la finalisation L9–L11 (validation humaine, recettes réelles L10, GO L11) et l'exécution
+en production sur le VPS IONOS partagé (étapes ci-dessus ; préproduction déployée, sous maintenance).
 
 > Les revues d'écarts sont **closes** : `docs/REVUE_Ecarts_et_Plan_2026-08.md` (C1→C9) et
 > `docs/AUDIT_Fonctionnel_2026-08.md` (D1→D10). Ces clôtures historiques ne ferment pas le plan actif L7–L11 et les recettes réelles L5/L6 ni ses conditions de GO pilote.
@@ -121,7 +121,7 @@ le VPS réel (étapes ci-dessus).
 - [ ] Candidate L5 revue/fusionnée, CI vérifiée sur son SHA final ; API/client/en-têtes homogènes, anciens onglets fermés.
 - [ ] Salles historiques Daily publiques/sans frappe interdite/échéance inconnue supprimées après clôture ; nouveaux accès contrôlés selon le contrat L5.
 - [ ] Permissions-Policy/CSP effectivement servis après Nginx en HTTPS vérifiés sur Android et iOS ; caméra/micro délégués au domaine Daily.
-- [ ] Smoke fournisseur réel et recette D1–D18 signés, dont URL seule, bearer expiré, éjection/ban de session déjà ouverte, AUDIO réel et CHAT.
+- [ ] Smoke fournisseur réel et recette D1–D21 signés (D19–D21 : B5, démarrages simultanés et latence), dont URL seule, bearer expiré, éjection/ban de session déjà ouverte, AUDIO réel et CHAT.
 - [ ] Qualification sous-traitant/région/télémétrie validée par le porteur ; absence de token dans historique/DOM/log/stockages/cache contrôlée.
 
 En incident : désactiver Daily, garder la messagerie, corriger en avant. Les clients app surveillent l'accès, les bearers déjà copiés restent bornés par 15 min ; éjection/suppression best effort et salle 4 h comme filets. Ne pas revenir au stub externe ni à un propriétaire médecin. Lire `CONTRAT_Teleconsultation_L5.md`.
@@ -152,10 +152,10 @@ Lire contrat/recette/revue/LOT_L7. Cases opérationnelles non cochées tant que 
 - [ ] Vérifier `AUDIT_Securite_L8_2026-10.md` X1–X15 : X6 = Redis, X12 = tri audit. Arrêter les anciens workers, vérifier la chaîne historique sur copie restaurée avant bascule ; aucun maillon réécrit ou rollback vers l’ancien writer.
 - [ ] Annoncer renvoi des OTP pendants SHA256/rotation JWT_SECRET, vérifier réponse générique et délivrance réelle/UX ; NODE_ENV=test interdit sur pilote réel, devCode réservé aux tests. JWT_REFRESH_TTL cohérent JWT/cookie/Redis.
 - [ ] Installer format/site Nginx ensemble, tester `nginx -t` et journal DMP/WS avec sentinel synthétique : ni query ni Referer ni corps. Error_log de requête désactivé ; statuts dans digisante-access.log et diagnostic API structuré ; vérifier collecteurs/CDN/ancien historique sans purge arbitraire.
-- [ ] Qualifier CSP sur vrai Daily/FCM et mobile, documenter stratégie nonce/hashes ou décision explicite sur unsafe-inline Next ; aucune acceptation de risque automatique.
+- [ ] Qualifier la CSP à nonce (middleware, 08/11/2026) sur vrai Daily/FCM et mobile, y compris le shell hors ligne ; aucune acceptation de risque automatique.
 - [ ] Après certificat/redirection/renouvellement vérifiés, inclure hsts-after-tls.conf dans HTTPS et toutes les locations définissant add_header. Vérifier header et 24 h ; aucun includeSubDomains/preload sans qualification.
 - [ ] Console Twilio : Geo Permissions SMS ET Voice pour pays attendus seulement, Bénin OTP et diaspora selon besoin validé ; preuve et tests autorisés, y compris coût/quota et SOS.
-- [ ] FedaPay : vraie URL HTTPS sur checkout.fedapay.com/sandbox-checkout.fedapay.com, S1–S7 sandbox/reconcile, aucun stub en production ; HMAC/CAS/commission/wallet/L6/L7 inchangés.
+- [ ] FedaPay : vraie URL HTTPS sur un hôte EXACT de la liste liée à l'environnement de la clé (live `process.fedapay.com`/`checkout.fedapay.com`, sandbox `sandbox-process.fedapay.com`/`sandbox-checkout.fedapay.com` ; hôte réel relevé par S8, jamais de joker), S1–S10 sandbox/reconcile, aucun stub en production ; HMAC/CAS/commission/wallet/L6/L7 inchangés.
 - [ ] Mandater pentest externe sur candidate exacte/préproduction synthétique, retester findings ; mesurer timings d’énumération et risques CSP avant décision humaine GO/NO-GO L11.
 
 
@@ -175,10 +175,10 @@ Préparation technique et CI ne prouvent pas une validation native/clinique. Ré
 
 Décision du porteur : accès fournis ultérieurement. Lire contrat/revue/fiche L10 ; neuf contrôles infrastructure et recettes fournisseur dans le dossier de 100 cas. Aucune case cochée par les tests locaux.
 
-- [ ] VPS Infomaniak **distinct** (critère I2 contractuel, **non conforme** : dérogation IONOS partagé du 13/10/2026 à arbitrer en L11), domaine/SSH/fingerprint autorisés ; base et cache natifs (sur IONOS : PG 18.6/Valkey partagés) avec base `*_preprod` et index /5 dédiés, comptes synthétiques, secrets privés et Firebase au build.
+- [ ] VPS **distinct** (critère I2 du contrat initial, Infomaniak ; **non conforme** : la cible est le VPS IONOS partagé `srv1.immipro.app`, dérogation du 13/10/2026 à arbitrer en L11), domaine/SSH/fingerprint autorisés ; base et cache natifs (sur IONOS : PG 18.6/Valkey partagés) avec base `*_preprod` et index /5 dédiés, comptes synthétiques, secrets privés et Firebase au build.
 - [ ] SHA main exact/CI deux jobs réussis via preprod:qualify ; maintenance vérifiée, crons suspendus/repris, sauvegarde préalable cible alimentée, anciens workers arrêtés avant migrations.
 - [ ] Workflow manuel préprod configuré volontairement ; aucun smoke automatique. Gardes L10 obligatoires, NODE_ENV=production et un fournisseur ; jamais tests ordinaires sur cible.
-- [ ] S1–S7, T1–T12, D1–D18, F1–F9 Android/iPhone, R1–R6 et parcours L6/L7 observés/référencés. T11 uniquement destination de test autorisée ou N/A avec décision du porteur ; FCM logout via dispatch.
+- [ ] S1–S10, T1–T12, D1–D21, F1–F9 Android/iPhone, R1–R6 et parcours L6/L7 observés/référencés. T11 uniquement destination de test autorisée ou N/A avec décision du porteur ; FCM logout via dispatch.
 - [ ] Crons réellement observés (pas seulement lignes installées/invocation manuelle) ; tâches mutantes de verify_deploy seulement opt-in préprod autorisé.
 - [ ] Première sauvegarde cible DB+fichiers+manifeste et SHA256/copie/clé hors VPS. Snapshot DB commun dump/comptages ; pas atomicité DB↔fichiers. Restauration indépendante L11 séparée.
 - [ ] Références privées vérifiées et même candidate/source, preprod:check et gate cohérents ; gates natifs/cliniques L9, arbitrages sécurité et GO L11 toujours distincts.

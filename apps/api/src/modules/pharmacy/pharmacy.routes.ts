@@ -1,5 +1,6 @@
 // ─────────────────────────────────────────────────────────────
-// Routes Pharmacie (préfixe /api/v1/pharmacy). RBAC : PHARMACIE.
+// Routes Pharmacie (préfixe /api/v1/pharmacy). RBAC : PHARMACIE ; scan et
+// délivrance exigent en plus une officine vérifiée (KYC, `Pharmacy.verifiedAt`).
 // ─────────────────────────────────────────────────────────────
 import { STOCK_STATUSES } from '@digisante/shared';
 import type { FastifyInstance } from 'fastify';
@@ -39,15 +40,20 @@ const dispenseSchema = z.object({
 export default async function pharmacyRoutes(app: FastifyInstance) {
   const pharmacist = { preHandler: [app.authenticate, requireRole('PHARMACIE')] };
 
+  // Habilitation de l'officine courante (bannière KYC côté web).
+  app.get('/me', pharmacist, async (request) => pharmacy.myPharmacy(app, request.user.sub));
+
   app.post('/scan', pharmacist, async (request) => {
     const { qrCode } = zParse(scanSchema, request.body);
+    // Lecture de l'identité patient + traitements : officine vérifiée uniquement.
+    await pharmacy.verifiedPharmacyIdOf(app, request.user.sub);
     return pharmacy.scan(app, qrCode);
   });
 
   app.post('/prescriptions/:id/dispense', pharmacist, async (request) => {
     const { id } = zParse(idParams, request.params);
     const { items, qrCode } = zParse(dispenseSchema, request.body);
-    const pharmacyId = await pharmacy.pharmacyIdOf(app, request.user.sub);
+    const pharmacyId = await pharmacy.verifiedPharmacyIdOf(app, request.user.sub);
     return pharmacy.dispense(app, pharmacyId, id, items, qrCode);
   });
 

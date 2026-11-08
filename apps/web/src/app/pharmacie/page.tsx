@@ -7,7 +7,8 @@ import { Badge, KenteBar, LangSwitcher, StatusBar } from '@/components/ui';
 import { QrScanner } from '@/components/ui/QrScanner';
 import { HeaderLogout } from '@/components/auth/HeaderLogout';
 import { useLocale } from '@/i18n/LocaleProvider';
-import { pharmacyApi, type LineStatus, type ScanResult } from '@/lib/api/pharmacy';
+import { pharmacyApi, type LineStatus, type PharmacyStatus, type ScanResult } from '@/lib/api/pharmacy';
+import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
 
 const STATUSES: LineStatus[] = ['DISPENSED', 'PARTIALLY_DISPENSED', 'UNAVAILABLE'];
@@ -26,6 +27,10 @@ export default function PharmaciePage() {
   // Garde in-flight : un double-tap sur « délivrer » créerait DEUX journaux
   // Dispensation (idem double-scan) — on verrouille pendant la requête.
   const [busy, setBusy] = useState(false);
+  // Habilitation : tant que l'officine n'est pas vérifiée (KYC), le serveur
+  // refuse scan et délivrance ; on l'annonce au lieu d'un échec opaque.
+  const status = useApi<PharmacyStatus>(() => pharmacyApi.me(), []);
+  const notVerified = status.data?.verified === false;
 
   // Erreur réseau / 403 (profil absent) / hors-ligne → message réel ; sinon QR non reconnu.
   function errorMessage(e: unknown): string {
@@ -75,12 +80,25 @@ export default function PharmaciePage() {
       <div className="lg:hidden">
         <StatusBar dark right={<div className="flex items-center gap-2"><LangSwitcher dark /><HeaderLogout /></div>} />
       </div>
+      {notVerified && (
+        <div className="px-6 pb-3 lg:max-w-2xl lg:mx-auto lg:w-full">
+          <div className="card-pagne bg-ocre-400 text-stone-900 px-4 py-3 space-y-2">
+            <p className="text-[0.8125rem] font-bold">{t('pharmacie.not_verified')}</p>
+            <Link href="/pharmacie/kyc" className="pagne-focus inline-block card-pagne bg-stone-900 text-white px-3 py-1.5 text-[0.75rem] font-display font-bold">
+              {t('pharmacie.kyc_cta')}
+            </Link>
+          </div>
+        </div>
+      )}
       <div className="px-6 pt-2 pb-4 flex items-start justify-between gap-2 lg:max-w-2xl lg:mx-auto lg:w-full">
         <div>
           <h1 className="font-display font-extrabold text-2xl">{t('pharmacie.title')}</h1>
           <p className="text-[0.75rem] text-white/80">{t('pharmacie.scan')}</p>
         </div>
         <div className="flex items-center gap-2">
+          <Link href="/pharmacie/notifications" aria-label={t('notifications.title')} className="card-pagne bg-white/15 border border-white/20 px-3 py-1.5 text-[0.75rem] font-display font-bold">
+            <span aria-hidden>🔔</span>
+          </Link>
           <Link href="/pharmacie/history" className="card-pagne bg-white/15 border border-white/20 px-3 py-1.5 text-[0.75rem] font-display font-bold">
             {t('pharmacie.history')}
           </Link>

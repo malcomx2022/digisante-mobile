@@ -22,6 +22,7 @@ const cancelSchema = z.object({ reason: z.string().trim().min(1).max(500) });
 const triageSchema = z.object({ level: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']), note: z.string().max(1000).optional() });
 const agendaSchema = z.object({ from: z.coerce.date(), to: z.coerce.date() });
 const idParams = z.object({ id: z.string().cuid() });
+const slotsSchema = z.object({ doctorId: z.string().cuid(), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) });
 
 export default async function appointmentsRoutes(app: FastifyInstance) {
   const authed = { preHandler: [app.authenticate] };
@@ -43,6 +44,12 @@ export default async function appointmentsRoutes(app: FastifyInstance) {
     return appts.agenda(app, request.user.sub, { from, to });
   });
 
+  // Créneaux libres d'un médecin pour un jour (heure du Bénin) — avant `/:id`.
+  app.get('/slots', authed, async (request) => {
+    const { doctorId, date } = zParse(slotsSchema, request.query);
+    return appts.availableSlots(app, doctorId, date);
+  });
+
   app.get('/:id', authed, async (request) => {
     const { id } = zParse(idParams, request.params);
     return appts.getOne(app, request.user, id);
@@ -57,6 +64,17 @@ export default async function appointmentsRoutes(app: FastifyInstance) {
     const { id } = zParse(idParams, request.params);
     const { reason } = zParse(cancelSchema, request.body);
     return appts.cancel(app, request.user, id, reason, request.ip);
+  });
+
+  // Clôture d'un RDV par son médecin, après l'heure prévue (vu / absent).
+  app.post('/:id/complete', doctorOnly, async (request) => {
+    const { id } = zParse(idParams, request.params);
+    return appts.closeVisit(app, request.user.sub, id, 'COMPLETED');
+  });
+
+  app.post('/:id/no-show', doctorOnly, async (request) => {
+    const { id } = zParse(idParams, request.params);
+    return appts.closeVisit(app, request.user.sub, id, 'NO_SHOW');
   });
 
   app.post('/:id/triage', doctorOnly, async (request) => {

@@ -2,7 +2,7 @@
 
 import { evaluateTriage, type TriageFlow, type TriageOutcome, TRIAGE_FLOWS } from '@digisante/shared';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactElement } from 'react';
 
 import { PatientHeader } from '@/components/patient/PatientHeader';
 import { Button, CardPagne, Nkyinkyim } from '@/components/ui';
@@ -13,7 +13,7 @@ import { cn } from '@/lib/cn';
 // D-06b — Triage / orientation HORS-LIGNE. Aide à décider quoi faire face à un
 // symptôme quand on est loin d'un centre. Fondé sur les signes de danger OMS/PCIME,
 // biais conservateur. ⚠️ Orientation, PAS un diagnostic (à valider médicalement).
-const ICONS: Record<string, JSX.Element> = {
+const ICONS: Record<string, ReactElement> = {
   thermometer: (
     <path d="M14 14.76V5a2 2 0 1 0-4 0v9.76a4 4 0 1 0 4 0Z" />
   ),

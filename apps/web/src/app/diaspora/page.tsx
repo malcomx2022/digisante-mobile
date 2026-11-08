@@ -3,6 +3,7 @@
 import Link from 'next/link';
 
 import { CardPagne } from '@/components/ui';
+import { NotificationsLink } from '@/components/notifications/SpaceNotifications';
 import { SpaceHeader } from '@/components/ui/SpaceHeader';
 import { Empty, ErrorState, Skeleton, SkeletonCards } from '@/components/ui/States';
 import { useLocale } from '@/i18n/LocaleProvider';
@@ -27,6 +28,7 @@ export default function DiasporaDashboard() {
     <>
       <SpaceHeader title={t('diaspora.title')} subtitle={t('diaspora.subtitle')} headerClass="bg-ocre-900" profileHref="/diaspora/profile" />
       <main className="px-6 -mt-10 relative z-20 space-y-4 pb-6 lg:max-w-2xl lg:mx-auto">
+        <NotificationsLink href="/diaspora/notifications" />
         <CardPagne stitch className="p-5 bg-ocre-900 bogolan-dark text-white">
           <p className="text-[0.75rem] text-white/80">{t('wallet.balance')}</p>
           {loading ? (

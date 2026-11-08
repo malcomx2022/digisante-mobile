@@ -46,7 +46,7 @@ export default async function authRoutes(app: FastifyInstance) {
   // Inscription par téléphone (envoie un OTP). PUBLIC.
   app.post('/register', async (request, reply) => {
     const input = zParse(registerSchema, request.body);
-    const result = await authService.register(app, input);
+    const result = await authService.register(app, input, request.ip);
     return reply.code(201).send(result);
   });
 
@@ -54,7 +54,7 @@ export default async function authRoutes(app: FastifyInstance) {
   // channel = SMS (défaut) ou VOICE (OTP vocal, ex. Fɔ̀ngbè).
   app.post('/otp/request', async (request) => {
     const input = zParse(requestOtpSchema, request.body);
-    return authService.requestOtp(app, input);
+    return authService.requestOtp(app, input, request.ip);
   });
 
   // Vérification de l'OTP → active le compte + délivre l'access token (corps) et

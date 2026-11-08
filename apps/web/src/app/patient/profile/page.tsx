@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { useAuth } from '@/auth/AuthProvider';
 import { LogoutButton } from '@/components/auth/LogoutButton';
+import { PrivacySection } from '@/components/legal/PrivacySection';
 import { PatientHeader } from '@/components/patient/PatientHeader';
 import { CardPagne, Nkyinkyim } from '@/components/ui';
 import { useLocale } from '@/i18n/LocaleProvider';
@@ -72,6 +73,7 @@ export default function ProfilePage() {
           <p className="text-[0.6875rem] text-stone-400 mt-1">{t('profile.portability_notice')}</p>
         </CardPagne>
 
+        <PrivacySection />
         <LogoutButton variant="outline" />
       </main>
     </>

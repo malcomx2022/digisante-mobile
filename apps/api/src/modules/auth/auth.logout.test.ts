@@ -1,6 +1,7 @@
 // Une déconnexion tardive du compte A ne révoque pas la session du compte B.
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { REGISTER_TERMS } from '@/test/terms-fixture.js';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 const PHONES = ['+2290196031401', '+2290196031402'];
@@ -27,7 +28,7 @@ describe.skipIf(!HAS_INFRA)('Auth — déconnexion liée au compte courant', () 
     await app.prisma.user.deleteMany({ where: { phone: { in: PHONES } } });
     await app.redis.del(...otpKeys);
     for (const [index, phone] of PHONES.entries()) {
-      const registration = await app.inject({ method: 'POST', url: '/api/v1/auth/register', payload: { phone, role: 'PATIENT', lang: 'FR', firstName: 'Synthétique', lastName: 'Logout' } });
+      const registration = await app.inject({ method: 'POST', url: '/api/v1/auth/register', payload: { ...REGISTER_TERMS, phone, role: 'PATIENT', lang: 'FR', firstName: 'Synthétique', lastName: 'Logout' } });
       expect(registration.statusCode).toBe(201);
       const verification = await app.inject({ method: 'POST', url: '/api/v1/auth/otp/verify', payload: { phone, code: registration.json().otp.devCode } });
       expect(verification.statusCode).toBe(200);

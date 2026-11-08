@@ -2,7 +2,7 @@
 
 Candidat déclaré au registre L10 : `ace0c689686204348e33c56e95cbc387d3b438b2`, préproduction `preprod.digisantemobile.app`, CI main 39687976461 (PR #214). Instantané des cas : `sourceSnapshotSha256 = d6bfcba2…a6d` (100 cas). Le gate ne transfère aucune preuve de `ec6b0dc` (archive `docs/preproduction/archive/L10-ec6b0dc-2026-10-21/`) : chaque cas se rejoue sur `ace0c689`.
 
-**Ce document est un plan, pas une preuve.** Un cas reste ouvert tant qu'une exécution réelle sur `ace0c689` n'a pas été rapportée par l'opérateur, vérifiée, puis inscrite au registre avec le gate rejoué sur copie (0 refusée imputable aux ajouts). La maintenance préprod reste posée jusqu'au nouveau PV GO/NO-GO signé ; la production (`digisantemobile.app`, encore `ec6b0dc`) n'est pas concernée.
+**Ce document est un plan, pas une preuve.** Un cas reste ouvert tant qu'une exécution réelle sur `ace0c689` n'a pas été rapportée par l'opérateur, vérifiée, puis inscrite au registre avec le gate rejoué sur copie (0 refusée imputable aux ajouts). La maintenance préprod reste posée jusqu'au nouveau PV GO/NO-GO signé ; la production (`digisantemobile.app`, **ni provisionnée ni déployée** — correction du 08/11/2026 : la mention antérieure « encore `ec6b0dc` » était erronée, `ec6b0dc` n'a été déployé qu'en préproduction) n'est pas concernée.
 
 ## 1. Chiffrage
 
@@ -105,3 +105,7 @@ Hors registre L10, mais bloquants pour un GO pilote patients réels : validation
 | 22/10/2026 | D-14 close : 5 intégrations testées OK depuis la base, `.env` sans variable fournisseur | 0 | 91 |
 | 22/10/2026 | B2 : FEDAPAY-S8 (HOTE_AUTORISE, hôte sandbox-process.fedapay.com constaté) ; S1 en attente de la source de confirmation | 1 | 90 |
 | 22/10/2026 | B2 : FEDAPAY-S1 (recharge diaspora, confirmée par webhook, crédit unique, retour /diaspora/wallet) | 1 | 89 |
+| 22/10/2026 | B2 : FEDAPAY-S2 (consultation MTN MoMo, tarif serveur, webhook, retour /patient/appointments) | 1 | 88 |
+| 22/10/2026 | B2 : FEDAPAY-S3 (consultation par portefeuille, immédiate, débit unique) | 1 | 87 |
+| 22/10/2026 | B2 : FEDAPAY-S4 (webhook à secret falsifié rejeté ×3, AUTH_FAIL, puis confirmation unique après restauration) | 1 | 86 |
+| 22/10/2026 | B2 : FEDAPAY-S7 (1 + 3 rejeux rapprochés, idempotents, réponse déduite des tailles — le journal FedaPay n’affiche pas les corps). Note de mode opératoire : rejouer depuis la page du webhook FedaPay ; un renvoi depuis la page « Événements » n’a produit aucune livraison | 1 | 85 |

@@ -1,6 +1,7 @@
 // Tests d'intégration RBAC admin (profilage par scopes). Exécutés si DB+Redis (CI).
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { otpIpTag, otpRedisKeys } from '@/modules/auth/auth.otp.js';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 const PHONES = ['+2290196500001', '+2290196500002'];
@@ -107,20 +108,31 @@ describe.skipIf(!HAS_INFRA)('Admin RBAC (intégration)', () => {
   });
 
   it('support : verrou OTP → déverrouillage (audit OTP_RESET) + note interne', async () => {
-    // Pose un verrou OTP sur le compte super-admin (clés Redis).
-    await app.redis.set(`otp:lock:${PHONES[0]}`, '1');
-    await app.redis.set(`otp:attempts:${PHONES[0]}`, '5');
+    // Pose un verrou OTP (couple numéro + IP) et un compteur global sur le compte super-admin.
+    const tag = otpIpTag('203.0.113.9');
+    const epoch = (await app.redis.get(otpRedisKeys.epoch(PHONES[0]))) ?? '0';
+    await app.redis.set(otpRedisKeys.lock(PHONES[0], epoch, tag), '1');
+    await app.redis.set(otpRedisKeys.attempts(PHONES[0], epoch, tag), '5');
+    await app.redis.set(otpRedisKeys.lockedSources(PHONES[0], epoch), '1');
+    await app.redis.set(otpRedisKeys.global(PHONES[0]), '5');
 
     const list = await app.inject({ method: 'GET', url: '/api/v1/admin/admins?pageSize=100', headers: auth(superToken) });
     const selfUserId = list.json().data.find((a: { user: { phone: string; id: string } }) => a.user.phone === PHONES[0]).user.id as string;
 
     const acc = await app.inject({ method: 'GET', url: `/api/v1/admin/support/account/${selfUserId}`, headers: auth(superToken) });
     expect(acc.statusCode).toBe(200);
-    expect(acc.json().lockout.locked).toBe(true);
+    expect(acc.json().lockout).toMatchObject({ locked: true, attempts: 5, lockedSources: 1 });
+    // Aucune IP ni étiquette d'IP n'est exposée à l'admin.
+    expect(acc.body).not.toContain(tag);
 
     const unlock = await app.inject({ method: 'POST', url: `/api/v1/admin/support/account/${selfUserId}/unlock`, headers: auth(superToken) });
     expect(unlock.statusCode).toBe(200);
-    expect(await app.redis.get(`otp:lock:${PHONES[0]}`)).toBeNull();
+    // Déverrouillage sans énumération (pas de SCAN sous l'ACL Valkey) : nouvelle époque,
+    // les clés de l'ancienne époque ne sont plus consultées et expirent d'elles-mêmes.
+    expect(await app.redis.get(otpRedisKeys.epoch(PHONES[0]))).toBe(String(Number(epoch) + 1));
+    expect(await app.redis.get(otpRedisKeys.global(PHONES[0]))).toBeNull();
+    const after = await app.inject({ method: 'GET', url: `/api/v1/admin/support/account/${selfUserId}`, headers: auth(superToken) });
+    expect(after.json().lockout).toMatchObject({ locked: false, attempts: 0, lockedSources: 0 });
     expect(await app.prisma.auditLog.count({ where: { action: 'OTP_RESET' } })).toBeGreaterThanOrEqual(1);
 
     const note = await app.inject({ method: 'POST', url: `/api/v1/admin/support/account/${selfUserId}/notes`, headers: auth(superToken), payload: { body: 'Appel client OK' } });

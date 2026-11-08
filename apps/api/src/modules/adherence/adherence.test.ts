@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { linkCare } from '@/test/care-fixture.js';
+import { REGISTER_TERMS } from '@/test/terms-fixture.js';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 const PHONE_PATIENT = '+2290195100001';
@@ -18,7 +19,7 @@ describe.skipIf(!HAS_INFRA)('Observance médicamenteuse (intégration)', () => {
   const auth = (t: string) => ({ authorization: `Bearer ${t}` });
 
   async function registerAndLogin(payload: Record<string, unknown>) {
-    const reg = await app.inject({ method: 'POST', url: '/api/v1/auth/register', payload });
+    const reg = await app.inject({ method: 'POST', url: '/api/v1/auth/register', payload: { ...REGISTER_TERMS, ...payload } });
     const devCode = reg.json().otp.devCode as string;
     const verify = await app.inject({
       method: 'POST', url: '/api/v1/auth/otp/verify', payload: { phone: payload.phone, code: devCode },

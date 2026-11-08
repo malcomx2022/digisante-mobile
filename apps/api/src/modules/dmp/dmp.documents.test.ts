@@ -154,6 +154,7 @@ describe.skipIf(!HAS_INFRA)('DMP — pièces jointes (intégration)', () => {
   it('seul le patient propriétaire supprime une pièce', async () => {
     const added = await attach(sharedRecordId, PNG, 'image/png', 'a-supprimer.png');
     const docId = added.json().id as string;
+    const stored = await app.prisma.document.findUniqueOrThrow({ where: { id: docId }, select: { encryptedUrl: true } });
 
     const byDoctor = await app.inject({ method: 'DELETE', url: `/api/v1/dmp/documents/${docId}`, headers: auth(doctorToken) });
     expect(byDoctor.statusCode).toBe(403);
@@ -163,6 +164,9 @@ describe.skipIf(!HAS_INFRA)('DMP — pièces jointes (intégration)', () => {
 
     const gone = await app.inject({ method: 'GET', url: `/api/v1/dmp/documents/${docId}/file`, headers: auth(patientToken) });
     expect(gone.statusCode).toBe(404);
+    // Le fichier chiffré est réellement effacé du magasin (plus d'orphelin sur disque).
+    const { readEncryptedFile } = await import('@/lib/filestore.js');
+    await expect(readEncryptedFile(stored.encryptedUrl)).rejects.toThrow();
   });
 
   it('la liste des entrées expose le nombre de pièces (pas d’appel par entrée)', async () => {

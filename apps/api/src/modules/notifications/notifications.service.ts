@@ -11,8 +11,50 @@ import { notFound } from '@/lib/errors.js';
 import { sendPush } from '@/services/firebase.js';
 import { sendEmail } from '@/services/resend.js';
 import { sendSms } from '@/services/twilio.js';
-import { localize } from './notifications.templates.js';
+import { localize, pushMirrorText } from './notifications.templates.js';
 import { sortByPriority } from './notifications.priority.js';
+
+/**
+ * Push FCM vers l'appareil COURANT du destinataire. La liaison peut avoir été
+ * retirée (logout/changement de compte) depuis le chargement du lot : relire
+ * avant chaque push ; un message déjà transmis au fournisseur ne peut toutefois
+ * pas être rappelé.
+ */
+async function pushToRecipient(
+  app: FastifyInstance,
+  recipientId: string,
+  content: { title: string; body: string },
+  opts: { silentWithoutToken?: boolean } = {},
+): Promise<boolean> {
+  const recipient = await app.prisma.user.findUnique({
+    where: { id: recipientId }, select: { fcmToken: true },
+  });
+  const token = recipient?.fcmToken ?? null;
+  if (!token && opts.silentWithoutToken) return false;
+  if (token) {
+    // Les anciennes versions ont pu garder plusieurs propriétaires. Refus
+    // fermé tant que la réinscription n'a pas résolu cette liaison ambiguë.
+    const owners = await app.prisma.user.findMany({
+      where: { fcmToken: token }, select: { id: true }, take: 2,
+    });
+    if (owners.length !== 1 || owners[0]!.id !== recipientId) {
+      app.log.warn({ userId: recipientId }, '[FCM] liaison d’appareil ambiguë ou retirée — push ignoré');
+      return false;
+    }
+  }
+  const push = await sendPush({ app, token, title: content.title, body: content.body });
+  // Token périmé / appareil désinstallé : on le purge pour ne plus réessayer.
+  if (push.invalidToken && token) {
+    // Une réponse fournisseur tardive ne doit jamais effacer un token tourné.
+    const removed = await app.prisma.user.updateMany({
+      where: { id: recipientId, fcmToken: token }, data: { fcmToken: null },
+    }).catch(() => null);
+    if (removed?.count) {
+      app.log.warn({ userId: recipientId }, '[FCM] token d’appareil invalide retiré');
+    }
+  }
+  return push.delivered;
+}
 
 /** Envoie une notification via son canal, dans la langue du destinataire. */
 async function deliver(
@@ -23,39 +65,9 @@ async function deliver(
 
   let delivered = false;
   switch (n.channel) {
-    case 'PUSH_FCM': {
-      // La liaison peut avoir été retirée (logout/changement de compte) depuis
-      // le chargement du lot. Relire avant chaque push ; un
-      // message déjà transmis au fournisseur ne peut toutefois pas être rappelé.
-      const recipient = await app.prisma.user.findUnique({
-        where: { id: n.recipientId }, select: { fcmToken: true },
-      });
-      const token = recipient?.fcmToken ?? null;
-      if (token) {
-        // Les anciennes versions ont pu garder plusieurs propriétaires. Refus
-        // fermé tant que la réinscription n'a pas résolu cette liaison ambiguë.
-        const owners = await app.prisma.user.findMany({
-          where: { fcmToken: token }, select: { id: true }, take: 2,
-        });
-        if (owners.length !== 1 || owners[0]!.id !== n.recipientId) {
-          app.log.warn({ userId: n.recipientId }, '[FCM] liaison d’appareil ambiguë ou retirée — push ignoré');
-          return false;
-        }
-      }
-      const push = await sendPush({ app, token, title: content.title, body: content.body });
-      delivered = push.delivered;
-      // Token périmé / appareil désinstallé : on le purge pour ne plus réessayer.
-      if (push.invalidToken && token) {
-        // Une réponse fournisseur tardive ne doit jamais effacer un token tourné.
-        const removed = await app.prisma.user.updateMany({
-          where: { id: n.recipientId, fcmToken: token }, data: { fcmToken: null },
-        }).catch(() => null);
-        if (removed?.count) {
-          app.log.warn({ userId: n.recipientId }, '[FCM] token d’appareil invalide retiré');
-        }
-      }
+    case 'PUSH_FCM':
+      delivered = await pushToRecipient(app, n.recipientId, content);
       break;
-    }
     case 'SMS_TWILIO':
       ({ delivered } = await sendSms({ app, to: n.recipient.phone, body: `${content.title} — ${content.body}`, lang: n.recipient.lang }));
       break;
@@ -64,7 +76,17 @@ async function deliver(
       break;
     case 'IN_APP':
     default:
-      delivered = true; // disponible dans l'app dès l'enregistrement
+      // Disponible dans l'app dès l'enregistrement. Miroir push best-effort :
+      // sans lui, rappels (traitement, RDV, PEV, CPN), démarrage de consultation,
+      // orientation ou signalement ASC n'atteignaient personne app fermée.
+      // Texte générique (§4) ; aucun appareil lié ⇒ aucun envoi ; un échec push
+      // ne dégrade pas l'in-app.
+      try {
+        await pushToRecipient(app, n.recipientId, pushMirrorText(n.type, n.recipient.lang), { silentWithoutToken: true });
+      } catch (err) {
+        app.log.warn({ err, id: n.id }, '[FCM] miroir push d’une notification in-app en échec');
+      }
+      delivered = true;
       break;
   }
   return delivered;
