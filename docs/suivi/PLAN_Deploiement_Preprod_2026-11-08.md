@@ -8,7 +8,7 @@
 | Point | Décision / état |
 |---|---|
 | Version à déployer | **`main` après fusion de la PR #228** (décision du porteur du 08/11/2026) : la recette L10 se fait une seule fois sur la configuration visée pour la production. |
-| SHA candidat | `<SHA_CANDIDAT>` = commit de fusion de #228 sur `main`, **à renseigner après la fusion**. |
+| SHA candidat | `8ed7e540d2c5fe8724b7d9628ab1e1f4169368f8` = commit de fusion de #228 sur `main` (08/11/2026) ; CI `main` run 42442126623. |
 | Qualification | CI `main` réussie sur ce SHA exact, jobs `build-and-test` **et** `e2e` (`pnpm preprod:qualify` avec `CANDIDATE_SHA`, ou étape de garde du workflow `preproduction.yml`). |
 | Version en service | `ace0c689` (déployée le 21/10/2026), **sous maintenance**. Sa recette L10 est abandonnée : aucune preuve ne se transfère (§6). |
 | Prérequis bloquant | CI de la PR #228 verte, puis fusion par le porteur. |
@@ -70,8 +70,8 @@
    `pnpm backup:check <manifeste>` (trio complet, `files_missing=0`). Copie du trio **hors VPS**.
    C'est le seul retour arrière possible, car les migrations sont à sens unique.
 4. **Copie root au SHA candidat** (README §1.a) : mettre à jour le miroir `/var/lib/digisante-preprod/ops.git`, extraire et
-   relire `install_root_scripts.sh` de `<SHA_CANDIDAT>`, puis
-   `sudo DIGISANTE_ENV=preproduction bash /root/install_root_scripts-preprod.sh <SHA_CANDIDAT>`.
+   relire `install_root_scripts.sh` de `8ed7e540d2c5fe8724b7d9628ab1e1f4169368f8`, puis
+   `sudo DIGISANTE_ENV=preproduction bash /root/install_root_scripts-preprod.sh 8ed7e540d2c5fe8724b7d9628ab1e1f4169368f8`.
    Contrôler que `root-scripts.manifest` porte bien `environment=preproduction` et ce SHA.
 5. **Provisioning en dry-run d'abord**, shell root, secrets par `read -rs` (jamais en argument) :
    ```bash
@@ -91,12 +91,12 @@
    Ne rien ajouter d'autre : aucune variable fournisseur (D-14), jamais l'URL du propriétaire.
    `deploy.sh` refuse un `.env` qui contient l'URL du propriétaire.
 7. **Déploiement** :
-   - **Recommandé** : workflow « Préproduction L10 (manuelle) » avec `sha=<SHA_CANDIDAT>` et `maintenance_confirmed=true`,
+   - **Recommandé** : workflow « Préproduction L10 (manuelle) » avec `sha=8ed7e540d2c5fe8724b7d9628ab1e1f4169368f8` et `maintenance_confirmed=true`,
      après avoir posé la variable `PREPROD_DEPLOY_ENABLED=true` le temps de la fenêtre. Le workflow qualifie la CI, vérifie
      l'empreinte de l'hôte et transmet l'URL du propriétaire par l'entrée standard SSH.
    - **Variante manuelle** : README §3, `deploy.sh` de `origin/main` extrait hors du checkout, sous `digisante-preprod`,
      `MIGRATION_DATABASE_URL` par `read -rs`.
-   - Attendu : `deploy_history.log` `ace0c689… -> <SHA_CANDIDAT> status=SUCCESS stage=complete`. Les stades `migrate` et
+   - Attendu : `deploy_history.log` `ace0c689… -> 8ed7e540d2c5fe8724b7d9628ab1e1f4169368f8 status=SUCCESS stage=complete`. Les stades `migrate` et
      `grants` passent sous le propriétaire, et l'API démarre sous `digisante_preprod_app`.
 8. **Vérifications** :
    - `bash "$P" --verify` (avec `VALKEY_PASSWORD`) : **0 FAIL**, y compris les sondes `ACL DRYRUN` et les deux rôles PG ;
@@ -132,14 +132,14 @@
 
 ## 6. Registre L10 de la nouvelle candidate
 
-Après la fusion de #228 (Claude Code le prépare dans cette PR) :
+Fait le 08/11/2026 après la fusion de #228 :
 
 1. ✅ **fait le 08/11/2026** : registre de `ace0c689` archivé tel quel dans
    `docs/preproduction/archive/L10-ace0c689-2026-11-08/` (15 records PASS, instantané `d6bfcba2…`, SHA-256
-   `d4d3aedc…`), comme pour `ec6b0dc`. Le registre courant n'est pas encore remplacé : il le sera au point 2 ;
-2. déclarer le bloc candidat `<SHA_CANDIDAT>` (CI qualifiée) avec un registre vide, puis `pnpm preprod:prepare` et
-   `pnpm preprod:check` ;
-3. `pnpm preprod:gate --expected-sha <SHA_CANDIDAT>` : 100 points ouverts attendus.
+   `d4d3aedc…`), comme pour `ec6b0dc` ;
+2. ✅ bloc candidat `8ed7e540d2c5fe8724b7d9628ab1e1f4169368f8` déclaré (CI `main` run 42442126623) avec un registre vide ; instantané L10
+   `e782821d…` à jour (`preprod:check` vert) ;
+3. ✅ `pnpm preprod:gate --expected-sha 8ed7e540d2c5fe8724b7d9628ab1e1f4169368f8` : bloc candidat accepté, **100 points ouverts**.
 
 Aucune preuve de `ace0c689` ne se transfère : les **100 cas** se rejouent sur la nouvelle candidate.
 
