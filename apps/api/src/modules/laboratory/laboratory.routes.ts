@@ -16,7 +16,7 @@ const orderSchema = z.object({
 });
 
 const resultSchema = z.object({
-  values: z.record(z.unknown()),
+  values: z.record(z.string(), z.unknown()),
   reportUrl: z.string().url().optional(),
 });
 

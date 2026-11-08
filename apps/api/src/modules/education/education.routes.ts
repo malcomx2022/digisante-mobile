@@ -18,7 +18,8 @@ const createSchema = z.object({
 });
 const reviewSchema = z.object({ approve: z.boolean() });
 const translationsSchema = z.object({
-  translations: z.record(langSchema, z.object({ title: z.string(), body: z.string() })),
+  // Jeu PARTIEL de langues : en zod 4, `z.record` à clé enum exige toutes les clés.
+  translations: z.partialRecord(langSchema, z.object({ title: z.string(), body: z.string() })),
 });
 const listSchema = paginationSchema.extend({ category: z.enum(CONTENT_CATEGORIES).optional() });
 const manageListSchema = listSchema.extend({ status: z.enum(CONTENT_STATUSES).optional() });

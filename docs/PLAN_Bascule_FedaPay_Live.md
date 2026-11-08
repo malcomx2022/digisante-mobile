@@ -5,14 +5,16 @@
 > faites par l'**opérateur** (SUPER_ADMIN) sous le contrôle d'un **second** membre de l'équipe
 > (principe des quatre yeux). Toutes les valeurs restent masquées (4 derniers caractères au plus).
 
-## 0. Portes d'entrée — état au 22/09/2026 : **NO-GO**
+## 0. Portes d'entrée — état au 08/11/2026 : **NO-GO**
+
+> Portes réalignées le 8 novembre 2026 (rédaction initiale du 22/09) : recette S8–S10 ajoutée (B1/B2, revue indépendante du 13/10), cible IONOS partagée, noms d'archives réels.
 
 | # | Condition préalable | Preuve attendue | État |
 |---|---|---|---|
-| P1 | Recette sandbox **signée** (S1, S2, S3, S5, S6, S7 de `RECETTE_FedaPay_Sandbox.md`) | fiche datée, opérateur + relecteur | ❌ non exécutée (aucune clé sandbox) |
-| P2 | Patch §5 d'idempotence atomique **appliqué et revu** + S7 rejoué | commit + PR + re-tests webhooks | 🟠 partiel — **appliqué le 22/09/2026** (accord du porteur, re-tests webhooks verts, cf. `RECETTE_FedaPay_Sandbox.md` §1) ; **S7 à rejouer en bac à sable** (aucune clé sandbox) |
-| P3 | Production B3 opérationnelle (HTTPS, `health`/`ready`, crons dont réconciliation 02:30) | `SUIVI_B3` phases 1→6 cochées | ❌ VPS non provisionné |
-| P4 | Sauvegarde **pré-bascule** + restauration testée (B5) | archives `digisante_db_<stamp>` + `digisante_files_<stamp>` du jour, B5 validé | ❌ |
+| P1 | Recette sandbox **signée** (S8 d'abord, puis S1, S2, S3, S5, S6, S7, S9, S10 de `RECETTE_FedaPay_Sandbox.md`) sur la candidate courante | fiche datée, opérateur + relecteur | ❌ non exécutée sur la candidate courante (registre L10) |
+| P2 | Patch §5 d'idempotence atomique **appliqué et revu** + S7 rejoué | commit + PR + re-tests webhooks | 🟠 partiel — **appliqué le 22/09/2026** (accord du porteur, re-tests webhooks verts, cf. `RECETTE_FedaPay_Sandbox.md` §1) ; **S7 à rejouer en bac à sable sur la candidate courante** |
+| P3 | Production B3 opérationnelle sur l'hôte IONOS partagé (HTTPS, `health`/`ready`, crons dont réconciliation 02:30, `verify_deploy.sh` PASS) | `docs/REVUE_Restant_Finalisation_2026-11-07.md` §6.3 points 0 à 12 | ❌ production non provisionnée ni déployée (préproduction seule, sous maintenance) |
+| P4 | Sauvegarde **pré-bascule** + restauration testée (B5) | trio du jour `digisante_<stamp>.sql.gz.enc` + `digisante_files_<stamp>.tar.gz.enc` + `digisante_manifest_<stamp>.txt` (`/var/backups/digisante/`), `pnpm backup:check` vert, restauration B5 en PostgreSQL 18 validée | ❌ |
 | P5 | Compte FedaPay **live** validé (KYC marchand) | statut « activé » côté FedaPay | ❌ |
 | P6 | Deux personnes disponibles dans la même fenêtre (opérateur + contrôleur) | noms consignés §4 | ☐ |
 
@@ -22,7 +24,7 @@
 
 | Étape | Qui | Action | Contrôle (par le 2ᵉ) |
 |---|---|---|---|
-| 1 | Opérateur | Sauvegarde immédiate : `sudo DIGISANTE_ENV=production /usr/local/lib/digisante/infra/deploy/scripts/pg_dump_encrypted.sh` (copie root, B3) | 2 archives du même horodatage présentes |
+| 1 | Opérateur | Sauvegarde immédiate : `sudo DIGISANTE_ENV=production /usr/local/lib/digisante/infra/deploy/scripts/pg_dump_encrypted.sh` (copie root, B3) | 2 archives + manifeste du même horodatage, `pnpm backup:check <manifeste>` vert |
 | 2 | Opérateur | Dashboard FedaPay **live** : créer l'endpoint webhook `https://<domaine>/api/v1/payments/webhook`, **révéler** son secret | URL exacte (HTTPS, bon domaine) |
 | 3 | Opérateur | `/admin/integrations` → **FEDAPAY** → saisir **dans le même `PUT`** : `secretKey` (`sk_live_…`), `publicKey` (`pk_live_…`), `webhookSecret` (**le nouveau**, live) | le `PUT` remplace TOUT : les 3 clés présentes ; affichage masqué `••••` ; `source=db` |
 | 4 | Contrôleur | **Tester** (readiness) | `ok: true, missing: []` |

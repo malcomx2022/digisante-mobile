@@ -8,7 +8,9 @@ export function generateStaticParams() {
   return LEGAL_DOC_IDS.map((doc) => ({ doc }));
 }
 
-export default function LegalPage({ params }: { params: { doc: string } }) {
-  if (!LEGAL_DOC_IDS.includes(params.doc as LegalDocId)) notFound();
-  return <LegalDocument id={params.doc as LegalDocId} />;
+// Next 15 : `params` est asynchrone.
+export default async function LegalPage({ params }: { params: Promise<{ doc: string }> }) {
+  const { doc } = await params;
+  if (!LEGAL_DOC_IDS.includes(doc as LegalDocId)) notFound();
+  return <LegalDocument id={doc as LegalDocId} />;
 }

@@ -60,7 +60,7 @@ Compteurs mesurés : 183 REST + 1 WS, 67 pages, 0 appel web vers une route inexi
 
 | Priorité | Point | Action |
 |---|---|---|
-| Bloquant GO | `next@14.2.35` : 3 critiques + ~10 hautes (dont SSRF via rewrites, DoS Server Components) ; correctifs en 15.5.x | **Arbitrage porteur requis** (Next 14 verrouillé §2) : montée Next 15 ou acceptation écrite du risque avec mesures compensatoires |
+| ~~Bloquant GO~~ **corrigé 08/11 (§11)** | `next@14.2.35` : 3 critiques + ~10 hautes (dont SSRF via rewrites, DoS Server Components) ; correctifs en 15.5.x | **Arbitrage porteur requis** (Next 14 verrouillé §2) : montée Next 15 ou acceptation écrite du risque avec mesures compensatoires |
 | Bloquant GO | `fast-jwt@5.0.6` via `@fastify/jwt@9.1.0` : 3 critiques (confusion d'algo, secret vide…) — atténué par HS256 épinglé | Monter `@fastify/jwt` (fast-jwt ≥ 6.3.1), re-tests auth |
 | Bloquant GO | `fastify@5.8.5`, `find-my-way`, `fast-uri` : hautes (contournement auth/validation, SSRF) | `pnpm update` semver (fastify ≥ 5.12.2), revue lockfile, **re-tests webhooks §5** |
 | Majeur | `scripts/infra/deploy-order.test.mjs` dépend du `ss` de l'hôte (`deploy.sh:169`) | Faux `ss` dans le `bin` simulé du test |
@@ -150,6 +150,9 @@ Locuteurs natifs FON/YOR · médecin signataire + référent PEV · iPhone · SI
 I2 (hôte partagé) · rôle PG non propriétaire de l'audit · isolement Valkey · capacité 4 Go (`MemoryMax`, coupure pendant build) · port squatté / fuseau · `ALERT_CMD` · conservation (D-8) · CSP · pentest · L9 humain · Moov/iOS · hôtes FedaPay live non observés (B1 live).
 
 ### 6.5 Incohérences documentaires à corriger
+
+> **Corrigées le 8 novembre 2026** : voir §13.
+
 1. `PLAN_GO_Preprod_ace0c689.md` §1 : production « encore `ec6b0dc` » → « non déployée ».
 2. `verify_restore.sh:57` et `SUIVI_B5` : PG 16 vs hôte PG 18.6.
 3. Premier déploiement prod : `git switch --detach <SHA>` non documenté.
@@ -283,3 +286,79 @@ Migration additive `20261107140000_gdpr_terms_and_erasure` : colonnes `users.ter
 **Reste** :
 - export PDF patient : mineur ; l'export FHIR existe ;
 - purges de conservation : en attente de D-8.
+
+---
+
+## 11. Correctifs du 8 novembre 2026 : vulnérabilités des dépendances
+
+Décisions du porteur : montée **Next 15.5** et **zod 4**.
+
+`pnpm audit` passe de **65 vulnérabilités en production (6 critiques)** à **0**, dépendances de dev comprises.
+
+| Avant | Après | Remarque |
+|---|---|---|
+| next 14.2.35, React 18 | next 15.5.29, React 19 | `await params` ; `ReactElement` au lieu de `JSX` |
+| fastify 5.8.5, @fastify/jwt 9 (fast-jwt 5) | fastify 5.12.8, @fastify/jwt 10.2.7 (fast-jwt 6.3) | HS256 épinglé inchangé |
+| zod 3.25.76 | zod 4.6.7 | `z.record` à 2 arguments ; `z.partialRecord` pour les traductions |
+| vitest 2.1 (vite 5) | vitest 4.1, vite 7 | dev seulement |
+| dépendances transitives | overrides pnpm bornés à leur version majeure | minimatch 11 vérifié avec lint et typedoc |
+
+**Régression évitée** : en zod 4, `education/:id/translations` aurait rejeté tout jeu partiel de langues (422), donc cassé l'éditeur de traductions du CMS. Le test existant ne vérifiait pas le code retour ; il le vérifie désormais.
+
+**Contrôles locaux**, tous verts :
+- lint, typecheck ;
+- tests : 749 API, 155 web, 208 scripts ;
+- build : 78 pages générées ;
+- **e2e : 39 sur 39**, en-têtes de sécurité et CSP compris ;
+- scan des secrets du bundle ;
+- `validation:check` et `metrics:check` ;
+- `pnpm audit` : 0.
+
+§5 : la logique de paiement n'est pas modifiée ; les tests webhooks passent.
+
+## 12. Correctifs du 8 novembre 2026 : risques résiduels de sécurité (S9 à S11)
+
+Décisions du porteur :
+- **CSP** : nonce par requête et rendu dynamique ;
+- **OTP** : verrou par couple numéro + IP, avec un plafond global par numéro.
+
+| # | Correctif | Preuve |
+|---|---|---|
+| S9 (X8) | `src/middleware.ts` génère un nonce de 128 bits par requête, avec `script-src 'self' 'nonce-…' 'strict-dynamic'` et **sans `'unsafe-inline'`** pour les scripts. Le layout racine impose le rendu dynamique (`connection()`), sinon une page prérendue n'aurait pas de nonce. Les styles gardent `'unsafe-inline'`. Le service worker, la page hors ligne et le manifeste ont une CSP fixe `script-src 'self'` ; la CSP du SW FCM est inchangée. Le shell hors ligne reste cohérent : une navigation précachée est stockée avec ses propres en-têtes. | `middleware.test.ts` ; e2e `security-headers` (nonce présent sur chaque script, différent à chaque requête, aucune violation CSP) |
+| S10 (X4) | Les échecs sont comptés par couple numéro + IP : 5 échecs verrouillent ce couple 30 minutes. L'IP est stockée sous forme d'étiquette HMAC, jamais en clair. Un plafond global de 20 échecs par heure et par numéro, toutes IP confondues, borne le brute-force distribué ; une fois atteint, le code est détruit. Un attaquant ne prive plus la victime de son code : elle se connecte depuis sa propre IP. La console support affiche le compteur global et le nombre de sources verrouillées (sans IP), et le déverrouillage purge tout. L'audit `AUTH_LOCKOUT` indique la portée (`PHONE_IP` ou `PHONE`). | `auth.test.ts` (victime / attaquant, plafond réparti sur 4 IP), `admin.test.ts` |
+| S11 | **Audit des pièces DMP** : `DMP_DOCUMENT_ADD`/`REMOVE` sont écrits dans la transaction de la ligne ; un fichier écrit avant un échec est effacé, et un retrait concurrent renvoie 404 avec un seul audit. **Reçus L3 v2** : sous-clés HMAC et AES distinctes ; la réponse est liée à l'identité de mutation (AAD), donc un chiffré recopié vers un autre reçu ne s'ouvre plus. Les reçus v1 (14 j au plus) restent lisibles. **Consentements** : un échec de chargement s'affiche comme une erreur, plus comme « aucun accès ». **`Consultation.notes`** : le champ en clair est refusé en 422 ; le compte rendu passe uniquement par `report` vers le DMP chiffré. **`/showcase`** (données fictives) : 404 en production, sauf `NEXT_PUBLIC_SHOWCASE=1`. | `idempotency.test.ts`, `sync.test.ts`, `appointments.test.ts` |
+
+### 12.1 Restant, non traité dans le code
+
+| Point | Raison | Suite |
+|---|---|---|
+| Pentest externe (S8, X15) | Prestataire requis | Inclure la CSP à nonce, le verrou OTP par IP et les timings d'OTP |
+| Rôle PostgreSQL d'exécution non propriétaire de l'audit, ACL Valkey, port squatté, fuseau, zones Nginx (S6, S7) | Déjà traités par la PR #228, conditionnée au PV GO préprod | Ne pas dupliquer ; fusion selon décision du porteur |
+| Labo suspendu : les demandes attribuées restent bloquées | Règle L2 voulue (pas de remise en pool automatique) | Décision du porteur : réattribution administrative explicite |
+| Horloge de l'appareil (clés de mutation L3, TTL des lectures L4) | Une horloge falsifiée hors ligne n'est pas détectable côté client ; le serveur borne déjà la dérive à +5 min et l'âge à 7 j | Hors garantie, documentée dans les contrats L3/L4 |
+| Course FCM : un message déjà en vol n'est pas révocable | Limite du fournisseur | Le texte du push reste générique (F1), donc sans donnée de santé |
+| Navigateurs très anciens (CSP1, sans nonce) | Les scripts en ligne de Next y sont bloqués ; les navigateurs CSP2 appliquent le nonce et `'self'`, les CSP3 `'strict-dynamic'` | À confirmer en recette mobile L10 (anciens Android, WebView) |
+| Colonne `Consultation.notes` | Valeurs historiques éventuelles, jamais en production | Effacement ou migration à trancher avec D-8 |
+
+L9 : instantané `87af2b2b…` (`dmp.service.ts` et page DMP modifiés).
+
+## 13. Correctifs du 8 novembre 2026 : incohérences documentaires (§6.5)
+
+| # | Incohérence | Correction |
+|---|---|---|
+| 1 | `PLAN_GO_Preprod_ace0c689.md` : production « encore `ec6b0dc` » | « ni provisionnée ni déployée », avec la mention de la correction |
+| 2 | `verify_restore.sh` et `SUIVI_B5` sur PostgreSQL 16 | Le script exige la version majeure de l'hôte (`PG_MAJOR`, défaut 18) : un dump PG 18 peut contenir une syntaxe refusée par une version antérieure. `SUIVI_B5` : bandeau daté, procédure en PG 18, noms d'archives et chemins par environnement. Les résultats historiques de septembre restent tels quels. |
+| 3 | Premier déploiement : `git switch --detach <SHA>` non documenté | `infra/deploy/README.md` §3 et `SUIVI_B3` phase 1 |
+| 4 | `ci.yml` job `deploy` : `github.sha` à chaque push une fois les gates actifs ; `DEPLOY_MAINTENANCE_READY` déclaratif | Comportement documenté dans le commentaire du job, dans la checklist §6 et dans `SUIVI_B3` phase 5. **La logique n'est pas modifiée** : la PR #228 réécrit ce job ; une garde de qualification du candidat reste une décision du porteur. |
+| 5 | `SECRETS_Production.md` : fournisseurs obligatoires dans le `.env` ; `backup.key` « à la main » | Fournisseurs : « laisser vide (D-14) », secrets en base uniquement ; la bascule FedaPay se fait en une seule saisie `/admin/integrations`. `backup.key` est générée par `--only secrets`, et `reconcile.token` est aligné sur le `.env`. |
+| 6 | `DEPLOIEMENT_Checklist.md` : S1–S7, D1–D18, « VPS Infomaniak », « 24 e2e », hôtes FedaPay sans `process.*` | S1–S10, D1–D21, I2 formulé sur la cible IONOS, 36 e2e déclarés (`metrics.json`), liste exacte des hôtes FedaPay par environnement, « L7 livré » |
+| 7 | `SUIVI_B3` : `verify_deploy.sh` depuis le checkout sans `DIGISANTE_ENV`, `provision.sh`, chemins de l'ancien VPS ; `PLAN_Bascule_FedaPay_Live.md` : archive `digisante_db_<stamp>`, portes du 22/09 | `SUIVI_B3` : bandeau « cible changée » et commandes réalignées (copie root, `DIGISANTE_ENV`, `provision-ionos.sh`, `deploy.sh` de `origin/main` hors du checkout, rollback `DEPLOY_ALLOW_ROLLBACK=1`, D-14) ; §1 et §2 marqués historiques. Plan FedaPay : portes réévaluées au 08/11, S8–S10 ajoutés, trio d'archives réel et `backup:check`. `verify_restore.sh` tourne sur une machine tierce et ne lit pas `DIGISANTE_ENV` : c'est précisé. |
+| 8 | README « Exploitation » : restauration de la base seule | `infra/deploy/README.md` : trio obligatoire, `verify_restore.sh` sur une machine tierce, restauration réelle de la base **et** du magasin, renvoi vers `SUIVI_B5` |
+
+Effets de bord :
+- **L10** : instantané `cb01f260…`, régénéré parce que `ci.yml`, le README de déploiement et `verify_restore.sh` en font partie. Une nouvelle candidate devra rejouer la recette L10, comme toute fusion de code.
+- **L9** : inchangé (`87af2b2b…`).
+- **Conflits possibles avec la PR #228** sur `DEPLOIEMENT_Checklist.md` (compteurs) et sur le README de déploiement. Les retouches ont été placées hors de ses blocs modifiés quand c'était possible.
+
+Contrôles : `test:scripts` 208/208, `bash -n` sur tous les scripts, `preprod:check`, `validation:check`, `validation:campaign:check`, `metrics:check`, plan DOCX validé.
+

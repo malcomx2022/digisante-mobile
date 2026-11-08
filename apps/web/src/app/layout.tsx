@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { connection } from 'next/server';
 
 import { AuthProvider } from '@/auth/AuthProvider';
 import { OfflineBanner } from '@/components/pwa/OfflineBanner';
@@ -37,7 +38,10 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Rendu dynamique OBLIGATOIRE : Next applique le nonce de la CSP (middleware) à
+  // ses scripts au rendu de la requête ; une page prérendue au build n'en aurait pas.
+  await connection();
   return (
     <html lang="fr" className={`${fontDisplay.variable} ${fontBody.variable}`}>
       <body>

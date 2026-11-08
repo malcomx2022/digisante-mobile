@@ -6,6 +6,16 @@
 > blanc** qui valide la mécanique des scripts (faite, ci-dessous), puis le **test réel** sur les
 > archives de production, qui attend B3 (phase 6 du runbook).
 
+> **Mise à jour du 8 novembre 2026** : l'hôte est le VPS IONOS partagé, **PostgreSQL 18.6**
+> (dérogation du 13/10/2026). La répétition du §1 date de PostgreSQL 16 et reste un fait
+> historique. Le test réel du §2 se fait sur une machine tierce en **PostgreSQL 18** :
+> `verify_restore.sh` refuse désormais une autre version majeure (`PG_MAJOR`, défaut 18).
+> Le script s'exécute **sur la machine tierce**, depuis un checkout du SHA qualifié ; il ne lit
+> pas `DIGISANTE_ENV` et ne touche pas au VPS. Les archives se nomment
+> `digisante_<stamp>.sql.gz.enc`, `digisante_files_<stamp>.tar.gz.enc` et
+> `digisante_manifest_<stamp>.txt`, sous `/var/backups/digisante${SUFFIX}/` ; la clé est
+> `/etc/digisante${SUFFIX}/backup.key` (`${SUFFIX}` = `-preprod` en préproduction, vide en production).
+
 ---
 
 ## 1. Répétition à blanc — EXÉCUTÉE le 02/09/2026 ✅
@@ -68,7 +78,7 @@ tout le protocole ; `scripts/restore/verify-files.mjs` contrôle base ↔ fichie
 
 ## 2. Test RÉEL sur archives de production — À FAIRE (après B3 phase 6)
 
-Procédure outillée (machine tierce, clé copiée hors VPS, les **trois** fichiers du même horodatage) :
+Procédure outillée (machine tierce **PostgreSQL 18**, checkout du SHA qualifié, clé copiée hors VPS, les **trois** fichiers du même horodatage) :
 
 ```bash
 sudo STAMP=<AAAAMMJJ_HHMMSS> BACKUP_DIR=<dossier des archives> KEY_FILE=<backup.key> WORK_DIR=/srv/b5 \
@@ -80,10 +90,10 @@ sudo STAMP=<…> WORK_DIR=/srv/b5 PGUSER=postgres bash infra/deploy/scripts/veri
 Détail des contrôles manuels équivalents (conservé pour mémoire) :
 
 C'est lui le critère de sortie du chantier. À dérouler sur une **machine tierce** (pas le VPS),
-avec la clé `/etc/digisante/backup.key` **copiée hors VPS** :
+avec la clé `/etc/digisante${SUFFIX}/backup.key` **copiée hors VPS** :
 
-- [ ] Récupérer les **deux** archives les plus récentes de `/var/backups/digisante/`.
-- [ ] Restaurer la base dans un PostgreSQL 16 vierge :
+- [ ] Récupérer les **deux** archives les plus récentes (et le manifeste) de `/var/backups/digisante${SUFFIX}/`.
+- [ ] Restaurer la base dans un PostgreSQL 18 vierge :
       `openssl enc -d -aes-256-cbc -pbkdf2 -pass file:backup.key -in digisante_<stamp>.sql.gz.enc | gunzip | psql digisante`
 - [ ] Restaurer le magasin :
       `openssl enc -d -aes-256-cbc -pbkdf2 -pass file:backup.key -in digisante_files_<stamp>.tar.gz.enc | gunzip | tar -C <parent> -xf -`

@@ -9,9 +9,10 @@ import { zParse } from '@/lib/validation.js';
 import * as consultations from './consultations.service.js';
 
 const startSchema = z.object({ appointmentId: z.string().cuid() });
-const endSchema = z.object({
-  notes: z.string().max(5000).optional(),
-  // Compte rendu : enregistré dans le DMP (chiffré, auteur serveur), jamais en clair ici.
+// Strict : l'ancien champ `notes` (texte clinique EN CLAIR dans Consultation.notes)
+// est refusé en 422 plutôt qu'ignoré en silence — le médecin ne doit pas croire son
+// texte enregistré. Le compte rendu passe UNIQUEMENT par `report` → DMP chiffré.
+const endSchema = z.strictObject({
   report: z.string().trim().min(1).max(5000).optional(),
 });
 const idParams = z.object({ id: z.string().cuid() });
@@ -48,7 +49,7 @@ export default async function consultationsRoutes(app: FastifyInstance) {
   // Clôture (médecin).
   app.post('/:id/end', doctorOnly, async (request) => {
     const { id } = zParse(idParams, request.params);
-    const { notes, report } = zParse(endSchema, request.body);
-    return consultations.end(app, request.user.sub, id, notes, report ? { text: report, ip: request.ip } : undefined);
+    const { report } = zParse(endSchema, request.body ?? {});
+    return consultations.end(app, request.user.sub, id, report ? { text: report, ip: request.ip } : undefined);
   });
 }

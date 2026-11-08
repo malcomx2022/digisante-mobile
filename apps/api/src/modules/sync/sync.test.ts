@@ -57,7 +57,9 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.REDIS_URL)('Reçus de 
     const result = await repeat('/vaccinations/subjects', subjectBody);
     expect(await app.prisma.vaccinationSubject.count({ where: { id: result.id } })).toBe(1);
     const receipt = await app.prisma.mutationReceipt.findFirstOrThrow({ where: { userId: a, route: '/vaccinations/subjects' } });
-    expect(receipt.encryptedResponse.split(':')).toHaveLength(3);
+    // v2 : préfixe de version + iv:tag:chiffré (sous-clé AES dédiée, AAD de l'identité).
+    expect(receipt.encryptedResponse.split(':')).toHaveLength(4);
+    expect(receipt.encryptedResponse.startsWith('v2:')).toBe(true);
     expect(JSON.stringify(receipt)).not.toContain(subjectBody.name);
     expect(receipt.requestHash).toMatch(/^[a-f0-9]{64}$/);
     expect(receipt.expiresAt.getTime() - receipt.createdAt.getTime()).toBeGreaterThanOrEqual(MUTATION_RECEIPT_TTL_MS - 1000);

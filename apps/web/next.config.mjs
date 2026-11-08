@@ -3,23 +3,20 @@ import { PHASE_DEVELOPMENT_SERVER } from 'next/constants.js';
 
 /** @type {import('next').NextConfig} */
 
-// En-têtes de sécurité (défense clickjacking / MIME-sniffing / fuite de referrer)
-// + CSP de base. La CSP autorise explicitement les intégrations légitimes :
-// Daily/FCM et WS même origine en production. unsafe-eval réservé au bundler dev.
-// unsafe-inline reste nécessaire à l'hydratation Next sans nonce (résiduel X8).
-const csp = (development) => [
+// En-têtes de sécurité (défense clickjacking / MIME-sniffing / fuite de referrer).
+// La CSP des DOCUMENTS est posée par `src/middleware.ts` (nonce par requête, sans
+// 'unsafe-inline' pour les scripts — résiduel X8 fermé le 08/11/2026). Ici : la CSP
+// fixe des fichiers publics hors middleware (service worker, page hors ligne,
+// manifeste), qui n'exécutent aucun script en ligne.
+const cspStaticFiles = [
   "default-src 'self'",
-  "base-uri 'self'",
-  "form-action 'self' https://*.fedapay.com",
+  "base-uri 'none'",
+  "form-action 'none'",
   "frame-ancestors 'none'",
   "object-src 'none'",
-  `script-src 'self' 'unsafe-inline'${development ? " 'unsafe-eval'" : ''}`,
+  "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https:",
-  "font-src 'self' data:",
-  "frame-src 'self' https://*.daily.co",
-  `connect-src 'self' https://*.daily.co wss://*.daily.co https://*.daily-video.com wss://*.daily-video.com https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com${development ? ' http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*' : ''}`,
-  "worker-src 'self' blob:",
+  "img-src 'self' data:",
 ].join('; ');
 
 // CSP DU SERVICE WORKER FCM. Un service worker est régi par la CSP livrée AVEC SON
@@ -34,8 +31,7 @@ const cspFcmServiceWorker = [
   "img-src 'self' data:",
 ].join('; ');
 
-const securityHeaders = (development) => [
-  { key: 'Content-Security-Policy', value: csp(development) },
+const securityHeaders = [
   { key: 'X-Frame-Options', value: 'DENY' },
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
@@ -64,7 +60,8 @@ const nextConfig = (phase) => ({
   // L'offline-first n'est pas optionnel (cf. CLAUDE.md §3).
   async headers() {
     return [
-      { source: '/:path*', headers: securityHeaders(phase === PHASE_DEVELOPMENT_SERVER) },
+      { source: '/:path*', headers: securityHeaders },
+      { source: '/:file(sw\\.js|offline\\.html|manifest\\.json)', headers: [{ key: 'Content-Security-Policy', value: cspStaticFiles }] },
       { source: '/firebase-messaging-sw.js', headers: [{ key: 'Content-Security-Policy', value: cspFcmServiceWorker }] },
     ];
   },

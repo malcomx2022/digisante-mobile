@@ -90,7 +90,7 @@ describe.skipIf(!HAS_INFRA)('RDV & téléconsultation (intégration)', () => {
     const down = await app.inject({ method: 'POST', url: `/api/v1/consultations/${consultId}/downgrade`, headers: auth(patientToken) });
     expect(down.json().mode).toBe('AUDIO');
 
-    const end = await app.inject({ method: 'POST', url: `/api/v1/consultations/${consultId}/end`, headers: auth(doctorToken), payload: { notes: 'RAS' } });
+    const end = await app.inject({ method: 'POST', url: `/api/v1/consultations/${consultId}/end`, headers: auth(doctorToken), payload: {} });
     expect(end.statusCode).toBe(200);
     expect(end.json().status).toBe('COMPLETED');
   });
@@ -185,17 +185,19 @@ describe.skipIf(!HAS_INFRA)('RDV & téléconsultation (intégration)', () => {
     const rejoin = await app.inject({ method: 'POST', url: `/api/v1/consultations/${consultId}/join`, headers: auth(patientToken) });
     expect(rejoin.json().mode).toBe('CHAT');
 
-    const end = await app.inject({ method: 'POST', url: `/api/v1/consultations/${consultId}/end`, headers: auth(doctorToken), payload: { notes: 'Suite par chat' } });
+    const end = await app.inject({ method: 'POST', url: `/api/v1/consultations/${consultId}/end`, headers: auth(doctorToken), payload: {} });
     expect(end.statusCode).toBe(200);
     // Après clôture : ni rejoindre, ni dégrader, ni re-clôturer (notes/endedAt préservés).
     for (const path of ['join', 'downgrade']) {
       const r = await app.inject({ method: 'POST', url: `/api/v1/consultations/${consultId}/${path}`, headers: auth(patientToken) });
       expect(r.statusCode).toBe(400);
     }
-    const again = await app.inject({ method: 'POST', url: `/api/v1/consultations/${consultId}/end`, headers: auth(doctorToken), payload: { notes: 'écrasé ?' } });
+    const again = await app.inject({ method: 'POST', url: `/api/v1/consultations/${consultId}/end`, headers: auth(doctorToken), payload: {} });
     expect(again.statusCode).toBe(400);
+    // La 2ᵉ clôture n'écrase pas la première (endedAt figé), et aucune note en clair n'est écrite.
     const stored = await app.prisma.consultation.findUniqueOrThrow({ where: { id: consultId } });
-    expect(stored.notes).toBe('Suite par chat');
+    expect(stored.endedAt?.toISOString()).toBe(end.json().endedAt);
+    expect(stored.notes).toBeNull();
   });
 
   // Lot 10 / écart D5 : l'endpoint de tri existait sans appelant côté web.
@@ -346,6 +348,11 @@ describe.skipIf(!HAS_INFRA)('RDV & téléconsultation (intégration)', () => {
     const start = await app.inject({ method: 'POST', url: '/api/v1/consultations', headers: auth(doctorToken), payload: { appointmentId: apptId } });
     const consultId = start.json().consultation.id as string;
     const report = 'Synthétique : évolution favorable, contrôle dans 7 jours.';
+
+    // L'ancien champ en clair est refusé (422), jamais stocké ni ignoré en silence.
+    const legacy = await app.inject({ method: 'POST', url: `/api/v1/consultations/${consultId}/end`, headers: auth(doctorToken), payload: { notes: report } });
+    expect(legacy.statusCode).toBe(422);
+    expect((await app.prisma.consultation.findUniqueOrThrow({ where: { id: consultId } })).status).toBe('ACTIVE');
 
     const denied = await app.inject({ method: 'POST', url: `/api/v1/consultations/${consultId}/end`, headers: auth(doctorToken), payload: { report } });
     expect(denied.statusCode).toBe(403);

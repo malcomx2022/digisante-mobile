@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import type { ReactElement } from 'react';
 import { usePathname } from 'next/navigation';
 
 import { useLocale } from '@/i18n/LocaleProvider';
@@ -10,7 +11,7 @@ import { Nkyinkyim } from './Nkyinkyim';
 type IconName = 'home' | 'file' | 'search' | 'pill' | 'user' | 'calendar';
 
 function Icon({ name }: { name: IconName }) {
-  const paths: Record<IconName, JSX.Element> = {
+  const paths: Record<IconName, ReactElement> = {
     home: <path d="M3 11l9-8 9 8M5 10v10h14V10" />,
     file: <path d="M7 3h7l5 5v13H7zM14 3v5h5" />,
     search: <path d="M11 19a8 8 0 100-16 8 8 0 000 16zM21 21l-4.3-4.3" />,
