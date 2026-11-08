@@ -38,34 +38,41 @@ jobs:
           CANDIDATE_SHA: ${{ inputs.sha }}
       - name: Vérifier la présence des accès dédiés (aucune valeur affichée)
         run: |
-          node -e 'for(const k of ["HOST","USER","KEY","FINGERPRINT"]){if(!process.env[k]){console.error("Accès dédié incomplet : "+k);process.exit(1)}}'
+          node -e 'for(const k of ["HOST","USER","KEY","FINGERPRINT","MIGRATION"]){if(!process.env[k]){console.error("Accès dédié incomplet : "+k);process.exit(1)}}'
         env:
           HOST: ${{ secrets.PREPROD_VPS_HOST }}
           USER: ${{ secrets.PREPROD_VPS_USER }}
           KEY: ${{ secrets.PREPROD_VPS_SSH_KEY }}
           FINGERPRINT: ${{ secrets.PREPROD_VPS_FINGERPRINT }}
+          MIGRATION: ${{ secrets.PREPROD_DB_MIGRATION_URL }}
       - name: Déployer la candidate exacte en maintenance (aucun smoke fournisseur)
-        uses: appleboy/ssh-action@v1
+        # Revue GO du 22/10/2026 : URL du rôle PROPRIÉTAIRE PostgreSQL (migrations) transmise par
+        # l'entrée standard SSH (scripts/deploy/ssh-deploy.sh, empreinte d'hôte vérifiée), jamais
+        # dans la commande distante : sur l'hôte partagé, /proc/<pid>/cmdline est lisible par tous.
         env:
+          VPS_HOST: ${{ secrets.PREPROD_VPS_HOST }}
+          VPS_USER: ${{ secrets.PREPROD_VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.PREPROD_VPS_SSH_KEY }}
+          VPS_FINGERPRINT: ${{ secrets.PREPROD_VPS_FINGERPRINT }}
+          VPS_SSH_PORT: ${{ secrets.PREPROD_VPS_SSH_PORT || 22 }}
+          MIGRATION_DATABASE_URL: ${{ secrets.PREPROD_DB_MIGRATION_URL }}
           CANDIDATE_SHA: ${{ inputs.sha }}
-        with:
-          host: ${{ secrets.PREPROD_VPS_HOST }}
-          username: ${{ secrets.PREPROD_VPS_USER }}
-          key: ${{ secrets.PREPROD_VPS_SSH_KEY }}
-          fingerprint: ${{ secrets.PREPROD_VPS_FINGERPRINT }}
-          port: ${{ secrets.PREPROD_VPS_SSH_PORT || 22 }}
-          envs: CANDIDATE_SHA
-          script: |
-            set -e
-            [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
-            # Checkout de préproduction sur l'hôte IONOS partagé (= APP_DIR du profil preproduction).
-            cd /var/www/digisante-preprod
-            git fetch origin main
-            # L'outillage de contrôle vient du main récupéré ; le code applicatif
-            # reste exactement celui de la candidate qualifiée ci-dessus.
-            MAIN_SHA="$(git rev-parse --verify 'origin/main^{commit}')"
-            printf 'Outillage de déploiement : main %s\n' "$MAIN_SHA"
-            deploy_script=$(mktemp)
-            trap 'rm -f "$deploy_script"' EXIT
-            git show "$MAIN_SHA:infra/deploy/scripts/deploy.sh" > "$deploy_script"
-            DEPLOY_TOOLING_SHA="$MAIN_SHA" DEPLOY_REF="$CANDIDATE_SHA" DEPLOY_ENVIRONMENT=preproduction DEPLOY_MAINTENANCE_READY=1 bash "$deploy_script"
+        run: |
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          remote="$(mktemp)"
+          cat > "$remote" <<'REMOTE'
+          set -e
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          # Checkout de préproduction sur l'hôte IONOS partagé (= APP_DIR du profil preproduction).
+          cd /var/www/digisante-preprod
+          git fetch origin main
+          # L'outillage de contrôle vient du main récupéré ; le code applicatif
+          # reste exactement celui de la candidate qualifiée ci-dessus.
+          MAIN_SHA="$(git rev-parse --verify 'origin/main^{commit}')"
+          printf 'Outillage de déploiement : main %s\n' "$MAIN_SHA"
+          deploy_script=$(mktemp)
+          trap 'rm -f "$deploy_script"' EXIT
+          git show "$MAIN_SHA:infra/deploy/scripts/deploy.sh" > "$deploy_script"
+          DEPLOY_TOOLING_SHA="$MAIN_SHA" DEPLOY_REF="$CANDIDATE_SHA" DEPLOY_ENVIRONMENT=preproduction DEPLOY_MAINTENANCE_READY=1 bash "$deploy_script"
+          REMOTE
+          bash scripts/deploy/ssh-deploy.sh "$remote" "CANDIDATE_SHA=$CANDIDATE_SHA"

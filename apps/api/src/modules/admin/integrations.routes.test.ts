@@ -1,6 +1,7 @@
 // Tests d'intégration — API admin des intégrations tierces (§3.6, Lot B).
 // Invariants vérifiés : secrets JAMAIS renvoyés en clair, écriture auditée SANS
 // valeur, RBAC integrations:read/write, FedaPay gelé (§5). Exécutés si DB+Redis (CI).
+import type { Prisma } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
@@ -306,24 +307,92 @@ describe.skipIf(!HAS_INFRA)('Admin intégrations API (intégration)', () => {
     expect(await resolveConfiguredSecrets(app, 'DAILY')).toMatchObject({ domain: 'nouvelle-equipe.daily.co' });
   });
 
-  it('écriture non retrouvée à la relecture : échec BRUYANT (500), sans audit ni valeur citée', async () => {
-    const before = await app.prisma.auditLog.count({ where: { action: 'INTEGRATION_UPDATE' } });
-    // Écriture perdue (simulée) : l'upsert ne persiste rien.
-    const upsert = vi.spyOn(app.prisma.integrationConfig, 'upsert').mockResolvedValueOnce({} as never);
+  // ── Revue GO du 22/10/2026, R1 : écriture + relecture + audit atomiques ──
+  // Les échecs sont simulés DANS la transaction réelle : `$transaction` est
+  // enveloppé une fois et le client transactionnel est remplacé par un proxy.
+  const withinTx = (patch: (tx: Prisma.TransactionClient) => Prisma.TransactionClient) => {
+    const original = app.prisma.$transaction.bind(app.prisma) as (fn: (tx: Prisma.TransactionClient) => Promise<unknown>, opts?: unknown) => Promise<unknown>;
+    return vi.spyOn(app.prisma, '$transaction').mockImplementationOnce(((fn: (tx: Prisma.TransactionClient) => Promise<unknown>, opts?: unknown) =>
+      original((tx) => fn(patch(tx)), opts)) as never);
+  };
+  const dailyPut = (domain: string) => app.inject({
+    method: 'PUT', url: '/api/v1/admin/integrations/DAILY', headers: auth(superToken),
+    payload: { secrets: { apiKey: 'daily_key_synthetic_1234', domain } },
+  });
+  const storedDailyDomain = async () => {
+    const { getIntegration } = await import('@/lib/integrations.js');
+    await app.redis.del('integration:DAILY');
+    return (await getIntegration(app, 'DAILY')).secrets.domain;
+  };
+  const updates = () => app.prisma.auditLog.count({ where: { action: 'INTEGRATION_UPDATE', meta: { path: ['provider'], equals: 'DAILY' } } });
+
+  it('écriture non retrouvée à la relecture : 500 bruyant, valeur précédente conservée, sans audit ni valeur citée', async () => {
+    expect((await dailyPut('stable-equipe')).statusCode).toBe(200);
+    const before = await updates();
+    // Écriture perdue (simulée) : l'upsert de la transaction ne persiste rien.
+    const spy = withinTx((tx) => new Proxy(tx, {
+      get: (t, k) => (k === 'integrationConfig'
+        ? new Proxy(t.integrationConfig, { get: (c, m) => (m === 'upsert' ? async () => ({}) : Reflect.get(c, m)) })
+        : Reflect.get(t, k)),
+    }));
     try {
-      const res = await app.inject({
-        method: 'PUT', url: '/api/v1/admin/integrations/DAILY', headers: auth(superToken),
-        payload: { secrets: { apiKey: 'daily_key_synthetic_1234', domain: 'perdue-equipe' } },
-      });
-      expect(upsert).toHaveBeenCalled();
+      const res = await dailyPut('perdue-equipe');
+      expect(spy).toHaveBeenCalled();
       expect(res.statusCode).toBe(500);
       expect(res.json().code).toBe('INTEGRATION_WRITE_UNVERIFIED');
       expect(res.body).not.toContain('perdue-equipe');
       expect(res.body).not.toContain('daily_key_synthetic_1234');
     } finally {
-      upsert.mockRestore();
+      spy.mockRestore();
     }
-    expect(await app.prisma.auditLog.count({ where: { action: 'INTEGRATION_UPDATE' } })).toBe(before);
+    expect(await updates()).toBe(before);
+    expect(await storedDailyDomain()).toBe('stable-equipe');
+  });
+
+  it('audit en échec : la nouvelle valeur n’est PAS conservée (jamais de secret modifié sans trace)', async () => {
+    expect((await dailyPut('auditee-equipe')).statusCode).toBe(200);
+    const before = await updates();
+    const spy = withinTx((tx) => new Proxy(tx, {
+      get: (t, k) => (k === 'auditLog'
+        ? new Proxy(t.auditLog, { get: (c, m) => (m === 'create' ? async () => { throw new Error('audit indisponible (simulé)'); } : Reflect.get(c, m)) })
+        : Reflect.get(t, k)),
+    }));
+    try {
+      const res = await dailyPut('sans-trace-equipe');
+      expect(res.statusCode).toBe(500);
+      expect(res.body).not.toContain('sans-trace-equipe');
+    } finally {
+      spy.mockRestore();
+    }
+    expect(await updates()).toBe(before);
+    expect(await storedDailyDomain()).toBe('auditee-equipe');
+  });
+
+  it('deux enregistrements concurrents : chacun réussit et est audité, la valeur finale est l’une des deux', async () => {
+    const before = await updates();
+    const [a, b] = await Promise.all([dailyPut('concurrent-a'), dailyPut('concurrent-b')]);
+    expect(a.statusCode, a.body).toBe(200);
+    expect(b.statusCode, b.body).toBe(200);
+    expect(await updates()).toBe(before + 2);
+    expect(['concurrent-a', 'concurrent-b']).toContain(await storedDailyDomain());
+  });
+
+  it('PATCH : audit en échec ⇒ activation annulée (état et audit inchangés)', async () => {
+    const toggles = () => app.prisma.auditLog.count({ where: { action: 'INTEGRATION_TOGGLE', meta: { path: ['provider'], equals: 'DAILY' } } });
+    const before = await toggles();
+    const spy = withinTx((tx) => new Proxy(tx, {
+      get: (t, k) => (k === 'auditLog'
+        ? new Proxy(t.auditLog, { get: (c, m) => (m === 'create' ? async () => { throw new Error('audit indisponible (simulé)'); } : Reflect.get(c, m)) })
+        : Reflect.get(t, k)),
+    }));
+    try {
+      const res = await app.inject({ method: 'PATCH', url: '/api/v1/admin/integrations/DAILY', headers: auth(superToken), payload: { enabled: false } });
+      expect(res.statusCode).toBe(500);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(await toggles()).toBe(before);
+    expect((await app.prisma.integrationConfig.findUnique({ where: { provider: 'DAILY' } }))?.enabled).toBe(true);
     await app.prisma.integrationConfig.deleteMany({ where: { provider: 'DAILY' } });
     await app.redis.del('integration:DAILY');
   });

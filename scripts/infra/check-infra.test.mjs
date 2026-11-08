@@ -76,7 +76,8 @@ test('nginx : WS journalisé sans query, zones définies, en-têtes cohérents a
   const zones = read('infra/deploy/nginx/rate-limit.conf');
   const ws = site.slice(site.indexOf('location = /api/v1/chat/ws'));
   assert.match(ws.slice(0, ws.indexOf('}')), /access_log \S+ digisante_noquery;/);
-  for (const z of new Set([...site.matchAll(/zone=(\w+)/g)].map((m) => m[1]))) {
+  const pre = read('infra/deploy/nginx/digisante-preprod.conf');
+  for (const z of new Set([...`${site}\n${pre}`.matchAll(/zone=(\w+)/g)].map((m) => m[1]))) {
     assert.match(zones, new RegExp(`zone=${z}:`), `zone ${z} non définie`);
   }
   assert.match(zones, /log_format digisante_noquery/);

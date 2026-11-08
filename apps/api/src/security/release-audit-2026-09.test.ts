@@ -10,6 +10,7 @@ import { redactAuditMetaForAdmin } from '@/lib/audit.js';
 import { isValidServiceToken } from '@/lib/service-token.js';
 import { linkCare } from '@/test/care-fixture.js';
 import { REGISTER_TERMS } from '@/test/terms-fixture.js';
+import { resetOtpState } from '@/test/otp-fixture.js';
 
 describe('Jeton de service (tâches cron) — comparaison fail-closed', () => {
   const SECRET = 'x'.repeat(40);
@@ -70,7 +71,7 @@ describe.skipIf(!HAS_INFRA)('Audit de release 2026-09 (intégration)', () => {
 
   const cleanup = async () => {
     await app.prisma.user.deleteMany({ where: { phone: { in: PHONES } } });
-    await app.redis.del(...PHONES.flatMap((p) => [`otp:lock:${p}`, `otp:attempts:${p}`, `otp:send:${p}`, `otp:${p}`]));
+    await resetOtpState(app, ...PHONES);
   };
 
   beforeAll(async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isFedapayCheckoutUrl } from '@digisante/shared';
-import { subscriptionOutcome } from './subscriptions';
+import { SUBSCRIPTION_METHODS, subscriptionOutcome } from './subscriptions';
 
 describe('L6 — confirmation et checkout hébergé', () => {
   it('paiement en attente sans URL ne signifie pas confirmé', () => {
@@ -9,7 +9,7 @@ describe('L6 — confirmation et checkout hébergé', () => {
     expect(subscriptionOutcome({ revoked: false, paymentUrl: null, payment: { status: 'CANCELLED' } })).toEqual({ kind: 'cancelled_payment' });
     expect(subscriptionOutcome({ revoked: true, paymentUrl: null, payment: { status: 'REFUNDED' } })).toEqual({ kind: 'refunded' });
   });
-  it('débit wallet confirmé : confirmation issue du statut serveur', () => {
+  it('paiement confirmé : confirmation issue du statut serveur', () => {
     expect(subscriptionOutcome({ revoked: false, paymentUrl: null, payment: { status: 'COMPLETED' } })).toEqual({ kind: 'confirmed' });
   });
   it('commande abandonnée réglée tardivement : aucune annonce de droit actif', () => {
@@ -27,5 +27,9 @@ describe('L6 — confirmation et checkout hébergé', () => {
       expect(isFedapayCheckoutUrl(url)).toBe(false);
       expect(() => subscriptionOutcome({ revoked: false, paymentUrl: url, payment: { status: 'PENDING' } })).toThrow();
     }
+  });
+  it('A8 : le portefeuille n’est jamais proposé pour l’abonnement PRO', () => {
+    expect(SUBSCRIPTION_METHODS).not.toContain('WALLET');
+    expect(SUBSCRIPTION_METHODS).toContain('MTN_MOMO');
   });
 });

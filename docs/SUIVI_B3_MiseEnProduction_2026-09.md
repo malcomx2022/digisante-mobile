@@ -88,7 +88,7 @@ les lots récents. **Aucune dérive trouvée** — tout est prêt à exécuter :
       (`VERIFY_JOB_ENVIRONMENT=preproduction`, tâches **mutantes**). En production, constater les exécutions du cron.
 
 ### Phase 5 — Armement du déploiement continu (production)
-- [ ] Secrets GitHub : `VPS_HOST`, `VPS_USER=digisante`, `VPS_SSH_KEY`, **`VPS_FINGERPRINT`** (obligatoire) (+ `VPS_SSH_PORT` si besoin).
+- [ ] Secrets GitHub : `VPS_HOST`, `VPS_USER=digisante`, `VPS_SSH_KEY`, **`VPS_FINGERPRINT`** (obligatoire), **`DB_MIGRATION_URL`** (rôle propriétaire PostgreSQL, jamais dans le `.env` ; cf. `SECRETS_Production.md`) (+ `VPS_SSH_PORT` si besoin).
 - [ ] Clé publique posée `restrict` par `provision-ionos.sh --only users` (domicile réel du compte).
 - [ ] Variables `DEPLOY_ENABLED=true` **et** `DEPLOY_MAINTENANCE_READY=true` **seulement pendant une fenêtre autorisée** :
       tant qu'elles valent `true`, **chaque push sur `main`** au vert déploie `github.sha` en production, sans

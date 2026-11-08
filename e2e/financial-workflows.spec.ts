@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import { PrismaClient } from '../apps/api/node_modules/@prisma/client';
 import { registerAndLogin, uniquePhone } from './helpers';
+import { grantProDb } from './pro-fixture';
 
 const WEB = 'http://127.0.0.1:3000';
 // Session obtenue via l'OTP réel en mode test. Aucun token navigateur stocké.
@@ -18,10 +19,9 @@ test('revenus PRO et CSV réels isolés, reçu explicitement non fiscal', async 
     const phone = await registerAndLogin(page, { role: 'Médecin', firstName: 'Revenus', lastName: 'L7' });
     const doctor = await prisma.user.findUniqueOrThrow({ where: { phone }, include: { doctor: true } }); ids.push(doctor.id);
     await prisma.doctor.update({ where: { id: doctor.doctor!.id }, data: { verifiedAt: new Date(), consultFee: 3000 } });
-    await prisma.wallet.upsert({ where: { userId: doctor.id }, create: { userId: doctor.id, balance: 5000 }, update: { balance: 5000 } });
     await page.goto('/pro/stats'); await expect(page.getByText('Les statistiques de revenus nécessitent un abonnement PRO payé et en cours.')).toBeVisible();
-    await page.getByLabel('Moyen de paiement').selectOption('WALLET'); await page.getByRole('button', { name: 'Payer un mois PRO', exact: true }).click();
-    await page.getByRole('dialog').getByRole('button', { name: 'Payer un mois PRO', exact: true }).click(); await expect(page.getByText('Paiement confirmé. La période PRO est enregistrée.')).toBeVisible();
+    // Période PRO confirmée fournisseur (A8 : l'abonnement ne se règle plus par wallet).
+    await grantProDb(prisma, doctor.id);
     const other = await prisma.user.create({ data: { phone: uniquePhone(), role: 'MEDECIN', status: 'ACTIVE', doctor: { create: { speciality: 'G', licenseNumber: randomUUID(), verifiedAt: new Date(), consultFee: 7000 } } }, include: { doctor: true } }); ids.push(other.id);
     const patient = await prisma.user.create({ data: { phone: uniquePhone(), role: 'PATIENT', status: 'ACTIVE', patient: { create: {} }, wallet: { create: { balance: 30000 } } }, include: { patient: true } }); ids.push(patient.id);
     const headers = await login(request, patient.phone); const payments: string[] = [];

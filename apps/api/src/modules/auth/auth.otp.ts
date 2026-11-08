@@ -30,18 +30,22 @@ export function otpIpTag(ip: string | null | undefined, pepper = env.JWT_SECRET)
   return createHmac('sha256', pepper).update(`digisante:otp-ip:v1:${ip ?? 'unknown'}`).digest('hex').slice(0, 32);
 }
 
-/** Clés Redis du verrou OTP (définies UNE fois : service, console support, tests). */
+/**
+ * Clés Redis du verrou OTP (définies UNE fois : service, console support, tests).
+ * Les clés par IP portent l'« époque » du numéro : le déverrouillage support incrémente
+ * l'époque, ce qui rend inopérants tous les verrous par IP sans les énumérer (l'utilisateur
+ * ACL Valkey de l'hôte partagé n'a ni SCAN ni KEYS ; ils expirent d'eux-mêmes en 30 min).
+ * Commandes utilisées : GET/SET/DEL/INCR/EXPIRE/TTL/EVAL seulement (liste ACL de
+ * provision-ionos.sh, bloc `valkey-acl`) — jamais MGET, DECR, SCAN ni KEYS.
+ */
 export const otpRedisKeys = {
-  attempts: (phone: string, tag: string) => `otp:attempts:${phone}:${tag}`,
-  lock: (phone: string, tag: string) => `otp:lock:${phone}:${tag}`,
+  epoch: (phone: string) => `otp:epoch:${phone}`,
+  attempts: (phone: string, epoch: string, tag: string) => `otp:attempts:${phone}:${epoch}:${tag}`,
+  lock: (phone: string, epoch: string, tag: string) => `otp:lock:${phone}:${epoch}:${tag}`,
+  /** Nombre de couples numéro + IP verrouillés dans l'époque (console support, sans IP). */
+  lockedSources: (phone: string, epoch: string) => `otp:iplocks:${phone}:${epoch}`,
   global: (phone: string) => `otp:global:${phone}`,
 };
-
-/** Motif SCAN des clés par IP d'un numéro (caractères de motif échappés). */
-export function otpPerIpPatterns(phone: string): string[] {
-  const safe = phone.replace(/[*?[\]\\]/g, '\\$&');
-  return [`otp:attempts:${safe}:*`, `otp:lock:${safe}:*`];
-}
 
 /** Génère un code OTP numérique à 6 chiffres (avec zéros de tête). */
 export function generateOtp(): string {

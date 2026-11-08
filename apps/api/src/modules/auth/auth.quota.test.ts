@@ -1,6 +1,7 @@
 // Couverture du chemin critique « anti-abus OTP » (quota d'envoi, P7.2).
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { resetOtpState } from '@/test/otp-fixture.js';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 const PHONE = '+2290187000111';
@@ -13,7 +14,7 @@ describe.skipIf(!HAS_INFRA)('Anti-abus OTP (intégration)', () => {
     app = await buildServer();
     await app.ready();
     await app.prisma.user.deleteMany({ where: { phone: PHONE } });
-    await app.redis.del(`otp:${PHONE}`, `otp:attempts:${PHONE}`, `otp:lock:${PHONE}`, `otp:send:${PHONE}`);
+    await resetOtpState(app, PHONE);
     await app.prisma.user.create({
       data: { phone: PHONE, role: 'PATIENT', status: 'ACTIVE', lang: 'FR', profile: { create: { firstName: 'Q', lastName: 'T' } }, patient: { create: {} } },
     });
@@ -22,7 +23,7 @@ describe.skipIf(!HAS_INFRA)('Anti-abus OTP (intégration)', () => {
   afterAll(async () => {
     if (!app) return;
     await app.prisma.user.deleteMany({ where: { phone: PHONE } });
-    await app.redis.del(`otp:${PHONE}`, `otp:attempts:${PHONE}`, `otp:lock:${PHONE}`, `otp:send:${PHONE}`);
+    await resetOtpState(app, PHONE);
     await app.close();
   });
 

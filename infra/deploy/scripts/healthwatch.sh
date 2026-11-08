@@ -63,6 +63,29 @@ digisante_profile() {
   : "${CRON_FILE:=/etc/cron.d/digisante${sfx}}" "${WS_LOG:=/var/log/nginx/digisante${sfx}-ws.log}"
 }
 # <<< digisante_profile
+# >>> port_owner (résiduel 1 « port squatté » — copie IDENTIQUE dans deploy.sh, healthwatch.sh, verify_deploy.sh, internal_job.sh et fedapay_reconcile.sh ; test de non-dérive)
+# Vrai seulement si le port TCP a au moins un écouteur ET si TOUS ses écouteurs (toutes
+# adresses, IPv4/IPv6) appartiennent au compte attendu. L'uid du socket (`ss -e`, uid de
+# création noté par le noyau) est lisible sans privilège et ne dépend ni d'un pid ni d'un
+# nom de processus ; `ss` ne l'affiche pas pour root, donc un écouteur root est refusé.
+# Sur l'hôte partagé, tout compte local peut écouter sur 127.0.0.1:<port> pendant que
+# l'environnement est arrêté : sans ce contrôle, il recevrait le jeton de service des
+# tâches ou répondrait « ready » à la place de l'API.
+port_owned_by() { # port_owned_by <port> <compte>
+  local want listing line uid n=0
+  [[ "$1" =~ ^[0-9]{1,5}$ ]] || return 1
+  want="$(id -u -- "$2" 2>/dev/null)" || return 1
+  [[ "$want" =~ ^[0-9]+$ && "$want" != 0 ]] || return 1
+  listing="$(ss -Htlne "( sport = :$1 )" 2>/dev/null)" || return 1
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    n=$((n + 1))
+    uid="$(sed -n 's/.*[[:space:]]uid:\([0-9][0-9]*\)[[:space:]].*/\1/p' <<<"$line ")"
+    [[ "$uid" == "$want" ]] || return 1
+  done <<<"$listing"
+  (( n > 0 ))
+}
+# <<< port_owner
 trusted_path "${BASH_SOURCE[0]}" || { echo "[healthwatch] ÉCHEC : script lancé depuis un emplacement modifiable par un autre compte ; utiliser la copie installée par install_root_scripts.sh" >&2; exit 1; }
 SELF_ROOT="$(cd "$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")/../../.." && pwd -P)"
 digisante_profile || exit 1
@@ -97,8 +120,17 @@ install -d -m 0700 "$STATE_DIR"
 declare -A NOW=()
 check() { NOW["$1"]="$2"; printf '%-10s %-8s %s\n' "$1" "${2%%|*}" "${2#*|}"; }
 
-# 1. Readiness (DB + Redis)
-if curl -fsS --connect-timeout 3 --max-time 10 "${API_BASE}/api/v1/ready" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{try{const r=JSON.parse(d);process.exit(r.status==="ready"&&r.db==="up"&&r.redis==="up"?0:1)}catch{process.exit(1)}})'; then
+# 0. Ports de l'environnement tenus par ${APP_USER} seul (résiduel 1 : un autre compte local
+#    qui écouterait sur un port libéré par un arrêt recevrait le trafic Nginx).
+squat=""
+for p in "$API_PORT" "$WEB_PORT"; do port_owned_by "$p" "$APP_USER" || squat+="${squat:+, }${p}"; done
+if [[ -z "$squat" ]]; then check ports "OK|${API_PORT}/${WEB_PORT} tenus par ${APP_USER}"
+else check ports "ALERTE|port(s) ${squat} libre(s) ou écouté(s) par un autre compte que ${APP_USER} (squat possible : ss -Htlnpe)"; fi
+
+# 1. Readiness (DB + Redis) — jamais crue sur un port qui n'est pas celui de l'API.
+if [[ " ${squat//,/ } " == *" ${API_PORT} "* ]]; then
+  check ready "ALERTE|port ${API_PORT} non tenu par ${APP_USER} : readiness non interrogée"
+elif curl -fsS --connect-timeout 3 --max-time 10 "${API_BASE}/api/v1/ready" | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{try{const r=JSON.parse(d);process.exit(r.status==="ready"&&r.db==="up"&&r.redis==="up"?0:1)}catch{process.exit(1)}})'; then
   check ready "OK|DB + Redis joignables"
 else check ready "ALERTE|/ready indisponible ou JSON non conforme"; fi
 

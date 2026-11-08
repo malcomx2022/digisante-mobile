@@ -20,7 +20,6 @@ import {
   OTP_LOCK_SECONDS,
   OTP_MAX_ATTEMPTS,
   otpIpTag,
-  otpPerIpPatterns,
   otpRedisKeys,
   OTP_SEND_MAX,
   OTP_SEND_WINDOW_SECONDS,
@@ -100,35 +99,40 @@ function publicUser(u: {
  * ne bloque pas la victime (décision du porteur, 08/11/2026).
  */
 async function ensureNotLocked(app: FastifyInstance, phone: string, ip: string | null | undefined): Promise<void> {
-  const [global, lock] = await app.redis.mget(otpRedisKeys.global(phone), otpRedisKeys.lock(phone, otpIpTag(ip)));
+  const epoch = await currentEpoch(app, phone);
+  const [global, lock] = await Promise.all([
+    app.redis.get(otpRedisKeys.global(phone)),
+    app.redis.get(otpRedisKeys.lock(phone, epoch, otpIpTag(ip))),
+  ]);
   if (Number(global ?? 0) >= OTP_GLOBAL_MAX_FAILURES || lock) {
     throw tooManyRequests('Compte temporairement verrouillé. Réessayez dans quelques minutes.');
   }
 }
 
-async function scanKeys(app: FastifyInstance, pattern: string): Promise<string[]> {
-  const found: string[] = [];
-  let cursor = '0';
-  do {
-    const [next, keys] = await app.redis.scan(cursor, 'MATCH', pattern, 'COUNT', 200);
-    cursor = next;
-    found.push(...keys);
-  } while (cursor !== '0');
-  return found;
+async function currentEpoch(app: FastifyInstance, phone: string): Promise<string> {
+  return (await app.redis.get(otpRedisKeys.epoch(phone))) ?? '0';
 }
 
 /** État du verrou OTP d'un numéro pour la console support (aucune IP exposée). */
 export async function otpLockState(app: FastifyInstance, phone: string) {
-  const [, lockPattern] = otpPerIpPatterns(phone);
-  const [global, ipLocks] = await Promise.all([app.redis.get(otpRedisKeys.global(phone)), scanKeys(app, lockPattern)]);
+  const epoch = await currentEpoch(app, phone);
+  const [global, sources] = await Promise.all([
+    app.redis.get(otpRedisKeys.global(phone)),
+    app.redis.get(otpRedisKeys.lockedSources(phone, epoch)),
+  ]);
   const attempts = Number(global ?? 0);
-  return { locked: attempts >= OTP_GLOBAL_MAX_FAILURES || ipLocks.length > 0, attempts, lockedSources: ipLocks.length };
+  const lockedSources = Number(sources ?? 0);
+  return { locked: attempts >= OTP_GLOBAL_MAX_FAILURES || lockedSources > 0, attempts, lockedSources };
 }
 
-/** Purge tout l'état de verrou OTP d'un numéro (déverrouillage support). */
+/**
+ * Purge l'état de verrou OTP d'un numéro (déverrouillage support) : plafond global et
+ * fenêtre d'envoi supprimés, époque incrémentée (tous les verrous par IP deviennent
+ * inopérants d'un coup, sans énumération).
+ */
 export async function purgeOtpLocks(app: FastifyInstance, phone: string): Promise<void> {
-  const perIp = (await Promise.all(otpPerIpPatterns(phone).map((p) => scanKeys(app, p)))).flat();
-  await app.redis.del(otpRedisKeys.global(phone), sendKey(phone), ...perIp);
+  await app.redis.incr(otpRedisKeys.epoch(phone));
+  await app.redis.del(otpRedisKeys.global(phone), sendKey(phone));
 }
 
 /** Signe access + refresh et enregistre le jti du refresh dans l'allowlist Redis. */
@@ -295,9 +299,18 @@ export async function verifyOtp(
   const phone = normalizeBeninPhone(input.phone);
   await ensureNotLocked(app, phone, ip);
   const tag = otpIpTag(ip);
-  const attemptsKey = otpRedisKeys.attempts(phone, tag);
-  const lockKey = otpRedisKeys.lock(phone, tag);
+  const epoch = await currentEpoch(app, phone);
+  const attemptsKey = otpRedisKeys.attempts(phone, epoch, tag);
+  const lockKey = otpRedisKeys.lock(phone, epoch, tag);
+  const sourcesKey = otpRedisKeys.lockedSources(phone, epoch);
   const globalKey = otpRedisKeys.global(phone);
+  // Verrou du couple numéro + IP et comptage des sources verrouillées (console support).
+  const lockSource = () => app.redis.eval(`
+    redis.call('SET', KEYS[1], '1', 'EX', ARGV[1])
+    redis.call('INCR', KEYS[2])
+    redis.call('EXPIRE', KEYS[2], ARGV[1])
+    return 1
+  `, 2, lockKey, sourcesKey, OTP_LOCK_SECONDS);
 
   const stored = await app.redis.get(otpKey(phone));
 
@@ -335,7 +348,7 @@ export async function verifyOtp(
     if (attempts >= OTP_MAX_ATTEMPTS) {
       // Verrou du seul couple numéro + IP : le code reste valable depuis une
       // autre IP (la victime n'est pas privée de son code par un attaquant).
-      await app.redis.set(lockKey, '1', 'EX', OTP_LOCK_SECONDS);
+      await lockSource();
       await writeAudit(app.prisma, { action: 'AUTH_LOCKOUT', ip, meta: { phone, scope: 'PHONE_IP' } });
       throw tooManyRequests("Trop d'échecs. Compte verrouillé 30 minutes.");
     }
@@ -344,11 +357,13 @@ export async function verifyOtp(
 
   // Un seul vérificateur peut consommer le code ; un renvoi concurrent ne doit
   // pas être effacé par la vérification de l'ancien code lu avant ce renvoi.
-  // La tentative réussie ne compte pas dans le plafond global (DECR).
+  // La tentative réussie ne compte pas dans le plafond global : décrément par SET KEEPTTL
+  // (DECR est hors de la liste ACL de l'utilisateur Valkey ; la fenêtre fixe est conservée).
   const consumed = await app.redis.eval(`
     if redis.call('GET', KEYS[1]) ~= ARGV[1] then return 0 end
     redis.call('DEL', KEYS[1], KEYS[2])
-    if tonumber(redis.call('GET', KEYS[3]) or '0') > 0 then redis.call('DECR', KEYS[3]) end
+    local g = tonumber(redis.call('GET', KEYS[3]) or '0')
+    if g > 0 then redis.call('SET', KEYS[3], g - 1, 'KEEPTTL') end
     return 1
   `, 3, otpKey(phone), attemptsKey, globalKey, stored);
   if (consumed !== 1) throw invalidOtp();

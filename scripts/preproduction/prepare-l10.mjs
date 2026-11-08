@@ -36,6 +36,8 @@ export function buildSnapshot(root = ROOT) {
   };
   walk('infra/deploy',(p)=>/\.(sh|conf|example|md|list)$/.test(p)||p.startsWith('infra/deploy/logrotate/'));
   walk('scripts/preproduction',(p)=>!p.endsWith('.test.mjs'));
+  // Relais SSH des workflows (secret de migration par l'entrée standard, revue GO du 22/10/2026).
+  walk('scripts/deploy',(p)=>!p.endsWith('.test.mjs'));
   // Une sonde par opt-in de smoke-guard (même liste) : aucune sonde hors empreinte.
   for(const {file} of SMOKE_PROVIDERS) paths.push(`apps/api/src/services/${file}.smoke.test.ts`);
   paths.push('apps/api/vitest.smoke.config.ts','apps/api/vitest.smoke.setup.ts');

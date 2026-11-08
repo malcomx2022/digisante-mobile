@@ -2,10 +2,10 @@
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { REGISTER_TERMS } from '@/test/terms-fixture.js';
+import { resetOtpState } from '@/test/otp-fixture.js';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 const PHONES = ['+2290196031401', '+2290196031402'];
-const otpKeys = PHONES.flatMap((phone) => [`otp:${phone}`, `otp:send:${phone}`, `otp:attempts:${phone}`, `otp:lock:${phone}`]);
 
 describe.skipIf(!HAS_INFRA)('Auth — déconnexion liée au compte courant', () => {
   let app: FastifyInstance;
@@ -26,7 +26,7 @@ describe.skipIf(!HAS_INFRA)('Auth — déconnexion liée au compte courant', () 
     app = await buildServer();
     await app.ready();
     await app.prisma.user.deleteMany({ where: { phone: { in: PHONES } } });
-    await app.redis.del(...otpKeys);
+    await resetOtpState(app, ...PHONES);
     for (const [index, phone] of PHONES.entries()) {
       const registration = await app.inject({ method: 'POST', url: '/api/v1/auth/register', payload: { ...REGISTER_TERMS, phone, role: 'PATIENT', lang: 'FR', firstName: 'Synthétique', lastName: 'Logout' } });
       expect(registration.statusCode).toBe(201);
@@ -42,7 +42,7 @@ describe.skipIf(!HAS_INFRA)('Auth — déconnexion liée au compte courant', () 
   afterAll(async () => {
     if (!app) return;
     await app.prisma.user.deleteMany({ where: { phone: { in: PHONES } } });
-    await app.redis.del(...otpKeys, ...refreshKeys);
+    await resetOtpState(app, ...PHONES); await app.redis.del(...refreshKeys);
     await app.close();
   });
 

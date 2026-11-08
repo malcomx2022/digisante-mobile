@@ -15,9 +15,10 @@
 // relance ensuite avec un délai croissant (exp_backoff_restart_delay de l'ecosystem).
 // ─────────────────────────────────────────────────────────────
 import { serializeErrorForLog } from '@/lib/log-sanitize.js';
+import { pinProcessTimeZone } from '@/lib/timezone.js';
 
 /** Codes dont le message est sûr (noms de variables, chemin du .env) : affiché tel quel. */
-const SAFE_MESSAGE_CODES = new Set(['API_ENV_INVALID', 'API_ENV_FILE_UNREADABLE']);
+const SAFE_MESSAGE_CODES = new Set(['API_ENV_INVALID', 'API_ENV_FILE_UNREADABLE', 'API_TZ_UNAVAILABLE']);
 
 function describeBootError(err: unknown): string {
   const e = err as { code?: unknown; errorCode?: unknown } | null;
@@ -40,6 +41,8 @@ function describeBootError(err: unknown): string {
 }
 
 try {
+  // Fuseau de l'application (Porto-Novo) avant toute date locale, quel que soit celui de l'hôte.
+  pinProcessTimeZone();
   // Configuration d'abord : apps/api/.env chargé et validé avant tout autre module.
   await import('@/lib/env.js');
   const { start } = await import('@/server.js');

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { DOCTOR_SUBSCRIPTION_CATALOG, PAYMENT_METHODS, type DoctorSubscription, type PaymentMethod } from '@digisante/shared';
+import { DOCTOR_SUBSCRIPTION_CATALOG, type DoctorSubscription, type PaymentMethod } from '@digisante/shared';
 import { ProHeader } from '@/components/pro/ProHeader';
 import RevenuePanel from '@/components/pro/RevenuePanel';
 import { PaymentReceipt } from '@/components/ui/PaymentReceipt';
@@ -12,7 +12,7 @@ import { useLocale } from '@/i18n/LocaleProvider';
 import { get, postNow } from '@/lib/api/client';
 import { useApi } from '@/lib/api/useApi';
 
-import { subscriptionOutcome, type SubscriptionCheckout as Checkout } from '@/lib/subscriptions';
+import { SUBSCRIPTION_METHODS, subscriptionOutcome, type SubscriptionCheckout as Checkout } from '@/lib/subscriptions';
 
 interface SubscriptionHistory { id: string; amount: string; startsAt: string | null; endsAt: string | null; revokedAt: string | null; payment: { id: string; status: string } }
 
@@ -76,7 +76,7 @@ export default function ProStatsPage() {
         <p className="text-[0.875rem]">{t('subscriptions.rights')}</p>
         <label className="block font-bold" htmlFor="subscription-method">{t('subscriptions.method')}</label>
         <select id="subscription-method" value={method} disabled={busy || Boolean(sub.pending)} onChange={(e) => setMethod(e.target.value as PaymentMethod)} className="w-full p-3 border border-indigo-200 bg-white text-[1rem] focus-visible:ring-2 focus-visible:ring-indigo-600">
-          {PAYMENT_METHODS.map((value) => <option key={value} value={value}>{t(`subscriptions.method_${value.toLowerCase()}`)}</option>)}
+          {SUBSCRIPTION_METHODS.map((value) => <option key={value} value={value}>{t(`subscriptions.method_${value.toLowerCase()}`)}</option>)}
         </select>
         {sub.pending ? <>
           <p>{t('subscriptions.pending')}</p>

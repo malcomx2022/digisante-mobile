@@ -8,8 +8,10 @@
 
 | Variable | Obligatoire | Note |
 |---|---|---|
-| `DATABASE_URL` | ✅ | `postgresql://digisante:<pwd>@127.0.0.1:5432/digisante?schema=public` (PostgreSQL 18 natif partagé ; rôle et base créés par `provision-ionos.sh`) |
-| `REDIS_URL` | ✅ | `redis://:<pwd>@127.0.0.1:6379/6` (Valkey partagé : index **/6** production, /5 préproduction ; jamais l'index d'un autre projet ; isolement d'accès : README résiduel 2) |
+| `DATABASE_URL` | ✅ | `postgresql://digisante_app:<PG_RUNTIME_PASSWORD>@127.0.0.1:5432/digisante?schema=public` — rôle d'**exécution** non propriétaire (DML ; `audit_logs`/`finance_entries` en INSERT/SELECT), créé par `provision-ionos.sh`, droits posés par `deploy.sh` |
+| `DB_MIGRATION_URL` (secret GitHub, **pas** dans le `.env`) | ✅ | `postgresql://digisante:<PG_APP_PASSWORD>@127.0.0.1:5432/digisante?schema=public` — rôle **propriétaire** (migrations + droits), transmis par l'entrée standard SSH (`scripts/deploy/ssh-deploy.sh`) au seul déploiement ; `deploy.sh` refuse un `.env` qui le contient |
+| `REDIS_URL` | ✅ | `redis://digisante:<VALKEY_APP_PASSWORD>@127.0.0.1:6379/6` (Valkey partagé : index **/6** production, /5 préproduction ; **utilisateur ACL de l'environnement**, jamais `default` ni le mot de passe d'administration de l'hôte ; README résiduel 2) |
+| `REDIS_KEY_PREFIX` | ✅ | `digisante:` (préproduction : `digisante-preprod:`) — préfixe des clés et canaux, borne de l'utilisateur ACL ; non secret, obligatoire en production |
 | `NODE_ENV` | ✅ | `production` (désactive l'exposition du `devCode` OTP) |
 | `JWT_SECRET` | ✅ | **≥ 32 caractères aléatoires** — `openssl rand -base64 48` |
 | `JWT_ACCESS_TTL` / `JWT_REFRESH_TTL` | — | défauts `15m` / `30d` |
@@ -93,7 +95,7 @@
 
 ## Secrets GitHub Actions (déploiement SSH)
 
-`VPS_HOST` · `VPS_USER` · `VPS_SSH_KEY` (clé privée) · `VPS_FINGERPRINT` (empreinte d’hôte, obligatoire) · `VPS_SSH_PORT` (si ≠ 22)
+`VPS_HOST` · `VPS_USER` · `VPS_SSH_KEY` (clé privée) · `VPS_FINGERPRINT` (empreinte d’hôte, obligatoire) · `DB_MIGRATION_URL` (rôle propriétaire PostgreSQL, voir le tableau ci-dessus) · `VPS_SSH_PORT` (si ≠ 22)
 \+ **variables** `DEPLOY_ENABLED=true` **et** `DEPLOY_MAINTENANCE_READY=true` pour activer le job `deploy`, seulement dans une fenêtre autorisée, maintenance Nginx vérifiée.
 
 ## Build et déploiement de production

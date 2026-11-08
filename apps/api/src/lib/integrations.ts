@@ -11,6 +11,7 @@
 import { Prisma, type IntegrationProvider } from '@prisma/client';
 import type { FastifyInstance } from 'fastify';
 
+import { writeAuditWithin, type AuditEntry } from './audit.js';
 import { openSecret, sealSecret } from './crypto.js';
 import { env } from './env.js';
 import { normalizeDailyDomain } from './daily-domain.js';
@@ -159,31 +160,64 @@ export async function invalidateIntegration(app: FastifyInstance, provider: Inte
 /**
  * Enregistre/rote les secrets d'un provider (CHIFFRÉS) puis invalide le cache.
  * Appelé par l'API admin (Lot B). Ne renvoie jamais les secrets.
+ *
+ * Écriture, relecture et audit dans UNE transaction (revue GO du 22/10/2026, R1) :
+ * avant, l'audit `INTEGRATION_UPDATE` était écrit APRÈS une écriture déjà
+ * validée — une relecture non concordante ou un audit en échec laissait un
+ * secret modifié SANS trace. Désormais un échec annule tout. Le verrou de ligne
+ * de l'upsert sérialise deux enregistrements concurrents : chacun relit SA
+ * valeur et est audité. Cache invalidé après le commit seulement.
  */
 export async function setIntegration(
   app: FastifyInstance,
   provider: IntegrationProvider,
   input: { secrets: Secrets; meta?: Record<string, unknown> | null; enabled?: boolean; updatedById?: string },
+  audit?: AuditEntry,
 ): Promise<void> {
   const secretsEnc = sealSecret(input.secrets);
   const meta = input.meta == null ? undefined : (input.meta as Prisma.InputJsonValue);
-  await app.prisma.integrationConfig.upsert({
-    where: { provider },
-    create: { provider, secretsEnc, meta, enabled: input.enabled ?? true, updatedById: input.updatedById },
-    update: { secretsEnc, ...(meta === undefined ? {} : { meta }), ...(input.enabled === undefined ? {} : { enabled: input.enabled }), updatedById: input.updatedById },
+  await app.prisma.$transaction(async (tx) => {
+    await tx.integrationConfig.upsert({
+      where: { provider },
+      create: { provider, secretsEnc, meta, enabled: input.enabled ?? true, updatedById: input.updatedById },
+      update: { secretsEnc, ...(meta === undefined ? {} : { meta }), ...(input.enabled === undefined ? {} : { enabled: input.enabled }), updatedById: input.updatedById },
+    });
+    await assertStoredSecrets(app, tx, provider, input.secrets);
+    if (audit) await writeAuditWithin(tx, audit);
   });
   await invalidateIntegration(app, provider);
 }
 
 /**
- * Relit la ligne ÉCRITE en base (sans cache) et vérifie qu'elle porte exactement
- * le jeu de secrets saisi. Recette L10, I2 (21/10/2026) : deux enregistrements du
- * domaine Daily depuis le formulaire n'ont pas modifié la valeur stockée sans
- * qu'aucune erreur ne s'affiche. Une sauvegarde non confirmée par relecture
- * échoue désormais BRUYAMMENT (500), avant l'audit ; aucune valeur n'est citée.
+ * Active/désactive un provider existant et l'audite dans la même transaction (R1).
+ * `false` si aucune ligne n'existe (rien écrit, rien audité).
  */
-export async function verifyIntegrationWrite(app: FastifyInstance, provider: IntegrationProvider, expected: Secrets): Promise<void> {
-  const row = await app.prisma.integrationConfig.findUnique({ where: { provider }, select: { secretsEnc: true } });
+export async function toggleIntegration(
+  app: FastifyInstance,
+  provider: IntegrationProvider,
+  enabled: boolean,
+  updatedById: string,
+  audit: AuditEntry,
+): Promise<boolean> {
+  const updated = await app.prisma.$transaction(async (tx) => {
+    const { count } = await tx.integrationConfig.updateMany({ where: { provider }, data: { enabled, updatedById } });
+    if (count === 0) return false;
+    await writeAuditWithin(tx, audit);
+    return true;
+  });
+  if (updated) await invalidateIntegration(app, provider);
+  return updated;
+}
+
+/**
+ * Relit, DANS la transaction d'écriture (sans cache), la ligne du provider et
+ * vérifie qu'elle porte exactement le jeu de secrets saisi. Recette L10, I2
+ * (21/10/2026) : deux enregistrements du domaine Daily n'avaient pas modifié la
+ * valeur stockée sans qu'aucune erreur ne s'affiche. Une écriture non confirmée
+ * échoue BRUYAMMENT (500) et annule la transaction ; aucune valeur n'est citée.
+ */
+async function assertStoredSecrets(app: FastifyInstance, tx: Prisma.TransactionClient, provider: IntegrationProvider, expected: Secrets): Promise<void> {
+  const row = await tx.integrationConfig.findUnique({ where: { provider }, select: { secretsEnc: true } });
   let stored: Secrets | null = null;
   try {
     stored = row?.secretsEnc ? (openSecret(row.secretsEnc) as Secrets) : null;
@@ -196,7 +230,7 @@ export async function verifyIntegrationWrite(app: FastifyInstance, provider: Int
     && keys.every((k) => stored![k] === expected[k]);
   if (!same) {
     app.log.error({ provider }, 'Intégration : la relecture ne correspond pas à la valeur écrite');
-    throw new AppError('INTEGRATION_WRITE_UNVERIFIED', `Enregistrement ${provider} non confirmé par relecture : rien n’est garanti, recommencer puis vérifier`, 500);
+    throw new AppError('INTEGRATION_WRITE_UNVERIFIED', `Enregistrement ${provider} non confirmé par relecture : rien n’a été modifié, recommencer puis vérifier`, 500);
   }
 }
 

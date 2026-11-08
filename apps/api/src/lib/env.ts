@@ -14,6 +14,10 @@ export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']),
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
+  // Préfixe des clés ET des canaux pub/sub de cet environnement sur le Valkey PARTAGÉ (revue
+  // GO du 22/10/2026, résiduel 2) : il borne l'utilisateur ACL de l'environnement
+  // (`~<préfixe>*`, `&<préfixe>*`). Obligatoire en production ; vide en dev/test.
+  REDIS_KEY_PREFIX: z.string().regex(/^[a-z][a-z0-9-]{0,62}:$/, 'REDIS_KEY_PREFIX : minuscules, chiffres, tirets, terminé par « : »').optional(),
   API_PORT: z.coerce.number().default(3001),
   API_HOST: z.string().default('0.0.0.0'),
   JWT_SECRET: z.string().min(8),
@@ -81,6 +85,13 @@ export const envSchema = z.object({
         code: z.ZodIssueCode.custom,
         path: ['JWT_SECRET'],
         message: 'JWT_SECRET doit faire ≥ 32 caractères hors test.',
+      });
+    }
+    if (val.NODE_ENV === 'production' && !val.REDIS_KEY_PREFIX) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['REDIS_KEY_PREFIX'],
+        message: 'REDIS_KEY_PREFIX est obligatoire en production (digisante-preprod: ou digisante:) — isolement sur le Valkey partagé.',
       });
     }
     // Jeton des tâches internes : facultatif (sans lui, les routes de service restent

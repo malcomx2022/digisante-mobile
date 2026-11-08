@@ -18,9 +18,10 @@ describe.skipIf(!HAS_INFRA)('Annuaire médecins (intégration)', () => {
   // L'annuaire (pages de navigation) est servi via un cache Redis TTL : purge
   // pour que les lectures reflètent les fixtures de CE run, quel que soit
   // l'ordre des suites.
+  // Clés nommées (lang × page 1 × taille par défaut 20, seules lues ici) : KEYS est refusé à
+  // l'utilisateur ACL de l'environnement, et le `keyPrefix` ne s'applique pas à son résultat.
   async function purgeDirectoryCache() {
-    const keys = await app.redis.keys('professionals:list:*');
-    if (keys.length > 0) await app.redis.del(...keys);
+    await app.redis.del(...['all', 'FR', 'EN', 'FON', 'YOR'].map((lang) => `professionals:list:${lang}:1:20`));
   }
 
   beforeAll(async () => {
