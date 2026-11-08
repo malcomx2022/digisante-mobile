@@ -150,6 +150,9 @@ Locuteurs natifs FON/YOR · médecin signataire + référent PEV · iPhone · SI
 I2 (hôte partagé) · rôle PG non propriétaire de l'audit · isolement Valkey · capacité 4 Go (`MemoryMax`, coupure pendant build) · port squatté / fuseau · `ALERT_CMD` · conservation (D-8) · CSP · pentest · L9 humain · Moov/iOS · hôtes FedaPay live non observés (B1 live).
 
 ### 6.5 Incohérences documentaires à corriger
+
+> **Corrigées le 8 novembre 2026** : voir §13.
+
 1. `PLAN_GO_Preprod_ace0c689.md` §1 : production « encore `ec6b0dc` » → « non déployée ».
 2. `verify_restore.sh:57` et `SUIVI_B5` : PG 16 vs hôte PG 18.6.
 3. Premier déploiement prod : `git switch --detach <SHA>` non documenté.
@@ -338,3 +341,24 @@ Décisions du porteur :
 | Colonne `Consultation.notes` | Valeurs historiques éventuelles, jamais en production | Effacement ou migration à trancher avec D-8 |
 
 L9 : instantané `87af2b2b…` (`dmp.service.ts` et page DMP modifiés).
+
+## 13. Correctifs du 8 novembre 2026 : incohérences documentaires (§6.5)
+
+| # | Incohérence | Correction |
+|---|---|---|
+| 1 | `PLAN_GO_Preprod_ace0c689.md` : production « encore `ec6b0dc` » | « ni provisionnée ni déployée », avec la mention de la correction |
+| 2 | `verify_restore.sh` et `SUIVI_B5` sur PostgreSQL 16 | Le script exige la version majeure de l'hôte (`PG_MAJOR`, défaut 18) : un dump PG 18 peut contenir une syntaxe refusée par une version antérieure. `SUIVI_B5` : bandeau daté, procédure en PG 18, noms d'archives et chemins par environnement. Les résultats historiques de septembre restent tels quels. |
+| 3 | Premier déploiement : `git switch --detach <SHA>` non documenté | `infra/deploy/README.md` §3 et `SUIVI_B3` phase 1 |
+| 4 | `ci.yml` job `deploy` : `github.sha` à chaque push une fois les gates actifs ; `DEPLOY_MAINTENANCE_READY` déclaratif | Comportement documenté dans le commentaire du job, dans la checklist §6 et dans `SUIVI_B3` phase 5. **La logique n'est pas modifiée** : la PR #228 réécrit ce job ; une garde de qualification du candidat reste une décision du porteur. |
+| 5 | `SECRETS_Production.md` : fournisseurs obligatoires dans le `.env` ; `backup.key` « à la main » | Fournisseurs : « laisser vide (D-14) », secrets en base uniquement ; la bascule FedaPay se fait en une seule saisie `/admin/integrations`. `backup.key` est générée par `--only secrets`, et `reconcile.token` est aligné sur le `.env`. |
+| 6 | `DEPLOIEMENT_Checklist.md` : S1–S7, D1–D18, « VPS Infomaniak », « 24 e2e », hôtes FedaPay sans `process.*` | S1–S10, D1–D21, I2 formulé sur la cible IONOS, 36 e2e déclarés (`metrics.json`), liste exacte des hôtes FedaPay par environnement, « L7 livré » |
+| 7 | `SUIVI_B3` : `verify_deploy.sh` depuis le checkout sans `DIGISANTE_ENV`, `provision.sh`, chemins de l'ancien VPS ; `PLAN_Bascule_FedaPay_Live.md` : archive `digisante_db_<stamp>`, portes du 22/09 | `SUIVI_B3` : bandeau « cible changée » et commandes réalignées (copie root, `DIGISANTE_ENV`, `provision-ionos.sh`, `deploy.sh` de `origin/main` hors du checkout, rollback `DEPLOY_ALLOW_ROLLBACK=1`, D-14) ; §1 et §2 marqués historiques. Plan FedaPay : portes réévaluées au 08/11, S8–S10 ajoutés, trio d'archives réel et `backup:check`. `verify_restore.sh` tourne sur une machine tierce et ne lit pas `DIGISANTE_ENV` : c'est précisé. |
+| 8 | README « Exploitation » : restauration de la base seule | `infra/deploy/README.md` : trio obligatoire, `verify_restore.sh` sur une machine tierce, restauration réelle de la base **et** du magasin, renvoi vers `SUIVI_B5` |
+
+Effets de bord :
+- **L10** : instantané `cb01f260…`, régénéré parce que `ci.yml`, le README de déploiement et `verify_restore.sh` en font partie. Une nouvelle candidate devra rejouer la recette L10, comme toute fusion de code.
+- **L9** : inchangé (`87af2b2b…`).
+- **Conflits possibles avec la PR #228** sur `DEPLOIEMENT_Checklist.md` (compteurs) et sur le README de déploiement. Les retouches ont été placées hors de ses blocs modifiés quand c'était possible.
+
+Contrôles : `test:scripts` 208/208, `bash -n` sur tous les scripts, `preprod:check`, `validation:check`, `validation:campaign:check`, `metrics:check`, plan DOCX validé.
+

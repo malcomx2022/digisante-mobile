@@ -123,6 +123,12 @@ jobs:
   # DEPLOY_MAINTENANCE_READY == 'true' (Settings → Secrets and variables → Actions →
   # Variables). Tant qu'elles sont absentes, main reste verte. Activer seulement dans une
   # fenêtre autorisée, maintenance Nginx vérifiée, VPS prêt et secrets posés.
+  # ⚠️ Tant que les deux variables valent 'true', CHAQUE push sur main au vert déploie
+  # github.sha en production : aucune qualification de candidat (preprod:qualify, registre
+  # L10) n'est vérifiée ici, et DEPLOY_MAINTENANCE_READY est une déclaration humaine, pas un
+  # contrôle de la maintenance Nginx. Les remettre à 'false' en fin de fenêtre et annuler les
+  # jobs en attente. Un déploiement qualifié hors fenêtre passe par la procédure manuelle
+  # (infra/deploy/README.md §3).
   # Secrets requis : VPS_HOST · VPS_USER · VPS_SSH_KEY (clé privée) · VPS_FINGERPRINT (empreinte SHA256 de la clé d’hôte) · VPS_SSH_PORT (optionnel)
   deploy:
     # Les e2e gardent aussi la porte : inutile de déployer une application dont

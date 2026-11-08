@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "sourceSnapshotSha256": "53913a5e3cc873b9031b035d07d2555c51f75cb46b68395d8f46e64de720b0a2",
+  "sourceSnapshotSha256": "cb01f260cef5705aac513d6d6acdb49e75dcac6c08f63e619eeb10e1ad8c2e0e",
   "sources": {
-    ".github/workflows/ci.yml": "b2dd66e634f137fe14200fc302536a4f5510182814f3c6996c3aaa101260526d",
+    ".github/workflows/ci.yml": "a7c8a69a9feae97a214da11ba4a41cbc827f2d517805ca3585be493e4c7def86",
     ".github/workflows/preproduction.yml": "055bf59c9c4b40c4acd8a5ddf53b94b7caafb050f37f754006b077d9d98d384c",
     "apps/api/src/services/daily.smoke.test.ts": "bc31b9d526b21e6de80f3020eeb82ef3303ea3789bf350908096800edc041b35",
     "apps/api/src/services/fedapay-s8.smoke.test.ts": "32a8c834105ebd987761923a24753e1a6304227afbe5071989b20e34c59f576c",
@@ -23,7 +23,7 @@
     "docs/SECRETS_Preproduction_L10.md": "3eb5e78edb1903ad94fffe9b36aec9186872bca3eee565de561081fbd7d8dd1b",
     "docs/preproduction/L10/README.md": "2eeccbcd070065cdd2c9dc52beaf464fe7d555466cdede038882a9ccc4bf6545",
     "ecosystem.config.cjs": "a996b16426977334b0c8c763e32c362c6f2386d117560fb117a71fc632946f49",
-    "infra/deploy/README.md": "a8ea657e167c83b19db0559020e46c8fd517bb417cbbf0fa8a3186a9e9cd9431",
+    "infra/deploy/README.md": "b210a96184320da270924126d09388be77e6f1e13fb4d17f0083f037f94445b4",
     "infra/deploy/crontab.example": "33a47525c6b3694d3b0df4a8128f5b6d30d09587c3bc0ea7cf030dc852755dac",
     "infra/deploy/crontab.preproduction.example": "3328721a08abca7dd92aca8ad5a04125272c48026b0bc19595367626851a7885",
     "infra/deploy/logrotate/digisante": "a362fa41a87444e0d80ba3a13ce44c7cad6035fd3222c989e7c6106e94291aaf",
@@ -43,7 +43,7 @@
     "infra/deploy/scripts/provision-ionos.sh": "8cd1791c345eb618a3e7b5741a2683a9ebc8d37375d05dba76b97ce4c909c334",
     "infra/deploy/scripts/provision.sh": "48aa409a87f1bb2fa7981760bad6f6b84833b1d0ac42e1ba935e4e0013f769df",
     "infra/deploy/scripts/verify_deploy.sh": "b6b4af1c426037dbb2274c9de2f34f2f3da219b516f6cff774b93b17cb293382",
-    "infra/deploy/scripts/verify_restore.sh": "300a3e59ed437f921a7dd969cb582515de8895968c8a5c1170ef7a74c01f908c",
+    "infra/deploy/scripts/verify_restore.sh": "db4f4cb4043970134e111525c584ddac927dc3c9f396f67bbfc174b34e5c9f5f",
     "package.json": "9b69e95774ad07bdbd791cb84f9d136a8d17cea386de605fab6080c750abae4e",
     "scripts/preproduction/check-backup.mjs": "3e0c6a0f7ff4d410baa015fd02d0ba934ba6c0f34f1e04dcb96c7478d56c7901",
     "scripts/preproduction/check-l10-gate.mjs": "2462aed14459f21d20011067064df07199dda54b0e77cc8b0c500cbd33927b44",

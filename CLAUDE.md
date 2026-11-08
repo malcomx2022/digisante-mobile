@@ -530,3 +530,14 @@ Même branche `claude/compassionate-goldberg-5fdh2j` (PR #233). Détails : `docs
   - colonne `Consultation.notes` historique (D-8).
 - **L9** : instantané `87af2b2b…`.
 
+## Reprise — incohérences documentaires (8 novembre 2026)
+
+Même branche. Détails : `docs/REVUE_Restant_Finalisation_2026-11-07.md` §13.
+
+- **Restauration** : `verify_restore.sh` exige la version majeure PostgreSQL de l'hôte (`PG_MAJOR`, défaut 18). Elle se fait toujours avec le trio base + fichiers + manifeste, jamais la base seule (B4).
+- **Premier déploiement** : `git switch --detach <SHA qualifié>` après le clone, sinon le candidat est vu comme un ancêtre de `main`.
+- **Job `deploy` de `ci.yml`** : tant que les deux variables valent `true`, chaque push sur `main` déploie `github.sha` sans qualification. `DEPLOY_MAINTENANCE_READY` est déclaratif. Comportement documenté, logique non modifiée (PR #228).
+- **Secrets fournisseurs** : jamais dans le `.env` des environnements du VPS (D-14), uniquement en base via `/admin/integrations`.
+- **Documents de septembre** : `SUIVI_B3` et `SUIVI_B5` portent un bandeau daté. Leurs commandes suivent la cible IONOS ; leurs résultats historiques ne sont pas réécrits.
+- **L10** : instantané `cb01f260…`.
+

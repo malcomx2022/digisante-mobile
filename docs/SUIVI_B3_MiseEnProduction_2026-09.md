@@ -6,6 +6,17 @@
 > chantier : audit préalable de l'infra, ce que le porteur doit fournir, phases d'exécution,
 > critère de sortie. Cocher au fur et à mesure.
 
+> ⚠️ **Mise à jour du 8 novembre 2026 — cible changée.** Ce suivi a été écrit pour un VPS Infomaniak
+> Ubuntu 22.04 distinct (PostgreSQL 16, Redis, `provision.sh`). La cible est désormais le **VPS IONOS
+> partagé** `srv1.immipro.app` (Ubuntu 26.04.1, PostgreSQL 18.6, Valkey ; dérogation du 13/10/2026).
+> Les §1 et §2 sont **historiques**. Les commandes du §3 ont été réalignées, mais la procédure de
+> référence est `infra/deploy/README.md` (§1 à §3), `docs/DEPLOIEMENT_Checklist.md` et
+> `docs/REVUE_Restant_Finalisation_2026-11-07.md` §6.3 (production pas à pas). Règles à ne jamais
+> enfreindre (B3) : `DIGISANTE_ENV` explicite pour chaque script d'exploitation, scripts root lancés
+> **depuis la copie root** `/usr/local/lib/digisante${SUFFIX}`, jamais depuis le checkout ;
+> `deploy.sh` toujours extrait de `origin/main` **hors** du checkout. `${SUFFIX}` = `-preprod` en
+> préproduction, vide en production. **Jamais `provision.sh`** (il refuse cet OS).
+
 ---
 
 ## 1. Audit préalable de l'infra livrée — passé le 02/09/2026 ✅
@@ -41,48 +52,63 @@ les lots récents. **Aucune dérive trouvée** — tout est prêt à exécuter :
 
 ## 3. Phases d'exécution (checklist de référence : `DEPLOIEMENT_Checklist.md` §0→§8)
 
-### Phase 1 — Provision (≈ 1 h, une seule fois)
-- [ ] `git clone` du dépôt dans `/var/www/digisante-mobile`.
-- [ ] `sudo BASE_DOMAIN=… DB_PASSWORD='…' bash infra/deploy/scripts/provision.sh`
-      (règle aussi le fuseau, `/etc/digisante` 0700, magasin 0700, propriété du clone)
+### Phase 1 — Provision (≈ 1 h, une seule fois par environnement)
+- [ ] Copie root des scripts au SHA qualifié : `sudo DIGISANTE_ENV=<env> bash /root/install_root_scripts${SUFFIX}.sh <SHA_COMPLET>`
+      (README §1.a) → `/usr/local/lib/digisante${SUFFIX}` + `root-scripts.manifest`.
+- [ ] `P=/usr/local/lib/digisante${SUFFIX}/infra/deploy/scripts/provision-ionos.sh` en shell root,
+      `DIGISANTE_ENV=<env>`, secrets par `read -rs` : `bash "$P"` (dry-run relu) → `--apply --only users,dirs,pg,valkey,runtime`
+      → `--only nginx` → `--only cron` (README §1.b). Le fuseau de l'hôte partagé n'est jamais modifié.
+- [ ] Checkout **par le compte de l'environnement** : `sudo -u digisante${SUFFIX} git clone … /var/www/digisante${SUFFIX}`,
+      puis **`git -C /var/www/digisante${SUFFIX} switch --detach <SHA_COMPLET_QUALIFIE>`** (sinon le premier
+      `deploy.sh` voit un ancêtre de `main` et exige `DEPLOY_ALLOW_ROLLBACK=1`).
 
 ### Phase 2 — Secrets sur le VPS
 - [ ] `apps/api/.env` complet (`NODE_ENV=production` ; l'API **refuse de démarrer** si
       incomplet — fail-safe voulu, ne pas contourner).
 - [ ] `apps/web/.env.production` : `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_SOS_NUMBER`
       (+ `NEXT_PUBLIC_FIREBASE_*` dès que B4/Firebase les fournit — inlinés au build).
-- [ ] `/etc/digisante/backup.key` — **copie hors VPS obligatoire**.
-- [ ] `/etc/digisante/reconcile.token` (root 0400) — **source unique** du jeton ; même valeur
-      dans `RECONCILE_TOKEN` du `.env` ; `apps/api/.env` en 0600.
+- [ ] Variables fournisseurs **absentes** du `.env` (D-14) : saisie en base par `/admin/integrations` après le déploiement.
+- [ ] `bash "$P" --apply --only secrets` : génère `/etc/digisante${SUFFIX}/backup.key` (0400) — **copie hors VPS obligatoire** —
+      et aligne `/etc/digisante${SUFFIX}/reconcile.token` sur `RECONCILE_TOKEN` du `.env` ; `apps/api/.env` en 0600.
+- [ ] `bash "$P" --verify` (avec `VALKEY_PASSWORD`) → 0 FAIL.
 
 ### Phase 3 — Premier déploiement + Nginx/SSL
-- [ ] `sudo -u digisante${SUFFIX} DEPLOY_REF=<SHA> DEPLOY_ENVIRONMENT=<env> DEPLOY_MAINTENANCE_READY=1 bash infra/deploy/scripts/deploy.sh` → `pm2 status` : `digisante${SUFFIX}-api` ×2 + `digisante${SUFFIX}-web` online (hôte IONOS partagé, 13/10/2026 : `DIGISANTE_ENV` obligatoire, cf. `infra/deploy/README.md`).
-- [ ] Vhost dédié de l'environnement installé depuis la copie root (`nginx/digisante${SUFFIX}.conf`, domaine et ports déjà fixés), `nginx -t`, Certbot.
+- [ ] Maintenance Nginx posée (README §3, `snippets/digisante${SUFFIX}-maintenance.conf`), `nginx -t`, reload.
+- [ ] `deploy.sh` **de `origin/main` extrait hors du checkout**, sous `digisante${SUFFIX}` (forme exacte : README §3) avec
+      `DEPLOY_REF=<SHA_COMPLET_QUALIFIE> DEPLOY_ENVIRONMENT=<env> DEPLOY_MAINTENANCE_READY=1` ; jamais
+      `bash infra/deploy/scripts/deploy.sh` depuis le checkout → `deploy_history.log` `SUCCESS stage=complete`,
+      `pm2 status` : `digisante${SUFFIX}-api` ×2 + `digisante${SUFFIX}-web` online.
+- [ ] Vhost et certificat déjà posés par `--only nginx` (phase 1), depuis la copie root.
 
 ### Phase 4 — Crons
-- [ ] Fichier `/etc/cron.d/digisante${SUFFIX}` installé depuis la copie root (`sudo install -o root -g root -m 0644 …`), **jamais** `crontab <fichier>` sur l'hôte partagé (aucun secret dedans : `internal_job.sh` lit
-      `/etc/digisante${SUFFIX}/reconcile.token` et journalise `ÉCHEC` si absent ou ≠ 2xx).
-- [ ] Les 5 tâches répondent 200 (vérifié par `verify_deploy.sh`, phase 6).
+- [ ] `/etc/cron.d/digisante${SUFFIX}` posé par `--only cron` (phase 1), depuis la copie root ; **jamais** `crontab <fichier>`
+      sur l'hôte partagé. Aucun secret dedans : `internal_job.sh` lit `/etc/digisante${SUFFIX}/reconcile.token`,
+      envoie la requête sous `digisante${SUFFIX}-jobs` et journalise `ÉCHEC` si absent ou ≠ 2xx.
+- [ ] Tâches : `verify_deploy.sh` sans option ne les déclenche pas ; `--run-jobs` seulement en préproduction déclarée
+      (`VERIFY_JOB_ENVIRONMENT=preproduction`, tâches **mutantes**). En production, constater les exécutions du cron.
 
-### Phase 5 — Armement du déploiement continu
-- [ ] Secrets GitHub : `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` (+ `VPS_SSH_PORT` si besoin).
-- [ ] Variable GitHub : `DEPLOY_ENABLED=true`.
-- [ ] Clé publique dans `~digisante/.ssh/authorized_keys`.
-- [ ] Un push sur `main` déroule CI (`build-and-test` + `e2e`) puis `deploy` — vérifier un run complet.
+### Phase 5 — Armement du déploiement continu (production)
+- [ ] Secrets GitHub : `VPS_HOST`, `VPS_USER=digisante`, `VPS_SSH_KEY`, **`VPS_FINGERPRINT`** (obligatoire) (+ `VPS_SSH_PORT` si besoin).
+- [ ] Clé publique posée `restrict` par `provision-ionos.sh --only users` (domicile réel du compte).
+- [ ] Variables `DEPLOY_ENABLED=true` **et** `DEPLOY_MAINTENANCE_READY=true` **seulement pendant une fenêtre autorisée** :
+      tant qu'elles valent `true`, **chaque push sur `main`** au vert déploie `github.sha` en production, sans
+      qualification de candidat. Les remettre à `false` en fin de fenêtre et annuler les jobs en attente.
 
 ### Phase 6 — Vérifications post-déploiement (checklist §7)
-- [ ] `sudo DOMAIN=<domaine> bash infra/deploy/scripts/verify_deploy.sh` → tous **PASS**
-      (PM2 api ×2 + web, migrations à jour, certificat ≥ 14 j, health/ready, upgrade WS 101,
-      **0 `token=`** dans le log WS après sonde, 5 tâches en 2xx, crontab, fuseau, `.env` 600).
+- [ ] `sudo DIGISANTE_ENV=<env> DOMAIN=<domaine> /usr/local/lib/digisante${SUFFIX}/infra/deploy/scripts/verify_deploy.sh`
+      (copie root, jamais depuis le checkout) → tous **PASS** (PM2 api ×2 + web, migrations à jour, certificat ≥ 14 j,
+      health/ready, upgrade WS 101, **0 `token=`** dans le log WS après sonde, `/etc/cron.d`, copie root, `.env` 600).
 - [ ] `/api/v1/health` → ok · `/api/v1/ready` → db+redis up.
-- [ ] PWA installable ; `grep -c 'token=' /var/log/nginx/digisante-ws.log` → **0**.
-- [ ] Sauvegarde lancée une fois → **deux** fichiers dans `/var/backups/digisante/`.
+- [ ] PWA installable ; `grep -c 'token=' /var/log/nginx/digisante${SUFFIX}-ws.log` → **0**.
+- [ ] Sauvegarde lancée une fois → base + fichiers + manifeste dans `/var/backups/digisante${SUFFIX}/`, puis
+      `pnpm backup:check <manifeste>`.
 - [ ] Trigger d'audit actif (UPDATE sur `audit_logs` → rejet).
 
 ### Rollback (à éprouver une fois pendant la recette)
-- [ ] Version précédente : `tail -n 3 /var/log/digisante/deploy_history.log` (`<avant> -> <après>`).
-- [ ] `sudo -u digisante DEPLOY_REF=<sha avant> bash infra/deploy/scripts/deploy.sh` puis
-      `verify_deploy.sh` → PASS. ⚠️ Si une **migration** a été appliquée entre-temps, le code
+- [ ] Version précédente : `tail -n 3 /var/log/digisante${SUFFIX}/deploy_history.log` (`<avant> -> <après>`).
+- [ ] Même forme que le déploiement (README §3, `deploy.sh` de `origin/main` hors du checkout) avec
+      `DEPLOY_REF=<SHA ancêtre qualifié>` **et `DEPLOY_ALLOW_ROLLBACK=1`**, maintenance posée, puis
+      `verify_deploy.sh` (copie root, `DIGISANTE_ENV`) → PASS. ⚠️ Si une **migration** a été appliquée entre-temps, le code
       ancien peut ne plus correspondre au schéma : restauration de base (SUIVI_B5) requise —
       les migrations sont à sens unique.
 
@@ -97,7 +123,7 @@ l'opérateur exécute, sur son poste puis sur le VPS :
 ssh -o VisualHostKeyVerification=yes root@<VPS_HOST> 'hostnamectl; ip -4 addr show scope global; lsb_release -ds'
 dig +short A <domaine>          # doit renvoyer l'IP du VPS
 # 1→6. Dérouler les phases ci-dessus dans l'ordre, s'arrêter au premier échec,
-#      puis : sudo DOMAIN=<domaine> bash infra/deploy/scripts/verify_deploy.sh
+#      puis : sudo DIGISANTE_ENV=<env> DOMAIN=<domaine> /usr/local/lib/digisante${SUFFIX}/infra/deploy/scripts/verify_deploy.sh
 ```
 
 ## 4. Articulation avec les autres chantiers

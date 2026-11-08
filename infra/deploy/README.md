@@ -317,6 +317,11 @@ sudo -u digisante-preprod bash -c 'cd /var/www/digisante-preprod && git fetch or
 `git switch`. Un checkout antérieur à #209 exécuterait l'ancien script (sans `pm2 delete`) : migrations
 appliquées, puis app API restée sur `dist/server.js`, muette, readiness en échec.
 
+**Premier déploiement d'un environnement** : un `git clone` frais pointe sur la tête de `main`. Si le
+SHA qualifié est plus ancien, `deploy.sh` le voit comme un ancêtre du checkout et exige un retour
+manuel. Placer d'abord le checkout sur le candidat, sous le compte de l'environnement :
+`sudo -u digisante${SUFFIX} git -C /var/www/digisante${SUFFIX} switch --detach <SHA_COMPLET_QUALIFIE>`.
+
 Le déploiement accepte le SHA courant ou un descendant de ce checkout. Une CI ancienne
 terminée après une version plus récente est refusée **avant l'arrêt PM2, le checkout et
 les migrations**. Le verrou `deploy.lock` dans le répertoire de journaux de l'environnement
@@ -486,10 +491,19 @@ sudo DIGISANTE_ENV=preproduction DOMAIN=preprod.digisantemobile.app \
      /usr/local/lib/digisante-preprod/infra/deploy/scripts/verify_deploy.sh   # sondes sans tâches métier
 # prod : sudo DIGISANTE_ENV=production DOMAIN=digisantemobile.app /usr/local/lib/digisante/infra/deploy/scripts/verify_deploy.sh
 
-# Restaurer une sauvegarde chiffrée :
-openssl enc -d -aes-256-cbc -pbkdf2 -pass file:/etc/digisante-preprod/backup.key \
-  -in /var/backups/digisante-preprod/digisante_AAAAMMJJ_HHMMSS.sql.gz.enc \
-  | gunzip | psql digisante_preprod   # préprod (prod : /etc/digisante/backup.key, /var/backups/digisante, psql digisante)
+# Restaurer une sauvegarde : TOUJOURS le trio du même horodatage (base + fichiers + manifeste),
+# jamais la base seule — les pièces DMP et KYC (B4) vivent dans le magasin, hors PostgreSQL ; une
+# base restaurée sans eux référence des fichiers absents. Exercice ou contrôle : machine tierce
+# PostgreSQL 18, outillage vérifié (SHA-256 du manifeste, comptages, fichiers ↔ base, chaîne d'audit) :
+sudo STAMP=AAAAMMJJ_HHMMSS BACKUP_DIR=<copie des archives> KEY_FILE=<copie de backup.key> WORK_DIR=/srv/b5 \
+     PGUSER=postgres bash infra/deploy/scripts/verify_restore.sh      # puis --cleanup (données de santé)
+# Restauration réelle d'un environnement : maintenance posée, PM2 arrêté, base VIERGE, puis les DEUX archives
+# (préprod ; prod : /etc/digisante/backup.key, /var/backups/digisante, base digisante, /var/lib/digisante-files) :
+K=/etc/digisante-preprod/backup.key; B=/var/backups/digisante-preprod; S=AAAAMMJJ_HHMMSS
+openssl enc -d -aes-256-cbc -pbkdf2 -pass "file:$K" -in "$B/digisante_$S.sql.gz.enc" | gunzip | psql digisante_preprod
+openssl enc -d -aes-256-cbc -pbkdf2 -pass "file:$K" -in "$B/digisante_files_$S.tar.gz.enc" | gunzip \
+  | tar -C /var/lib -xf -   # recrée /var/lib/digisante-preprod-files ; propriétaire digisante-preprod, mode 0700
+# Procédure complète, contrôles et critères : docs/SUIVI_B5_Restauration_2026-09.md.
 ```
 
 | Fichier | Rôle |
