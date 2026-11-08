@@ -2,6 +2,7 @@
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { otpIpTag, otpRedisKeys } from '@/modules/auth/auth.otp.js';
+import { resetOtpState } from '@/test/otp-fixture.js';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 const PHONES = ['+2290196500001', '+2290196500002'];
@@ -21,7 +22,7 @@ describe.skipIf(!HAS_INFRA)('Admin RBAC (intégration)', () => {
 
   const cleanup = async () => {
     await app.prisma.user.deleteMany({ where: { phone: { in: PHONES } } }); // cascade adminProfile + supportNotes
-    await app.redis.del(...PHONES.flatMap((p) => [`otp:lock:${p}`, `otp:attempts:${p}`, `otp:send:${p}`]));
+    await resetOtpState(app, ...PHONES);
   };
 
   beforeAll(async () => {

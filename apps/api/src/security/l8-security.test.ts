@@ -9,6 +9,7 @@ import { env, envSchema } from '@/lib/env.js';
 import { hashOtp } from '@/modules/auth/auth.otp.js';
 import { sendOtp } from '@/services/twilio.js';
 import { REGISTER_TERMS } from '@/test/terms-fixture.js';
+import { resetOtpState } from '@/test/otp-fixture.js';
 
 vi.mock('@/services/twilio.js', () => ({ sendOtp: vi.fn(async () => ({ delivered: true, stub: false })) }));
 
@@ -19,13 +20,14 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.REDIS_URL)('L8 — sé
   const originalTtl = env.JWT_REFRESH_TTL;
   const originalServiceToken = env.RECONCILE_TOKEN;
   const input = (phone: string) => ({ phone, role: 'PATIENT', lang: 'FR', firstName: 'Synthétique', lastName: 'L8' });
-  const keys = () => phones.flatMap((p) => [`otp:${p}`, `otp:send:${p}`, `otp:lock:${p}`, `otp:attempts:${p}`]);
+  const keys = () => phones.flatMap((p) => [`otp:${p}`, `otp:send:${p}`]);
+  const resetOtp = (...ps: string[]) => resetOtpState(app, ...ps);
   beforeAll(async () => {
     env.RECONCILE_TOKEN = originalServiceToken ?? 'l8-synthetic-service-token';
     const { buildServer } = await import('@/server.js');
     app = await buildServer(); await app.ready();
     await app.prisma.user.deleteMany({ where: { phone: { in: phones } } });
-    await app.redis.del(...keys());
+    await app.redis.del(...keys()); await resetOtp(...phones);
   });
   afterEach(() => { env.NODE_ENV = originalMode; env.JWT_REFRESH_TTL = originalTtl; vi.restoreAllMocks(); });
   afterAll(async () => {
@@ -71,7 +73,7 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.REDIS_URL)('L8 — sé
     const next = await request(phones[2]); expect((await verify(phones[2], next.json().devCode)).statusCode).toBe(200);
   });
   it('vérification inconnue/expirée/invalide : même erreur et verrou après cinq essais sans code stocké', async () => {
-    await app.redis.del(`otp:${phones[1]}`, `otp:attempts:${phones[1]}`);
+    await app.redis.del(`otp:${phones[1]}`); await resetOtp(phones[1]);
     const a = await verify(phones[1], '123456'); const b = await verify(phones[0], 'notnum');
     expect(a.statusCode).toBe(401); expect(b.statusCode).toBe(422); // validation de forme indépendante de l'existence
     const known = await verify(phones[0], '123456'); expect(known.json()).toEqual(a.json());
@@ -80,7 +82,7 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.REDIS_URL)('L8 — sé
     expect((await request(phones[1])).statusCode).toBe(429);
   });
   it('quota de renvoi inconnu identique : sixième envoi refusé sans appel Twilio', async () => {
-    await app.redis.del(`otp:lock:${phones[3]}`, `otp:send:${phones[3]}`); vi.mocked(sendOtp).mockClear();
+    await resetOtp(phones[3]); vi.mocked(sendOtp).mockClear();
     for (let i = 0; i < 5; i++) expect((await request(phones[3])).statusCode).toBe(200);
     expect((await request(phones[3])).statusCode).toBe(429); expect(sendOtp).not.toHaveBeenCalled();
   });
@@ -95,7 +97,7 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.REDIS_URL)('L8 — sé
     expect(rotated.statusCode).toBe(200); expect(rotated.cookies[0].maxAge).toBe(7200);
   });
   it('cinq validations simultanées du même OTP : une seule session et code consommé', async () => {
-    await app.redis.del(`otp:send:${phones[2]}`, `otp:attempts:${phones[2]}`);
+    await resetOtp(phones[2]);
     const req = await request(phones[2]);
     const results = await Promise.all(Array.from({ length: 5 }, () => verify(phones[2], req.json().devCode)));
     expect(results.filter((r) => r.statusCode === 200)).toHaveLength(1);
@@ -103,7 +105,7 @@ describe.skipIf(!process.env.DATABASE_URL || !process.env.REDIS_URL)('L8 — sé
     expect(await app.redis.get(`otp:${phones[2]}`)).toBeNull();
   });
   it('renvoi entre lecture et consommation : ancien code refusé, nouveau code non effacé', async () => {
-    await app.redis.del(`otp:send:${phones[2]}`, `otp:attempts:${phones[2]}`);
+    await resetOtp(phones[2]);
     const req = await request(phones[2]); const nextCode = '456789';
     const get = app.redis.get.bind(app.redis);
     const interception = vi.spyOn(app.redis, 'get').mockImplementation(async (key) => {

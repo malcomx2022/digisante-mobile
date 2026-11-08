@@ -4,6 +4,7 @@
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { REGISTER_TERMS } from '@/test/terms-fixture.js';
+import { resetOtpState } from '@/test/otp-fixture.js';
 
 const HAS_INFRA = Boolean(process.env.DATABASE_URL && process.env.REDIS_URL);
 const PHONE = '+2290196000777';
@@ -14,8 +15,6 @@ const PHONE_ADMIN = '+2290196000780';
 const PHONE_LOGOUT = '+2290196000781';
 const PHONE_SUSPEND = '+2290196000782';
 const ALL_PHONES = [PHONE, PHONE_DOC, PHONE_DOC_KO, PHONE_ADMIN, PHONE_LOGOUT, PHONE_SUSPEND];
-const otpKeysFor = (p: string) => [`otp:${p}`, `otp:attempts:${p}`, `otp:lock:${p}`];
-const allOtpKeys = ALL_PHONES.flatMap(otpKeysFor);
 
 describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
   let app: FastifyInstance;
@@ -26,13 +25,13 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
     app = await buildServer();
     await app.ready();
     await app.prisma.user.deleteMany({ where: { phone: { in: ALL_PHONES } } });
-    await app.redis.del(...allOtpKeys);
+    await resetOtpState(app, ...ALL_PHONES);
   });
 
   afterAll(async () => {
     if (!app) return;
     await app.prisma.user.deleteMany({ where: { phone: { in: ALL_PHONES } } });
-    await app.redis.del(...allOtpKeys);
+    await resetOtpState(app, ...ALL_PHONES);
     await app.close();
   });
 
@@ -237,7 +236,7 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
       payload: { phone: PHONE_SUSPEND, code: req.json().devCode },
     });
     expect(reVerify.statusCode).toBe(401);
-    await app.redis.del(...otpKeysFor(PHONE_SUSPEND));
+    await resetOtpState(app, PHONE_SUSPEND);
   });
 
   it('rejette /me sans token (401)', async () => {
@@ -279,11 +278,7 @@ describe.skipIf(!HAS_INFRA)('Auth (intégration)', () => {
     app.inject({ method: 'POST', url: '/api/v1/auth/otp/verify', payload: { phone: PHONE, code }, remoteAddress: ip });
   const askCode = (ip: string) =>
     app.inject({ method: 'POST', url: '/api/v1/auth/otp/request', payload: { phone: PHONE }, remoteAddress: ip });
-  const resetOtp = async (phone: string) => {
-    const { purgeOtpLocks } = await import('@/modules/auth/auth.service.js');
-    await purgeOtpLocks(app, phone);
-    await app.redis.del(`otp:${phone}`);
-  };
+  const resetOtp = (phone: string) => resetOtpState(app, phone);
 
   it("verrou par IP : 5 échecs d'un attaquant ne privent pas la victime de son code", async () => {
     await resetOtp(PHONE);
