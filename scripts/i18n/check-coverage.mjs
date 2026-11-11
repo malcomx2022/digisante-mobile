@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // ─────────────────────────────────────────────────────────────
 // Couverture i18n — compare chaque locale à FR (source de vérité) et liste les
-// clés manquantes. Marque les clés CRITIQUES (sos./labo./payments.) qui exigent
+// clés manquantes. Marque les clés CRITIQUES (CRITICAL_PREFIXES : urgence, labo, paiements) qui exigent
 // une DOUBLE VALIDATION (CLAUDE.md §6).
 //
 //   node scripts/i18n/check-coverage.mjs            → rapport
@@ -25,7 +25,29 @@ const LOCALES = ['fr', 'en', 'fon', 'yor'];
 // API `translations` qui était son unique consommateur. Une erreur de traduction y est
 // potentiellement dangereuse (urgence, résultats, argent) → double validation, CLAUDE.md §6.
 // Ne pas dupliquer cette liste ailleurs : deux définitions finissent par diverger.
-export const CRITICAL_PREFIXES = ['sos.', 'labo.', 'payments.'];
+//
+// « Paiements » (11/11/2026, décision du porteur) : aucune clé ne porte le préfixe
+// `payments.` (réservé, conservé), les textes d'argent vivent sous d'autres préfixes.
+// Sont critiques les textes d'argent vus par le patient, le proche diaspora et le
+// médecin payeur : payer (RDV, ordonnance), état d'un paiement, portefeuille,
+// envoi d'argent à un proche. Hors périmètre : écrans opérateurs admin/pro
+// (`finance.`, `finance_ops.`, `revenue.`). Un préfixe de clé (`appt.pay`) couvre
+// toutes ses variantes (`appt.pay_error`) : toute nouvelle clé d'argent doit en
+// reprendre un, ou être ajoutée ici dans le même lot.
+export const CRITICAL_PREFIXES = [
+  'sos.',
+  'labo.',
+  'payments.',
+  'appt.pay',
+  'prescriptions.pay',
+  'prescriptions.paid',
+  'subscriptions.payment_',
+  'wallet.',
+  'beneficiaries.send_',
+  'beneficiaries.sent',
+  'beneficiaries.amount_',
+  'beneficiaries.no_account',
+];
 
 export const isCritical = (key) => CRITICAL_PREFIXES.some((p) => key.startsWith(p));
 
@@ -59,7 +81,7 @@ function main() {
   // --require-complete=en[,…] : échec si ces langues ont une clé manquante (release:check).
   const requireComplete = (args.find((a) => a.startsWith('--require-complete=')) ?? '=')
     .split('=')[1].split(',').filter(Boolean);
-  // --critical-only-strict : échec si une clé CRITIQUE (sos./labo./payments.) manque.
+  // --critical-only-strict : échec si une clé CRITIQUE (CRITICAL_PREFIXES) manque.
   const criticalStrict = args.includes('--critical-only-strict');
   if (requireComplete.some((locale) => !LOCALES.includes(locale))) throw new Error('Langue inconnue dans --require-complete');
   const failures = [];
@@ -71,7 +93,7 @@ function main() {
   const frKeys = Object.keys(data.fr);
   const criticalCount = frKeys.filter(isCritical).length;
 
-  console.log(`\ni18n — référence FR : ${frKeys.length} clés (dont ${criticalCount} critiques sos./labo./payments.)\n`);
+  console.log(`\ni18n — référence FR : ${frKeys.length} clés (dont ${criticalCount} critiques : urgence, laboratoire, paiements)\n`);
   console.log('Locale   Traduites  Manquantes  dont critiques  Couverture');
   console.log('───────  ─────────  ──────────  ──────────────  ─────────');
 

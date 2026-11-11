@@ -52,8 +52,10 @@ test('priorités disjointes : critiques présents inclus, médical avant parcour
     const byKey = new Map(rows.map((row) => [row.key, row]));
     for (const row of rows.filter((row) => isCritical(row.key))) assert.equal(row.priority, 'P0');
     assert.equal(byKey.get('sos.sent').priority, 'P0');
+    // Textes d'argent critiques depuis le 11/11/2026 (envoi d'argent à un proche).
+    assert.equal(byKey.get('beneficiaries.send_confirm').priority, 'P0');
     for (const key of ['triage.disclaimer', 'prescription.status.EXPIRED', 'posology.form.INHALER', 'offline.sos_active', 'vault.network_only']) assert.equal(byKey.get(key).priority, 'P1');
-    for (const key of ['subscriptions.rights', 'beneficiaries.send_confirm', 'referrals.no_dmp_note', 'teleconsult.start']) assert.equal(byKey.get(key).priority, 'P2');
+    for (const key of ['subscriptions.rights', 'beneficiaries.add', 'referrals.no_dmp_note', 'teleconsult.start']) assert.equal(byKey.get(key).priority, 'P2');
     assert.equal(byKey.get('common.close').priority, 'P3');
     assert.equal(Object.values(review.stats.locales[locale].priorities).reduce((total, group) => total + group.total, 0), rows.length);
     assert.equal(Object.values(review.stats.locales[locale].priorities).reduce((total, group) => total + group.missing, 0), review.stats.locales[locale].missing);
