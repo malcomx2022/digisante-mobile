@@ -54,6 +54,8 @@ Les namespaces **`sos.*`, `labo.*`** et les **textes de paiement** (`CRITICAL_PR
   `OPEN` dans la campagne L9 du 14/10/2026). Import avec `--overwrite`.
 - `docs/i18n/payments-critique/` : 32 textes d'argent (14 absents, 18 jamais validés). Le préfixe `payments.` ne
   couvrait aucune clé ; depuis le 11/11/2026, `CRITICAL_PREFIXES` liste les vrais préfixes de paiement.
+- `docs/i18n/non-critique/` : les 251 textes **non critiques** absents par langue, avec un brouillon NLLB à relire
+  (une seule relecture native suffit). Les brouillons machine qui bouclaient ont été retirés.
 
 ## Procédure pour un traducteur / relecteur
 
