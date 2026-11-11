@@ -456,7 +456,14 @@ test('fuseau : la ligne cron gardée exécute la tâche seulement à l’horaire
     // cron : « \% » devient « % », variables du fichier dans l'environnement, SHELL=/bin/bash.
     const cmd = line.cmd.replaceAll('\\%', '%').replace(/ >> \S+ 2>&1$/, '');
     const marker = join(dir, 'ran');
-    const run = (now) => spawnSync('/bin/bash', ['-c', cmd], { encoding: 'utf8', env: { PATH: `${bin}:${process.env.PATH}`, LOCAL_TZ: 'Africa/Porto-Novo', J: `touch ${marker} #`, FAKE_PN: now } });
+    // Tâche simulée : un script qui pose le marqueur et ignore la route reçue, comme
+    // internal_job.sh reçoit `/api/v1/...`. Ne pas revenir à `J="touch <marqueur> #"` :
+    // après expansion, `#` n'est plus un commentaire et `touch` créait un fichier `#`
+    // dans le répertoire courant (la racine du dépôt).
+    const job = join(bin, 'job');
+    writeFileSync(job, `#!/bin/bash\ntouch "$MARKER"\n`);
+    chmodSync(job, 0o755);
+    const run = (now) => spawnSync('/bin/bash', ['-c', cmd], { cwd: dir, encoding: 'utf8', env: { PATH: `${bin}:${process.env.PATH}`, LOCAL_TZ: 'Africa/Porto-Novo', J: job, MARKER: marker, FAKE_PN: now } });
     run('0530'); assert.ok(!existsSync(marker), 'tâche lancée hors horaire');
     run('0631'); assert.ok(!existsSync(marker), 'tâche lancée à une autre minute');
     run('0630'); assert.ok(existsSync(marker), 'tâche non lancée à 06:30 Porto-Novo');
