@@ -48,6 +48,11 @@ pnpm i18n:draft -- --locale=fon,yor --dry   # essai à blanc (sans charger le mo
 
 Les namespaces **`sos.*`, `labo.*`, `payments.*`** touchent l'urgence, les résultats de laboratoire et les paiements. Toute traduction de ces clés exige une **double validation** (traducteur natif + relecture, idéalement rôle CSO). Elles sont marquées `CRITIQUE` dans les CSV.
 
+⚠️ `pnpm i18n:check` mesure la **présence** d'un texte, pas sa validation. Kits de relecture prêts :
+- `docs/i18n/sos-critique/` : 8 clés `sos.*` **absentes** en FON/YOR ;
+- `docs/i18n/labo-critique/` : 31 clés `labo.*` **présentes mais jamais validées** (premier jet machine, statut
+  `OPEN` dans la campagne L9 du 14/10/2026). Import avec `--overwrite`.
+
 ## Procédure pour un traducteur / relecteur
 
 1. (Option) Générer un 1er jet : `HF_TOKEN=… pnpm i18n:draft -- --locale=fon` → `docs/i18n/draft.fon.csv`.
