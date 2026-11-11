@@ -129,7 +129,23 @@ jobs:
         env:
           E2E_API_PROXY: http://127.0.0.1:3011
           NEXT_PUBLIC_API_URL: ""
-      - run: pnpm exec playwright install --with-deps chromium
+      # Navigateur et dépendances système en deux étapes (11/11/2026) : le binaire vient
+      # du CDN Playwright, les paquets système d'apt. Le 11/11, apt n'a pas pu résoudre
+      # les dépôts Ubuntu pendant plus d'une heure (« Temporary failure resolving ») ;
+      # `--with-deps` faisait alors échouer le job avant tout test, alors que l'image du
+      # runner fournissait déjà les bibliothèques et que seules des polices manquaient.
+      # Le job ne passe au vert que si Chromium se lance réellement : une dépendance
+      # vraiment absente fait toujours échouer l'étape, aucun test n'est sauté.
+      - run: pnpm exec playwright install chromium
+      - name: Dépendances système de Chromium (apt, 2 tentatives, lancement vérifié)
+        run: |
+          for attempt in 1 2; do
+            if pnpm exec playwright install-deps chromium; then exit 0; fi
+            echo "install-deps : tentative ${attempt} échouée"
+            [ "$attempt" -lt 2 ] && sleep 30
+          done
+          echo "::warning title=Dépendances Chromium::apt indisponible ; poursuite avec les bibliothèques de l'image du runner, sous réserve que Chromium se lance."
+          node -e "require('@playwright/test').chromium.launch().then((b) => b.close()).catch((e) => { console.error('Chromium ne se lance pas sans les dépendances apt :', e.message); process.exit(1); })"
       - run: pnpm test:e2e
       - name: Rapport Playwright (en cas d'échec)
         if: failure()
