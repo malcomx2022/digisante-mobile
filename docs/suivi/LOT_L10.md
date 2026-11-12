@@ -234,3 +234,8 @@ Elle est fusionnée sur `main` `8ed7e540d2c5fe8724b7d9628ab1e1f4169368f8`, CI `m
   - verrous OTP par couple numéro + IP.
 - Maintenance préprod maintenue ; aucune levée sans décision explicite du porteur.
 
+- **Constat sur l'hôte du 12/11/2026** (lecture seule, `REVUE_Restant_Finalisation_2026-11-07.md` §14) : la production
+  est déployée en `ec6b0dc` sous maintenance (copie root, vhost, PM2, crons, sauvegardes), contrairement au §6.1 de la
+  revue du 07/11. Le déploiement de `8ed7e540` en préproduction exige donc d'aligner aussi la copie root de la
+  production (`PLAN_Deploiement_Preprod_2026-11-08.md`, P7 et point 4 b, PR #243). Préparatifs P1 (fichier ACL Valkey)
+  et P2 (`pg_hba`, sans objet) constatés conformes, P4 présent ; P3 et P6 restent au porteur.

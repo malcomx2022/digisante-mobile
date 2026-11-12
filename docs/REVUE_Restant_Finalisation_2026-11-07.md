@@ -18,7 +18,7 @@ Ce document est un **état des lieux**, pas une preuve de recette ni un GO. Il n
 | Sécurité / conformité | Invariants contrôlés conformes ; **cadre APDP/RGPD absent** (CGU, confidentialité, effacement, registre, conservation) (§4) |
 | L9 humain | Registre de preuves **vide** : 232 clés FON/YOR manquantes par langue dont 6 `sos.*`, 0 contreseing clinique [C] |
 | L10 recettes | **15 PASS / 85 ouverts** sur `ace0c689` (`preprod:gate`) [C] |
-| L11 GO production | 9 critères sur 9 non attestés [D] ; production **non provisionnée** (§6) |
+| L11 GO production | 9 critères sur 9 non attestés [D] ; production **provisionnée et déployée en `ec6b0dc` sous maintenance, jamais ouverte** (§6.1, constat du 12/11/2026, §14) |
 
 Lots : L0–L4 livrés ; L5–L8 code livré, gates externes ouverts ; L9 technique livré, humain ouvert ; L10 outillage + préprod déployée, recette 15/100 ; L11 ouvert.
 
@@ -118,7 +118,7 @@ Locuteurs natifs FON/YOR · médecin signataire + référent PEV · iPhone · SI
 
 ### 6.1 État constaté [D]
 - **Préproduction** : provisionnée 14–15/10, déployée `ec6b0dc → ace0c689` le 21/10 (34 migrations, PM2 api×2 + web, crons, sauvegarde DB+fichiers contrôlée, chaîne d'audit intègre), **maintenance posée**. D-13 (syslog accepté en préprod) et D-14 (secrets fournisseurs retirés du `.env`) closes.
-- **Production** : **non provisionnée, non déployée** — aucune preuve de checkout, PM2, certificat ou base. La mention « production encore `ec6b0dc` » de `PLAN_GO_Preprod_ace0c689.md` §1 est à corriger. Job `deploy` de `ci.yml` désactivé.
+- **Production** : ~~non provisionnée, non déployée — aucune preuve de checkout, PM2, certificat ou base~~. **Inexact, corrigé le 12/11/2026 [C, §14]** : la production est provisionnée et tourne en `ec6b0dc` depuis le 15/10, maintenance posée, jamais ouverte ; la mention « production encore `ec6b0dc` » de `PLAN_GO_Preprod_ace0c689.md` §1 était juste. Job `deploy` de `ci.yml` désactivé (aucune variable de dépôt `DEPLOY_ENABLED`).
 
 ### 6.2 Préproduction — reste à faire
 1. Rejouer les cas L10 ouverts (§5.2) puis `pnpm preprod:gate --expected-sha ace0c689…` sur copie, 0 refus.
@@ -128,6 +128,9 @@ Locuteurs natifs FON/YOR · médecin signataire + référent PEV · iPhone · SI
 5. Pentest externe sur la préprod synthétique ; maintenance maintenue jusqu'au PV signé.
 
 ### 6.3 Production — checklist complète (`DIGISANTE_ENV=production`, ports 3200/3201, base `digisante`, Valkey /6)
+
+> **Note du 12/11/2026 (§14)** : cette checklist suppose un hôte vierge. Les points 1 à 12 ont déjà été exécutés le 15/10 pour `ec6b0dc`, avant le rôle d'exécution PostgreSQL, l'utilisateur ACL Valkey et les zones Nginx par environnement (PR #228). La remise à niveau de la production se fait donc comme celle de la préproduction (`docs/suivi/PLAN_Deploiement_Preprod_2026-11-08.md`) : copie root, `--only pg,valkey,nginx,cron`, `.env` sous `digisante_app` et utilisateur ACL `digisante`, puis `deploy.sh`. Les points 13 à 16 restent entièrement à faire.
+
 0. **Contrôles en lecture seule sur l'hôte** (README §1.b) : index Valkey /6 libre + `noeviction` + persistance + version (≥ 9.1 pour ACL `db=`) ; `pg_hba` `host digisante digisante 127.0.0.1/32 scram-sha-256` (+ `::1`) ajouté à la main avant toute règle `trust` puis `pg_reload_conf()` ; `sshusers` sans sudoers ; DNS A sans AAAA étranger ; hooks Certbot relus ; `default_server` Nginx explicite ; ports 3200/3201 libres ; fuseau ; RAM/disque/`max_connections` ; sauvegarde de `/etc/nginx`, `/etc/cron.d`, `/etc/logrotate.d`, `pg_dumpall --roles-only`.
 1. Miroir `/var/lib/digisante/ops.git` + `install_root_scripts.sh <SHA>` → `/usr/local/lib/digisante` (**même SHA que la copie root préprod**, sinon fichiers Nginx communs refusés).
 2. `provision-ionos.sh` en dry-run (`VALKEY_PASSWORD` par `read -rs`), relire le plan.
@@ -153,7 +156,7 @@ I2 (hôte partagé) · rôle PG non propriétaire de l'audit · isolement Valkey
 
 > **Corrigées le 8 novembre 2026** : voir §13.
 
-1. `PLAN_GO_Preprod_ace0c689.md` §1 : production « encore `ec6b0dc` » → « non déployée ».
+1. ~~`PLAN_GO_Preprod_ace0c689.md` §1 : production « encore `ec6b0dc` » → « non déployée ».~~ Faux constat : la mention d'origine était juste (§14).
 2. `verify_restore.sh:57` et `SUIVI_B5` : PG 16 vs hôte PG 18.6.
 3. Premier déploiement prod : `git switch --detach <SHA>` non documenté.
 4. `ci.yml` job `deploy` : déploie `github.sha` à chaque push sur `main` une fois les gates actifs, sans qualification de candidat ; `DEPLOY_MAINTENANCE_READY` déclaratif.
@@ -346,7 +349,7 @@ L9 : instantané `87af2b2b…` (`dmp.service.ts` et page DMP modifiés).
 
 | # | Incohérence | Correction |
 |---|---|---|
-| 1 | `PLAN_GO_Preprod_ace0c689.md` : production « encore `ec6b0dc` » | « ni provisionnée ni déployée », avec la mention de la correction |
+| 1 | `PLAN_GO_Preprod_ace0c689.md` : production « encore `ec6b0dc` » | « ni provisionnée ni déployée », avec la mention de la correction. **Annulé le 12/11/2026** : la mention d'origine était juste, `PLAN_GO_Preprod_ace0c689.md` est rétabli (§14). |
 | 2 | `verify_restore.sh` et `SUIVI_B5` sur PostgreSQL 16 | Le script exige la version majeure de l'hôte (`PG_MAJOR`, défaut 18) : un dump PG 18 peut contenir une syntaxe refusée par une version antérieure. `SUIVI_B5` : bandeau daté, procédure en PG 18, noms d'archives et chemins par environnement. Les résultats historiques de septembre restent tels quels. |
 | 3 | Premier déploiement : `git switch --detach <SHA>` non documenté | `infra/deploy/README.md` §3 et `SUIVI_B3` phase 1 |
 | 4 | `ci.yml` job `deploy` : `github.sha` à chaque push une fois les gates actifs ; `DEPLOY_MAINTENANCE_READY` déclaratif | Comportement documenté dans le commentaire du job, dans la checklist §6 et dans `SUIVI_B3` phase 5. **La logique n'est pas modifiée** : la PR #228 réécrit ce job ; une garde de qualification du candidat reste une décision du porteur. |
@@ -362,3 +365,26 @@ Effets de bord :
 
 Contrôles : `test:scripts` 208/208, `bash -n` sur tous les scripts, `preprod:check`, `validation:check`, `validation:campaign:check`, `metrics:check`, plan DOCX validé.
 
+---
+
+## 14. Rectification du 12 novembre 2026 : la production est déployée sur l'hôte
+
+Le §6.1 reposait sur les documents [D] : il concluait à l'absence de checkout, de PM2, de certificat et de base. Contrôle **en lecture seule sur l'hôte** le 12/11/2026 [C] :
+
+| Élément | Constat |
+|---|---|
+| Checkout | `/var/www/digisante` détaché en `ec6b0dc`, `.env` de l'API daté du 15/10 20:16 (`NODE_ENV=production`, base `digisante` sous le rôle **propriétaire** `digisante` : antérieur au rôle d'exécution de la PR #228) |
+| PM2 | `digisante-api` ×2 et `digisante-web` en ligne, ports 3200/3201 tenus par `digisante` ; service `pm2-digisante` activé ; `/api/v1/ready` : `db: up, redis: up` |
+| Comptes et fichiers | `digisante` et `digisante-jobs` ; `/etc/digisante` (`alert.conf`, `backup.key`, `reconcile.token`, `pg_app_password`) ; magasin `/var/lib/digisante-files` vide |
+| Copie root | `/usr/local/lib/digisante`, `sha=ec6b0dc…`, `environment=production`, installée le 15/10 19:35 ; miroir `/var/lib/digisante/ops.git` |
+| Nginx et TLS | vhost `digisante` actif depuis le 15/10 19:43, `snippets/digisante-maintenance.conf` posé ; certificat `digisantemobile.app` + `www`, valable jusqu'au 13/01/2027 |
+| Crons | `/etc/cron.d/digisante` depuis le 15/10 19:43 ; sauvegarde nocturne effective (trio du 12/11 à 02:00 dans `/var/backups/digisante`) |
+| Journal | `/var/log/digisante/deploy_history.log` vide : le déploiement du 15/10 n'y a laissé aucune trace |
+
+Conséquences :
+- la correction n° 1 du §13 est annulée et `PLAN_GO_Preprod_ace0c689.md` est rétabli ;
+- le vhost de production étant actif, la mise à jour du fichier Nginx commun par la préproduction exige d'aligner les deux copies root (`PLAN_Deploiement_Preprod_2026-11-08.md`, P7 et point 4 b) ;
+- la production tourne sous le rôle PostgreSQL propriétaire et l'utilisateur Valkey `default` : à remettre à niveau avant tout GO (§6.3, note) ;
+- aucune ouverture n'est intervenue (maintenance posée) ; le statut de cette production (conservée puis remise à niveau, ou retirée par `--rollback`) reste une **décision du porteur**.
+
+Leçon, déjà notée au registre L10 : un état d'hôte se prouve par un contrôle daté sur l'hôte, pas par la lecture des fiches.
