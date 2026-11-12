@@ -57,6 +57,16 @@
 | P4 | Porteur | Secret GitHub `PREPROD_DB_MIGRATION_URL` = `postgresql://digisante_preprod:<PG_APP_PASSWORD>@127.0.0.1:5432/digisante_preprod?schema=public` (le propriétaire existant ; son mot de passe ne change pas). | Secret présent (Settings → Secrets) |
 | P5 | Opérateur | Capacité : mémoire, swap et disque libres (le build passe pendant le déploiement, à côté d'ImmiPro et de BeninLink). | Relevé `free -m`, `df -h` |
 | P6 | Porteur | Fenêtre convenue avec les autres applications de l'hôte ; IP de recette connue. | — |
+| P7 | Opérateur | Copie root de la **production** à aligner sur le SHA candidat pendant la fenêtre (§3, point 4 b). Elle est installée sur l'hôte (`/usr/local/lib/digisante`, `environment=production`, `ec6b0dc…`) et le vhost `digisante` est actif : sans cet alignement, `--apply --only nginx` refuse de mettre à jour le fichier commun `conf.d/digisante-rate-limit.conf`. | `root-scripts.manifest` de la production : SHA candidat |
+
+### 2.1 Constats sur l'hôte (12 novembre 2026, lecture seule)
+
+| # | Constat | Suite |
+|---|---|---|
+| P1 | ✅ `aclfile /etc/valkey/users.acl` déclaré dans `valkey.conf` le 08/11 (copie `valkey.conf.avant-acl-20261108` conservée), Valkey redémarré le 08/11 à 06:38 ; `CONFIG GET aclfile` répond `/etc/valkey/users.acl`. Seul l'utilisateur `default` existe : `digisante-preprod` sera créé par `--only valkey`. Valkey **9.0.4** : sans effet sur la préproduction, mais la checklist production exige ≥ 9.1 pour les ACL `db=`. | Aucune avant la fenêtre |
+| P2 | ✅ Sans objet : `pg_hba.conf` (PostgreSQL 18.6, `scram-sha-256`) ne nomme aucun rôle (`host all all 127.0.0.1/32` et `::1/128` en `scram-sha-256`), aucune règle `trust` en `host`, aucune erreur de chargement. Le rôle `digisante_preprod_app` n'existe pas encore (créé par `--only pg`). | Aucune |
+| P5 | ⚠️ Disque 86 Go libres ; RAM 3,8 Go dont **1,77 Go disponibles** ; swap **2,3 Go utilisés sur 4 Go** (surtout ClamAV d'ImmiPro et MySQL de BeninLink) ; 2 vCPU, charge 0,5 ; aucun OOM sur 30 jours. `deploy.sh` ne borne pas la mémoire du build Next 15. | Pendant la fenêtre, arrêter la production DigiSanté sous maintenance (`sudo -u digisante pm2 stop all`, environ 200 Mo), puis la relancer après le point 8 |
+| — | La **production n'est pas absente** de l'hôte, contrairement à ce que supposait ce plan : checkout `/var/www/digisante` détaché en `ec6b0dc`, PM2 `digisante-api` ×2 et `digisante-web` en ligne (ports 3200/3201 tenus par `digisante`), `/etc/cron.d/digisante` actif depuis le 15/10, maintenance `snippets/digisante-maintenance.conf` posée, copie root `ec6b0dc`. `/var/log/digisante*/deploy_history.log` sont vides. | P7 ; statut de cette production à trancher par le porteur (hors de ce plan) |
 
 ## 3. Fenêtre de déploiement (ordre strict)
 
@@ -73,6 +83,27 @@
    relire `install_root_scripts.sh` de `8ed7e540d2c5fe8724b7d9628ab1e1f4169368f8`, puis
    `sudo DIGISANTE_ENV=preproduction bash /root/install_root_scripts-preprod.sh 8ed7e540d2c5fe8724b7d9628ab1e1f4169368f8`.
    Contrôler que `root-scripts.manifest` porte bien `environment=preproduction` et ce SHA.
+
+   **4 b. Copie root de la production au même SHA (P7).** Même procédure, avec le miroir de la production
+   (`/var/lib/digisante/ops.git`, sans `ops.env` : source HTTPS par défaut, dépôt public) :
+   ```bash
+   SHA=8ed7e540d2c5fe8724b7d9628ab1e1f4169368f8
+   sudo git --git-dir=/var/lib/digisante/ops.git fetch --no-tags \
+        https://github.com/malcomx2022/digisante-mobile.git '+refs/heads/main:refs/remotes/origin/main'
+   sudo sh -c "umask 077; git --git-dir=/var/lib/digisante/ops.git show $SHA:infra/deploy/scripts/install_root_scripts.sh > /root/install_root_scripts.sh"
+   sudo less /root/install_root_scripts.sh
+   sudo DIGISANTE_ENV=production bash /root/install_root_scripts.sh "$SHA"
+   sudo head -2 /usr/local/lib/digisante/root-scripts.manifest   # sha=8ed7e540…, environment=production
+   ```
+   Seuls les fichiers de `/usr/local/lib/digisante` changent : ni la crontab, ni `/etc/cron.d/digisante`, ni le code, PM2,
+   la base ou Nginx de la production. Changements constatés entre `ec6b0dc` et `8ed7e540` dans les fichiers lancés par le
+   cron de production :
+   - `internal_job.sh`, `fedapay_reconcile.sh`, `healthwatch.sh` : contrôle `port_owned_by` (ports 3200/3201 tenus par
+     `digisante`, vérifié le 12/11) ;
+   - `rate-limit.conf` : ajout des zones `digisante_rl_preprod_*`, zones de production inchangées (le vhost `digisante`
+     reste valide).
+
+   `provision-ionos.sh` et `verify_deploy.sh` ne servent qu'à la main ; `crontab.example` n'est pas réappliqué.
 5. **Provisioning en dry-run d'abord**, shell root, secrets par `read -rs` (jamais en argument) :
    ```bash
    read -rs VALKEY_PASSWORD; read -rs VALKEY_APP_PASSWORD; read -rs PG_RUNTIME_PASSWORD
@@ -82,8 +113,10 @@
    bash "$P" --apply --only nginx,cron            # zones Nginx préprod, vhost, /etc/cron.d (nginx -t puis reload)
    ```
    Les crons réinstallés restent **suspendus** jusqu'au point 10 : suspendre de nouveau après `--only cron`.
-   Le fichier Nginx commun n'est écrit que si la copie root de la production est absente ou alignée ; la production n'est
-   pas installée à ce jour.
+   Le fichier Nginx commun `conf.d/digisante-rate-limit.conf` n'est réécrit que si le vhost de la production est inactif
+   ou si sa copie root porte la même source (`provision-ionos.sh`, garde des fichiers communs). La production est active
+   sur l'hôte : le point 4 b est donc **obligatoire**, et le dry-run doit annoncer « mis à jour pour les deux
+   environnements (copies root alignées) ». Un `FAIL` sur ce fichier ⇒ revenir au point 4 b, ne jamais l'éditer à la main.
 6. **`.env` de l'API** (compte `digisante-preprod`, 0600) :
    - `DATABASE_URL=postgresql://digisante_preprod_app:<PG_RUNTIME_PASSWORD>@127.0.0.1:5432/digisante_preprod?schema=public` ;
    - `REDIS_URL=redis://digisante-preprod:<VALKEY_APP_PASSWORD>@127.0.0.1:6379/5` ;
@@ -120,6 +153,8 @@
   2. de remettre l'ancien `.env` (`DATABASE_URL` propriétaire, `REDIS_URL` sans utilisateur ACL, sans `REDIS_KEY_PREFIX`) ;
   3. de lancer un `deploy.sh` vers `ace0c689` avec `DEPLOY_ALLOW_ROLLBACK=1`.
   Le rôle `digisante_preprod_app` et l'utilisateur ACL peuvent rester en place.
+- **Copie root de la production (point 4 b)** : elle peut rester sur le SHA candidat. Le nouveau `rate-limit.conf` est
+  un sur-ensemble de l'ancien et les nouveaux contrôles de port ne visent que les ports de la production.
 
 ## 5. Gestes de recette consécutifs aux changements
 
