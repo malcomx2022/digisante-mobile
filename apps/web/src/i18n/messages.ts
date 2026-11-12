@@ -2330,9 +2330,13 @@ const en: Messages = {
   'edu.save_tr': 'Save',
 };
 
-// Fɔ̀ngbè — couverture complète (868/868). Traduction machine NLLB-200 (1er jet)
-// RELUE ET VALIDÉE par un locuteur natif (§6/§8) ; clés critiques sos./labo./
-// payments. traduites À LA MAIN + double validation. Repli FR conservé par sécurité.
+// Fɔ̀ngbè — couverture PARTIELLE (mesure à jour : pnpm i18n:check). Les textes
+// présents viennent d'un 1er jet machine NLLB-200 ; AUCUNE relecture native ni
+// double validation n’est tracée au 12/11/2026 (registre docs/validation/L9/evidence.json
+// vide, aucun docs/i18n/TRACABILITE_Relectures.md), clés critiques comprises.
+// Ne pas les présenter comme validés. Relecture : kits docs/i18n/*-critique/ et
+// docs/i18n/non-critique/, import par scripts/i18n/import-validated.mjs uniquement.
+// Clé absente = repli FR.
 const fon: Messages = {
   'common.greeting': 'Kú dó gbɛ̀',
   'common.spoken': 'Gbè e è nɔ dó lɛ é .',
@@ -3204,11 +3208,13 @@ const fon: Messages = {
   'scan.fallback': 'Sú bo wlan kodɛ ɔ kpo alɔ kpo.',
 };
 
-// Yorùbá — à compléter (1er jet NLLB-200 puis RELECTURE par locuteurs natifs,
-// cf. plan i18n P2/P3) ; clés critiques sos./labo./payments. = double validation.
-// Yorùbá — couverture complète (868/868). Traduction machine NLLB-200 (1er jet)
-// RELUE ET VALIDÉE par un locuteur natif (§6/§8) ; clés critiques sos./labo./
-// payments. traduites À LA MAIN + double validation. Repli FR conservé par sécurité.
+// Yorùbá — couverture PARTIELLE (mesure à jour : pnpm i18n:check). Les textes
+// présents viennent d'un 1er jet machine NLLB-200 ; AUCUNE relecture native ni
+// double validation n’est tracée au 12/11/2026 (registre docs/validation/L9/evidence.json
+// vide, aucun docs/i18n/TRACABILITE_Relectures.md), clés critiques comprises.
+// Ne pas les présenter comme validés. Relecture : kits docs/i18n/*-critique/ et
+// docs/i18n/non-critique/, import par scripts/i18n/import-validated.mjs uniquement.
+// Clé absente = repli FR.
 const yor: Messages = {
   'common.greeting': 'Ẹ kú àbọ̀',
   'common.spoken': 'Awọn ede ti a sọ',
