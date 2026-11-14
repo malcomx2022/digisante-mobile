@@ -2331,10 +2331,10 @@ const en: Messages = {
 };
 
 // Fɔ̀ngbè — couverture PARTIELLE (mesure à jour : pnpm i18n:check). Les textes
-// présents viennent d'un 1er jet machine NLLB-200 ; AUCUNE relecture native ni
-// double validation n’est tracée au 12/11/2026 (registre docs/validation/L9/evidence.json
-// vide, aucun docs/i18n/TRACABILITE_Relectures.md), clés critiques comprises.
-// Ne pas les présenter comme validés. Relecture : kits docs/i18n/*-critique/ et
+// présents viennent d'un 1er jet machine NLLB-200, SANS relecture native tracée,
+// SAUF les 8 clés sos.* intégrées le 14/11/2026 après double validation native
+// (entrée dans docs/i18n/TRACABILITE_Relectures.md, réf. SOS-{FON,YOR}-2026-11).
+// Ne présenter comme validé que ce qui a une entrée dans ce fichier. Relecture : kits docs/i18n/*-critique/ et
 // docs/i18n/non-critique/, import par scripts/i18n/import-validated.mjs uniquement.
 // Clé absente = repli FR.
 const fon: Messages = {
@@ -3206,13 +3206,22 @@ const fon: Messages = {
   'scan.unsupported': 'Scan nɔ ɖ’alɔ ɖò navigateur elɔ jí ǎ — wlan code ɔ kpo alɔ kpo.',
   'scan.denied': 'È gbɛ́ ɖɔ è ni ma sɔ́ fɔtóo-xwlémɛtɔ́ ó.',
   'scan.fallback': 'Sú bo wlan kodɛ ɔ kpo alɔ kpo.',
+  // ── Relecture native intégrée le 2026-11-14 (import-validated.mjs) ──
+  'sos.sms_delivered': "Akpágbánúmɛ e è sɛ́dó mɛ e a nɔ mɔ ɖò ajijimɛ lɛ é gbɔn SMS jí é",
+  'sos.no_contact_notified': "È wlan akpáxwé ɔ, amɔ̌, è sixu ɖɔ nú mɛɖebǔ ǎ — ylɔ 112 alǒ sɛ́ SMS e ɖò dò é dó",
+  'sos.active_title': "Akpágbánúmɛ ɖò yiyi wɛ",
+  'sos.im_ok': "Un ɖò ganjí",
+  'sos.false_alarm': "Adingban",
+  'sos.history': "Akpágbánúmɛ ce e wá yì lɛ é",
+  'sos.status.RESOLVED': "È sú",
+  'sos.status.FALSE_ALARM': "Adingban",
 };
 
 // Yorùbá — couverture PARTIELLE (mesure à jour : pnpm i18n:check). Les textes
-// présents viennent d'un 1er jet machine NLLB-200 ; AUCUNE relecture native ni
-// double validation n’est tracée au 12/11/2026 (registre docs/validation/L9/evidence.json
-// vide, aucun docs/i18n/TRACABILITE_Relectures.md), clés critiques comprises.
-// Ne pas les présenter comme validés. Relecture : kits docs/i18n/*-critique/ et
+// présents viennent d'un 1er jet machine NLLB-200, SANS relecture native tracée,
+// SAUF les 8 clés sos.* intégrées le 14/11/2026 après double validation native
+// (entrée dans docs/i18n/TRACABILITE_Relectures.md, réf. SOS-{FON,YOR}-2026-11).
+// Ne présenter comme validé que ce qui a une entrée dans ce fichier. Relecture : kits docs/i18n/*-critique/ et
 // docs/i18n/non-critique/, import par scripts/i18n/import-validated.mjs uniquement.
 // Clé absente = repli FR.
 const yor: Messages = {
@@ -4084,6 +4093,15 @@ const yor: Messages = {
   'scan.unsupported': 'Ṣiṣayẹwo ko ni atilẹyin lori ẹrọ aṣawakiri yii — tẹ koodu sii pẹlu ọwọ.',
   'scan.denied': 'Wiwọle kamẹra kọ.',
   'scan.fallback': 'Pa ati tẹ koodu sii pẹlu ọwọ.',
+  // ── Relecture native intégrée le 2026-11-14 (import-validated.mjs) ──
+  'sos.sms_delivered': "Ìkìlọ̀ tí a fi SMS ránṣẹ́ sí àwọn olùbáṣepọ̀ pajawiri rẹ",
+  'sos.no_contact_notified': "A ti gba ìkìlọ̀ sílẹ̀, ṣùgbọ́n a kò le fi tó ẹnikẹ́ni létí — pe 112 tàbí fi SMS ránṣẹ́ sí ìsàlẹ̀ yìí",
+  'sos.active_title': "Ìkìlọ̀ ń lọ lọ́wọ́",
+  'sos.im_ok': "Mo wa daadaa",
+  'sos.false_alarm': "Ìkìlọ̀ èké",
+  'sos.history': "Àwọn ìkìlọ̀ mi tó ti kọjá",
+  'sos.status.RESOLVED': "Ti pa",
+  'sos.status.FALSE_ALARM': "Ìkìlọ̀ èké",
 };
 
 export const messages: Record<Lang, Messages> = {

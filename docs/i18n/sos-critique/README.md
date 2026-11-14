@@ -5,6 +5,13 @@ traduction automatique pour les textes `sos.*`, et exige la **double validation*
 Tant que ces textes manquent, une personne qui utilise l'application en Fɔ̀ngbè ou en Yorùbá lit du **français sur
 l'écran d'urgence**.
 
+## Statut au 14 novembre 2026 : intégré
+
+Les 8 clés sont importées en FON et en YOR après double validation native (`import-validated.mjs --require-all`,
+8/8 acceptées par langue, 0 refusée). Références privées : `SOS-FON-2026-11` et `SOS-YOR-2026-11`. Relecteurs
+codés `FON-R1`/`FON-R2` et `YOR-R1`/`YOR-R2` ; dates, empreintes des CSV et clés dans
+`docs/i18n/TRACABILITE_Relectures.md`. Les fichiers de ce kit restent le modèle vierge d'origine.
+
 ## Fichiers
 
 | Fichier | Pour qui |

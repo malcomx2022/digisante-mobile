@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "sourceSnapshotSha256": "06829ecf2533d69afcc85d5346642f8ec85fc6ef3f4e66c3e3dbdc5f85b9bbc2",
+  "sourceSnapshotSha256": "2a7c949d446de6d505183b18dd3d9df701c8f9f65ec136021a8ea7bdb6e0b3bc",
   "artifacts": {
-    "snapshot.json": "eca9b7435dc4144d22c227c31fe2a71f6ad2d2cf28120b35e7d03386052f1a79",
-    "messages.fon.csv": "724fa2825e23c29a59eab3a30f5bf0aa2187261965192a7ff50006429a356cf2",
+    "snapshot.json": "3f18cdb8651598b56bc31a094385bc1bea349713985734dac8f2ff1a49763ece",
+    "messages.fon.csv": "6005ec59231cc198282fe472c9ad3952fc77ed5f306a2829ea57f71ca425ab8d",
     "phrasebook.fon.csv": "7d4f6f71f95ac758cd04689c21ebcdf841bbcfed219a9f49ee811d73c15e7f2f",
-    "messages.yor.csv": "f062c88f9c8360bbfadbab89f62ecd0cd221cfa0fd5f22403f5f6a433833cb42",
+    "messages.yor.csv": "91ca948be58ea646851ce8547077891a28be74a395f9183cae3b0d55818022a4",
     "phrasebook.yor.csv": "3f1f7f9fb4aaeb336bfa2d3e56d4b58f5ffd8284316f398142140d4c0bacd5d1"
   }
 }
