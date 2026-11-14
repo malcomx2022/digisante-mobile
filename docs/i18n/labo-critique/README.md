@@ -11,7 +11,8 @@ natifs distincts.
 
 - Ils viennent du premier jet machine (NLLB-200). Le commentaire en tête des blocs `fon`/`yor` de `messages.ts`
   disait « relue et validée… double validation » (corrigé le 12/11/2026), mais aucune preuve ne l'appuyait : le registre
-  `docs/validation/L9/evidence.json` est vide, `docs/i18n/TRACABILITE_Relectures.md` n'existe pas, et la campagne
+  `docs/validation/L9/evidence.json` est vide, `docs/i18n/TRACABILITE_Relectures.md` ne trace aucune clé `labo.*` (seules les 8 clés `sos.*` y figurent depuis le
+  14/11/2026), et la campagne
   du 14/10/2026 (archivée dans `docs/validation/archive/L9-3e061d52-2026-11-07/`) laisse les 31 clés `labo.*` de
   chaque langue au statut `OPEN`.
 - Plusieurs textes paraissent faux (colonne `remarque`). Ces textes s'affichent pour le personnel du laboratoire,

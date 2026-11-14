@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "sourceSnapshotSha256": "06829ecf2533d69afcc85d5346642f8ec85fc6ef3f4e66c3e3dbdc5f85b9bbc2",
+  "sourceSnapshotSha256": "2a7c949d446de6d505183b18dd3d9df701c8f9f65ec136021a8ea7bdb6e0b3bc",
   "sources": [
     {
       "path": "apps/web/src/i18n/messages.ts",
-      "sha256": "3ec2b0f3897dee3612f411b086767465003821c0e407fa6096bcbb6ebda242ef"
+      "sha256": "4aa0ac94f8c57e39692ba740a683572f8c8d5e4f5a1f8dab30eb942ee3f68c65"
     },
     {
       "path": "packages/shared/src/triage.ts",
@@ -3261,7 +3261,15 @@
       "scan.or_paste": "alǒ tɛ́ xójlawema ɔ dó .",
       "scan.unsupported": "Scan nɔ ɖ’alɔ ɖò navigateur elɔ jí ǎ — wlan code ɔ kpo alɔ kpo.",
       "scan.denied": "È gbɛ́ ɖɔ è ni ma sɔ́ fɔtóo-xwlémɛtɔ́ ó.",
-      "scan.fallback": "Sú bo wlan kodɛ ɔ kpo alɔ kpo."
+      "scan.fallback": "Sú bo wlan kodɛ ɔ kpo alɔ kpo.",
+      "sos.sms_delivered": "Akpágbánúmɛ e è sɛ́dó mɛ e a nɔ mɔ ɖò ajijimɛ lɛ é gbɔn SMS jí é",
+      "sos.no_contact_notified": "È wlan akpáxwé ɔ, amɔ̌, è sixu ɖɔ nú mɛɖebǔ ǎ — ylɔ 112 alǒ sɛ́ SMS e ɖò dò é dó",
+      "sos.active_title": "Akpágbánúmɛ ɖò yiyi wɛ",
+      "sos.im_ok": "Un ɖò ganjí",
+      "sos.false_alarm": "Adingban",
+      "sos.history": "Akpágbánúmɛ ce e wá yì lɛ é",
+      "sos.status.RESOLVED": "È sú",
+      "sos.status.FALSE_ALARM": "Adingban"
     },
     "yor": {
       "common.greeting": "Ẹ kú àbọ̀",
@@ -4129,7 +4137,15 @@
       "scan.or_paste": "tabi lẹẹmọ ọna asopọ",
       "scan.unsupported": "Ṣiṣayẹwo ko ni atilẹyin lori ẹrọ aṣawakiri yii — tẹ koodu sii pẹlu ọwọ.",
       "scan.denied": "Wiwọle kamẹra kọ.",
-      "scan.fallback": "Pa ati tẹ koodu sii pẹlu ọwọ."
+      "scan.fallback": "Pa ati tẹ koodu sii pẹlu ọwọ.",
+      "sos.sms_delivered": "Ìkìlọ̀ tí a fi SMS ránṣẹ́ sí àwọn olùbáṣepọ̀ pajawiri rẹ",
+      "sos.no_contact_notified": "A ti gba ìkìlọ̀ sílẹ̀, ṣùgbọ́n a kò le fi tó ẹnikẹ́ni létí — pe 112 tàbí fi SMS ránṣẹ́ sí ìsàlẹ̀ yìí",
+      "sos.active_title": "Ìkìlọ̀ ń lọ lọ́wọ́",
+      "sos.im_ok": "Mo wa daadaa",
+      "sos.false_alarm": "Ìkìlọ̀ èké",
+      "sos.history": "Àwọn ìkìlọ̀ mi tó ti kọjá",
+      "sos.status.RESOLVED": "Ti pa",
+      "sos.status.FALSE_ALARM": "Ìkìlọ̀ èké"
     }
   },
   "coverage": {
@@ -4257,8 +4273,6 @@
         "labkyc.save",
         "labkyc.documents",
         "posology.meal.DURING",
-        "sos.sms_delivered",
-        "sos.no_contact_notified",
         "legal.cgu",
         "legal.privacy",
         "legal.mentions",
@@ -4386,12 +4400,6 @@
         "triage.level.MEDIUM",
         "triage.level.HIGH",
         "triage.level.URGENT",
-        "sos.active_title",
-        "sos.im_ok",
-        "sos.false_alarm",
-        "sos.history",
-        "sos.status.RESOLVED",
-        "sos.status.FALSE_ALARM",
         "edureview.title",
         "edureview.subtitle",
         "edureview.empty",
@@ -4536,8 +4544,6 @@
         "labkyc.save",
         "labkyc.documents",
         "posology.meal.DURING",
-        "sos.sms_delivered",
-        "sos.no_contact_notified",
         "legal.cgu",
         "legal.privacy",
         "legal.mentions",
@@ -4665,12 +4671,6 @@
         "triage.level.MEDIUM",
         "triage.level.HIGH",
         "triage.level.URGENT",
-        "sos.active_title",
-        "sos.im_ok",
-        "sos.false_alarm",
-        "sos.history",
-        "sos.status.RESOLVED",
-        "sos.status.FALSE_ALARM",
         "edureview.title",
         "edureview.subtitle",
         "edureview.empty",

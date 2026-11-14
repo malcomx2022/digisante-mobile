@@ -49,7 +49,8 @@ pnpm i18n:draft -- --locale=fon,yor --dry   # essai à blanc (sans charger le mo
 Les namespaces **`sos.*`, `labo.*`** et les **textes de paiement** (`CRITICAL_PREFIXES` dans `scripts/i18n/check-coverage.mjs` : `appt.pay`, `prescriptions.pay*`, `subscriptions.payment_*`, `wallet.*`, envoi d'argent `beneficiaries.*`) touchent l'urgence, les résultats de laboratoire et l'argent. Toute traduction de ces clés exige une **double validation** (traducteur natif + relecture, idéalement rôle CSO). Elles sont marquées `CRITIQUE` dans les CSV.
 
 ⚠️ `pnpm i18n:check` mesure la **présence** d'un texte, pas sa validation. Kits de relecture prêts :
-- `docs/i18n/sos-critique/` : 8 clés `sos.*` **absentes** en FON/YOR ;
+- `docs/i18n/sos-critique/` : 8 clés `sos.*`, **intégrées le 14/11/2026** après double validation native (voir
+  `docs/i18n/TRACABILITE_Relectures.md`) ;
 - `docs/i18n/labo-critique/` : 31 clés `labo.*` **présentes mais jamais validées** (premier jet machine, statut
   `OPEN` dans la campagne L9 du 14/10/2026). Import avec `--overwrite`.
 - `docs/i18n/payments-critique/` : 32 textes d'argent (14 absents, 18 jamais validés). Le préfixe `payments.` ne
