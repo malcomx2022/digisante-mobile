@@ -3490,8 +3490,8 @@ const fon: Messages = {
 // présents viennent d'un 1er jet machine NLLB-200, SANS relecture native tracée,
 // SAUF les 8 clés sos.* (14/11/2026, réf. SOS-YOR-2026-11), les 32 textes de
 // paiement (15/11/2026, réf. PAY-YOR-2026-11) et les 31 clés labo.* (15/11/2026,
-// réf. LAB-YOR-2026-11, 4 corrigées réf. LAB-YOR-2026-11-C1) intégrés après double validation native, et 243
-// textes non critiques (15/11/2026, réf. NC-YOR-2026-11, une relecture native) ; entrées dans
+// réf. LAB-YOR-2026-11, 4 corrigées réf. LAB-YOR-2026-11-C1) intégrés après double validation native, et 247
+// textes non critiques (15/11/2026, réf. NC-YOR-2026-11 + C1, une relecture native) ; entrées dans
 // docs/i18n/TRACABILITE_Relectures.md.
 // Ne présenter comme validé que ce qui a une entrée dans ce fichier. Relecture : kits docs/i18n/*-critique/ et
 // docs/i18n/non-critique/, import par scripts/i18n/import-validated.mjs uniquement.
@@ -4633,6 +4633,11 @@ const yor: Messages = {
   'pro.entry_note': "Àkọlé nípa àìsàn",
   'pro.entry_save': "Ṣiṣeto ìfilọ",
   'pro.entry_saved': "Àkọsílẹ̀ tí wọ́n fi kún àkọsílẹ̀ aláìsàn náà.",
+  // ── Relecture native intégrée le 2026-11-15 (import-validated.mjs) ──
+  'revenue.csv_notice': "Àkọsílẹ̀ tí kìí ṣe ti owó. ÌDÁpadà owó padà ń yí àkọsílẹ̀ ìfipamọ́ padà; má ṣe fi méjèèjì kún owó tí a gbà. Fáìlì tí a gbà sílẹ̀ náà ṣì wà lórí ẹ̀rọ yìí.",
+  'vault.prescription_notice': "Àwòkọ tí a kọ sílẹ̀ fún kíkà nìkan: kì í ṣe ẹ̀rí pé ó wúlò tàbí pé a fún ni láṣẹ láti pín in. Ṣàyẹ̀wò àwọn àyípadà lórí ayélujára.",
+  'vault.unsupported': "Ẹ̀rọ aṣàwárí yìí kò le pèsè ibi ìpamọ́ ààbò. Pa àwọn ìgbésẹ̀ ìṣègùn mọ́ lórí ayélujára.",
+  'vault.legacy': "{n} awọn iṣe atijo si tun nilo aabo. Ṣii silẹ lati gbe awọn iṣe akọọlẹ rẹ lọ laisi yiyipada idanimọ wọn. Awọn titẹ sii laisi akọọlẹ wa ni sọtọ ati pe a ko firanṣẹ rara.",
 };
 
 export const messages: Record<Lang, Messages> = {
