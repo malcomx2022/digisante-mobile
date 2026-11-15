@@ -2334,8 +2334,8 @@ const en: Messages = {
 // présents viennent d'un 1er jet machine NLLB-200, SANS relecture native tracée,
 // SAUF les 8 clés sos.* (14/11/2026, réf. SOS-FON-2026-11), les 32 textes de
 // paiement (réf. PAY-FON-2026-11 + C1) et les 31 clés labo.* (réf. LAB-FON-2026-11
-// + C1, 15/11/2026) intégrés après double validation native, et 246 textes non
-// critiques (15/11/2026, réf. NC-FON-2026-11, une relecture native) ; entrées dans
+// + C1, 15/11/2026) intégrés après double validation native, et 248 textes non
+// critiques (15/11/2026, réf. NC-FON-2026-11 + C1, une relecture native) ; entrées dans
 // docs/i18n/TRACABILITE_Relectures.md.
 // Ne présenter comme validé que ce qui a une entrée dans ce fichier. Relecture : kits docs/i18n/*-critique/ et
 // docs/i18n/non-critique/, import par scripts/i18n/import-validated.mjs uniquement.
@@ -3481,6 +3481,9 @@ const fon: Messages = {
   'pro.entry_note': "Nǔ e è wlan dó azɔnxwé é",
   'pro.entry_save': "Hɛn nǔwlanwlán",
   'pro.entry_saved': "È gɔ́ nǔ e è wlan dó azinzɔnnɔ ɔ sín wema mɛ é.",
+  // ── Relecture native intégrée le 2026-11-15 (import-validated.mjs) ──
+  'subscriptions.refunded': "È wlan akwɛ e è na vɔ́ yí ɖò xomɛ é dó wema mɛ. Kpɔ́n akwɛ́ e è nɔ yí ɖò mɛ e nɔ w’azɔ̌ é mɛ é kpo alɔdó kpo.",
+  'subscriptions.required': "E ɖó na nyí PRO akɔ̀ntá e xɔ́ wɛ̀ é cobɔ na bɛ́ dotóoyiyi zɛnzɛn jí. Kpé nǔ e ɖo te lɛ́ɛ.",
 };
 
 // Yorùbá — couverture PARTIELLE (mesure à jour : pnpm i18n:check). Les textes
