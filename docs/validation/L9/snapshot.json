@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "sourceSnapshotSha256": "77e352893792ead68edeb9cdef0105ab097114357dd6de22a7668ff639cc5188",
+  "sourceSnapshotSha256": "7d8fbd3381b4605862c18336884cdb347c44604314c0b956f1bd3326f08968bc",
   "sources": [
     {
       "path": "apps/web/src/i18n/messages.ts",
-      "sha256": "7b6fbb96a363a93fc0604cbbf7cae567a119b59dd667952c552bc8dd07230207"
+      "sha256": "62a5f7bbc85023121c35b1a0fdcc69b54b41b5072888e03a616579ef1fb883ac"
     },
     {
       "path": "packages/shared/src/triage.ts",
@@ -3529,7 +3529,9 @@
       "pro.entry_title": "Xota tɔn",
       "pro.entry_note": "Nǔ e è wlan dó azɔnxwé é",
       "pro.entry_save": "Hɛn nǔwlanwlán",
-      "pro.entry_saved": "È gɔ́ nǔ e è wlan dó azinzɔnnɔ ɔ sín wema mɛ é."
+      "pro.entry_saved": "È gɔ́ nǔ e è wlan dó azinzɔnnɔ ɔ sín wema mɛ é.",
+      "subscriptions.refunded": "È wlan akwɛ e è na vɔ́ yí ɖò xomɛ é dó wema mɛ. Kpɔ́n akwɛ́ e è nɔ yí ɖò mɛ e nɔ w’azɔ̌ é mɛ é kpo alɔdó kpo.",
+      "subscriptions.required": "E ɖó na nyí PRO akɔ̀ntá e xɔ́ wɛ̀ é cobɔ na bɛ́ dotóoyiyi zɛnzɛn jí. Kpé nǔ e ɖo te lɛ́ɛ."
     },
     "yor": {
       "common.greeting": "Ẹ kú àbọ̀",
@@ -4430,8 +4432,6 @@
     },
     "fon": {
       "missing": [
-        "subscriptions.refunded",
-        "subscriptions.required",
         "subscriptions.method_mtn_momo",
         "subscriptions.method_moov_money",
         "subscriptions.method_orange_money"
