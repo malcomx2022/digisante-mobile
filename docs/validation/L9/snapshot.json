@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "sourceSnapshotSha256": "f728a7bb171aeb71a38fbabb9a4479c5dfc7b3c28868220db981c2cb57a7ed2f",
+  "sourceSnapshotSha256": "5fc1989be815240901b82b45de77fea0188763b0728a986bedff77e755a0b376",
   "sources": [
     {
       "path": "apps/web/src/i18n/messages.ts",
-      "sha256": "fd07b628dbd19cd622b64b31c5e561283fd15557e5bc0a98402f61070f77db65"
+      "sha256": "6c3511d4de356543c54f193a4d3a4fe05d4853947048855402a47f97b6f9299b"
     },
     {
       "path": "packages/shared/src/triage.ts",
@@ -3676,21 +3676,21 @@
       "labo.add_value": "Fi iye kan kun",
       "labo.publish": "Ṣe atẹjade & gbigbọn",
       "labo.published": "Abajade ti a tẹjade",
-      "labo.critical": "IYE PATAKI - olutọpa titaniji",
+      "labo.critical": "IYE PÀTÀKÌ — a ti kìlọ̀ fún olùtọ́jú oògùn",
       "labo.orders_title": "Isinyi ti awọn ibeere",
       "labo.orders_sub": "Awọn ibeere itupalẹ",
-      "labo.in_progress": "Atilẹyin",
+      "labo.in_progress": "Ó ń lọ lọ́wọ́lọ́wọ́",
       "labo.no_incoming": "Ko si awọn ibeere ni ilọsiwaju",
       "labo.available": "Awọn ibeere wa",
       "labo.available_hint": "Idanimọ alaisan ti han lẹhin itọju.",
       "labo.no_available": "Ko si awọn ibeere ni isunmọtosi",
-      "labo.claim": "Gba agbara",
+      "labo.claim": "Beere",
       "labo.to_processing": "Bẹrẹ onínọmbà",
       "labo.enter_result": "Tẹ abajade sii",
       "labo.status.SAMPLE_COLLECTED": "Apeere ti gba",
       "labo.status.PROCESSING": "Ni onínọmbà",
       "labo.status.COMPLETED": "Ti pari",
-      "labo.critical_short": "Atunwo",
+      "labo.critical_short": "Pataki",
       "labo.reason.LOW": "isalẹ",
       "labo.reason.HIGH": "ga",
       "labo.check_title": "Iye dani",
