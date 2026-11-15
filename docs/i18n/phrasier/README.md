@@ -34,8 +34,8 @@ Les 27 phrases se répartissent en 5 d'accueil, 8 sur les symptômes, 4 consigne
 2 d'urgence. Elles ne contiennent aucune variable.
 
 Empreintes SHA-256 des modèles vierges :
-- FON : `caf5eda8988345ed5f1032c3bb304649f5657fc02ee7a08a30eac863b7619a0b`
-- YOR : `07aa6da466e065851336175c20de61382faf72c5151ee8bf08eb22c46753767c`
+- FON : `64c74f5a4ace535a3a934bc541eb0881e6312af1a29191da2379626f2510a45b`
+- YOR : `43a609c91bb5eea5a465d783ffd30a30bc0bfe62de349f787ec52137453122ed`
 
 ## Consignes aux relecteurs
 
