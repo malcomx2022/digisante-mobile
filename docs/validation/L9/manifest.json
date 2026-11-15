@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "sourceSnapshotSha256": "a148f3ca483680b152308b8147717d5577221573dcb68b4e45522e6be976d279",
+  "sourceSnapshotSha256": "bda7ff101ccda64d5d4921e08d0cee5f14c2aeba44099a8f4cab0217c8883c6a",
   "artifacts": {
-    "snapshot.json": "646513a1f171ce5098f17666a172ce4e767373524a4ea56df6e0f78e981989c1",
+    "snapshot.json": "63b17da212365a9bb8c628ec61679168a3be4c274cdd8975cefc0d0c847afe49",
     "messages.fon.csv": "5257548233c8ee2755641d11c24dd7c6e247840ce5a163adf2d32ce4590b5db4",
     "phrasebook.fon.csv": "7d4f6f71f95ac758cd04689c21ebcdf841bbcfed219a9f49ee811d73c15e7f2f",
-    "messages.yor.csv": "9676721295d660ca41f4af1c52be26e3272a8103d68c71489b14b8ddd56c1015",
+    "messages.yor.csv": "06b8961a2e1cf7d7a0023856166f5d24eea3af3cb54a3357951a0de8e374c838",
     "phrasebook.yor.csv": "3f1f7f9fb4aaeb336bfa2d3e56d4b58f5ffd8284316f398142140d4c0bacd5d1"
   }
 }

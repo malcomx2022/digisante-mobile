@@ -15,12 +15,13 @@ Les textes critiques (urgence, laboratoire, paiements) ont leurs propres kits : 
   `docs/i18n/TRACABILITE_Relectures.md`. Non importés : les trois noms d'opérateurs `subscriptions.method_*`
   (identiques au français, noms propres : rien à corriger).
   178 textes sur 249 sont identiques au brouillon machine, jugés justes par le relecteur.
-- **YOR : intégré.** 243/251 textes importés après une relecture native (`YOR-R1`, 15/11/2026, réf. privée
+- **YOR : intégré.** 247/251 textes importés après une relecture native (`YOR-R1`, 15/11/2026, réf. privée
   `NC-YOR-2026-11`), fichier reçu sans modification (entrée dans `docs/i18n/TRACABILITE_Relectures.md`). 244 textes
   sur 248 sont identiques au brouillon machine ; le porteur a confirmé que le relecteur les a lus et jugés justes.
-  Refusés par l'import, le français reste affiché : `revenue.legacy` (`{count}` perdu) et `vault.legacy` (`{n}` perdu,
-  première phrase absente), `revenue.csv_notice`, `vault.prescription_notice` et `vault.unsupported` (cases vides) ;
-  correction à fournir par le relecteur (import `-C1`). Les trois noms d'opérateurs `subscriptions.method_*` sont
+  Refusés par cet import : `revenue.legacy` (`{count}` perdu), `vault.legacy` (`{n}` perdu, première phrase
+  absente), `revenue.csv_notice`, `vault.prescription_notice` et `vault.unsupported` (cases vides). Les quatre
+  derniers, fournis ensuite par le relecteur, sont importés le même jour (réf. `NC-YOR-2026-11-C1`) ;
+  **`revenue.legacy` reste en français**, correction à fournir. Les trois noms d'opérateurs `subscriptions.method_*` sont
   identiques au français (noms propres : rien à corriger).
 
 ## Contenu
