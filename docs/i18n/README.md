@@ -59,7 +59,7 @@ Les namespaces **`sos.*`, `labo.*`** et les **textes de paiement** (`CRITICAL_PR
 - `docs/i18n/non-critique/` : les 251 textes **non critiques** absents par langue, avec un brouillon NLLB à relire
   (une seule relecture native suffit). Les brouillons machine qui bouclaient ont été retirés. **FON intégré le
   15/11/2026** (248 textes), **YOR intégré le
-  15/11/2026** (247 textes, `revenue.legacy` à corriger).
+  15/11/2026** (248 textes).
 
 ## Procédure pour un traducteur / relecteur
 

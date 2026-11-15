@@ -116,3 +116,12 @@ Preuve technique : CSV SHA256 `7ca39fca2a4314105acb0c790957fcf40fc63e9efd91e23ae
 
 Preuve technique : CSV SHA256 `9aa87731f82ac83a2e3391597c9b834ae0eefe3d477e51c64420358f48850c85`, source avant `97ea584ef8fc20ff01c2f85974d16797f8c5c343345c46840baa4aa066e326ca`, après `dddd22e2c983fe139b0821c09c27c2a08c5cc0f326fe1e4265338b3ed9cfe8f7`. Clés : `revenue.csv_notice`, `vault.prescription_notice`, `vault.unsupported`, `vault.legacy`. Référence de retour : "NC-YOR-2026-11-C1". Métadonnées déclarées ; vérifier la pièce et la qualité des relecteurs avant fusion.
 
+
+## Import YOR — 2026-11-15
+
+| Date d’intégration | Langue | Relecteur | Date | 2ᵉ relecteur (critiques) | Date | Clés | dont critiques |
+|---|---|---|---|---|---|---|---|
+| 2026-11-15 | YOR | YOR-R1 | 2026-11-15 | — | — | 1 | 0 |
+
+Preuve technique : CSV SHA256 `35ad22711b35148f40fac744a2dd9b32c2205c1c5b901d4b05791fce834b810b`, source avant `4676e03afec70a92e5d8fc78ccbfa9f2761a41f626b450fd378513a35a329b77`, après `6d03c084acb8b88c81626e847e77770e44146279ddc43c4ea5ee23f1c9486fee`. Clés : `revenue.legacy`. Référence de retour : "NC-YOR-2026-11-C2". Métadonnées déclarées ; vérifier la pièce et la qualité des relecteurs avant fusion.
+
