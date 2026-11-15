@@ -7,6 +7,17 @@ confirmés par un relecteur natif** sont importés.
 Les textes critiques (urgence, laboratoire, paiements) ont leurs propres kits : `../sos-critique/`,
 `../labo-critique/` et `../payments-critique/`.
 
+## Statut au 15 novembre 2026
+
+- **FON : intégré.** 246/251 textes importés après une relecture native (`FON-R1`, 15/11/2026, réf. privée
+  `NC-FON-2026-11`), fichier reçu sans modification (entrée dans `docs/i18n/TRACABILITE_Relectures.md`).
+  Non importés : `subscriptions.refunded` et `subscriptions.required` (cases vides, le français reste affiché) et
+  les trois noms d'opérateurs `subscriptions.method_*` (identiques au français, noms propres : rien à corriger).
+  178 textes sur 249 sont identiques au brouillon machine, jugés justes par le relecteur.
+- **YOR : en attente.** Retour reçu : 244 textes sur 248 identiques au brouillon machine, dont `revenue.legacy`
+  (brouillon en boucle, `{count}` perdu) et `vault.legacy` (`{n}` perdu, première phrase absente). Une relecture
+  effective est demandée avant import.
+
 ## Contenu
 
 251 textes par langue, absents aujourd'hui en Fɔ̀ngbè et en Yorùbá : l'écran affiche le français.
