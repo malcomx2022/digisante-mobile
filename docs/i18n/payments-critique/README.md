@@ -36,8 +36,12 @@ colonne `remarque`.
   importé `de2e9956c857441908ddc723a7638bc4764a97c6fea4ce68834b233431f9bd9b`. Importés tels que validés, signalés
   au porteur : « XOF » au lieu de « FCFA » (`beneficiaries.amount_xof`, `beneficiaries.sent`), « Iwontunwonsi »
   (`wallet.balance`), « 3-D Secure » traduit (`wallet.card_hint`).
-- **FON : en attente** (seconde PR). Retour reçu (réf. `PAY-FON-2026-11`) : 31/32 lignes acceptées, mais la case
-  `fon` de `beneficiaries.send_confirm` est vide ; une traduction validée par `FON-R1`/`FON-R2` est attendue.
+- **FON : intégré le 15/11/2026** en deux imports (`FON-R1`/`FON-R2`) : retour du 14/11 (réf. `PAY-FON-2026-11`,
+  colonne `en` remise à la référence, 31/32 acceptées, `beneficiaries.send_confirm` vide) puis correction du 15/11
+  (réf. `PAY-FON-2026-11-C1`, `beneficiaries.send_confirm`). Fichier reçu SHA-256 `4e2682ff…`, importé `83939914…`,
+  correction `bd7d54f3…` (empreintes complètes dans la traçabilité). Importés tels que validés, signalés au
+  porteur : « XOF » au lieu de « FCFA » (`beneficiaries.amount_xof`, `beneficiaries.sent`), début anglais
+  « Top-up queued » (`wallet.topup_queued`), espace avant le point (3 textes), « 3-D Secure » traduit.
 
 ## Fichiers
 

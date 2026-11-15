@@ -30,8 +30,9 @@ natifs distincts.
   « IYE PÀTÀKÌ — a ti kìlọ̀ fún olùtọ́jú oògùn », `labo.claim` « Beere », `labo.in_progress`
   « Ó ń lọ lọ́wọ́lọ́wọ́ ». Signalé au porteur : « Pataki » sans accents de ton, « Beere » proche de « ibeere »
   (demande).
-- **FON : en attente** (seconde PR). Retour reçu (réf. `LAB-FON-2026-11`) : 30/31 acceptées ; `labo.title` refusée
-  (identique au français) et `labo.order` porte `(ordreId)` au lieu de `(orderId)`. Nouveau retour attendu.
+- **FON : intégré le 15/11/2026** en deux imports (`FON-R1`/`FON-R2`) : retour du 14/11 importé sans modification
+  (réf. `LAB-FON-2026-11`, 30/31, `labo.title` refusée car identique au français) puis correction du 15/11
+  (réf. `LAB-FON-2026-11-C1`) : `labo.title` « Do nudɔ́kpɔ́xɔ », `labo.order` « Nu e byɔ wɛ e ɖe ɔ (orderId) ».
 
 ## Fichiers
 
