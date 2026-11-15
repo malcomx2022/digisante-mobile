@@ -60,6 +60,9 @@ Les namespaces **`sos.*`, `labo.*`** et les **textes de paiement** (`CRITICAL_PR
   (une seule relecture native suffit). Les brouillons machine qui bouclaient ont été retirés. **FON intégré le
   15/11/2026** (248 textes), **YOR intégré le
   15/11/2026** (248 textes).
+- `docs/i18n/phrasier/` : les 27 phrases du **phrasier médical** (messagerie), absentes en FON et YOR. Double
+  relecture native et contreseing clinique ; intégration par PR dédiée dans `packages/shared/src/phrasebook.ts`, pas
+  par `import-validated.mjs`. Préparé le 15/11/2026.
 
 ## Procédure pour un traducteur / relecteur
 
