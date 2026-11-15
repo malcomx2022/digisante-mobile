@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { cpSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { ARCHIVE_ROOT, buildCampaignArtifacts, checkArchivedCampaign, DEFAULT_DIR, objectsCsv, SOURCE_SNAPSHOT, writeNewCampaign } from './prepare-review-campaign.mjs';
+import { ACTIVE_CAMPAIGN, ARCHIVED_CAMPAIGNS, buildCampaignArtifacts, CAMPAIGNS, checkArchivedCampaign, objectsCsv, SOURCE_SNAPSHOT, writeNewCampaign } from './prepare-review-campaign.mjs';
 import { buildSnapshot, ROOT, sha256 } from './content.mjs';
 import { CLINICAL_SCOPES, contentHash, gateIssues } from './check-l9-gate.mjs';
 import { parseCsv, plan } from '../i18n/import-validated.mjs';
@@ -11,8 +11,8 @@ import { parseCsv, plan } from '../i18n/import-validated.mjs';
 test('campagne complète sans fabriquer une clôture humaine ou changer les registres', () => {
   const evidencePath = resolve(ROOT, 'docs/validation/L9/evidence.json');
   const bytes = readFileSync(evidencePath);
-  // Les sources ont évolué depuis la campagne archivée : la logique de génération
-  // reste exercée sur le contenu courant, sous l'identité de l'instantané figé.
+  // La logique de génération est exercée sur le contenu courant, sous l'identité
+  // de l'instantané figé de la campagne active.
   const snapshot = { ...buildSnapshot(), sourceSnapshotSha256: SOURCE_SNAPSHOT };
   const { campaign, files } = buildCampaignArtifacts(snapshot);
   assert.deepEqual(campaign.scopes.map((row) => row.scope), CLINICAL_SCOPES);
@@ -75,12 +75,29 @@ test('les retours CSV conservent exactement unités, accents, virgules et retour
 });
 
 test('le kit archivé reste vérifiable et toute altération est refusée', () => {
-  checkArchivedCampaign(DEFAULT_DIR, resolve(ARCHIVE_ROOT, 'Dossier_Clinique_L9.docx'));
+  const [archived] = ARCHIVED_CAMPAIGNS;
+  checkArchivedCampaign(archived.dir, archived.referenceDossier, archived);
   const temp = mkdtempSync(join(tmpdir(), 'l9-archive-'));
   try {
     const copy = join(temp, 'campaign');
-    cpSync(DEFAULT_DIR, copy, { recursive: true });
+    cpSync(archived.dir, copy, { recursive: true });
     writeFileSync(join(copy, 'clinical-cases.csv'), 'altéré\n');
-    assert.throws(() => checkArchivedCampaign(copy, resolve(ARCHIVE_ROOT, 'Dossier_Clinique_L9.docx')), /Kit archivé modifié/);
+    assert.throws(() => checkArchivedCampaign(copy, archived.referenceDossier, archived), /Kit archivé modifié/);
   } finally { rmSync(temp, { recursive: true, force: true }); }
+});
+
+test('un kit archivé n’est jamais accepté sous l’identité d’une autre campagne', () => {
+  const [archived] = ARCHIVED_CAMPAIGNS;
+  assert.throws(() => checkArchivedCampaign(archived.dir, archived.referenceDossier, { ...archived, id: ACTIVE_CAMPAIGN.id }), /Manifest de campagne invalide/);
+  assert.throws(() => checkArchivedCampaign(archived.dir, archived.referenceDossier, { ...archived, snapshot: ACTIVE_CAMPAIGN.snapshot }), /autre instantané/);
+});
+
+test('registre : une seule campagne active, identifiants, bases et instantanés distincts', () => {
+  assert.equal(CAMPAIGNS.filter((campaign) => campaign.status === 'active').length, 1);
+  for (const field of ['id', 'baseCommit', 'snapshot', 'dir']) assert.equal(new Set(CAMPAIGNS.map((campaign) => campaign[field])).size, CAMPAIGNS.length, field);
+  for (const campaign of CAMPAIGNS) {
+    assert.match(campaign.baseCommit, /^[a-f0-9]{40}$/);
+    assert.match(campaign.snapshot, /^[a-f0-9]{64}$/);
+  }
+  assert.equal(SOURCE_SNAPSHOT, ACTIVE_CAMPAIGN.snapshot);
 });
