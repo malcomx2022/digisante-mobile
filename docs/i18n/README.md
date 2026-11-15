@@ -57,7 +57,8 @@ Les namespaces **`sos.*`, `labo.*`** et les **textes de paiement** (`CRITICAL_PR
   15/11/2026** après double validation. Le préfixe `payments.` ne
   couvrait aucune clé ; depuis le 11/11/2026, `CRITICAL_PREFIXES` liste les vrais préfixes de paiement.
 - `docs/i18n/non-critique/` : les 251 textes **non critiques** absents par langue, avec un brouillon NLLB à relire
-  (une seule relecture native suffit). Les brouillons machine qui bouclaient ont été retirés.
+  (une seule relecture native suffit). Les brouillons machine qui bouclaient ont été retirés. **FON intégré le
+  15/11/2026** (246 textes), YOR en attente.
 
 ## Procédure pour un traducteur / relecteur
 
