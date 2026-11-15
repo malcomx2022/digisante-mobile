@@ -53,7 +53,8 @@ Les namespaces **`sos.*`, `labo.*`** et les **textes de paiement** (`CRITICAL_PR
   `docs/i18n/TRACABILITE_Relectures.md`) ;
 - `docs/i18n/labo-critique/` : 31 clés `labo.*` **présentes mais jamais validées** (premier jet machine, statut
   `OPEN` dans la campagne L9 du 14/10/2026). Import avec `--overwrite`.
-- `docs/i18n/payments-critique/` : 32 textes d'argent (14 absents, 18 jamais validés). Le préfixe `payments.` ne
+- `docs/i18n/payments-critique/` : 32 textes d'argent (14 absents, 18 jamais validés) ; **YOR intégré le
+  15/11/2026** après double validation, FON en attente. Le préfixe `payments.` ne
   couvrait aucune clé ; depuis le 11/11/2026, `CRITICAL_PREFIXES` liste les vrais préfixes de paiement.
 - `docs/i18n/non-critique/` : les 251 textes **non critiques** absents par langue, avec un brouillon NLLB à relire
   (une seule relecture native suffit). Les brouillons machine qui bouclaient ont été retirés.

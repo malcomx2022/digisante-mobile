@@ -3219,8 +3219,9 @@ const fon: Messages = {
 
 // Yorùbá — couverture PARTIELLE (mesure à jour : pnpm i18n:check). Les textes
 // présents viennent d'un 1er jet machine NLLB-200, SANS relecture native tracée,
-// SAUF les 8 clés sos.* intégrées le 14/11/2026 après double validation native
-// (entrée dans docs/i18n/TRACABILITE_Relectures.md, réf. SOS-{FON,YOR}-2026-11).
+// SAUF les 8 clés sos.* (14/11/2026, réf. SOS-YOR-2026-11) et les 32 textes de
+// paiement (15/11/2026, réf. PAY-YOR-2026-11) intégrés après double validation
+// native (entrées dans docs/i18n/TRACABILITE_Relectures.md).
 // Ne présenter comme validé que ce qui a une entrée dans ce fichier. Relecture : kits docs/i18n/*-critique/ et
 // docs/i18n/non-critique/, import par scripts/i18n/import-validated.mjs uniquement.
 // Clé absente = repli FR.
@@ -3256,7 +3257,7 @@ const yor: Messages = {
   'appt.title': 'Awọn ipinnu lati pade mi',
   'appt.upcoming': 'Nbo laipe',
   'appt.past': 'Ti o ti kọja',
-  'appt.pay': 'Sanwo',
+  'appt.pay': "Sanwo",
   'appt.cancel': 'Fagilee',
   'appt.reason': 'Àpẹẹrẹ',
   'appt.confirm_cancel': 'Jẹrisi',
@@ -3439,10 +3440,10 @@ const yor: Messages = {
   'maternity.objective.6': 'Ṣiṣayẹwo igbejade (ori si isalẹ), ibi ifijiṣẹ, awọn ami ewu.',
   'maternity.objective.7': 'Abojuto igba, igbelewọn agbada, atilẹyin.',
   'maternity.objective.8': 'Olubasọrọ ipari ni ipari; igbese lati mu ni iṣẹlẹ ti apọju (ni ọsẹ 41).',
-  'prescriptions.pay': 'Sanwo',
-  'prescriptions.pay_wallet': 'Diaspora apamọwọ',
-  'prescriptions.paid': 'Ti bẹrẹ isanwo',
-  'prescriptions.payment_queued': 'Owo sisan ti o wa ni isinyi - yoo firanṣẹ nigbati nẹtiwọki ba pada',
+  'prescriptions.pay': "Sanwo",
+  'prescriptions.pay_wallet': "Diaspora apamọwọ",
+  'prescriptions.paid': "Ti bẹrẹ isanwo",
+  'prescriptions.payment_queued': "Owo sisan ti o wa ni isinyi - yoo firanṣẹ nigbati nẹtiwọki ba pada",
   'prescriptions.qr_alt': 'QR ti oogun',
   'sos.title': 'SOS pajawiri',
   'sos.tap': 'Tẹ ni ọran ti pajawiri',
@@ -3597,13 +3598,13 @@ const yor: Messages = {
   'beneficiaries.empty': 'Ko si awọn ibatan ti o forukọsilẹ',
   'beneficiaries.empty_cta': 'Ṣafikun olufẹ kan lati bẹrẹ',
   'beneficiaries.remove_confirm': 'Pa ibatan yii rẹ bi?',
-  'beneficiaries.send_money': 'Fi owo ranṣẹ',
-  'wallet.title': 'Apamọwọ mi',
-  'wallet.balance': 'Iwontunwonsi',
-  'wallet.topup': 'Tun gbee si',
-  'wallet.topup_eur': 'Iye ni €',
-  'wallet.converted': 'Tabi {xof} FCFA',
-  'wallet.history': 'Itan',
+  'beneficiaries.send_money': "Fi owó ranṣẹ",
+  'wallet.title': "Àpò owó mi",
+  'wallet.balance': "Iwontunwonsi",
+  'wallet.topup': "Fi kún àfikún",
+  'wallet.topup_eur': "Iye ni €",
+  'wallet.converted': "Tabi {xof} FCFA",
+  'wallet.history': "Ìtàn",
   'pharmacie.title': 'Ile elegbogi',
   'pharmacie.scan': 'Ṣe ayẹwo iwe-aṣẹ oogun kan',
   'pharmacie.qr': 'Lẹẹmọ QR/koodu',
@@ -3750,12 +3751,12 @@ const yor: Messages = {
   'labo.status.CANCELLED': 'fagilee',
   'labo.analysis_ph': 'Onínọmbà (fun apẹẹrẹ, glukosi)',
   'labo.value_ph': 'Iye',
-  'wallet.tx.TOPUP': 'Gbigba agbara',
-  'wallet.tx.DEBIT': 'Isanwo',
-  'wallet.tx.REFUND': 'agbapada',
-  'wallet.tx.TRANSFER': 'Gbigbe',
-  'wallet.topup_initiated': 'Ti bẹrẹ gbigba agbara (FedaPay)',
-  'wallet.card_hint': '(Visa · 3-D ni aabo)',
+  'wallet.tx.TOPUP': "Àfikún",
+  'wallet.tx.DEBIT': "Ìsanwó",
+  'wallet.tx.REFUND': "Àdápadà owó",
+  'wallet.tx.TRANSFER': "Gbigbe ti firanṣẹ",
+  'wallet.topup_initiated': "A ti bẹ̀rẹ̀ àfikún (FedaPay)",
+  'wallet.card_hint': "(Visa · 3-D ni aabo)",
   'diaspora.subtitle': 'Apamọwọ ilera fun awọn ayanfẹ rẹ',
   'offline.online': 'Online',
   'admin.audit_sub': 'Afikun-nikan · Ofin N ° 2017-20',
@@ -4102,6 +4103,21 @@ const yor: Messages = {
   'sos.history': "Àwọn ìkìlọ̀ mi tó ti kọjá",
   'sos.status.RESOLVED': "Ti pa",
   'sos.status.FALSE_ALARM': "Ìkìlọ̀ èké",
+  // ── Relecture native intégrée le 2026-11-15 (import-validated.mjs) ──
+  'subscriptions.payment_completed': "Ìsanwó ti jẹ́rìí sí",
+  'subscriptions.payment_pending': "Ìsanwó ń dúró dè",
+  'subscriptions.payment_processing': "Ìṣiṣẹ́ ìsanwó",
+  'subscriptions.payment_failed': "Isanwó ti kọ",
+  'subscriptions.payment_cancelled': "A ti fagile isanwo",
+  'subscriptions.payment_refunded': "Àkójọ owó àsanpadà inú tí a ti gbà",
+  'beneficiaries.amount_xof': "Iye (XOF)",
+  'beneficiaries.no_account': "Ẹbí yìí kò tíì ní àkọọ́lẹ̀ DigiSanté — wọn kò lè gba owó.",
+  'beneficiaries.send_confirm': "Fi {amount} FCFA ranṣẹ si {name}? A o yọ owo naa kuro ninu apamọwọ rẹ.",
+  'beneficiaries.sent': "{amount} XOF ti a fi ranṣẹ si {name}",
+  'wallet.tx.REFUND_IN': "A san owó padà fún ìsanwó náà",
+  'wallet.tx.TRANSFER_IN': "Gbigbe ti gba",
+  'wallet.topup_queued': "Àfikún tí a ti fi sílẹ̀ ní ìlà — a ó fi ránṣẹ́ nígbà tí nẹ́tíwọ́ọ̀kì bá padà dé",
+  'appt.pay_error': "A ko le bẹrẹ isanwo naa",
 };
 
 export const messages: Record<Lang, Messages> = {

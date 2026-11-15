@@ -26,6 +26,19 @@ Hors périmètre : la gestion du carnet de proches (nom, lien, téléphone) et l
 validés** (premier jet machine, aucune trace de relecture). Quelques textes présents paraissent faux : voir la
 colonne `remarque`.
 
+## Statut au 15 novembre 2026
+
+- **YOR : intégré.** 32/32 textes importés après double validation native (`YOR-R1`/`YOR-R2`, 14/11/2026,
+  réf. privée `PAY-YOR-2026-11`, `--overwrite --require-all`), entrée dans `docs/i18n/TRACABILITE_Relectures.md`.
+  Avant import, la colonne `en` du fichier reçu a été remise à sa valeur de référence sur décision du porteur
+  (2 cellules altérées par le tableur : `wallet.converted`, `beneficiaries.send_confirm` ; aucune cellule `yor`
+  touchée). Fichier reçu SHA-256 `5c4503a3948d97b0df2178ff2a8598b17e36f77ed75682e45b0ca00010fdab11`, fichier
+  importé `de2e9956c857441908ddc723a7638bc4764a97c6fea4ce68834b233431f9bd9b`. Importés tels que validés, signalés
+  au porteur : « XOF » au lieu de « FCFA » (`beneficiaries.amount_xof`, `beneficiaries.sent`), « Iwontunwonsi »
+  (`wallet.balance`), « 3-D Secure » traduit (`wallet.card_hint`).
+- **FON : en attente** (seconde PR). Retour reçu (réf. `PAY-FON-2026-11`) : 31/32 lignes acceptées, mais la case
+  `fon` de `beneficiaries.send_confirm` est vide ; une traduction validée par `FON-R1`/`FON-R2` est attendue.
+
 ## Fichiers
 
 | Fichier | Pour qui |
