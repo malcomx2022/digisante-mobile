@@ -51,8 +51,8 @@ Les namespaces **`sos.*`, `labo.*`** et les **textes de paiement** (`CRITICAL_PR
 ⚠️ `pnpm i18n:check` mesure la **présence** d'un texte, pas sa validation. Kits de relecture prêts :
 - `docs/i18n/sos-critique/` : 8 clés `sos.*`, **intégrées le 14/11/2026** après double validation native (voir
   `docs/i18n/TRACABILITE_Relectures.md`) ;
-- `docs/i18n/labo-critique/` : 31 clés `labo.*` **présentes mais jamais validées** (premier jet machine, statut
-  `OPEN` dans la campagne L9 du 14/10/2026). Import avec `--overwrite`.
+- `docs/i18n/labo-critique/` : 31 clés `labo.*` (premier jet machine jamais validé) ; **YOR intégré le
+  15/11/2026** après double validation, FON en attente. Import avec `--overwrite`.
 - `docs/i18n/payments-critique/` : 32 textes d'argent (14 absents, 18 jamais validés) ; **YOR intégré le
   15/11/2026** après double validation, FON en attente. Le préfixe `payments.` ne
   couvrait aucune clé ; depuis le 11/11/2026, `CRITICAL_PREFIXES` liste les vrais préfixes de paiement.
