@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "sourceSnapshotSha256": "bda7ff101ccda64d5d4921e08d0cee5f14c2aeba44099a8f4cab0217c8883c6a",
+  "sourceSnapshotSha256": "8d0fd9c3f628828092e4bbe659313896c359c4463efcab5f54df708a5cbe139b",
   "sources": [
     {
       "path": "apps/web/src/i18n/messages.ts",
-      "sha256": "4676e03afec70a92e5d8fc78ccbfa9f2761a41f626b450fd378513a35a329b77"
+      "sha256": "bc394cac112d2802c1c91a4bd75fa24ca727490f225abccfd8f0058bcd7420a1"
     },
     {
       "path": "packages/shared/src/triage.ts",
@@ -4668,7 +4668,8 @@
       "revenue.csv_notice": "Àkọsílẹ̀ tí kìí ṣe ti owó. ÌDÁpadà owó padà ń yí àkọsílẹ̀ ìfipamọ́ padà; má ṣe fi méjèèjì kún owó tí a gbà. Fáìlì tí a gbà sílẹ̀ náà ṣì wà lórí ẹ̀rọ yìí.",
       "vault.prescription_notice": "Àwòkọ tí a kọ sílẹ̀ fún kíkà nìkan: kì í ṣe ẹ̀rí pé ó wúlò tàbí pé a fún ni láṣẹ láti pín in. Ṣàyẹ̀wò àwọn àyípadà lórí ayélujára.",
       "vault.unsupported": "Ẹ̀rọ aṣàwárí yìí kò le pèsè ibi ìpamọ́ ààbò. Pa àwọn ìgbésẹ̀ ìṣègùn mọ́ lórí ayélujára.",
-      "vault.legacy": "{n} awọn iṣe atijo si tun nilo aabo. Ṣii silẹ lati gbe awọn iṣe akọọlẹ rẹ lọ laisi yiyipada idanimọ wọn. Awọn titẹ sii laisi akọọlẹ wa ni sọtọ ati pe a ko firanṣẹ rara."
+      "vault.legacy": "{n} awọn iṣe atijo si tun nilo aabo. Ṣii silẹ lati gbe awọn iṣe akọọlẹ rẹ lọ laisi yiyipada idanimọ wọn. Awọn titẹ sii laisi akọọlẹ wa ni sọtọ ati pe a ko firanṣẹ rara.",
+      "revenue.legacy": "{count} ìsanwó ìtàn tí a kò tíì fi ẹ̀rí hàn: a kò gbà á kúrò nínú owó tí a ń gbà, a nílò àtúnṣe."
     }
   },
   "coverage": {
@@ -4688,7 +4689,6 @@
     },
     "yor": {
       "missing": [
-        "revenue.legacy",
         "subscriptions.method_mtn_momo",
         "subscriptions.method_moov_money",
         "subscriptions.method_orange_money"
