@@ -590,7 +590,7 @@
 "prescription.status.ACTIVE","","En attente","Pending","Nduro",""
 "prescription.status.PARTIALLY_DISPENSED","","Partiellement délivrée","Partially dispensed","Ti fi jiṣẹ ni apakan",""
 "prescription.status.FULLY_DISPENSED","","Délivrée","Dispensed","Ti fi jiṣẹ",""
-"labo.title","CRITIQUE","Laboratoire","Laboratory","Yàrá",""
+"labo.title","CRITIQUE","Laboratoire","Laboratory","Yàrá Ìwádìí",""
 "labo.order","CRITIQUE","N° de demande (orderId)","Request No. (orderId)","Nọmba ibeere (orderId)",""
 "labo.result","CRITIQUE","Saisie de résultat","Result entry","Akọsilẹ esi",""
 "labo.add_value","CRITIQUE","Ajouter une valeur","Add a value","Fi iye kan kun",""

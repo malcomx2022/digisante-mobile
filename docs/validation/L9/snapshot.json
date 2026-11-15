@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "sourceSnapshotSha256": "8b786dfe1892edda579b06e17dc928c9b0258627b6be59e6fa26db02e39a913d",
+  "sourceSnapshotSha256": "f728a7bb171aeb71a38fbabb9a4479c5dfc7b3c28868220db981c2cb57a7ed2f",
   "sources": [
     {
       "path": "apps/web/src/i18n/messages.ts",
-      "sha256": "4096005365d06aad1d2700f2b43a07ba7ea006f950c86d1b3cc788e86a282d71"
+      "sha256": "fd07b628dbd19cd622b64b31c5e561283fd15557e5bc0a98402f61070f77db65"
     },
     {
       "path": "packages/shared/src/triage.ts",
@@ -3670,7 +3670,7 @@
       "prescription.status.ACTIVE": "Nduro",
       "prescription.status.PARTIALLY_DISPENSED": "Ti fi jiṣẹ ni apakan",
       "prescription.status.FULLY_DISPENSED": "Ti fi jiṣẹ",
-      "labo.title": "Yàrá",
+      "labo.title": "Yàrá Ìwádìí",
       "labo.order": "Nọmba ibeere (orderId)",
       "labo.result": "Akọsilẹ esi",
       "labo.add_value": "Fi iye kan kun",

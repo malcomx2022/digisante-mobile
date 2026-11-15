@@ -19,6 +19,17 @@ natifs distincts.
   pour le **médecin** (étiquette « Critique », valeur trop basse/élevée) et pour le **patient** (état de son analyse).
   Un texte faux sur une alerte de valeur critique est plus dangereux qu'un texte en français.
 
+## Statut au 15 novembre 2026
+
+- **YOR : intégré.** 31/31 clés importées après double validation native (`YOR-R1`/`YOR-R2`, 14/11/2026,
+  réf. privée `LAB-YOR-2026-11`, `--overwrite --require-all`), fichier reçu importé sans modification (SHA-256
+  `59eae87d99313e97…`, entrée dans `docs/i18n/TRACABILITE_Relectures.md`). 30 textes sur 31 sont identiques au
+  premier jet machine (seul `labo.title` a changé). Importés tels que validés sur décision du porteur, alors que la
+  colonne `remarque` les signalait : `labo.critical_short` (« Atunwo »), `labo.critical` (« olutọpa »),
+  `labo.claim` (« Gba agbara »), `labo.in_progress` (« Atilẹyin »). À revoir en priorité si un doute est remonté.
+- **FON : en attente** (seconde PR). Retour reçu (réf. `LAB-FON-2026-11`) : 30/31 acceptées ; `labo.title` refusée
+  (identique au français) et `labo.order` porte `(ordreId)` au lieu de `(orderId)`. Nouveau retour attendu.
+
 ## Fichiers
 
 | Fichier | Pour qui |
