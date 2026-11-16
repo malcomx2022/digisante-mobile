@@ -498,7 +498,7 @@ Branche `claude/compassionate-goldberg-5fdh2j` repartie de main `7908753` (aprè
   - `params` des pages dynamiques est une **Promise** (`await params`) ;
   - plus de namespace global `JSX` : utiliser `ReactElement` (import `react`).
   - `next-env.d.ts` : **ne pas committer** la référence `.next/types/routes.d.ts` ajoutée par le build. Sur un clone frais, le typecheck de la CI, qui passe avant le build, échouerait.
-  - `next lint` est déprécié (Next 16) ; la migration vers le CLI ESLint reste à faire avant Next 16.
+  - Lint web par le **CLI ESLint** (`eslint --ext .js,.jsx,.ts,.tsx --cache src`, config `.eslintrc.json` `next/core-web-vitals` inchangée) à la place de `next lint` (retiré en Next 16), depuis le 16/11/2026. Même périmètre que `next lint` (`src`) ; `next build` lint encore lui-même jusqu'à Next 16.
 - **zod 4** :
   - `z.record` exige **deux** arguments (`z.record(z.string(), …)`).
   - Avec une clé **enum**, `z.record` est **exhaustif**. Pour un jeu partiel (traductions), utiliser `z.partialRecord`. Le bug a été vu sur `education/:id/translations`, et le test vérifie désormais le 200.
