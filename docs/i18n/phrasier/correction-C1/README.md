@@ -3,6 +3,9 @@
 Préparé le 16 novembre 2026. Il fait suite aux retours `PHR-FON-2026-11` et `PHR-YOR-2026-11`, intégrés par la PR #257.
 **Aucune traduction n'est fournie.** Les relecteurs écrivent eux-mêmes les textes corrigés.
 
+**Statut (16/11/2026) : retours reçus et intégrés** (réf. `PHR-FON-2026-11-C1`, `PHR-YOR-2026-11-C1`). Les quatre
+phrases sont corrigées ; détail dans `docs/i18n/TRACABILITE_Relectures.md`. Les modèles ci-dessous restent vierges.
+
 ## Pourquoi ce kit
 
 L'application a intégré 26 phrases FON et 25 phrases YOR. Trois phrases ont été mises de côté parce que leur sens
@@ -51,7 +54,8 @@ Empreintes SHA-256 des modèles vierges :
   `PHR-YOR-2026-11-C1`.
 - L'intégration se fera par une PR dédiée dans `packages/shared/src/phrasebook.ts`. Les textes seront repris mot pour
   mot et tracés dans `docs/i18n/TRACABILITE_Relectures.md`.
-- **Décision à prendre à ce moment-là.** `phrasebook.ts` est figé par la campagne L9 active (`L9-2026-11-16`). Deux
+- **Décision prise le 16/11/2026** : `L9-2026-11-16` archivée, `L9-2026-11-17` ouverte sur la version corrigée.
+- *Rappel de la décision qui se posait :* `phrasebook.ts` est figé par la campagne L9 active (`L9-2026-11-16`). Deux
   options :
   - archiver cette campagne et en ouvrir une nouvelle ;
   - attendre la fin de ses avis.

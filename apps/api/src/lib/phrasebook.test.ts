@@ -23,9 +23,9 @@ describe('phrasebook', () => {
     expect(phraseText(p, 'FON')).toBe(p.text.FON);
     expect(phraseText(p, 'YOR')).toBe(p.text.YOR);
     // Une phrase sans texte relu dans une langue retombe sur le FR.
-    const finish = PHRASEBOOK.find((x) => x.key === 'pos.finish')!;
-    expect(finish.text.FON).toBeUndefined();
-    expect(phraseText(finish, 'FON')).toBe(finish.text.FR);
+    const partial = { key: 'x.test', category: 'GREETING' as const, text: { FR: 'Bonjour.', EN: 'Hello.' } };
+    expect(phraseText(partial, 'FON')).toBe('Bonjour.');
+    expect(phraseText(partial, 'YOR')).toBe('Bonjour.');
   });
 
   it('textes FON/YOR présents : non vides et différents du FR', () => {
@@ -39,14 +39,17 @@ describe('phrasebook', () => {
     }
   });
 
-  it('phrases au sens à confirmer : laissées en repli FR', () => {
-    const pending: Array<[string, 'FON' | 'YOR']> = [
-      ['pos.finish', 'FON'],
-      ['pos.once_day', 'YOR'],
-      ['sym.vomit_diarrhea', 'YOR'],
-    ];
-    for (const [key, lang] of pending) {
-      expect(PHRASEBOOK.find((p) => p.key === key)!.text[lang]).toBeUndefined();
+  it('correction -C1 : textes repris mot pour mot, phrasier complet en FON et YOR', () => {
+    const text = (key: string, lang: 'FON' | 'YOR') => PHRASEBOOK.find((p) => p.key === key)!.text[lang];
+    expect(text('greet.hello', 'FON')).toBe('Kú àbɔ̀, un wá bá we d’alɔ.');
+    expect(text('pos.finish', 'FON')).toBe('Nǔ amǎ lɛ́ bǐ fó.');
+    expect(text('pos.once_day', 'YOR')).toBe('Lẹ́ẹ̀kan lójúmọ́');
+    expect(text('sym.vomit_diarrhea', 'YOR')).toBe('Ṣé ẹ ń bì tàbí kí ẹ máa yàgbẹ́ gbuuru?');
+    for (const p of PHRASEBOOK) {
+      expect(p.text.FON).toBeDefined();
+      expect(p.text.YOR).toBeDefined();
+      // Le guillemet bas U+201A signalé dans greet.hello ne doit plus apparaître.
+      expect(`${p.text.FON}${p.text.YOR}`).not.toContain('\u201A');
     }
   });
 

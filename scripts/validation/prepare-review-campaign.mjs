@@ -20,8 +20,11 @@ import { REFERENCES, CONSULTED_ON } from './review-references.mjs';
 // (correctifs pilote : les sources ont changé). Ses retours restent liés à 3e061d52….
 // L9-2026-11-15 : kit archivé le 16 novembre 2026 avec son instantané (intégration
 // du phrasier FON/YOR, décision du porteur). Ses retours restent liés à 8d0fd9c3….
+// L9-2026-11-16 : kit archivé le 16 novembre 2026 avec son instantané (correction
+// -C1 du phrasier, décision du porteur). Ses retours restent liés à 470492e2….
 export const ARCHIVE_ROOT = resolve(ROOT, 'docs/validation/archive/L9-3e061d52-2026-11-07');
 export const ARCHIVE_ROOT_2026_11_15 = resolve(ROOT, 'docs/validation/archive/L9-8d0fd9c3-2026-11-16');
+export const ARCHIVE_ROOT_2026_11_16 = resolve(ROOT, 'docs/validation/archive/L9-470492e2-2026-11-17');
 export const CAMPAIGNS = [
   {
     id: 'L9-2026-10-14', status: 'archived',
@@ -38,10 +41,17 @@ export const CAMPAIGNS = [
   },
   {
     // Décision du porteur du 16/11/2026 : version qui intègre le phrasier FON/YOR.
-    id: 'L9-2026-11-16', status: 'active',
+    id: 'L9-2026-11-16', status: 'archived',
     baseCommit: '2503d9ccace61d36621fe274a550769166540263', baseLabel: 'phrasier FON/YOR, branche claude/phrasier-fon-yor (PR #257)',
     snapshot: '470492e2e311194981644188c115180c70e7976fdf8a63a0d05b07f1624ea94c',
-    dir: resolve(ROOT, 'docs/validation/L9/campaign-2026-11-16'), referenceDossier: resolve(ROOT, 'docs/validation/L9/Dossier_Clinique_L9.docx'),
+    dir: resolve(ARCHIVE_ROOT_2026_11_16, 'campaign-2026-11-16'), referenceDossier: resolve(ARCHIVE_ROOT_2026_11_16, 'Dossier_Clinique_L9.docx'),
+  },
+  {
+    // Décision du porteur du 16/11/2026 : version qui intègre la correction -C1 du phrasier.
+    id: 'L9-2026-11-17', status: 'active',
+    baseCommit: '9b6a3190ffffda9181bd885526bdcdf685fd26d3', baseLabel: 'correction -C1 du phrasier, branche claude/compassionate-goldberg-5fdh2j',
+    snapshot: '4d718ebd78521b5689b1e2f2eacd6c0b623e01c3d2771266dd7eec2fe8fc10bd',
+    dir: resolve(ROOT, 'docs/validation/L9/campaign-2026-11-17'), referenceDossier: resolve(ROOT, 'docs/validation/L9/Dossier_Clinique_L9.docx'),
   },
 ];
 export const ACTIVE_CAMPAIGN = CAMPAIGNS.find((campaign) => campaign.status === 'active');

@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "sourceSnapshotSha256": "470492e2e311194981644188c115180c70e7976fdf8a63a0d05b07f1624ea94c",
+  "artifacts": {
+    "snapshot.json": "a17a73fc262092909549c7d1c47b17b522ee1f380ffac9168dfec49acf3f6491",
+    "messages.fon.csv": "5257548233c8ee2755641d11c24dd7c6e247840ce5a163adf2d32ce4590b5db4",
+    "phrasebook.fon.csv": "4ae7965cd3acfa0c618dba6b1e4bfe4f223b2626ffc352b357273ad3c0c47e23",
+    "messages.yor.csv": "ab0f735cf92d80154597292289d5f128a62a4ce9d46a58c166118f073c18a08e",
+    "phrasebook.yor.csv": "a260c452ff7366977c4a82d9fba9085f17fd57bbe5e05806a976533999493d48"
+  }
+}

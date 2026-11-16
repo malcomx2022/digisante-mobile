@@ -151,3 +151,25 @@ Preuve technique : CSV reçu SHA256 `d9a2ea1787c25a204bf85a1ff305bd92a03e66d4130
 - `sym.vomit_diarrhea` : « ìgbẹ́ » désigne les selles, le vomissement n'y figure pas.
 
 Référence de retour : "PHR-YOR-2026-11". Contreseing clinique (portée `phrasebook`) non reçu. Métadonnées déclarées ; vérifier la pièce et la qualité des relecteurs avant fusion.
+
+
+## Phrasier FON — correction C1 — 2026-11-16
+
+Intégration par PR dédiée dans `packages/shared/src/phrasebook.ts` : le phrasier ne passe pas par `import-validated.mjs`.
+
+| Date d’intégration | Langue | Relecteur | Date | 2ᵉ relecteur | Date | Phrases | Renvoyées |
+|---|---|---|---|---|---|---|---|
+| 2026-11-16 | FON | FON-R1 | 2026-11-16 | FON-R2 | 2026-11-16 | 27 / 27 | 0 |
+
+Preuve technique : CSV reçu SHA256 `1e0415838da22d9932a6625a89a0b40f37cba48a37365961aa7bb8d5fe635582` (kit `docs/i18n/phrasier/correction-C1/`). Phrases modifiées : `greet.hello` (nouveau texte, sans le guillemet bas U+201A) et `pos.finish` (ajoutée). Le retour place le texte final dans la colonne `texte_retour_fon` au lieu de `fon_corrige` (sauf pour `greet.hello`, où la colonne corrigée reprenait l'ancien texte) : lecture confirmée par le porteur le 16/11/2026. Relecteurs et dates déclarés par le porteur, non portés par le fichier. Référence de retour : "PHR-FON-2026-11-C1". Contreseing clinique (portée `phrasebook`) non reçu. Métadonnées déclarées ; vérifier la pièce et la qualité des relecteurs avant fusion.
+
+
+## Phrasier YOR — correction C1 — 2026-11-16
+
+Intégration par PR dédiée dans `packages/shared/src/phrasebook.ts` : le phrasier ne passe pas par `import-validated.mjs`.
+
+| Date d’intégration | Langue | Relecteur | Date | 2ᵉ relecteur | Date | Phrases | Renvoyées |
+|---|---|---|---|---|---|---|---|
+| 2026-11-16 | YOR | YOR-R1 | 2026-11-16 | YOR-R2 | 2026-11-16 | 27 / 27 | 0 |
+
+Preuve technique : CSV reçu SHA256 `741b6c2406a4b2b2ebabb7fac1e4e13a794aa2287d7e6e0f09036254acd766df` (kit `docs/i18n/phrasier/correction-C1/`). Phrases ajoutées : `pos.once_day` et `sym.vomit_diarrhea`. Le retour place le texte final dans la colonne `texte_retour_yor` au lieu de `yor_corrige` : lecture confirmée par le porteur le 16/11/2026. `pos.once_day` est repris sans point final, comme dans le retour. Relecteurs et dates déclarés par le porteur, non portés par le fichier. Référence de retour : "PHR-YOR-2026-11-C1". Contreseing clinique (portée `phrasebook`) non reçu. Métadonnées déclarées ; vérifier la pièce et la qualité des relecteurs avant fusion.

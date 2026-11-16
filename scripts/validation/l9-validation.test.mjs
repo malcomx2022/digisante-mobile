@@ -40,9 +40,18 @@ test('clé vide, variable manquante, caractère de remplacement et clé hors FR 
 
 test('sans retours, le gate L9 reste ouvert même si les instantanés techniques sont valides', () => {
   const issues=gateIssues(snapshot,{schemaVersion:1,native:[],clinical:[]});
-  assert.ok(issues.includes('fon: phrasier incomplet'));
+  for (const locale of ['fon','yor']) assert.ok(issues.includes(`${locale}/phrasebook-native: preuve absente, ambiguë ou périmée`));
   assert.ok(issues.some((s)=>s.includes('contreseing')));
   assert.ok(issues.some((s)=>s.includes('preuve absente')));
+});
+
+test('phrase sans texte FON/YOR : gate ouvert « phrasier incomplet », même phrasier par ailleurs complet', () => {
+  const s=structuredClone(snapshot);
+  delete s.phrasebook[0].text.FON;
+  s.phrasebook[1].text.YOR='  ';
+  const issues=gateIssues(s,{schemaVersion:1,native:[],clinical:[]});
+  assert.ok(issues.includes('fon: phrasier incomplet'));
+  assert.ok(issues.includes('yor: phrasier incomplet'));
 });
 
 function fixture() {
