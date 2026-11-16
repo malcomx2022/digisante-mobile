@@ -12,13 +12,34 @@ import { buildLinguisticReview } from './linguistic-review.mjs';
 import { buildClinicalReview } from './clinical-review.mjs';
 import { REFERENCES, CONSULTED_ON } from './review-references.mjs';
 
-export const CAMPAIGN_ID = 'L9-2026-10-14';
-export const BASE_COMMIT = '3e2eb7f2f72d9b5d9d4aee2a74d4b7f16ec7c620';
-export const SOURCE_SNAPSHOT = '3e061d5232d7bc11fe4dc92134a1b2e8d0dc1753b503c38ba261365b514944ed';
-// Kit archivé le 7 novembre 2026 avec son instantané (correctifs pilote : les
-// sources ont changé). Les retours de cette campagne restent liés à 3e061d52….
+// Registre des campagnes : une seule ACTIVE (sources courantes figées sur son
+// instantané), les autres ARCHIVÉES (intégrité seule, jamais régénérées).
+// Une nouvelle campagne = nouvel identifiant, base et instantané fixés ici
+// explicitement, sur décision du porteur.
+// L9-2026-10-14 : kit archivé le 7 novembre 2026 avec son instantané
+// (correctifs pilote : les sources ont changé). Ses retours restent liés à 3e061d52….
 export const ARCHIVE_ROOT = resolve(ROOT, 'docs/validation/archive/L9-3e061d52-2026-11-07');
-export const DEFAULT_DIR = resolve(ARCHIVE_ROOT, 'campaign-2026-10-14');
+export const CAMPAIGNS = [
+  {
+    id: 'L9-2026-10-14', status: 'archived',
+    baseCommit: '3e2eb7f2f72d9b5d9d4aee2a74d4b7f16ec7c620', baseLabel: 'main après fusion de PR #203',
+    snapshot: '3e061d5232d7bc11fe4dc92134a1b2e8d0dc1753b503c38ba261365b514944ed',
+    dir: resolve(ARCHIVE_ROOT, 'campaign-2026-10-14'), referenceDossier: resolve(ARCHIVE_ROOT, 'Dossier_Clinique_L9.docx'),
+  },
+  {
+    // Décision du porteur du 15/11/2026 : identifiant et base main courante.
+    id: 'L9-2026-11-15', status: 'active',
+    baseCommit: 'ed77d64ee2bbc66b7c461da8e402de7ea6e71a1b', baseLabel: 'main après fusion de PR #254',
+    snapshot: '8d0fd9c3f628828092e4bbe659313896c359c4463efcab5f54df708a5cbe139b',
+    dir: resolve(ROOT, 'docs/validation/L9/campaign-2026-11-15'), referenceDossier: resolve(ROOT, 'docs/validation/L9/Dossier_Clinique_L9.docx'),
+  },
+];
+export const ACTIVE_CAMPAIGN = CAMPAIGNS.find((campaign) => campaign.status === 'active');
+export const ARCHIVED_CAMPAIGNS = CAMPAIGNS.filter((campaign) => campaign.status === 'archived');
+export const CAMPAIGN_ID = ACTIVE_CAMPAIGN.id;
+export const BASE_COMMIT = ACTIVE_CAMPAIGN.baseCommit;
+export const SOURCE_SNAPSHOT = ACTIVE_CAMPAIGN.snapshot;
+export const DEFAULT_DIR = ACTIVE_CAMPAIGN.dir;
 const ARCHIVE = 'Kit_Relecteurs_L9.zip';
 const GENERATOR_SOURCES = ['scripts/validation/prepare-review-campaign.mjs', 'scripts/validation/clinical-review.mjs', 'scripts/validation/linguistic-review.mjs', 'scripts/validation/review-references.mjs', 'scripts/docs/generate-l9-review-kit.cjs'];
 const EXTRA_SOURCES = ['apps/web/src/lib/speech.ts', 'apps/web/src/components/chat/PhrasebookPanel.tsx'];
@@ -31,13 +52,19 @@ export function objectsCsv(rows) {
   return [keys, ...rows.map((row) => keys.map((key) => row[key]))].map((row) => row.map(cell).join(',')).join('\n') + '\n';
 }
 
+function criticalPriority(stats) {
+  const missing = ['fon', 'yor'].map((locale) => stats.locales[locale].missingCritical);
+  if (missing.every((count) => count === 0)) return 'aucune n\'est absente en Fɔ̀ngbè ni en Yorùbá, toutes restent à relire en premier';
+  return `les clés critiques absentes (${missing[0]} en Fɔ̀ngbè, ${missing[1]} en Yorùbá) sont prioritaires`;
+}
+
 function guide(campaign) {
   const s = campaign.stats;
   return `# Campagne de relecture ${CAMPAIGN_ID}
 
 Statut : PREPARED_FOR_REVIEW — dossiers vierges, aucune validation humaine attestée. Les relecteurs sont identifiés par le porteur ; leurs identités, habilitations et disponibilités restent à vérifier dans le circuit privé.
 
-Base du code : ${BASE_COMMIT} (main après fusion de PR #203). Snapshot SHA256 : ${campaign.sourceSnapshotSha256}. Chaque portée a sa propre empreinte dans campaign.json et les formulaires. Les empreintes supplémentaires du moteur vocal et du panneau phrasier documentent la recette ; elles ne changent pas le contrat L9.
+Base du code : ${BASE_COMMIT} (${ACTIVE_CAMPAIGN.baseLabel}). Snapshot SHA256 : ${campaign.sourceSnapshotSha256}. Chaque portée a sa propre empreinte dans campaign.json et les formulaires. Les empreintes supplémentaires du moteur vocal et du panneau phrasier documentent la recette ; elles ne changent pas le contrat L9.
 
 ## Documents à remettre
 
@@ -68,7 +95,7 @@ Les ${campaign.sourceQuestions.length} questions SQ relèvent des ambiguïtés d
 
 ## Étape 4 — Première relecture native complète
 
-Chaque langue comprend ${s.ui.total} clés UI, dont ${s.locales.fon.present} textes existants et ${s.locales.fon.missing} manquants, ainsi que ${s.phrasebook.total} phrases natives manquantes. Les textes déjà présents doivent aussi être relus. P0 regroupe les ${s.ui.critical} clés critiques ; les six SOS absentes sont prioritaires. Les fichiers critical.*.review.csv facilitent ce premier passage, mais seul le fichier ui.*.review.csv fait foi pour l'ensemble ; reporter toute observation P0 dans celui-ci. P1 puis P2 puis P3 suivent ; toutes les clés restent nécessaires. Q0/Q1/Q2 organisent le phrasier sans retirer l'exigence de double relecture.
+Chaque langue comprend ${s.ui.total} clés UI : en Fɔ̀ngbè ${s.locales.fon.present} textes existants et ${s.locales.fon.missing} manquants, en Yorùbá ${s.locales.yor.present} existants et ${s.locales.yor.missing} manquants ; le phrasier compte ${s.phrasebook.total} phrases, dont ${s.locales.fon.phrasebookMissing} sans texte Fɔ̀ngbè et ${s.locales.yor.phrasebookMissing} sans texte Yorùbá. Les textes déjà présents doivent aussi être relus : une relecture tracée dans docs/i18n/TRACABILITE_Relectures.md ne remplace pas l'avis d'ensemble demandé ici sur le contenu exact de la portée. P0 regroupe les ${s.ui.critical} clés critiques ; ${criticalPriority(s)}. Les fichiers critical.*.review.csv facilitent ce premier passage, mais seul le fichier ui.*.review.csv fait foi pour l'ensemble ; reporter toute observation P0 dans celui-ci. P1 puis P2 puis P3 suivent ; toutes les clés restent nécessaires. Q0/Q1/Q2 organisent le phrasier sans retirer l'exigence de double relecture.
 
 Remplir proposedNative et primaryNotes. Conserver strictement les variables entre accolades, nombres, unités, négations, acteur, temporalité et degré d'urgence. Employer une orthographe et des diacritiques UTF-8 vérifiés. Aucune traduction automatique native ni texte natif généré n'est fourni par ce kit. Un texte identique au FR peut être un emprunt légitime : le signal sameAsFrench appelle une revue, pas un rejet automatique.
 
@@ -94,15 +121,15 @@ Pour l'éducation, demander l'inventaire réel des articles publiés sur la cibl
 
 Les formulaires remplis, signatures, identités, références nominatives et notes sensibles restent hors dépôt public. Le porteur vérifie identité, compétence, habilitation, deux personnes natives distinctes, dates réelles, portées, empreintes et résolution de toutes les réserves. Les quatre pièces natives portent sur FON/UI, FON/phrasier, YOR/UI et YOR/phrasier ; sept avis cliniques sont nécessaires.
 
-Les grilles review.csv utilisent proposedNative et ne sont pas directement importables. Après vérification, produire un CSV conforme aux modèles source-messages.fon.csv ou source-messages.yor.csv. La revue couvre les 1 098 clés ; l'import porte seulement sur les ajouts et remplacements effectivement approuvés. Conserver les textes existants relus et acceptés sans les réimporter. L'importeur refuse les nouvelles valeurs identiques au FR ; un emprunt existant inchangé peut être couvert par la revue sans réimport, jamais inventer une reformulation pour contourner ce contrôle.
+Les grilles review.csv utilisent proposedNative et ne sont pas directement importables. Après vérification, produire un CSV conforme aux modèles source-messages.fon.csv ou source-messages.yor.csv. La revue couvre les ${s.ui.total} clés ; l'import porte seulement sur les ajouts et remplacements effectivement approuvés. Conserver les textes existants relus et acceptés sans les réimporter. L'importeur refuse les nouvelles valeurs identiques au FR ; un emprunt existant inchangé peut être couvert par la revue sans réimport, jamais inventer une reformulation pour contourner ce contrôle.
 
-Exécuter l'import UI avec les identités et références vérifiées, d'abord en --dry-run --require-all sur les lignes sélectionnées pour l'import. Un remplacement demande --overwrite explicite. --require-all exige zéro rejet dans ce CSV, pas une preuve de revue complète ; vérifier séparément la couverture des 1 098 clés. Le phrasier natif passe par une PR dédiée, pas par cet importeur. Après intégration, régénérer snapshot et dossier, comparer les empreintes finales et obtenir le contreseing sur le candidat final. Une signature de l'état initial incomplet ne prouve pas les traductions ajoutées ensuite.
+Exécuter l'import UI avec les identités et références vérifiées, d'abord en --dry-run --require-all sur les lignes sélectionnées pour l'import. Un remplacement demande --overwrite explicite. --require-all exige zéro rejet dans ce CSV, pas une preuve de revue complète ; vérifier séparément la couverture des ${s.ui.total} clés. Le phrasier natif passe par une PR dédiée, pas par cet importeur ; les grilles phrasebook.*.review.csv portent les mêmes phrases que le kit docs/i18n/phrasier, un seul retour par langue suffit. Après intégration, régénérer snapshot et dossier, comparer les empreintes finales et obtenir le contreseing sur le candidat final. Une signature de l'état initial incomplet ne prouve pas les traductions ajoutées ensuite.
 
 Renseigner evidence.json uniquement à partir de pièces effectivement vérifiées, selon ../README.md et ../../../CONTRAT_Validation_L9.md. Le gate contrôle la cohérence des références, sans authentifier signature ni habilitation. Les contrôles techniques verts ne constituent ni validation humaine ni GO de lancement. Les gates L9, L10 et L11 restent distincts.
 
 ## Références publiques et limites
 
-Les liens de references.csv ont été consultés le ${CONSULTED_ON}. Les annonces nationales signalent des évolutions du PEV ; aucun calendrier national consolidé de 2026 n'a été obtenu. Demander ce document au référent PEV compétent. Les recommandations OMS sont des références professionnelles dont l'application locale, les populations et les mises à jour doivent être arbitrées ; aucune dose ni modification de sévérité n'est choisie dans ce kit.
+Les liens de references.csv ont été consultés le ${CONSULTED_ON}. Ils n'ont pas été reconsultés pour la campagne ${CAMPAIGN_ID} : vérifier leur actualité avant la séance. Les annonces nationales signalent des évolutions du PEV ; aucun calendrier national consolidé de 2026 n'a été obtenu. Demander ce document au référent PEV compétent. Les recommandations OMS sont des références professionnelles dont l'application locale, les populations et les mises à jour doivent être arbitrées ; aucune dose ni modification de sévérité n'est choisie dans ce kit.
 
 ## Vérification des modèles par l'équipe de développement
 
@@ -111,7 +138,7 @@ Commande : pnpm validation:campaign:check. Elle compare les sources, toutes les 
 }
 
 export function buildCampaignArtifacts(snapshot = buildSnapshot()) {
-  if (snapshot.sourceSnapshotSha256 !== SOURCE_SNAPSHOT) throw new Error('Version source différente : préparer explicitement une nouvelle campagne, sans réutiliser les dates ni la base du kit L9-2026-10-14.');
+  if (snapshot.sourceSnapshotSha256 !== SOURCE_SNAPSHOT) throw new Error(`Version source différente : préparer explicitement une nouvelle campagne, sans réutiliser les dates ni la base du kit ${CAMPAIGN_ID}.`);
   const linguistic = buildLinguisticReview(snapshot);
   const clinical = buildClinicalReview(snapshot);
   if (JSON.stringify(clinical.scopes.map((row) => row.scope)) !== JSON.stringify(CLINICAL_SCOPES)) throw new Error('Les sept portées doivent rester celles du contrat L9');
@@ -181,61 +208,68 @@ export function checkCampaign(out, expectedFiles) {
     if (sha256(data) !== manifest.artifacts[name]) throw new Error(`Modèle modifié : ${name}`);
     if (name in expectedFiles && !data.equals(Buffer.from(expectedFiles[name]))) throw new Error(`Modèle périmé : ${name}`);
   }
-  if (!readFileSync(join(out, 'Dossier_Clinique_L9.docx')).equals(readFileSync(resolve(ROOT, 'docs/validation/L9/Dossier_Clinique_L9.docx')))) throw new Error('Dossier clinique différent de la référence L9');
+  if (!readFileSync(join(out, 'Dossier_Clinique_L9.docx')).equals(readFileSync(ACTIVE_CAMPAIGN.referenceDossier))) throw new Error('Dossier clinique différent de la référence L9');
   zip(out, 'check');
 }
 
 /**
- * Intégrité d'un kit ARCHIVÉ (snapshot courant différent) : empreintes du
- * manifeste, inventaire exact, ZIP et dossier clinique identique à celui de
- * l'archive. Ne régénère rien et n'approuve rien.
+ * Intégrité d'un kit ARCHIVÉ : empreintes du manifeste, inventaire exact,
+ * instantané figé, ZIP et dossier clinique identique à celui de l'archive.
+ * Ne régénère rien et n'approuve rien.
  */
-export function checkArchivedCampaign(out, archivedDossier) {
+export function checkArchivedCampaign(out, archivedDossier, campaign = ARCHIVED_CAMPAIGNS[0]) {
   const manifest = JSON.parse(readFileSync(join(out, 'manifest.json'), 'utf8'));
-  if (manifest.schemaVersion !== 1 || manifest.campaignId !== CAMPAIGN_ID) throw new Error('Manifest de campagne invalide');
+  if (manifest.schemaVersion !== 1 || manifest.campaignId !== campaign.id) throw new Error('Manifest de campagne invalide');
   const names = Object.keys(manifest.artifacts ?? {});
   if (JSON.stringify(readdirSync(out).sort()) !== JSON.stringify([...names, 'manifest.json', ARCHIVE].sort())) throw new Error('Fichier inattendu dans le kit archivé');
   for (const name of names) {
     if (sha256(readFileSync(join(out, name))) !== manifest.artifacts[name]) throw new Error(`Kit archivé modifié : ${name}`);
   }
   const source = JSON.parse(readFileSync(join(out, 'source-snapshot.json'), 'utf8'));
-  if (source.sourceSnapshotSha256 !== SOURCE_SNAPSHOT) throw new Error('Kit archivé rattaché à un autre instantané');
+  if (source.sourceSnapshotSha256 !== campaign.snapshot) throw new Error('Kit archivé rattaché à un autre instantané');
   if (!readFileSync(join(out, 'Dossier_Clinique_L9.docx')).equals(readFileSync(archivedDossier))) throw new Error('Dossier clinique différent de celui de l’archive');
   zip(out, 'check');
+}
+
+function validateDocx(out) {
+  const validator = spawnSync('python3', [resolve(ROOT, 'scripts/docs/validate-l9-review-kit.py'), out], { encoding: 'utf8' });
+  if (validator.status !== 0) throw new Error(validator.stderr || validator.stdout || 'DOCX invalide');
+  console.log(validator.stdout.trim());
 }
 
 export async function main(args = process.argv.slice(2)) {
   if (args.some((arg) => !['--check', '--output-dir'].includes(arg) && args[args.indexOf(arg) - 1] !== '--output-dir')) throw new Error('Argument inconnu');
   const index = args.indexOf('--output-dir');
   if (index >= 0 && (!args[index + 1] || args[index + 1].startsWith('--'))) throw new Error('--output-dir exige un nouveau chemin');
+  const check = args.includes('--check');
   const out = resolve(index >= 0 ? args[index + 1] : DEFAULT_DIR);
+  if (check) {
+    // Kits archivés : intégrité seule, leurs retours restent liés à leur instantané.
+    for (const archived of ARCHIVED_CAMPAIGNS) {
+      checkArchivedCampaign(archived.dir, archived.referenceDossier, archived);
+      validateDocx(archived.dir);
+      console.log(`Kit archivé ${archived.id} intègre : ${archived.dir}, snapshot ${archived.snapshot}.`);
+    }
+  }
   const current = buildSnapshot();
   if (current.sourceSnapshotSha256 !== SOURCE_SNAPSHOT) {
-    // Sources modifiées depuis la campagne : seul le contrôle d'intégrité du kit
-    // archivé reste possible ; préparer une campagne exige un nouvel identifiant.
-    if (!args.includes('--check')) throw new Error('Version source différente : préparer explicitement une nouvelle campagne, sans réutiliser les dates ni la base du kit L9-2026-10-14.');
-    checkArchivedCampaign(out, resolve(ARCHIVE_ROOT, 'Dossier_Clinique_L9.docx'));
-    const archived = spawnSync('python3', [resolve(ROOT, 'scripts/docs/validate-l9-review-kit.py'), out], { encoding: 'utf8' });
-    if (archived.status !== 0) throw new Error(archived.stderr || archived.stdout || 'DOCX invalide');
-    console.log(archived.stdout.trim());
-    console.log(`Kit archivé ${CAMPAIGN_ID} intègre : ${out}, snapshot ${SOURCE_SNAPSHOT}. Instantané courant ${current.sourceSnapshotSha256} : nouvelle campagne à préparer ; aucun avis humain ajouté.`);
-    return;
+    // Sources modifiées pendant la campagne active : ses avis porteraient sur une
+    // autre version. L'archiver (décision du porteur) avant toute fusion.
+    throw new Error(`Instantané courant ${current.sourceSnapshotSha256} différent de celui de la campagne active ${CAMPAIGN_ID} (${SOURCE_SNAPSHOT}) : sources modifiées pendant la campagne. Archiver la campagne et en ouvrir une nouvelle, sur décision du porteur.`);
   }
   const { campaign, files } = buildCampaignArtifacts(current);
-  if (args.includes('--check')) checkCampaign(out, files);
+  if (check) checkCampaign(out, files);
   else {
     if (existsSync(out)) throw new Error('Dossier existant : aucun écrasement autorisé. Utiliser --check ou un nouveau --output-dir.');
     const require = createRequire(import.meta.url);
     const { buildDocuments } = require('../docs/generate-l9-review-kit.cjs');
     const documents = await buildDocuments(campaign, files['README.md']);
-    const dossier = readFileSync(resolve(ROOT, 'docs/validation/L9/Dossier_Clinique_L9.docx'));
+    const dossier = readFileSync(ACTIVE_CAMPAIGN.referenceDossier);
     writeNewCampaign(out, { ...files, ...documents, 'Dossier_Clinique_L9.docx': dossier });
     zip(out, 'build');
   }
-  const validator = spawnSync('python3', [resolve(ROOT, 'scripts/docs/validate-l9-review-kit.py'), out], { encoding: 'utf8' });
-  if (validator.status !== 0) throw new Error(validator.stderr || validator.stdout || 'DOCX invalide');
-  console.log(validator.stdout.trim());
-  console.log(`${args.includes('--check') ? 'Vérifié' : 'Préparé'} : ${out}, snapshot ${campaign.sourceSnapshotSha256} ; aucun avis humain ajouté.`);
+  validateDocx(out);
+  console.log(`${check ? 'Vérifié' : 'Préparé'} : campagne ${CAMPAIGN_ID}, ${out}, snapshot ${campaign.sourceSnapshotSha256} ; aucun avis humain ajouté.`);
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch((error) => { console.error(error.message); process.exitCode = 1; });
