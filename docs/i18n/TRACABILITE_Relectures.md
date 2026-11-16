@@ -125,3 +125,29 @@ Preuve technique : CSV SHA256 `9aa87731f82ac83a2e3391597c9b834ae0eefe3d477e51c64
 
 Preuve technique : CSV SHA256 `35ad22711b35148f40fac744a2dd9b32c2205c1c5b901d4b05791fce834b810b`, source avant `4676e03afec70a92e5d8fc78ccbfa9f2761a41f626b450fd378513a35a329b77`, après `6d03c084acb8b88c81626e847e77770e44146279ddc43c4ea5ee23f1c9486fee`. Clés : `revenue.legacy`. Référence de retour : "NC-YOR-2026-11-C2". Métadonnées déclarées ; vérifier la pièce et la qualité des relecteurs avant fusion.
 
+
+
+## Phrasier FON — 2026-11-16
+
+Intégration par PR dédiée dans `packages/shared/src/phrasebook.ts` : le phrasier ne passe pas par `import-validated.mjs`.
+
+| Date d’intégration | Langue | Relecteur | Date | 2ᵉ relecteur | Date | Phrases | Renvoyées |
+|---|---|---|---|---|---|---|---|
+| 2026-11-16 | FON | FON-R1 | 2026-11-15 | FON-R2 | 2026-11-15 | 26 / 27 | 1 |
+
+Preuve technique : CSV reçu SHA256 `0d318fbe67b0b8e6b4022c270d11c83042cd8b5ba81ef8099eca185dcd3eebf7` ; colonnes `key`, `critical`, `category`, `fr`, `en` et `contexte` identiques au modèle vierge. Phrase renvoyée aux relecteurs, restée en repli FR : `pos.finish`, sens de « azɔn » (traitement ou maladie) à confirmer. Référence de retour : "PHR-FON-2026-11". Contreseing clinique (portée `phrasebook`) non reçu. Métadonnées déclarées ; vérifier la pièce et la qualité des relecteurs avant fusion.
+
+
+## Phrasier YOR — 2026-11-16
+
+Intégration par PR dédiée dans `packages/shared/src/phrasebook.ts` : le phrasier ne passe pas par `import-validated.mjs`.
+
+| Date d’intégration | Langue | Relecteur | Date | 2ᵉ relecteur | Date | Phrases | Renvoyées |
+|---|---|---|---|---|---|---|---|
+| 2026-11-16 | YOR | YOR-R1 | 2026-11-15 | YOR-R2 | 2026-11-15 | 25 / 27 | 2 |
+
+Preuve technique : CSV reçu SHA256 `d9a2ea1787c25a204bf85a1ff305bd92a03e66d4130c40118fbb54af0c14ba12` ; colonnes `key`, `critical`, `category`, `fr`, `en` et `contexte` identiques au modèle vierge. Phrases renvoyées aux relecteurs, restées en repli FR :
+- `pos.once_day` : « lọ́sàn-án » se lit « l'après-midi », pas « par jour » ;
+- `sym.vomit_diarrhea` : « ìgbẹ́ » désigne les selles, le vomissement n'y figure pas.
+
+Référence de retour : "PHR-YOR-2026-11". Contreseing clinique (portée `phrasebook`) non reçu. Métadonnées déclarées ; vérifier la pièce et la qualité des relecteurs avant fusion.
