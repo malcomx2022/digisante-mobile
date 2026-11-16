@@ -18,7 +18,7 @@ datés du 2026-11-15. Ils sont intégrés par la PR dédiée #257. Le 16/11/2026
 À confirmer aussi, sans blocage : FON `greet.hello` contient le caractère « ‚ » (U+201A, guillemet bas) à la place
 d'une virgule. Le texte est repris tel quel.
 
-Les corrections reviendront sous une référence `-C1`. Le contreseing clinique (portée `phrasebook`) reste attendu.
+Les corrections reviendront sous une référence `-C1`. Kit de correction prêt : `correction-C1/`. Le contreseing clinique (portée `phrasebook`) reste attendu.
 
 ## À quoi sert le phrasier
 
