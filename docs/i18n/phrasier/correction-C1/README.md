@@ -3,6 +3,9 @@
 Préparé le 16 novembre 2026. Il fait suite aux retours `PHR-FON-2026-11` et `PHR-YOR-2026-11`, intégrés par la PR #257.
 **Aucune traduction n'est fournie.** Les relecteurs écrivent eux-mêmes les textes corrigés.
 
+**Statut (16/11/2026) : retours reçus et intégrés** (réf. `PHR-FON-2026-11-C1`, `PHR-YOR-2026-11-C1`). Les quatre
+phrases sont corrigées ; détail dans `docs/i18n/TRACABILITE_Relectures.md`. Les modèles ci-dessous restent vierges.
+
 ## Pourquoi ce kit
 
 L'application a intégré 26 phrases FON et 25 phrases YOR. Trois phrases ont été mises de côté parce que leur sens

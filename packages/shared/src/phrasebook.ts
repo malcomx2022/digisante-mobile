@@ -8,9 +8,10 @@
 // FR + EN complets. FON/YOR repris mot pour mot des retours de relecture native
 // (double relecture, réf. privées PHR-FON-2026-11 : FON-R1 + FON-R2 et
 // PHR-YOR-2026-11 : YOR-R1 + YOR-R2, le 2026-11-15 ; cf.
-// docs/i18n/TRACABILITE_Relectures.md). Contreseing clinique encore attendu.
-// Phrases renvoyées aux relecteurs (sens à confirmer), en repli FR jusqu'à
-// correction : FON pos.finish ; YOR pos.once_day, sym.vomit_diarrhea.
+// docs/i18n/TRACABILITE_Relectures.md). Correction -C1 du 2026-11-16 (même
+// double relecture, réf. PHR-FON-2026-11-C1 / PHR-YOR-2026-11-C1) : FON
+// greet.hello, pos.finish ; YOR pos.once_day, sym.vomit_diarrhea. Phrasier
+// complet en FON et YOR. Contreseing clinique encore attendu.
 // Jamais de traduction automatique publiée telle quelle (§6).
 // ─────────────────────────────────────────────────────────────
 import type { Lang } from './enums.js';
@@ -33,7 +34,7 @@ export interface Phrase {
  */
 export const PHRASEBOOK: Phrase[] = [
   // Salutations / mise en relation
-  { key: 'greet.hello', category: 'GREETING', text: { FR: 'Bonjour, je suis là pour vous aider.', EN: 'Hello, I am here to help you.', FON: 'Kudo le hwenu‚ un ɖo fi bo na do alɔ nu we.', YOR: 'Ẹ n lẹ o, mo wa nibi lati ran yin lọwọ.' } },
+  { key: 'greet.hello', category: 'GREETING', text: { FR: 'Bonjour, je suis là pour vous aider.', EN: 'Hello, I am here to help you.', FON: 'Kú àbɔ̀, un wá bá we d’alɔ.', YOR: 'Ẹ n lẹ o, mo wa nibi lati ran yin lọwọ.' } },
   { key: 'greet.how_feel', category: 'GREETING', text: { FR: 'Comment vous sentez-vous aujourd’hui ?', EN: 'How are you feeling today?', FON: 'Nε mi ɖe gbɔn egbe ?', YOR: 'Báwo ni ara rẹ ṣe rí lónìí?' } },
   { key: 'greet.understand', category: 'GREETING', text: { FR: 'Est-ce que vous me comprenez ?', EN: 'Do you understand me?', FON: 'A mɔ nu jɛ mɛ à ?', YOR: 'Ṣe Ọrọ mi ye ọ?' } },
   { key: 'greet.no_understand', category: 'GREETING', text: { FR: 'Je ne comprends pas, pouvez-vous répéter ?', EN: 'I do not understand, can you repeat?', FON: 'Un mɔ nu jɛ mɛ a, a sixu lɛ vɔ ɖɔ à ?', YOR: 'Mi o ye mi, se o le tun se?' } },
@@ -45,7 +46,7 @@ export const PHRASEBOOK: Phrase[] = [
   { key: 'sym.since_when', category: 'SYMPTOM', text: { FR: 'Depuis combien de temps ?', EN: 'For how long?', FON: 'Táan nabi?', YOR: 'Fún ìgbà wo ni?' } },
   { key: 'sym.fever', category: 'SYMPTOM', text: { FR: 'Avez-vous de la fièvre ?', EN: 'Do you have a fever?', FON: 'A ɖo zozo a ?', YOR: 'Ṣé ibà ń ṣe ọ́?' } },
   { key: 'sym.cough', category: 'SYMPTOM', text: { FR: 'Avez-vous de la toux ?', EN: 'Do you have a cough?', FON: 'A ɖo kɔ xú wɛ à ?', YOR: 'Ṣé o ní ikọ́?' } },
-  { key: 'sym.vomit_diarrhea', category: 'SYMPTOM', text: { FR: 'Avez-vous des vomissements ou la diarrhée ?', EN: 'Do you have vomiting or diarrhea?', FON: 'A nɔ vìvì alǒ nɔ ɖò xomɛslá wɛ à ?' } },
+  { key: 'sym.vomit_diarrhea', category: 'SYMPTOM', text: { FR: 'Avez-vous des vomissements ou la diarrhée ?', EN: 'Do you have vomiting or diarrhea?', FON: 'A nɔ vìvì alǒ nɔ ɖò xomɛslá wɛ à ?', YOR: 'Ṣé ẹ ń bì tàbí kí ẹ máa yàgbẹ́ gbuuru?' } },
   { key: 'sym.pregnant', category: 'SYMPTOM', text: { FR: 'Êtes-vous enceinte ?', EN: 'Are you pregnant?', FON: 'A ɖo xo wɛ a ?', YOR: 'Ṣé o lóyún?' } },
   { key: 'sym.allergy', category: 'SYMPTOM', text: { FR: 'Avez-vous des allergies à des médicaments ?', EN: 'Are you allergic to any medicine?', FON: 'Atínkɛ́n ɖebǔ ka nɔ gbɛ́ nú we à?', YOR: 'Ṣé o ní àléjì sí oògùn èyíkéyìí?' } },
 
@@ -56,11 +57,11 @@ export const PHRASEBOOK: Phrase[] = [
   { key: 'ins.lab_test', category: 'INSTRUCTION', text: { FR: 'Vous devez faire un examen de laboratoire.', EN: 'You need a laboratory test.', FON: 'A ɖo na bló tɛnkpɔn laboratoire tɔn.', YOR: 'O nilo idanwo yàrá.' } },
 
   // Posologie
-  { key: 'pos.once_day', category: 'POSOLOGY', text: { FR: 'Une fois par jour.', EN: 'Once a day.', FON: 'Azɔn ɖokpo ɖò kéze ɖokpo mɛ.' } },
+  { key: 'pos.once_day', category: 'POSOLOGY', text: { FR: 'Une fois par jour.', EN: 'Once a day.', FON: 'Azɔn ɖokpo ɖò kéze ɖokpo mɛ.', YOR: 'Lẹ́ẹ̀kan lójúmọ́' } },
   { key: 'pos.twice_day', category: 'POSOLOGY', text: { FR: 'Deux fois par jour.', EN: 'Twice a day.', FON: 'Azɔn wè ɖò kéze ɖokpo mɛ.', YOR: 'Lẹ́ẹ̀mejì lójúmọ́.' } },
   { key: 'pos.three_day', category: 'POSOLOGY', text: { FR: 'Trois fois par jour.', EN: 'Three times a day.', FON: 'Azɔn atɔn ɖò kéze ɖokpo mɛ.', YOR: 'Ni igba mẹta lojojumọ.' } },
   { key: 'pos.after_meal', category: 'POSOLOGY', text: { FR: 'Après le repas.', EN: 'After a meal.', FON: 'Enyi è ɖu nǔ gudo ɔ.', YOR: 'Lẹ́yìn oúnjẹ.' } },
-  { key: 'pos.finish', category: 'POSOLOGY', text: { FR: 'Terminez tout le traitement.', EN: 'Finish the whole treatment.', YOR: 'Pari gbogbo itọju naa.' } },
+  { key: 'pos.finish', category: 'POSOLOGY', text: { FR: 'Terminez tout le traitement.', EN: 'Finish the whole treatment.', FON: 'Nǔ amǎ lɛ́ bǐ fó.', YOR: 'Pari gbogbo itọju naa.' } },
 
   // Suivi
   { key: 'fu.come_back', category: 'FOLLOWUP', text: { FR: 'Revenez si cela ne s’améliore pas.', EN: 'Come back if it does not improve.', FON: 'Enyi é ma kpɔ́n te ǎ ɔ, lɛkɔ wá.', YOR: 'Pada wa ti ko ba dara si.' } },

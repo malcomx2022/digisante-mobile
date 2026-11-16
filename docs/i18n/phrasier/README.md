@@ -10,15 +10,17 @@ Retours reçus : FON (réf. `PHR-FON-2026-11`, FON-R1 + FON-R2) et YOR (réf. `P
 datés du 2026-11-15. Ils sont intégrés par la PR dédiée #257. Le 16/11/2026, sur décision du porteur, la campagne L9
 `L9-2026-11-15` a été archivée et `L9-2026-11-16` ouverte sur cette version, qui contient le phrasier.
 
-| Langue | Intégrées | Renvoyées aux relecteurs (repli FR) |
+Correction `-C1` reçue le même jour (réf. `PHR-FON-2026-11-C1` et `PHR-YOR-2026-11-C1`, mêmes relecteurs, double
+relecture du 2026-11-16) et intégrée par une PR dédiée. La campagne `L9-2026-11-16` a été archivée et
+`L9-2026-11-17` ouverte sur la version corrigée, sur décision du porteur.
+
+| Langue | Intégrées | Corrigées par `-C1` |
 |---|---|---|
-| FON | 26 / 27 | `pos.finish` : « azɔn » désigne-t-il le traitement ou la maladie ? |
-| YOR | 25 / 27 | `pos.once_day` : « lọ́sàn-án » se lit « l'après-midi », pas « par jour ». `sym.vomit_diarrhea` : « ìgbẹ́ » désigne les selles, le vomissement n'y figure pas. |
+| FON | 27 / 27 | `greet.hello` (nouveau texte, sans le guillemet bas « ‚ ») ; `pos.finish` (ajoutée) |
+| YOR | 27 / 27 | `pos.once_day` et `sym.vomit_diarrhea` (ajoutées) |
 
-À confirmer aussi, sans blocage : FON `greet.hello` contient le caractère « ‚ » (U+201A, guillemet bas) à la place
-d'une virgule. Le texte est repris tel quel.
-
-Les corrections reviendront sous une référence `-C1`. Kit de correction prêt : `correction-C1/`. Le contreseing clinique (portée `phrasebook`) reste attendu.
+Le phrasier est complet en FON et en YOR. Le contreseing clinique (portée `phrasebook`) reste attendu, sur la version
+qui intègre `-C1`.
 
 ## À quoi sert le phrasier
 

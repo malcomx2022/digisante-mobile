@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceSnapshotSha256": "470492e2e311194981644188c115180c70e7976fdf8a63a0d05b07f1624ea94c",
+  "sourceSnapshotSha256": "4d718ebd78521b5689b1e2f2eacd6c0b623e01c3d2771266dd7eec2fe8fc10bd",
   "sources": [
     {
       "path": "apps/web/src/i18n/messages.ts",
@@ -48,7 +48,7 @@
     },
     {
       "path": "packages/shared/src/phrasebook.ts",
-      "sha256": "58cc4bc43854b66fd66a197886dc262d9a92e76cc9b42ff6484c657a8059677d"
+      "sha256": "b84888df03315bcf0f193e90510dd250496b482d36a31d165259a7c91fe883d8"
     },
     {
       "path": "apps/web/src/components/chat/ChatRoom.tsx",
@@ -6247,7 +6247,7 @@
       "text": {
         "FR": "Bonjour, je suis là pour vous aider.",
         "EN": "Hello, I am here to help you.",
-        "FON": "Kudo le hwenu‚ un ɖo fi bo na do alɔ nu we.",
+        "FON": "Kú àbɔ̀, un wá bá we d’alɔ.",
         "YOR": "Ẹ n lẹ o, mo wa nibi lati ran yin lọwọ."
       }
     },
@@ -6347,7 +6347,8 @@
       "text": {
         "FR": "Avez-vous des vomissements ou la diarrhée ?",
         "EN": "Do you have vomiting or diarrhea?",
-        "FON": "A nɔ vìvì alǒ nɔ ɖò xomɛslá wɛ à ?"
+        "FON": "A nɔ vìvì alǒ nɔ ɖò xomɛslá wɛ à ?",
+        "YOR": "Ṣé ẹ ń bì tàbí kí ẹ máa yàgbẹ́ gbuuru?"
       }
     },
     {
@@ -6416,7 +6417,8 @@
       "text": {
         "FR": "Une fois par jour.",
         "EN": "Once a day.",
-        "FON": "Azɔn ɖokpo ɖò kéze ɖokpo mɛ."
+        "FON": "Azɔn ɖokpo ɖò kéze ɖokpo mɛ.",
+        "YOR": "Lẹ́ẹ̀kan lójúmọ́"
       }
     },
     {
@@ -6455,6 +6457,7 @@
       "text": {
         "FR": "Terminez tout le traitement.",
         "EN": "Finish the whole treatment.",
+        "FON": "Nǔ amǎ lɛ́ bǐ fó.",
         "YOR": "Pari gbogbo itọju naa."
       }
     },
