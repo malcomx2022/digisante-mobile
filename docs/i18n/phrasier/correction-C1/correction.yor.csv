@@ -1,0 +1,3 @@
+key,critical,category,fr,en,texte_retour_yor,point_a_verifier,yor_corrige,remarque
+sym.vomit_diarrhea,CLINIQUE_DOUBLE_RELECTURE,SYMPTOM,Avez-vous des vomissements ou la diarrhée ?,Do you have vomiting or diarrhea?,Ṣé o ní ìgbẹ́ tàbí ìgbẹ́ gbuuru?,« ìgbẹ́ » désigne les selles ; le vomissement n'apparaît pas. La question doit porter sur DEUX symptômes : vomissements ET/OU diarrhée.,,
+pos.once_day,CLINIQUE_DOUBLE_RELECTURE,POSOLOGY,Une fois par jour.,Once a day.,Lẹ́ẹ̀kan lọ́sàn-án.,"« lọ́sàn-án » se lit « l'après-midi », pas « par jour ». Une fois PAR JOUR, à n'importe quel moment de la journée. Pour comparaison, pos.twice_day utilise « lójúmọ́ ».",,

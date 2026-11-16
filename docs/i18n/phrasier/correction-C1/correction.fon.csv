@@ -1,0 +1,3 @@
+key,critical,category,fr,en,texte_retour_fon,point_a_verifier,fon_corrige,remarque
+greet.hello,CLINIQUE_DOUBLE_RELECTURE,GREETING,"Bonjour, je suis là pour vous aider.","Hello, I am here to help you.",Kudo le hwenu‚ un ɖo fi bo na do alɔ nu we.,"Point mineur : le texte contient le caractère « ‚ » (guillemet bas U+201A) à la place d'une virgule. Confirmer qu'il s'agit d'une virgule, ou garder tel quel.",,
+pos.finish,CLINIQUE_DOUBLE_RELECTURE,POSOLOGY,Terminez tout le traitement.,Finish the whole treatment.,Fífó azɔn ɔ bǐ.,"« azɔn » désigne-t-il ici le traitement (les médicaments) ou la maladie ? La phrase doit dire : prendre TOUT le traitement jusqu'au bout, même si l'on va mieux.",,
