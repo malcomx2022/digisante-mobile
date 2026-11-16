@@ -51,3 +51,22 @@ describe('envSchema — durcissement fail-safe', () => {
     }
   });
 });
+
+describe('envSchema — durées de conservation (D-8)', () => {
+  const base = { NODE_ENV: 'test', DATABASE_URL: 'postgresql://x', REDIS_URL: 'redis://x', JWT_SECRET: 'x'.repeat(8) };
+  it('vide ou absente : catégorie désactivée', () => {
+    const r = envSchema.safeParse({ ...base, RETENTION_NOTIFICATIONS_DAYS: '' });
+    expect(r.success).toBe(true);
+    expect(r.success && r.data.RETENTION_NOTIFICATIONS_DAYS).toBeUndefined();
+    expect(r.success && r.data.RETENTION_SOS_CLOSED_DAYS).toBeUndefined();
+  });
+  it('entier de jours accepté', () => {
+    const r = envSchema.safeParse({ ...base, RETENTION_SOS_CLOSED_DAYS: '90' });
+    expect(r.success && r.data.RETENTION_SOS_CLOSED_DAYS).toBe(90);
+  });
+  it('refuse 0, une valeur négative, décimale ou non numérique', () => {
+    for (const v of ['0', '-5', '1.5', 'abc', '3651']) {
+      expect(envSchema.safeParse({ ...base, RETENTION_NOTIFICATIONS_DAYS: v }).success).toBe(false);
+    }
+  });
+});

@@ -105,7 +105,7 @@ DISK_PATHS="${DISK_PATHS:-/ ${BACKUP_DIR}}"
 DISK_THRESHOLD="${DISK_THRESHOLD:-85}"
 # Journaux des tâches ROOT : répertoire root:root (un journal dans le répertoire de
 # l'utilisateur applicatif pourrait être remplacé par un lien vers un fichier système).
-JOB_LOGS="${JOB_LOGS:-${CRON_LOG_DIR}/med_reminders.log ${CRON_LOG_DIR}/appt_reminders.log ${CRON_LOG_DIR}/vaccination_reminders.log ${CRON_LOG_DIR}/maternity_reminders.log ${CRON_LOG_DIR}/notify_dispatch.log ${CRON_LOG_DIR}/reconcile.log ${CRON_LOG_DIR}/pg_dump.log ${CRON_LOG_DIR}/sync_receipts.log}"
+JOB_LOGS="${JOB_LOGS:-${CRON_LOG_DIR}/med_reminders.log ${CRON_LOG_DIR}/appt_reminders.log ${CRON_LOG_DIR}/vaccination_reminders.log ${CRON_LOG_DIR}/maternity_reminders.log ${CRON_LOG_DIR}/notify_dispatch.log ${CRON_LOG_DIR}/reconcile.log ${CRON_LOG_DIR}/pg_dump.log ${CRON_LOG_DIR}/sync_receipts.log ${CRON_LOG_DIR}/retention.log}"
 API_LOG="${API_LOG:-${APP_LOG_DIR}/api-error.log ${APP_LOG_DIR}/api-out.log}"
 [[ "$DB_NAME" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]] || { echo "Nom de base invalide" >&2; exit 1; }
 PSQL="${PSQL:-sudo -u postgres psql -d $DB_NAME -At}"

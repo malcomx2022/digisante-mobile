@@ -8,6 +8,12 @@ export function refreshTtlSeconds(ttl: string): number {
   return match ? Number(match[1]) * ({ s: 1, m: 60, h: 3600, d: 86400 }[match[2] as 's' | 'm' | 'h' | 'd']) : NaN;
 }
 
+// Durée de conservation en jours. Vide ou absente = catégorie désactivée (D-8 non tranchée).
+const retentionDays = z.preprocess(
+  (v) => (v === '' || v === undefined ? undefined : v),
+  z.coerce.number().int().min(1).max(3650).optional(),
+);
+
 // NODE_ENV est REQUIS (aucun défaut) : un environnement qui ne le déclare pas est
 // une erreur de configuration, pas un mode « développement » silencieux (fail-safe).
 export const envSchema = z.object({
@@ -56,6 +62,10 @@ export const envSchema = z.object({
 
   // ── Jeton de service pour les tâches internes (réconciliation, dispatch) ──
   RECONCILE_TOKEN: z.string().optional(),
+
+  // ── Conservation (D-8) : durées en jours, absentes = catégorie non purgée ──
+  RETENTION_NOTIFICATIONS_DAYS: retentionDays,
+  RETENTION_SOS_CLOSED_DAYS: retentionDays,
 
   // ── Firebase FCM (push) — optionnel : stub si absent ──
   FIREBASE_PROJECT_ID: z.string().optional(),

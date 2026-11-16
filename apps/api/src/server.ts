@@ -33,6 +33,7 @@ import prescriptionsRoutes from '@/modules/prescriptions/prescriptions.routes.js
 import professionalsRoutes from '@/modules/professionals/professionals.routes.js';
 import referralsRoutes from '@/modules/referrals/referrals.routes.js';
 import remindersRoutes from '@/modules/reminders/reminders.routes.js';
+import retentionRoutes from '@/modules/retention/retention.routes.js';
 import sosRoutes from '@/modules/sos/sos.routes.js';
 import syncRoutes from '@/modules/sync/sync.routes.js';
 import subscriptionsRoutes from '@/modules/subscriptions/subscriptions.routes.js';
@@ -169,6 +170,7 @@ export async function buildServer() {
   await app.register(subscriptionsRoutes, { prefix: '/api/v1/subscriptions' });
   await app.register(notificationsRoutes, { prefix: '/api/v1/notifications' });
   await app.register(sosRoutes, { prefix: '/api/v1/sos' });
+  await app.register(retentionRoutes, { prefix: '/api/v1/retention' });
 
   return app;
 }

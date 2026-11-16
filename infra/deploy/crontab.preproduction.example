@@ -86,3 +86,7 @@ J=/usr/local/lib/digisante-preprod/infra/deploy/scripts/internal_job.sh
 
 # L3 : reçus chiffrés conservés 14 jours, mutations acceptées au plus 7 jours.
 10 * * * * root [[ "$(TZ=$LOCAL_TZ date +\%H\%M)" == 0310 ]] && $J /api/v1/sync/receipts/prune >> /var/log/digisante-preprod-cron/sync_receipts.log 2>&1
+
+# D-8 : purges de conservation (notifications envoyées/lues, alertes SOS closes).
+# Sans durée RETENTION_*_DAYS dans le .env de l'API, la tâche ne supprime RIEN.
+20 * * * * root [[ "$(TZ=$LOCAL_TZ date +\%H\%M)" == 0320 ]] && $J /api/v1/retention/purge >> /var/log/digisante-preprod-cron/retention.log 2>&1
