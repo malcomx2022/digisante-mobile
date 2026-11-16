@@ -7,8 +7,8 @@ traduction automatique.
 ## État au 16 novembre 2026
 
 Retours reçus : FON (réf. `PHR-FON-2026-11`, FON-R1 + FON-R2) et YOR (réf. `PHR-YOR-2026-11`, YOR-R1 + YOR-R2),
-datés du 2026-11-15. Ils sont intégrés sur une branche dédiée, par une PR **non fusionnée** : `phrasebook.ts` est figé
-par la campagne L9 `L9-2026-11-15` tant qu'elle court.
+datés du 2026-11-15. Ils sont intégrés par la PR dédiée #257. Le 16/11/2026, sur décision du porteur, la campagne L9
+`L9-2026-11-15` a été archivée et `L9-2026-11-16` ouverte sur cette version, qui contient le phrasier.
 
 | Langue | Intégrées | Renvoyées aux relecteurs (repli FR) |
 |---|---|---|
