@@ -4,6 +4,22 @@ Préparé le 15 novembre 2026 depuis `main` `b4ca6aa`. **Aucune traduction n'est
 eux-mêmes les textes. La règle du projet (CLAUDE.md §6 et §8, « Barrière linguistique ») interdit de publier une
 traduction automatique.
 
+## État au 16 novembre 2026
+
+Retours reçus : FON (réf. `PHR-FON-2026-11`, FON-R1 + FON-R2) et YOR (réf. `PHR-YOR-2026-11`, YOR-R1 + YOR-R2),
+datés du 2026-11-15. Ils sont intégrés sur une branche dédiée, par une PR **non fusionnée** : `phrasebook.ts` est figé
+par la campagne L9 `L9-2026-11-15` tant qu'elle court.
+
+| Langue | Intégrées | Renvoyées aux relecteurs (repli FR) |
+|---|---|---|
+| FON | 26 / 27 | `pos.finish` : « azɔn » désigne-t-il le traitement ou la maladie ? |
+| YOR | 25 / 27 | `pos.once_day` : « lọ́sàn-án » se lit « l'après-midi », pas « par jour ». `sym.vomit_diarrhea` : « ìgbẹ́ » désigne les selles, le vomissement n'y figure pas. |
+
+À confirmer aussi, sans blocage : FON `greet.hello` contient le caractère « ‚ » (U+201A, guillemet bas) à la place
+d'une virgule. Le texte est repris tel quel.
+
+Les corrections reviendront sous une référence `-C1`. Le contreseing clinique (portée `phrasebook`) reste attendu.
+
 ## À quoi sert le phrasier
 
 Dans la messagerie patient↔médecin, le panneau 🗣 propose des phrases toutes faites : accueil, questions sur les
