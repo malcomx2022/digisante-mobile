@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "sourceSnapshotSha256": "8d0fd9c3f628828092e4bbe659313896c359c4463efcab5f54df708a5cbe139b",
+  "sourceSnapshotSha256": "470492e2e311194981644188c115180c70e7976fdf8a63a0d05b07f1624ea94c",
   "sources": [
     {
       "path": "apps/web/src/i18n/messages.ts",
@@ -48,7 +48,7 @@
     },
     {
       "path": "packages/shared/src/phrasebook.ts",
-      "sha256": "3653b6ccb4fac826051dda31b733553297a0b0e5a0eae33dded5f6d2fab40edd"
+      "sha256": "58cc4bc43854b66fd66a197886dc262d9a92e76cc9b42ff6484c657a8059677d"
     },
     {
       "path": "apps/web/src/components/chat/ChatRoom.tsx",
@@ -6246,7 +6246,9 @@
       "category": "GREETING",
       "text": {
         "FR": "Bonjour, je suis là pour vous aider.",
-        "EN": "Hello, I am here to help you."
+        "EN": "Hello, I am here to help you.",
+        "FON": "Kudo le hwenu‚ un ɖo fi bo na do alɔ nu we.",
+        "YOR": "Ẹ n lẹ o, mo wa nibi lati ran yin lọwọ."
       }
     },
     {
@@ -6254,7 +6256,9 @@
       "category": "GREETING",
       "text": {
         "FR": "Comment vous sentez-vous aujourd’hui ?",
-        "EN": "How are you feeling today?"
+        "EN": "How are you feeling today?",
+        "FON": "Nε mi ɖe gbɔn egbe ?",
+        "YOR": "Báwo ni ara rẹ ṣe rí lónìí?"
       }
     },
     {
@@ -6262,7 +6266,9 @@
       "category": "GREETING",
       "text": {
         "FR": "Est-ce que vous me comprenez ?",
-        "EN": "Do you understand me?"
+        "EN": "Do you understand me?",
+        "FON": "A mɔ nu jɛ mɛ à ?",
+        "YOR": "Ṣe Ọrọ mi ye ọ?"
       }
     },
     {
@@ -6270,7 +6276,9 @@
       "category": "GREETING",
       "text": {
         "FR": "Je ne comprends pas, pouvez-vous répéter ?",
-        "EN": "I do not understand, can you repeat?"
+        "EN": "I do not understand, can you repeat?",
+        "FON": "Un mɔ nu jɛ mɛ a, a sixu lɛ vɔ ɖɔ à ?",
+        "YOR": "Mi o ye mi, se o le tun se?"
       }
     },
     {
@@ -6278,7 +6286,9 @@
       "category": "GREETING",
       "text": {
         "FR": "Prenez votre temps.",
-        "EN": "Take your time."
+        "EN": "Take your time.",
+        "FON": "Sɔ́ hwenu towe.",
+        "YOR": "Lo akoko rẹ."
       }
     },
     {
@@ -6286,7 +6296,9 @@
       "category": "SYMPTOM",
       "text": {
         "FR": "Où avez-vous mal ?",
-        "EN": "Where does it hurt?"
+        "EN": "Where does it hurt?",
+        "FON": "Fitɛ e nɔ vε wu ɖe ?",
+        "YOR": "Ibo lo ti ndun e?"
       }
     },
     {
@@ -6294,7 +6306,9 @@
       "category": "SYMPTOM",
       "text": {
         "FR": "J’ai mal ici.",
-        "EN": "I have pain here."
+        "EN": "I have pain here.",
+        "FON": "Un ɖo wuvɛ se wɛ ɖo fi.",
+        "YOR": "Mo ní ìrora níbí."
       }
     },
     {
@@ -6302,7 +6316,9 @@
       "category": "SYMPTOM",
       "text": {
         "FR": "Depuis combien de temps ?",
-        "EN": "For how long?"
+        "EN": "For how long?",
+        "FON": "Táan nabi?",
+        "YOR": "Fún ìgbà wo ni?"
       }
     },
     {
@@ -6310,7 +6326,9 @@
       "category": "SYMPTOM",
       "text": {
         "FR": "Avez-vous de la fièvre ?",
-        "EN": "Do you have a fever?"
+        "EN": "Do you have a fever?",
+        "FON": "A ɖo zozo a ?",
+        "YOR": "Ṣé ibà ń ṣe ọ́?"
       }
     },
     {
@@ -6318,7 +6336,9 @@
       "category": "SYMPTOM",
       "text": {
         "FR": "Avez-vous de la toux ?",
-        "EN": "Do you have a cough?"
+        "EN": "Do you have a cough?",
+        "FON": "A ɖo kɔ xú wɛ à ?",
+        "YOR": "Ṣé o ní ikọ́?"
       }
     },
     {
@@ -6326,7 +6346,8 @@
       "category": "SYMPTOM",
       "text": {
         "FR": "Avez-vous des vomissements ou la diarrhée ?",
-        "EN": "Do you have vomiting or diarrhea?"
+        "EN": "Do you have vomiting or diarrhea?",
+        "FON": "A nɔ vìvì alǒ nɔ ɖò xomɛslá wɛ à ?"
       }
     },
     {
@@ -6334,7 +6355,9 @@
       "category": "SYMPTOM",
       "text": {
         "FR": "Êtes-vous enceinte ?",
-        "EN": "Are you pregnant?"
+        "EN": "Are you pregnant?",
+        "FON": "A ɖo xo wɛ a ?",
+        "YOR": "Ṣé o lóyún?"
       }
     },
     {
@@ -6342,7 +6365,9 @@
       "category": "SYMPTOM",
       "text": {
         "FR": "Avez-vous des allergies à des médicaments ?",
-        "EN": "Are you allergic to any medicine?"
+        "EN": "Are you allergic to any medicine?",
+        "FON": "Atínkɛ́n ɖebǔ ka nɔ gbɛ́ nú we à?",
+        "YOR": "Ṣé o ní àléjì sí oògùn èyíkéyìí?"
       }
     },
     {
@@ -6350,7 +6375,9 @@
       "category": "INSTRUCTION",
       "text": {
         "FR": "Reposez-vous et buvez beaucoup d’eau.",
-        "EN": "Rest and drink plenty of water."
+        "EN": "Rest and drink plenty of water.",
+        "FON": "Gbɔjɛ bo nu sìn sukpɔ.",
+        "YOR": "Sinmi ki o si mu omi pupọ."
       }
     },
     {
@@ -6358,7 +6385,9 @@
       "category": "INSTRUCTION",
       "text": {
         "FR": "Prenez ce médicament comme indiqué.",
-        "EN": "Take this medicine as directed."
+        "EN": "Take this medicine as directed.",
+        "FON": "Mi nu atínkɛ́n élɔ́ lě e è ɖɔ gbɔn é.",
+        "YOR": "Mu oogun yii bi a ti paṣẹ fun ọ."
       }
     },
     {
@@ -6366,7 +6395,9 @@
       "category": "INSTRUCTION",
       "text": {
         "FR": "Allez à la pharmacie avec cette ordonnance.",
-        "EN": "Go to the pharmacy with this prescription."
+        "EN": "Go to the pharmacy with this prescription.",
+        "FON": "Yi atínkɛnxɔsa ɔ kpodo wema elɔ kpo.",
+        "YOR": "Lọ sí ilé ìtajà oògùn pẹ̀lú ìwé àṣẹ yìí."
       }
     },
     {
@@ -6374,7 +6405,9 @@
       "category": "INSTRUCTION",
       "text": {
         "FR": "Vous devez faire un examen de laboratoire.",
-        "EN": "You need a laboratory test."
+        "EN": "You need a laboratory test.",
+        "FON": "A ɖo na bló tɛnkpɔn laboratoire tɔn.",
+        "YOR": "O nilo idanwo yàrá."
       }
     },
     {
@@ -6382,7 +6415,8 @@
       "category": "POSOLOGY",
       "text": {
         "FR": "Une fois par jour.",
-        "EN": "Once a day."
+        "EN": "Once a day.",
+        "FON": "Azɔn ɖokpo ɖò kéze ɖokpo mɛ."
       }
     },
     {
@@ -6390,7 +6424,9 @@
       "category": "POSOLOGY",
       "text": {
         "FR": "Deux fois par jour.",
-        "EN": "Twice a day."
+        "EN": "Twice a day.",
+        "FON": "Azɔn wè ɖò kéze ɖokpo mɛ.",
+        "YOR": "Lẹ́ẹ̀mejì lójúmọ́."
       }
     },
     {
@@ -6398,7 +6434,9 @@
       "category": "POSOLOGY",
       "text": {
         "FR": "Trois fois par jour.",
-        "EN": "Three times a day."
+        "EN": "Three times a day.",
+        "FON": "Azɔn atɔn ɖò kéze ɖokpo mɛ.",
+        "YOR": "Ni igba mẹta lojojumọ."
       }
     },
     {
@@ -6406,7 +6444,9 @@
       "category": "POSOLOGY",
       "text": {
         "FR": "Après le repas.",
-        "EN": "After a meal."
+        "EN": "After a meal.",
+        "FON": "Enyi è ɖu nǔ gudo ɔ.",
+        "YOR": "Lẹ́yìn oúnjẹ."
       }
     },
     {
@@ -6414,7 +6454,8 @@
       "category": "POSOLOGY",
       "text": {
         "FR": "Terminez tout le traitement.",
-        "EN": "Finish the whole treatment."
+        "EN": "Finish the whole treatment.",
+        "YOR": "Pari gbogbo itọju naa."
       }
     },
     {
@@ -6422,7 +6463,9 @@
       "category": "FOLLOWUP",
       "text": {
         "FR": "Revenez si cela ne s’améliore pas.",
-        "EN": "Come back if it does not improve."
+        "EN": "Come back if it does not improve.",
+        "FON": "Enyi é ma kpɔ́n te ǎ ɔ, lɛkɔ wá.",
+        "YOR": "Pada wa ti ko ba dara si."
       }
     },
     {
@@ -6430,7 +6473,9 @@
       "category": "FOLLOWUP",
       "text": {
         "FR": "Prenons un rendez-vous de suivi.",
-        "EN": "Let’s schedule a follow-up appointment."
+        "EN": "Let’s schedule a follow-up appointment.",
+        "FON": "Mi nú mǐ ni bló tuto bo na wá kpɔ́n mǐɖée.",
+        "YOR": "Ẹ jẹ́ kí a ṣètò ìpàdé tí yóò tẹ̀lé e."
       }
     },
     {
@@ -6438,7 +6483,9 @@
       "category": "FOLLOWUP",
       "text": {
         "FR": "Est-ce que cela va mieux ?",
-        "EN": "Is it getting better?"
+        "EN": "Is it getting better?",
+        "FON": "É ka ɖò ɖagbe hugǎn wɛ à?",
+        "YOR": "Ṣé ó ń dára síi?"
       }
     },
     {
@@ -6446,7 +6493,9 @@
       "category": "EMERGENCY",
       "text": {
         "FR": "C’est urgent, allez à l’hôpital immédiatement.",
-        "EN": "This is urgent, go to the hospital immediately."
+        "EN": "This is urgent, go to the hospital immediately.",
+        "FON": "Enɛ ɖò dandan, yì dotóoxwé tlolo.",
+        "YOR": "Èyí jẹ́ kíákíá, ẹ lọ sí ilé ìwòsàn lẹ́sẹ̀kẹsẹ̀."
       }
     },
     {
@@ -6454,7 +6503,9 @@
       "category": "EMERGENCY",
       "text": {
         "FR": "Appelez les secours (SOS).",
-        "EN": "Call emergency services (SOS)."
+        "EN": "Call emergency services (SOS).",
+        "FON": "Ylɔ azɔ̌xwé e nɔ kpé nukún dó ajijimɛ sín nǔ lɛ wu lɛ é (SOS).",
+        "YOR": "Pe awọn iṣẹ pajawiri (SOS)."
       }
     }
   ],
