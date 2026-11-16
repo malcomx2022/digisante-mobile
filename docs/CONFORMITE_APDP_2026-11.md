@@ -99,8 +99,23 @@ Une AIPD est attendue : il s'agit de données de santé à grande échelle, de p
 | Notifications, reçus de synchronisation | 90 jours (reçus : 14 j déjà purgés) | — |
 | Comptes inactifs | Alerte puis anonymisation après [N] ans | — |
 
+**Mécanisme de purge préparé (16/11/2026), inactif tant que D-8 n'est pas tranchée.** Tâche quotidienne à 03:20
+(heure de Porto-Novo) dans les deux crontabs, sur `POST /api/v1/retention/purge` (jeton de service ; `?dryRun=1`
+compte sans supprimer). Une catégorie n'est purgée que si sa durée est posée dans le `.env` de l'API :
+
+| Variable | Catégorie | Supprime | Ne supprime jamais |
+|---|---|---|---|
+| `RETENTION_NOTIFICATIONS_DAYS` | Notifications | Notifications non `PENDING` créées avant la limite | Une notification pas encore envoyée |
+| `RETENTION_SOS_CLOSED_DAYS` | Alertes SOS closes | Alertes `RESOLVED` / `FALSE_ALARM` closes avant la limite | Une alerte `ACTIVE` |
+
+Durées en jours, de 1 à 3650 ; vide = catégorie désactivée. Suppression par lots de 1 000. Audit `RETENTION_PURGE`
+(catégories, durées, compteurs : aucun identifiant). Les autres catégories du tableau (DMP, ordonnances et analyses,
+finances, audit, KYC, comptes inactifs) ne sont **pas** branchées : elles attendent l'avis juridique, et l'audit et
+les finances posent des contraintes propres (triggers append-only, liens comptables).
+
 Une fois D-8 validée :
-- implémenter les purges planifiées (crons, avec la règle « générateur ajouté = crontab mis à jour ») ;
+- poser les durées retenues dans le `.env` de chaque environnement, après un passage en simulation (`?dryRun=1`) ;
+- implémenter les autres catégories retenues (crons, avec la règle « générateur ajouté = crontab mis à jour ») ;
 - mettre à jour la politique de confidentialité ;
 - incrémenter `TERMS_VERSION`.
 

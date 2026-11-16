@@ -403,8 +403,8 @@ test('fuseau : tâches quotidiennes gardées par l’heure de Porto-Novo, API et
         assert.ok(/^\*\/\d+$/.test(j.minute) || j.minute === '*', `${name} : minute fixe toutes les heures sans garde : ${j.line}`);
       }
     }
-    // Vaccination, CPN, sauvegarde, réconciliation, purge des reçus.
-    assert.equal(gated, 5, name);
+    // Vaccination, CPN, sauvegarde, réconciliation, purge des reçus, purges de conservation (D-8).
+    assert.equal(gated, 6, name);
   }
 });
 
