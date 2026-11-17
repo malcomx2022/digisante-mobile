@@ -7,8 +7,8 @@
 
 | Point | Décision / état |
 |---|---|
-| Version à déployer | **`main` après fusion de la PR #228** (décision du porteur du 08/11/2026) : la recette L10 se fait une seule fois sur la configuration visée pour la production. |
-| SHA candidat | `8ed7e540d2c5fe8724b7d9628ab1e1f4169368f8` = commit de fusion de #228 sur `main` (08/11/2026) ; CI `main` run 42442126623. |
+| Version à déployer | **`main` après fusion de la PR #228** (décision du porteur du 08/11/2026) : la recette L10 se fait une seule fois sur la configuration visée pour la production. **Mise à jour du 17/11/2026** : la candidate devient la tête de `main` après #260 (voir ligne suivante). |
+| SHA candidat | `e959db1cf297c1f29787f5643c7c872be012386e` = `main` après #260 (17/11/2026) ; CI `main` run 43887123511, qualifiée par `preprod:qualify` le 17/11/2026 (code 0). Elle remplace `8ed7e540` (fusion de #228, run 42442126623), **périmée** : l'instantané L10 a changé depuis (`5e697e2` installation de Chromium en CI, `395a849` entrées cron de la purge D-8). |
 | Qualification | CI `main` réussie sur ce SHA exact, jobs `build-and-test` **et** `e2e` (`pnpm preprod:qualify` avec `CANDIDATE_SHA`, ou étape de garde du workflow `preproduction.yml`). |
 | Version en service | `ace0c689` (déployée le 21/10/2026), **sous maintenance**. Sa recette L10 est abandonnée : aucune preuve ne se transfère (§6). |
 | Prérequis bloquant | CI de la PR #228 verte, puis fusion par le porteur. |
@@ -32,6 +32,14 @@
   - clôture/absence des RDV, créneaux libres, centres de notifications, miroir push FCM générique ;
   - campagnes par lots, posologie conservatrice, compte rendu de téléconsultation vers le DMP ;
   - pages légales en **projet**.
+
+**Code ajouté entre `8ed7e540` et `e959db1` (17/11/2026)** — aucune migration :
+
+- **i18n** : textes FON/YOR relus par des natifs (SOS, paiement, laboratoire, non critiques, phrasier avec la correction
+  `-C1`). Trois clés `subscriptions.method_*` manquent encore par langue (repli sur le français, gate L9 ouvert).
+- **Purge de conservation D-8** : route interne `/api/v1/retention/purge` et entrée cron quotidienne à 03:20 (Porto-Novo).
+  **Sans durée `RETENTION_*_DAYS` dans le `.env`, elle ne supprime rien** : ne pas en ajouter avant la décision D-8.
+- **Outillage** : lint web par la CLI ESLint, installation de Chromium en CI sans apt.
 
 **Infrastructure (PR #228)**
 
@@ -80,28 +88,31 @@
    `pnpm backup:check <manifeste>` (trio complet, `files_missing=0`). Copie du trio **hors VPS**.
    C'est le seul retour arrière possible, car les migrations sont à sens unique.
 4. **Copie root au SHA candidat** (README §1.a) : mettre à jour le miroir `/var/lib/digisante-preprod/ops.git`, extraire et
-   relire `install_root_scripts.sh` de `8ed7e540d2c5fe8724b7d9628ab1e1f4169368f8`, puis
-   `sudo DIGISANTE_ENV=preproduction bash /root/install_root_scripts-preprod.sh 8ed7e540d2c5fe8724b7d9628ab1e1f4169368f8`.
+   relire `install_root_scripts.sh` de `e959db1cf297c1f29787f5643c7c872be012386e`, puis
+   `sudo DIGISANTE_ENV=preproduction bash /root/install_root_scripts-preprod.sh e959db1cf297c1f29787f5643c7c872be012386e`.
    Contrôler que `root-scripts.manifest` porte bien `environment=preproduction` et ce SHA.
 
    **4 b. Copie root de la production au même SHA (P7).** Même procédure, avec le miroir de la production
    (`/var/lib/digisante/ops.git`, sans `ops.env` : source HTTPS par défaut, dépôt public) :
    ```bash
-   SHA=8ed7e540d2c5fe8724b7d9628ab1e1f4169368f8
+   SHA=e959db1cf297c1f29787f5643c7c872be012386e
    sudo git --git-dir=/var/lib/digisante/ops.git fetch --no-tags \
         https://github.com/malcomx2022/digisante-mobile.git '+refs/heads/main:refs/remotes/origin/main'
    sudo sh -c "umask 077; git --git-dir=/var/lib/digisante/ops.git show $SHA:infra/deploy/scripts/install_root_scripts.sh > /root/install_root_scripts.sh"
    sudo less /root/install_root_scripts.sh
    sudo DIGISANTE_ENV=production bash /root/install_root_scripts.sh "$SHA"
-   sudo head -2 /usr/local/lib/digisante/root-scripts.manifest   # sha=8ed7e540…, environment=production
+   sudo head -2 /usr/local/lib/digisante/root-scripts.manifest   # sha=e959db1c…, environment=production
    ```
    Seuls les fichiers de `/usr/local/lib/digisante` changent : ni la crontab, ni `/etc/cron.d/digisante`, ni le code, PM2,
-   la base ou Nginx de la production. Changements constatés entre `ec6b0dc` et `8ed7e540` dans les fichiers lancés par le
+   la base ou Nginx de la production. Changements constatés entre `ec6b0dc` et `e959db1` dans les fichiers lancés par le
    cron de production :
    - `internal_job.sh`, `fedapay_reconcile.sh`, `healthwatch.sh` : contrôle `port_owned_by` (ports 3200/3201 tenus par
      `digisante`, vérifié le 12/11) ;
    - `rate-limit.conf` : ajout des zones `digisante_rl_preprod_*`, zones de production inchangées (le vhost `digisante`
-     reste valide).
+     reste valide) ;
+   - `healthwatch.sh` (depuis `395a849`) : surveille aussi `retention.log`. Le cron de production n'étant pas réappliqué,
+     ce journal n'existe pas en production ; `healthwatch.sh` ignore un journal absent (`[[ -f ]] || continue`), donc
+     sans alerte.
 
    `provision-ionos.sh` et `verify_deploy.sh` ne servent qu'à la main ; `crontab.example` n'est pas réappliqué.
 5. **Provisioning en dry-run d'abord**, shell root, secrets par `read -rs` (jamais en argument) :
@@ -124,12 +135,12 @@
    Ne rien ajouter d'autre : aucune variable fournisseur (D-14), jamais l'URL du propriétaire.
    `deploy.sh` refuse un `.env` qui contient l'URL du propriétaire.
 7. **Déploiement** :
-   - **Recommandé** : workflow « Préproduction L10 (manuelle) » avec `sha=8ed7e540d2c5fe8724b7d9628ab1e1f4169368f8` et `maintenance_confirmed=true`,
+   - **Recommandé** : workflow « Préproduction L10 (manuelle) » avec `sha=e959db1cf297c1f29787f5643c7c872be012386e` et `maintenance_confirmed=true`,
      après avoir posé la variable `PREPROD_DEPLOY_ENABLED=true` le temps de la fenêtre. Le workflow qualifie la CI, vérifie
      l'empreinte de l'hôte et transmet l'URL du propriétaire par l'entrée standard SSH.
    - **Variante manuelle** : README §3, `deploy.sh` de `origin/main` extrait hors du checkout, sous `digisante-preprod`,
      `MIGRATION_DATABASE_URL` par `read -rs`.
-   - Attendu : `deploy_history.log` `ace0c689… -> 8ed7e540d2c5fe8724b7d9628ab1e1f4169368f8 status=SUCCESS stage=complete`. Les stades `migrate` et
+   - Attendu : `deploy_history.log` `ace0c689… -> e959db1cf297c1f29787f5643c7c872be012386e status=SUCCESS stage=complete`. Les stades `migrate` et
      `grants` passent sous le propriétaire, et l'API démarre sous `digisante_preprod_app`.
 8. **Vérifications** :
    - `bash "$P" --verify` (avec `VALKEY_PASSWORD`) : **0 FAIL**, y compris les sondes `ACL DRYRUN` et les deux rôles PG ;
@@ -176,6 +187,11 @@ Fait le 08/11/2026 après la fusion de #228 :
    `e782821d…` à jour (`preprod:check` vert) ;
 3. ✅ `pnpm preprod:gate --expected-sha 8ed7e540d2c5fe8724b7d9628ab1e1f4169368f8` : bloc candidat accepté, **100 points ouverts**.
 
+4. ✅ **17/11/2026** : `8ed7e540` périmée (instantané L10 modifié par `5e697e2` et `395a849`). Bloc candidat remplacé par
+   `e959db1cf297c1f29787f5643c7c872be012386e` (CI `main` run 43887123511, `preprod:qualify` code 0) ; registre toujours vide, aucune
+   preuve n'ayant été enregistrée sur `8ed7e540` ; instantané L10 `4c1e9558…` (`preprod:check` vert) ;
+   `preprod:gate --expected-sha e959db1…` : bloc candidat accepté, **100 points ouverts**.
+
 Aucune preuve de `ace0c689` ne se transfère : les **100 cas** se rejouent sur la nouvelle candidate.
 
 Points à observer en plus des 100 cas, sans élargir le registre sans décision du porteur :
@@ -183,4 +199,6 @@ Points à observer en plus des 100 cas, sans élargir le registre sans décision
 - **OTP** : verrou par IP derrière un NAT d'opérateur, et déverrouillage par la console support ;
 - **APDP** : effacement de bout en bout sur un compte synthétique ;
 - **Droits** : refus de `TRUNCATE`/`UPDATE` d'audit sous le rôle d'exécution, aucune erreur `NOPERM` dans les journaux de
-  l'API.
+  l'API.;
+- **Purge D-8** : au moins une exécution à 03:20 consignée dans `retention.log`, HTTP 200 et **aucune suppression**
+  (aucune durée configurée).

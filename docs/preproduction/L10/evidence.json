@@ -1,10 +1,10 @@
 {
   "candidate": {
-    "ciRunId": 42442126623,
+    "ciRunId": 43887123511,
     "dedicatedHostRef": "srv1.immipro.app (31.70.148.167), VPS IONOS partagé — dérogation porteur du 13/10/2026 ; cas I2 non conforme, arbitrage L11",
     "domain": "preprod.digisantemobile.app",
     "environment": "preproduction",
-    "sha": "8ed7e540d2c5fe8724b7d9628ab1e1f4169368f8"
+    "sha": "e959db1cf297c1f29787f5643c7c872be012386e"
   },
   "records": [],
   "schemaVersion": 1
