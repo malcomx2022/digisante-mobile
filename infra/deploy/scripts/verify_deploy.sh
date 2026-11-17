@@ -116,10 +116,39 @@ read -r API_ON WEB_ON < <(printf '%s' "$PM2_JSON" | PM2_API="$PM2_API" PM2_WEB="
 [[ "$WEB_ON" == "1" ]] && pass "PM2 ${PM2_WEB} : online" || fail "PM2 ${PM2_WEB} : ${WEB_ON} instance(s) online (attendu 1)"
 
 # 2. Migrations : base à jour
-if sudo -u "$APP_USER" bash -c 'cd "$1" && pnpm --filter @digisante/api exec prisma migrate status' _ "$APP_DIR" 2>&1 | grep -q 'up to date'; then
-  pass "migrations : base à jour"
+# Lu par `postgres` (lecture seule), jamais via le .env : depuis la revue GO du 22/10/2026,
+# l'API tourne sous le rôle d'exécution <base>_app, qui n'a par conception AUCUN droit sur
+# _prisma_migrations (`prisma migrate status` échouait alors en « permission denied » et
+# signalait à tort une base non à jour — fenêtre préprod L10 du 17/11/2026).
+# Comparaison : dossiers prisma/migrations/<nom>/migration.sql du code déployé (noms seuls,
+# lus comme DONNÉES) ⇔ migrations terminées, non annulées, de la base CANONIQUE du profil.
+MIG_DB="$(unset DB_NAME; digisante_profile && printf '%s' "$DB_NAME")"
+MIG_PSQL="${MIG_PSQL:-sudo -u postgres -H -- psql -X -A -t -q -v ON_ERROR_STOP=1}"
+MIG_LOCAL=""
+for m in "${APP_DIR}/apps/api/prisma/migrations"/*/migration.sql; do
+  [[ -f "$m" ]] || continue
+  m="${m%/migration.sql}"; MIG_LOCAL+="${m##*/}"$'\n'
+done
+MIG_LOCAL="$(printf '%s' "$MIG_LOCAL" | LC_ALL=C sort -u)"
+if MIG_ROWS="$($MIG_PSQL -d "$MIG_DB" -c "SELECT CASE WHEN finished_at IS NULL THEN 'failed ' ELSE 'done ' END || migration_name FROM _prisma_migrations WHERE rolled_back_at IS NULL" 2>/dev/null)"; then
+  MIG_DONE="$(sed -n 's/^done //p' <<<"$MIG_ROWS" | LC_ALL=C sort -u)"
+  MIG_FAILED="$(sed -n 's/^failed //p' <<<"$MIG_ROWS" | LC_ALL=C sort -u)"
+  MIG_PENDING="$(LC_ALL=C comm -23 <(printf '%s\n' "$MIG_LOCAL" | sed '/^$/d') <(printf '%s\n' "$MIG_DONE" | sed '/^$/d'))"
+  MIG_UNKNOWN="$(LC_ALL=C comm -13 <(printf '%s\n' "$MIG_LOCAL" | sed '/^$/d') <(printf '%s\n' "$MIG_DONE" | sed '/^$/d'))"
+  MIG_N="$(printf '%s' "$MIG_LOCAL" | grep -c . || true)"
+  if [[ -z "$MIG_LOCAL" ]]; then
+    fail "migrations : aucun dossier prisma/migrations dans ${APP_DIR}/apps/api"
+  elif [[ -n "$MIG_FAILED" ]]; then
+    fail "migrations : $(grep -c . <<<"$MIG_FAILED") migration(s) en échec dans ${MIG_DB} ($(head -1 <<<"$MIG_FAILED")…)"
+  elif [[ -n "$MIG_PENDING" ]]; then
+    fail "migrations : base non à jour, $(grep -c . <<<"$MIG_PENDING") en attente ($(head -1 <<<"$MIG_PENDING")…)"
+  elif [[ -n "$MIG_UNKNOWN" ]]; then
+    fail "migrations : $(grep -c . <<<"$MIG_UNKNOWN") migration(s) appliquée(s) absente(s) du code déployé ($(head -1 <<<"$MIG_UNKNOWN")…)"
+  else
+    pass "migrations : base à jour (${MIG_N}/${MIG_N} appliquées dans ${MIG_DB})"
+  fi
 else
-  fail "migrations : base non à jour (prisma migrate status)"
+  fail "migrations : _prisma_migrations illisible dans ${MIG_DB} (lecture postgres)"
 fi
 
 # 3. Certificat TLS : présent et valide encore ≥ 14 jours
