@@ -239,3 +239,27 @@ Elle est fusionnée sur `main` `8ed7e540d2c5fe8724b7d9628ab1e1f4169368f8`, CI `m
   revue du 07/11. Le déploiement de `8ed7e540` en préproduction exige donc d'aligner aussi la copie root de la
   production (`PLAN_Deploiement_Preprod_2026-11-08.md`, P7 et point 4 b, PR #243). Préparatifs P1 (fichier ACL Valkey)
   et P2 (`pg_hba`, sans objet) constatés conformes, P4 présent ; P3 et P6 restent au porteur.
+
+## Candidate `e959db1` déclarée (17 novembre 2026)
+
+`8ed7e540` n'a jamais été déployée et n'a reçu aucune preuve. Elle est **périmée** : l'instantané L10 a changé depuis
+(`5e697e2` installation de Chromium en CI, `395a849` entrées cron de la purge D-8). Constat sur l'hôte le 17/11/2026 :
+préproduction toujours en `ace0c68`, production en `ec6b0dc`, toutes deux sous maintenance ; seule la copie root de la
+préproduction a été mise à jour (`1f0389e`, 16/11).
+
+La nouvelle candidate est la tête de `main` après #260 : `e959db1cf297c1f29787f5643c7c872be012386e`, CI `main` run
+43887123511. Elle reprend tout le contenu de `8ed7e540`, plus les textes FON/YOR relus, la purge D-8 (inactive sans durée)
+et l'outillage CI ; aucune migration nouvelle.
+
+| Candidate | Déploiement préprod | Registre | Gate |
+|---|---|---|---|
+| `e959db1cf297c1f29787f5643c7c872be012386e` | **Non déployée.** Procédure inchangée : `docs/suivi/PLAN_Deploiement_Preprod_2026-11-08.md` (SHA mis à jour) | `evidence.json` : bloc candidat + CI 43887123511, `records: []` (rien à archiver : aucun record sur `8ed7e540`) | `CANDIDATE_SHA=e959db1… pnpm preprod:qualify` : « CI qualifiée : SHA e959db1…, run 43887123511, build-and-test + e2e réussis ; aucun déploiement déduit. », code 0 ; `preprod:check` vert, instantané L10 `4c1e9558…` ; `preprod:gate --expected-sha e959db1…` code 1 : bloc candidat accepté, **100 points ouverts** |
+
+- **Gel du code** : toute fusion de code, configuration ou recette sur `main` avant la fin de la recette L10 périme de
+  nouveau la candidate. Seuls les commits de documentation hors instantané sont neutres.
+- **Exception prévue** : les 3 clés `subscriptions.method_*` FON/YOR manquantes (gate L9). Leur intégration changera
+  `messages.ts` (hors instantané L10) mais imposera un redéploiement et une nouvelle déclaration de candidate.
+  Décision du porteur : soit les intégrer avant la fenêtre de déploiement, soit redéployer après.
+- Gestes de recette induits : ceux de `8ed7e540` (CGU, KYC des pharmacies, verrous OTP), plus l'observation d'une
+  exécution de la purge D-8 sans suppression.
+- Copie root de la production à aligner sur ce SHA pendant la fenêtre (P7, point 4 b du plan).
