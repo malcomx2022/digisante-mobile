@@ -248,7 +248,13 @@ function verifyFixture(crontabBody) {
   const f=fixture();
   // Préproduction en ligne ; la production de l'hôte partagé aussi (jamais comptée ici).
   f.command('pm2',`echo '[{"name":"digisante-preprod-api","pm2_env":{"status":"online"}},{"name":"digisante-preprod-api","pm2_env":{"status":"online"}},{"name":"digisante-preprod-web","pm2_env":{"status":"online"}},{"name":"digisante-api","pm2_env":{"status":"online"}}]'`);
-  f.command('pnpm',`echo 'Database schema is up to date!'`);
+  // Migrations lues par `postgres` (MIG_PSQL simulé) : deux dossiers dans le code déployé, appliqués par défaut.
+  const migs=join(f.env.APP_DIR,'apps/api/prisma/migrations');
+  for(const m of ['20260101000000_init','20260102000000_next']){mkdirSync(join(migs,m),{recursive:true});writeFileSync(join(migs,m,'migration.sql'),'-- synthetic\n');}
+  writeFileSync(join(migs,'migration_lock.toml'),'provider = "postgresql"\n');
+  f.command('mig-psql',`echo "mig-psql $*" >> "$TRACE"; [[ "\u0024{MIG_PSQL_FAIL:-0}" == 0 ]] || exit 2
+if [[ -n "\u0024{MIG_ROWS+x}" ]]; then printf '%b\\n' "$MIG_ROWS"; else printf 'done 20260101000000_init\\ndone 20260102000000_next\\n'; fi`);
+  f.env.MIG_PSQL=join(f.dir,'bin/mig-psql');
   f.command('openssl',`if [[ "$1" == x509 ]]; then cat >/dev/null; echo "notAfter=$(date -d '+30 days')"; else echo CERT; [[ "\u0024{TLS_FAIL:-0}" == 0 ]]; fi`);
   f.command('curl',`case "$*" in
 *health*) echo '{"status":"ok","service":"digisante-api"}';;
@@ -270,6 +276,24 @@ esac`);
   const ws=join(f.dir,'ws.log');writeFileSync(ws,'');
   return {f,ws};
 }
+test('vérification : migrations lues par postgres (jamais prisma migrate status sous le rôle d’exécution), écarts nommés',()=>{
+  const {f,ws}=verifyFixture();try {
+    const base={DOMAIN:'preprod.example.bj',WS_LOG:ws};
+    let r=f.run('verify_deploy.sh',base);assert.equal(r.status,0,r.stdout+r.stderr);
+    assert.match(r.stdout,/PASS.*migrations : base à jour \(2\/2 appliquées dans digisante_preprod\)/);
+    // Base CANONIQUE du profil, jamais le DB_NAME hérité ; aucun appel prisma sous le compte applicatif.
+    assert.match(f.trace(),/^mig-psql .*-d digisante_preprod /m);assert.doesNotMatch(f.trace(),/fixture_preprod|migrate status/);
+    const cases=[
+      [{MIG_ROWS:'done 20260101000000_init'},/FAIL.*migrations : base non à jour, 1 en attente \(20260102000000_next…\)/],
+      [{MIG_ROWS:'done 20260101000000_init\nfailed 20260102000000_next'},/FAIL.*migrations : 1 migration\(s\) en échec dans digisante_preprod \(20260102000000_next…\)/],
+      [{MIG_ROWS:'done 20260101000000_init\ndone 20260102000000_next\ndone 20260103000000_ghost'},/FAIL.*migrations : 1 migration\(s\) appliquée\(s\) absente\(s\) du code déployé \(20260103000000_ghost…\)/],
+      [{MIG_PSQL_FAIL:'1'},/FAIL.*migrations : _prisma_migrations illisible dans digisante_preprod/],
+    ];
+    for(const [extra,re] of cases){r=f.run('verify_deploy.sh',{...base,...extra});assert.notEqual(r.status,0,JSON.stringify(extra));assert.match(r.stdout,re);}
+    rmSync(join(f.env.APP_DIR,'apps/api/prisma/migrations'),{recursive:true,force:true});
+    r=f.run('verify_deploy.sh',base);assert.notEqual(r.status,0);assert.match(r.stdout,/FAIL.*migrations : aucun dossier prisma\/migrations/);
+  }finally{f.clean();}
+});
 test('vérification : API sous le rôle d’exécution <base>_app exigée, propriétaire ou URL de migration dans le .env ⇒ FAIL',()=>{
   const {f,ws}=verifyFixture();try {
     const base={DOMAIN:'preprod.example.bj',VERIFY_JOB_ENVIRONMENT:'preproduction',WS_LOG:ws};
