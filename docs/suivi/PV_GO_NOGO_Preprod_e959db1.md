@@ -1,9 +1,10 @@
-# PV GO/NO-GO préproduction — candidate `e959db1` (BROUILLON)
+# PV GO/NO-GO préproduction — candidate `e959db1` (signé)
 
-> **Brouillon préparé le 17/11/2026 à 23h45 WAT, §2 complété le 18/11/2026 à 11h45 WAT, non signé.** Les cases ☐ attendent une observation réelle. Le verdict
-> (§8) revient au porteur ; rien dans ce document ne vaut décision tant qu'il n'est pas daté et signé.
-> Règle (comme dans `GO_NOGO_2026-09-22.md`) : **une case sans preuve d'exécution datée vaut NO-GO**. Un plan, un
-> script prêt ou une CI verte ne sont pas des preuves.
+> **Signé le 19/11/2026 à 13h45 WAT** par le porteur et l'opérateur. Pièce signée conservée hors dépôt sous la
+> référence privée `PV-PREPROD-e959db1` (DOCX reçu, SHA256 `c6767a3bef48cb0e6bc337a160897243deb4b9ec1e9f6297096726be55c4503f`).
+> Cette version publique ne porte ni nom ni signature. Brouillon préparé le 17/11/2026 à 23h45 WAT, §2 complété le
+> 18/11/2026 à 11h45 WAT. Règle (comme dans `GO_NOGO_2026-09-22.md`) : **une case sans preuve d'exécution datée vaut
+> NO-GO**. Un plan, un script prêt ou une CI verte ne sont pas des preuves.
 
 | Élément | Valeur |
 |---|---|
@@ -85,18 +86,20 @@ Crons fréquents : aucun appel en échec ni HTTP ≠ 200 entre le 17/11 21h02 et
 
 Gestes de recette préalables (plan §5) : ré-acceptation des CGU par les comptes de recette ☐, nouveau KYC des
 pharmacies de recette ☐, verrous OTP (nouvelle époque) ☐, bandeau « Projet de texte » sur les textes légaux ☐.
+**Non faits à la signature** (précision du porteur du 19/11/2026 : les coches de la pièce signée ne valent pas
+exécution).
 
 Points à observer en plus (plan §6) : CSP à nonce sur Android ancien / iPhone / WebView ☐, verrou OTP par IP derrière NAT
 opérateur ☐, effacement APDP de bout en bout ☐, refus `TRUNCATE`/`UPDATE` d'audit sous le rôle d'exécution et aucune
-erreur `NOPERM` ☐, purge D-8 (§2) ☐.
+erreur `NOPERM` ☐, purge D-8 (§2) ☐. **Non observés à la signature** (même précision).
 
 ## 5. Incidents de la fenêtre
 
 | # | Incident | Traitement | Suite |
 |---|---|---|---|
 | I-1 | Secret GitHub `PREPROD_DB_MIGRATION_URL` faux → 1er déploiement `FAILED stage=migrations` (20h49), aucune migration appliquée | 20h51 : URL du rôle propriétaire vérifiée par connexion réelle puis secret remplacé ; 2e essai SUCCESS | Clos |
-| I-2 | `VALKEY_APP_PASSWORD` affiché à l'écran par erreur | 20h42 : mot de passe changé, nouveau actif dans le `.env` | Clos ; vérifier que le coffre contient le **nouveau** ☐ |
-| I-3 | `verify_deploy.sh` l.119 lance `prisma migrate status` avec le rôle d'exécution → faux FAIL « base non à jour » (36/36 appliquées) | PR #262 (brouillon) : lecture sous `postgres` | Fusion après ce PV, puis réinstallation des copies root (préprod **et** prod) ; **change l'instantané L10 ?** à vérifier avant fusion |
+| I-2 | `VALKEY_APP_PASSWORD` affiché à l'écran par erreur | 20h42 : mot de passe changé, nouveau actif dans le `.env` | Clos ; coffre contenant le **nouveau** mot de passe : déclaré vérifié par le porteur à la signature (19/11) |
+| I-3 | `verify_deploy.sh` l.119 lance `prisma migrate status` avec le rôle d'exécution → faux FAIL « base non à jour » (36/36 appliquées) | PR #262 : lecture sous `postgres` | #262 fusionnée le 19/11/2026 (`main` `30dd038`). Elle **change** l'instantané L10 (`fa6875c4…`) : copies root préprod **et** prod à réinstaller au prochain déploiement |
 | I-4 | Script d'opérateur 05 : faux « ÉCHEC » (motif `grep` sur l'ancienne ligne FAILED) | Corrigé dans le script local | Clos |
 
 ## 6. Décisions du porteur à reprendre pour cette candidate
@@ -106,23 +109,23 @@ reconfirmer, dater et signer pour `e959db1`.
 
 | # | Objet | Décision sur `ace0c689` | Pour `e959db1` |
 |---|---|---|---|
-| D-1 | OTP vocal Bénin (T7) | ouverte | ☐ |
-| D-2 | T11 en N/A (aucun numéro SOS public) | décision du 21/10 | ☐ reconfirmer |
-| D-3 | Paiement d'abonnement par wallet médecin (A8) | ouverte | ☐ |
-| D-5 | Phase 2 Finances en LIVE (F1, F3, F4) | ouverte | ☐ |
-| D-6 | Remboursement REQUESTED 6 560 XOF (F2) | ouverte | ☐ |
-| D-7 | Second admin finance (F5) | ouverte | ☐ |
-| D-8 | Politique de conservation (F8, purge D-8) | ouverte, L11 | ☐ |
-| D-9 | I2 hôte partagé | dérogation 13/10, arbitrage L11 | ☐ reconfirmer |
-| D-10 | Approbation FedaPay tardive (S10) | ouverte | ☐ |
-| D-11 | Moov (T2, T12) et iOS (F*-IPHONE, A17) | ouverte | ☐ |
-| D-12 | F9 (rebuild = nouveau candidat) | ouverte | ☐ |
-| D-13 | Alertes healthwatch en syslog local | tranchée (a) le 22/10 pour la préprod | ☐ reconfirmer ; `ALERT_CMD` requis avant prod |
-| D-15 | 3 clés `subscriptions.method_*` FON/YOR (gate L9) : intégrer = nouveau déploiement et nouvelle candidate | ouverte (`LOT_L10.md`, 17/11) | ☐ |
+| D-1 | OTP vocal Bénin (T7) | ouverte | reste ouverte (19/11) |
+| D-2 | T11 en N/A (aucun numéro SOS public) | décision du 21/10 | reconfirmée (19/11) |
+| D-3 | Paiement d'abonnement par wallet médecin (A8) | ouverte | reste ouverte (19/11) |
+| D-5 | Phase 2 Finances en LIVE (F1, F3, F4) | ouverte | reste ouverte (19/11) |
+| D-6 | Remboursement REQUESTED 6 560 XOF (F2) | ouverte | reste ouverte (19/11) |
+| D-7 | Second admin finance (F5) | ouverte | reste ouverte (19/11) |
+| D-8 | Politique de conservation (F8, purge D-8) | ouverte, L11 | reste ouverte (19/11) |
+| D-9 | I2 hôte partagé | dérogation 13/10, arbitrage L11 | reconfirmée (19/11), arbitrage L11 |
+| D-10 | Approbation FedaPay tardive (S10) | ouverte | reste ouverte (19/11) |
+| D-11 | Moov (T2, T12) et iOS (F*-IPHONE, A17) | ouverte | reste ouverte (19/11) |
+| D-12 | F9 (rebuild = nouveau candidat) | ouverte | reste ouverte (19/11) |
+| D-13 | Alertes healthwatch en syslog local | tranchée (a) le 22/10 pour la préprod | reconfirmée (19/11) ; `ALERT_CMD` requis avant prod |
+| D-15 | 3 clés `subscriptions.method_*` FON/YOR (gate L9) : intégrer = nouveau déploiement et nouvelle candidate | ouverte (`LOT_L10.md`, 17/11) | reste ouverte (19/11) |
 
 ## 7. Hors portée de ce PV
 
-L9 humain (campagne `L9-2026-11-17` : clés FON/YOR, preuves natives, contreseings cliniques), L11 (restauration par un
+L9 humain (campagne `L9-2026-11-19`, qui a remplacé `L9-2026-11-17` le 19/11 : clés FON/YOR, preuves natives, contreseings cliniques), L11 (restauration par un
 tiers, rollback répété, recette 7 rôles, pentest, arbitrage I2, conservation), ouverture de la production. Un GO ici ne
 vaut ni GO pilote ni GO production.
 
@@ -133,21 +136,24 @@ Deux décisions distinctes, à cocher par le porteur :
 **A. Déploiement technique de `e959db1` en préproduction**
 Proposition : **GO**, sous réserve que toutes les cases ☐ du §2 soient ✅ (exécutions nocturnes du 18/11 + `verify_deploy`
 rejoué) — **remplie le 18/11 à 11h45, voir le bilan §2**. En cas d'échec d'une tâche : NO-GO jusqu'à correction ; le retour arrière suit le plan §4.
-☐ GO ☐ NO-GO — motif : ……………………………………………
+☒ **GO** ☐ NO-GO — signé le 19/11/2026 à 13h45 WAT (motif non renseigné ; condition du §2 remplie)
 
 **B. Levée de la maintenance préprod (accès hors liste blanche)**
 Proposition : **NO-GO** en l'état : 0/100 cas L10 prouvés sur `e959db1`, gestes de recette §4 non faits, décisions §6 non
 reconfirmées. La recette se déroule **sous maintenance** (IP de recette en liste blanche), comme pour `ace0c689`.
-☐ GO ☐ NO-GO — motif : ……………………………………………
+☐ GO ☒ **NO-GO** — signé le 19/11/2026 à 13h45 WAT (motif : celui de la proposition)
 
 | Rôle | Nom | Date et heure (WAT) | Signature |
 |---|---|---|---|
-| Porteur | | | |
-| Opérateur | | | |
+| Porteur | (pièce privée `PV-PREPROD-e959db1`) | 19/11/2026 13h45 | signé |
+| Opérateur | (pièce privée `PV-PREPROD-e959db1`) | 19/11/2026 13h45 | signé |
 
-## 9. Suite si A = GO
+## 9. Suite (A = GO)
 
-1. Fusionner #262 (après vérification de l'instantané L10), puis réinstaller les copies root préprod et prod.
+1. #262 fusionnée le 19/11. **`e959db1` n'est plus la candidate à recetter** : la PR #264 (dernier lot de code) puis
+   #262 changent `main`. Déclarer une nouvelle candidate après la fusion de #264, la redéployer selon
+   `PLAN_Deploiement_Preprod_2026-11-08.md` et réinstaller les copies root préprod et prod. Les 100 cas sont recettés
+   sur cette nouvelle candidate.
 2. Gestes de recette §4, puis rejouer les 100 cas dans l'ordre de `PLAN_GO_Preprod_ace0c689.md` §2 (infra → FedaPay S8
    d'abord → Twilio → Firebase → Resend → abonnements), chaque PASS inscrit au registre et le gate rejoué.
 3. Nouveau PV (décision B) quand le gate ne laisse que des cas couverts par une décision signée.
