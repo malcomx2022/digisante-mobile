@@ -8,9 +8,9 @@
 | Point | Décision / état |
 |---|---|
 | Version à déployer | **`main` après fusion de la PR #228** (décision du porteur du 08/11/2026) : la recette L10 se fait une seule fois sur la configuration visée pour la production. **Mise à jour du 17/11/2026** : la candidate devient la tête de `main` après #260 (voir ligne suivante). |
-| SHA candidat | `e959db1cf297c1f29787f5643c7c872be012386e` = `main` après #260 (17/11/2026) ; CI `main` run 43887123511, qualifiée par `preprod:qualify` le 17/11/2026 (code 0). Elle remplace `8ed7e540` (fusion de #228, run 42442126623), **périmée** : l'instantané L10 a changé depuis (`5e697e2` installation de Chromium en CI, `395a849` entrées cron de la purge D-8). |
+| SHA candidat | **`0c2a4017e55d3dd97872fe159629c5b17c3e33bf`** = `main` après #264 (19/11/2026) ; CI `main` run 44531088223, qualifiée par `preprod:qualify` le 19/11/2026 (code 0). Elle remplace `e959db1` (déployée le 17/11, PV signé le 19/11 : A = GO, B = NO-GO, 0/100 cas), **périmée** par #262 (instantané L10 `fa6875c4…`) et #264. `e959db1` remplaçait elle-même `8ed7e540` (fusion de #228, run 42442126623), **périmée** : l'instantané L10 a changé depuis (`5e697e2` installation de Chromium en CI, `395a849` entrées cron de la purge D-8). |
 | Qualification | CI `main` réussie sur ce SHA exact, jobs `build-and-test` **et** `e2e` (`pnpm preprod:qualify` avec `CANDIDATE_SHA`, ou étape de garde du workflow `preproduction.yml`). |
-| Version en service | `ace0c689` (déployée le 21/10/2026), **sous maintenance**. Sa recette L10 est abandonnée : aucune preuve ne se transfère (§6). |
+| Version en service | `e959db1` (déployée le 17/11/2026, `deploy_history` 20:56:35 SUCCESS), **sous maintenance**, 0 preuve enregistrée. Avant elle, `ace0c689` (recette abandonnée le 08/11). Aucune preuve ne se transfère (§6). |
 | Prérequis bloquant | CI de la PR #228 verte, puis fusion par le porteur. |
 
 ## 1. Ce qui change depuis `ace0c689`
@@ -40,6 +40,18 @@
 - **Purge de conservation D-8** : route interne `/api/v1/retention/purge` et entrée cron quotidienne à 03:20 (Porto-Novo).
   **Sans durée `RETENTION_*_DAYS` dans le `.env`, elle ne supprime rien** : ne pas en ajouter avant la décision D-8.
 - **Outillage** : lint web par la CLI ESLint, installation de Chromium en CI sans apt.
+
+**Code ajouté entre `e959db1` et `0c2a401` (19/11/2026)** — aucune migration, aucun changement de base, de rôle, d'ACL
+Valkey, de Nginx ni de crontab :
+
+- **#262** : `verify_deploy.sh` contrôle les migrations en lecture `postgres` sur la base canonique (dossiers
+  `prisma/migrations/*/migration.sql` du code déployé comparés aux migrations terminées), au lieu de `prisma migrate status`
+  sous le rôle d'exécution (faux FAIL I-3 du PV `e959db1`). Seul fichier d'infrastructure modifié ; il change l'instantané
+  L10 (`fa6875c4…`) et impose de réinstaller les **deux** copies root.
+- **#264** (web et i18n seulement) : page imprimable `/print/dmp` (export PDF du DMP par « Enregistrer en PDF » du
+  navigateur), assurance affichée « Déclarée (non vérifiée) », statuts et rôles de l'admin traduits. 17 nouvelles clés
+  FR/EN ; FON/YOR en repli français (20 clés par langue à relire, campagne L9-2026-11-19, 0 critique).
+- Documentation : PV `e959db1` signé, campagne L9-2026-11-19.
 
 **Infrastructure (PR #228)**
 
@@ -88,23 +100,23 @@
    `pnpm backup:check <manifeste>` (trio complet, `files_missing=0`). Copie du trio **hors VPS**.
    C'est le seul retour arrière possible, car les migrations sont à sens unique.
 4. **Copie root au SHA candidat** (README §1.a) : mettre à jour le miroir `/var/lib/digisante-preprod/ops.git`, extraire et
-   relire `install_root_scripts.sh` de `e959db1cf297c1f29787f5643c7c872be012386e`, puis
-   `sudo DIGISANTE_ENV=preproduction bash /root/install_root_scripts-preprod.sh e959db1cf297c1f29787f5643c7c872be012386e`.
+   relire `install_root_scripts.sh` de `0c2a4017e55d3dd97872fe159629c5b17c3e33bf`, puis
+   `sudo DIGISANTE_ENV=preproduction bash /root/install_root_scripts-preprod.sh 0c2a4017e55d3dd97872fe159629c5b17c3e33bf`.
    Contrôler que `root-scripts.manifest` porte bien `environment=preproduction` et ce SHA.
 
    **4 b. Copie root de la production au même SHA (P7).** Même procédure, avec le miroir de la production
    (`/var/lib/digisante/ops.git`, sans `ops.env` : source HTTPS par défaut, dépôt public) :
    ```bash
-   SHA=e959db1cf297c1f29787f5643c7c872be012386e
+   SHA=0c2a4017e55d3dd97872fe159629c5b17c3e33bf
    sudo git --git-dir=/var/lib/digisante/ops.git fetch --no-tags \
         https://github.com/malcomx2022/digisante-mobile.git '+refs/heads/main:refs/remotes/origin/main'
    sudo sh -c "umask 077; git --git-dir=/var/lib/digisante/ops.git show $SHA:infra/deploy/scripts/install_root_scripts.sh > /root/install_root_scripts.sh"
    sudo less /root/install_root_scripts.sh
    sudo DIGISANTE_ENV=production bash /root/install_root_scripts.sh "$SHA"
-   sudo head -2 /usr/local/lib/digisante/root-scripts.manifest   # sha=e959db1c…, environment=production
+   sudo head -2 /usr/local/lib/digisante/root-scripts.manifest   # sha=0c2a4017…, environment=production
    ```
    Seuls les fichiers de `/usr/local/lib/digisante` changent : ni la crontab, ni `/etc/cron.d/digisante`, ni le code, PM2,
-   la base ou Nginx de la production. Changements constatés entre `ec6b0dc` et `e959db1` dans les fichiers lancés par le
+   la base ou Nginx de la production. Changements constatés entre `ec6b0dc` et `e959db1` (inchangés jusqu'à `0c2a401`, hors `verify_deploy.sh` lancé à la main) dans les fichiers lancés par le
    cron de production :
    - `internal_job.sh`, `fedapay_reconcile.sh`, `healthwatch.sh` : contrôle `port_owned_by` (ports 3200/3201 tenus par
      `digisante`, vérifié le 12/11) ;
@@ -135,12 +147,12 @@
    Ne rien ajouter d'autre : aucune variable fournisseur (D-14), jamais l'URL du propriétaire.
    `deploy.sh` refuse un `.env` qui contient l'URL du propriétaire.
 7. **Déploiement** :
-   - **Recommandé** : workflow « Préproduction L10 (manuelle) » avec `sha=e959db1cf297c1f29787f5643c7c872be012386e` et `maintenance_confirmed=true`,
+   - **Recommandé** : workflow « Préproduction L10 (manuelle) » avec `sha=0c2a4017e55d3dd97872fe159629c5b17c3e33bf` et `maintenance_confirmed=true`,
      après avoir posé la variable `PREPROD_DEPLOY_ENABLED=true` le temps de la fenêtre. Le workflow qualifie la CI, vérifie
      l'empreinte de l'hôte et transmet l'URL du propriétaire par l'entrée standard SSH.
    - **Variante manuelle** : README §3, `deploy.sh` de `origin/main` extrait hors du checkout, sous `digisante-preprod`,
      `MIGRATION_DATABASE_URL` par `read -rs`.
-   - Attendu : `deploy_history.log` `ace0c689… -> e959db1cf297c1f29787f5643c7c872be012386e status=SUCCESS stage=complete`. Les stades `migrate` et
+   - Attendu : `deploy_history.log` `e959db1cf297c1f29787f5643c7c872be012386e -> 0c2a4017e55d3dd97872fe159629c5b17c3e33bf status=SUCCESS stage=complete`. Les stades `migrate` et
      `grants` passent sous le propriétaire, et l'API démarre sous `digisante_preprod_app`.
 8. **Vérifications** :
    - `bash "$P" --verify` (avec `VALKEY_PASSWORD`) : **0 FAIL**, y compris les sondes `ACL DRYRUN` et les deux rôles PG ;
@@ -153,6 +165,33 @@
 10. **Reprise des crons** et consignation de l'heure. Observer ensuite au moins une exécution réelle de chaque tâche
     (contrat L10 §4) : une ligne installée ne prouve pas l'exécution.
 11. Remettre `PREPROD_DEPLOY_ENABLED` à `false`. La **maintenance reste posée** jusqu'au nouveau PV GO/NO-GO préprod.
+
+## 3 bis. Redéploiement allégé de `0c2a401` sur la préproduction en `e959db1` (19/11/2026)
+
+La fenêtre du 17/11 a déjà fait, une fois pour toutes : rôle `digisante_preprod_app`, utilisateur ACL `digisante-preprod`,
+`.env` de l'API, zones Nginx préprod, `/etc/cron.d/digisante-preprod`, secret `PREPROD_DB_MIGRATION_URL` corrigé (I-1).
+Aucun de ces éléments ne change entre `e959db1` et `0c2a401`. Les points du §3 se réduisent donc à :
+
+| §3 | Pour `0c2a401` |
+|---|---|
+| 1. Maintenance | Revérifier (403/503 depuis une IP hors liste). |
+| 2. Crons suspendus | **Oui** (contrat L10 §2), heure consignée. |
+| 3. Sauvegarde avant | **Oui**, trio + `backup:check` + copie hors VPS (R2). |
+| 4 et 4 b. Copies root | **Oui, les deux** (préprod et prod) au nouveau SHA : `verify_deploy.sh` a changé. |
+| 5. Provisioning | **Rien à appliquer** (aucun `--apply`). L'état posé le 17/11 se constate au point 8 par `--verify`. Un dry-run `--only pg,valkey,nginx,cron` reste possible pour relire les gardes ; toute garde en FAIL arrête la fenêtre. |
+| 6. `.env` | Inchangé. Ne pas le rouvrir. |
+| 7. Déploiement | Workflow « Préproduction L10 (manuelle) », `sha=0c2a4017e55d3dd97872fe159629c5b17c3e33bf`, `PREPROD_DEPLOY_ENABLED=true` le temps de la fenêtre. Attendu : `e959db1… -> 0c2a4017… status=SUCCESS stage=complete`, **0 migration** appliquée (36/36 déjà en place). |
+| 8. Vérifications | `--verify` 0 FAIL ; `verify_deploy.sh` sans `--run-jobs` : tout PASS, **y compris la ligne migrations** (36 terminées, 0 en attente / en échec / inconnue) — c'est la preuve de clôture d'I-3. En plus : `/print/dmp` répond (page protégée, rendue côté client) et `/showcase` 404. |
+| 9. Sauvegarde après | **Oui.** |
+| 10. Reprise des crons | **Oui**, puis observer une exécution de chaque tâche, dont la purge D-8 de 03:20 (HTTP 200, 0 suppression). |
+| 11. Fermeture | `PREPROD_DEPLOY_ENABLED=false` ; maintenance **laissée**. |
+
+Mémoire (P5) : comme le 17/11, arrêter la production DigiSanté (`sudo -u digisante pm2 stop all`) pendant le build, puis
+la relancer.
+
+Retour arrière : sans migration, revenir à `e959db1` se fait par `deploy.sh` vers `e959db1` avec
+`DEPLOY_ALLOW_ROLLBACK=1`, sans restauration de base. Les copies root peuvent rester au nouveau SHA (`verify_deploy.sh`
+ne sert qu'à la main).
 
 ## 4. Retour arrière
 
@@ -192,7 +231,12 @@ Fait le 08/11/2026 après la fusion de #228 :
    preuve n'ayant été enregistrée sur `8ed7e540` ; instantané L10 `4c1e9558…` (`preprod:check` vert) ;
    `preprod:gate --expected-sha e959db1…` : bloc candidat accepté, **100 points ouverts**.
 
-Aucune preuve de `ace0c689` ne se transfère : les **100 cas** se rejouent sur la nouvelle candidate.
+5. ✅ **19/11/2026** : `e959db1` déployée le 17/11 (PV signé le 19/11 : A = GO, B = NO-GO) puis périmée par #262 et #264.
+   Registre vide, rien à archiver. Bloc candidat remplacé par `0c2a4017e55d3dd97872fe159629c5b17c3e33bf` (CI `main` run
+   44531088223, `preprod:qualify` code 0) ; instantané L10 `fa6875c4…` (`preprod:check` vert) ;
+   `preprod:gate --expected-sha 0c2a401…` : bloc candidat accepté, **100 points ouverts**.
+
+Aucune preuve de `ace0c689` ni de `e959db1` ne se transfère : les **100 cas** se rejouent sur la nouvelle candidate.
 
 Points à observer en plus des 100 cas, sans élargir le registre sans décision du porteur :
 - **CSP à nonce** sur Android ancien, iPhone et WebView, Daily et FCM compris, ainsi que le shell hors ligne ;

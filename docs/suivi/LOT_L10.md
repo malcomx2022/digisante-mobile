@@ -269,3 +269,26 @@ et l'outillage CI ; aucune migration nouvelle.
   la maintenance ; 0/100 cas, gestes de recette non faits). D-2, D-9 et D-13 reconfirmées, les autres décisions restent
   ouvertes. Le même jour, #262 (fusionnée, `main` `30dd038`) puis la PR #264 (dernier lot de code) changent `main` :
   `e959db1` n'est plus la candidate à recetter ; une nouvelle candidate sera déclarée après la fusion de #264.
+
+## Candidate `0c2a401` déclarée (19 novembre 2026)
+
+`e959db1` a été déployée en préproduction le 17/11 (PV signé le 19/11 : A = GO, B = NO-GO, 0/100 cas). Elle est
+**périmée** le même jour par deux fusions sur `main` :
+- **#262** : `verify_deploy.sh` contrôle les migrations en lecture `postgres` (clôture de l'incident I-3 du PV) ;
+  l'instantané L10 passe à `fa6875c4…` ;
+- **#264**, dernier lot de code avant recette : export PDF du DMP (`/print/dmp`), assurance « Déclarée (non vérifiée) »,
+  libellés admin traduits ; web et i18n seulement.
+
+La nouvelle candidate est la tête de `main` après #264 : `0c2a4017e55d3dd97872fe159629c5b17c3e33bf`, CI `main` run
+44531088223. Aucune migration, aucun changement de rôle PG, d'ACL Valkey, de Nginx, de crontab ni de `.env` depuis
+`e959db1`.
+
+| Candidate | Déploiement préprod | Registre | Gate |
+|---|---|---|---|
+| `0c2a4017e55d3dd97872fe159629c5b17c3e33bf` | **Non déployée.** Procédure allégée : `PLAN_Deploiement_Preprod_2026-11-08.md` §3 bis (copies root préprod et prod, workflow, `--verify`, `verify_deploy.sh` ligne migrations PASS) | `evidence.json` : bloc candidat + CI 44531088223, `records: []` (rien à archiver : aucun record sur `e959db1`) | `CANDIDATE_SHA=0c2a401… pnpm preprod:qualify` code 0 ; `preprod:check` vert, instantané L10 `fa6875c4…` ; `preprod:gate --expected-sha 0c2a401…` code 1 : bloc candidat accepté, **100 points ouverts** |
+
+- **Gel du code** : toute fusion de code, de configuration ou de recette sur `main` avant la fin de la recette L10 périme
+  de nouveau la candidate. Les 20 clés FON/YOR de la campagne L9-2026-11-19 changeront `messages.ts` : leur intégration
+  imposera un redéploiement et une nouvelle déclaration (décision du porteur : avant ou après la recette).
+- Gestes de recette induits : ceux de `e959db1` (CGU, KYC des pharmacies, verrous OTP, purge D-8 sans suppression), plus
+  l'export PDF du DMP et le libellé d'assurance déclarée.
