@@ -93,6 +93,12 @@ export default function DmpPage() {
           >
             {t('dmp.export')}
           </button>
+          <Link
+            href="/print/dmp"
+            className="mt-2 block w-full text-center text-[0.8125rem] font-display font-bold text-sante-700 underline decoration-dotted underline-offset-4"
+          >
+            {t('dmp.print')}
+          </Link>
         </CardPagne>
 
         {actionError && <ErrorState label={t('auth.error')} />}

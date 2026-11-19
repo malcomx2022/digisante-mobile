@@ -16,7 +16,7 @@ Offline-first · multilingue (FR, EN, Fɔ̀ngbè, Yorùbá) · téléconsultatio
 Monorepo **pnpm** :
 
 ```
-apps/web      Next.js 15 (App Router, React 19, PWA) — 75 pages
+apps/web      Next.js 15 (App Router, React 19, PWA) — 76 pages
 apps/api      Fastify — 194 endpoints REST + 1 WebSocket / 29 modules + Prisma + Valkey (compatible Redis)
 packages/shared   types, enums, schémas zod partagés
 packages/config   tsconfig de base
