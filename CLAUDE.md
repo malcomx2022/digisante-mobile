@@ -401,7 +401,7 @@ Base `main` `b974080`, candidate `codex/full-review-2026-10-14`. État et résul
 Branche `claude/inspiring-shannon-6c26ex` depuis main `b26c1c8`, pour le candidat suivant (L11) ; rien déployé pendant la recette de `ec6b0dc`. Fiche : `docs/REVUE_Correctifs_post-L10_2026-10-21.md`. Invariants ajoutés :
 
 - **`ConfirmDialog` = portail sous `document.body`** : rendu en place dans une `card-pagne` (clip-path, transform, overflow), il restait piégé (diffusion de campagne impossible). Ne jamais revenir à un rendu en place ; E2E `post-l10-fixes` C2.
-- **Instantané L9 verrouillé** : les sources de l'instantané (`messages.ts`, `phrasebook.ts`, triage, PEV, CPN, posologie, constantes, éducation) sont figées par la campagne **active** du registre `CAMPAIGNS` (`scripts/validation/prepare-review-campaign.mjs`) ; les modifier fait échouer `validation:campaign:check`. Campagne active : **`L9-2026-11-17`** (version avec la correction `-C1` du phrasier, base `9b6a319`, instantané `4d718ebd…`, décision porteur du 16/11/2026, fiche `docs/suivi/CAMPAGNE_L9_2026-11-17.md`) ; `L9-2026-10-14`, `L9-2026-11-15` et `L9-2026-11-16` sont archivées (intégrité seule, `docs/validation/archive/`). Tant que la campagne court, réutiliser des clés existantes ; toute modification de ces sources exige d'archiver la campagne et d'en ouvrir une nouvelle, sur décision du porteur.
+- **Instantané L9 verrouillé** : les sources de l'instantané (`messages.ts`, `phrasebook.ts`, triage, PEV, CPN, posologie, constantes, éducation) sont figées par la campagne **active** du registre `CAMPAIGNS` (`scripts/validation/prepare-review-campaign.mjs`) ; les modifier fait échouer `validation:campaign:check`. Campagne active : **`L9-2026-11-19`** (dernier lot de code avant recette : export PDF du DMP, assurance déclarée, libellés admin ; base `780be91`, instantané `8119542a…`, décision porteur du 19/11/2026, fiche `docs/suivi/CAMPAGNE_L9_2026-11-19.md`) ; `L9-2026-10-14`, `L9-2026-11-15`, `L9-2026-11-16` et `L9-2026-11-17` sont archivées (intégrité seule, `docs/validation/archive/`). Tant que la campagne court, réutiliser des clés existantes ; toute modification de ces sources exige d'archiver la campagne et d'en ouvrir une nouvelle, sur décision du porteur.
 - **État de paiement d'un RDV** = `paymentStatus` serveur via `paymentStatusView` (`lib/payments.ts`), libellés `subscriptions.payment_*` ; plus de « Paiement initié » pour un paiement confirmé, plus de bouton « Payer » quand un paiement existe.
 - **Retour FedaPay par type** : `lib/payment-return.ts` (`paymentCallbackUrl`) seule source, consultation/recharge diaspora/abonnement. Navigation seulement, jamais une preuve.
 - **Campagnes** : canal `EMAIL` (Resend) ciblant les seuls comptes actifs avec e-mail (portée et fan-out) ; audience ADMIN autorisée.
@@ -548,3 +548,12 @@ Même branche. Détails : `docs/REVUE_Restant_Finalisation_2026-11-07.md` §13.
 - **Documents de septembre** : `SUIVI_B3` et `SUIVI_B5` portent un bandeau daté. Leurs commandes suivent la cible IONOS ; leurs résultats historiques ne sont pas réécrits.
 - **L10** : instantané `cb01f260…`.
 
+
+## Reprise — dernier lot de code avant recette (19 novembre 2026)
+
+Branche `claude/compassionate-goldberg-5fdh2j`, depuis main `30dd038` (après #262). Décisions du porteur du 19/11 : export PDF par page imprimable, libellé « Déclarée » pour l'assurance, archivage de `L9-2026-11-17` et ouverture de `L9-2026-11-19`.
+
+- **Export PDF du DMP** : page `/print/dmp` (hors `AppShell`, `Protected role="PATIENT"`), « Enregistrer en PDF » du navigateur, aucune dépendance ni génération serveur. Le contenu vient de `GET /dmp/records` (même portée que l'écran) ; `lib/dmp-print.ts` (`printableFields`) le met à plat sans l'interpréter ni le traduire. Les noms de champs bruts du contenu sont affichés tels quels.
+- **Assurance** : aucune vérification de couverture n'existe ; une ligne `ACTIVE` s'affiche « Déclarée (non vérifiée) » (`insurance.status.DECLARED`). Ne jamais réafficher « Active » sans circuit de vérification.
+- **Admin utilisateurs** : statuts (`admin.user_status.*`) et rôles (`role.*`, `role.ADMIN` ajouté) passent par l'i18n ; idem `nav.main` (TopNav) et `lang.audio_available`.
+- 17 nouvelles clés FR/EN, FON/YOR en repli FR (20 clés à faire relire par langue, 0 critique). L9 : instantané `8119542a…`.
