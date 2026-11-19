@@ -30,6 +30,8 @@ interface Paginated {
 }
 
 const PAGE_SIZE = 20;
+// Statuts filtrables (même liste que le filtre serveur `status`).
+const USER_STATUSES = ['ACTIVE', 'SUSPENDED', 'PENDING_KYC', 'PENDING_VERIFICATION'] as const;
 
 // Couleur du badge de rôle (cohérent avec les thèmes par espace).
 const ROLE_BADGE: Record<string, string> = {
@@ -112,7 +114,7 @@ export default function AdminUsers() {
   }
 
   function statusBadge(status: string) {
-    return <Badge variant={status === 'SUSPENDED' ? 'eleve' : 'normal'}>{status}</Badge>;
+    return <Badge variant={status === 'SUSPENDED' ? 'eleve' : 'normal'}>{t(`admin.user_status.${status}`)}</Badge>;
   }
 
   function Pagination() {
@@ -170,7 +172,7 @@ export default function AdminUsers() {
                 onClick={() => setRole(r === role ? null : r)}
                 className={cn('card-pagne px-2.5 py-1 text-[0.6875rem] font-display font-bold', r === role ? 'bg-indigo-600 text-white' : 'bg-creme-deep text-stone-600')}
               >
-                {r}
+                {t(`role.${r}`)}
               </button>
             ))}
             <select
@@ -180,10 +182,9 @@ export default function AdminUsers() {
               className="ml-auto card-pagne bg-white border border-stone-300 text-base font-display font-bold px-2 py-1 pagne-focus focus:outline-none focus:border-indigo-600"
             >
               <option value="">{t('admin.all_statuses')}</option>
-              <option value="ACTIVE">ACTIVE</option>
-              <option value="SUSPENDED">SUSPENDED</option>
-              <option value="PENDING_KYC">PENDING_KYC</option>
-              <option value="PENDING_VERIFICATION">PENDING_VERIFICATION</option>
+              {USER_STATUSES.map((s) => (
+                <option key={s} value={s}>{t(`admin.user_status.${s}`)}</option>
+              ))}
             </select>
           </div>
         </CardPagne>
@@ -202,7 +203,7 @@ export default function AdminUsers() {
                 <div className="min-w-0">
                   <p className="font-display font-bold text-[0.875rem] truncate">{fullName(u)}</p>
                   <p className="text-[0.75rem] text-stone-400 truncate">
-                    {u.role} · {u.phone}
+                    {t(`role.${u.role}`)} · {u.phone}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -252,7 +253,7 @@ export default function AdminUsers() {
                       </div>
                     </td>
                     <td className="px-3 py-3">
-                      <span className={cn('px-2 py-0.5 card-pagne text-[0.59375rem] font-extrabold whitespace-nowrap', ROLE_BADGE[u.role] ?? 'bg-stone-100 text-stone-500')}>{u.role}</span>
+                      <span className={cn('px-2 py-0.5 card-pagne text-[0.59375rem] font-extrabold whitespace-nowrap', ROLE_BADGE[u.role] ?? 'bg-stone-100 text-stone-500')}>{t(`role.${u.role}`)}</span>
                     </td>
                     <td className="px-3 py-3 text-[0.75rem] font-bold text-stone-700 whitespace-nowrap">
                       {u.lang ? <><span aria-hidden="true">🗣</span> {u.lang}</> : '—'}
@@ -281,7 +282,7 @@ export default function AdminUsers() {
                     </div>
                     <div className="min-w-0">
                       <p className="font-display font-extrabold text-[0.9375rem] text-stone-900 truncate">{fullName(selected)}</p>
-                      <p className="text-[0.65625rem] text-stone-400">{selected.role}</p>
+                      <p className="text-[0.65625rem] text-stone-400">{t(`role.${selected.role}`)}</p>
                     </div>
                   </div>
                   <div className="space-y-1.5 text-[0.71875rem]">

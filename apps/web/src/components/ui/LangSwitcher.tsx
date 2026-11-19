@@ -10,7 +10,7 @@ import { LangPill } from './LangPill';
 
 /** Sélecteur de langue (pill FR ▾ + menu). Présent sur chaque écran. */
 export function LangSwitcher({ dark = false }: { dark?: boolean }) {
-  const { lang, setLang } = useLocale();
+  const { lang, setLang, t } = useLocale();
   const [open, setOpen] = useState(false);
 
   return (
@@ -59,7 +59,7 @@ export function LangSwitcher({ dark = false }: { dark?: boolean }) {
                     <span className="font-display font-bold mr-1">{l.code}</span>
                     {l.nativeName}
                   </span>
-                  {l.hasAudio && <span title="Audio disponible">🔊</span>}
+                  {l.hasAudio && <span title={t('lang.audio_available')}>🔊</span>}
                 </button>
               </li>
             ))}

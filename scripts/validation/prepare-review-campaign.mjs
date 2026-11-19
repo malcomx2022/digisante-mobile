@@ -22,9 +22,12 @@ import { REFERENCES, CONSULTED_ON } from './review-references.mjs';
 // du phrasier FON/YOR, décision du porteur). Ses retours restent liés à 8d0fd9c3….
 // L9-2026-11-16 : kit archivé le 16 novembre 2026 avec son instantané (correction
 // -C1 du phrasier, décision du porteur). Ses retours restent liés à 470492e2….
+// L9-2026-11-17 : kit archivé le 19 novembre 2026 avec son instantané (lot
+// export PDF/assurance/libellés admin, décision du porteur). Retours liés à 4d718ebd….
 export const ARCHIVE_ROOT = resolve(ROOT, 'docs/validation/archive/L9-3e061d52-2026-11-07');
 export const ARCHIVE_ROOT_2026_11_15 = resolve(ROOT, 'docs/validation/archive/L9-8d0fd9c3-2026-11-16');
 export const ARCHIVE_ROOT_2026_11_16 = resolve(ROOT, 'docs/validation/archive/L9-470492e2-2026-11-17');
+export const ARCHIVE_ROOT_2026_11_17 = resolve(ROOT, 'docs/validation/archive/L9-4d718ebd-2026-11-19');
 export const CAMPAIGNS = [
   {
     id: 'L9-2026-10-14', status: 'archived',
@@ -48,10 +51,17 @@ export const CAMPAIGNS = [
   },
   {
     // Décision du porteur du 16/11/2026 : version qui intègre la correction -C1 du phrasier.
-    id: 'L9-2026-11-17', status: 'active',
+    id: 'L9-2026-11-17', status: 'archived',
     baseCommit: '9b6a3190ffffda9181bd885526bdcdf685fd26d3', baseLabel: 'correction -C1 du phrasier, branche claude/compassionate-goldberg-5fdh2j',
     snapshot: '4d718ebd78521b5689b1e2f2eacd6c0b623e01c3d2771266dd7eec2fe8fc10bd',
-    dir: resolve(ROOT, 'docs/validation/L9/campaign-2026-11-17'), referenceDossier: resolve(ROOT, 'docs/validation/L9/Dossier_Clinique_L9.docx'),
+    dir: resolve(ARCHIVE_ROOT_2026_11_17, 'campaign-2026-11-17'), referenceDossier: resolve(ARCHIVE_ROOT_2026_11_17, 'Dossier_Clinique_L9.docx'),
+  },
+  {
+    // Décision du porteur du 19/11/2026 : version du dernier lot de code avant recette.
+    id: 'L9-2026-11-19', status: 'active',
+    baseCommit: '780be911ce92bf8801599583489defe6cbd449db', baseLabel: 'export PDF du DMP, assurance déclarée, libellés admin (branche claude/compassionate-goldberg-5fdh2j)',
+    snapshot: '8119542a0a194d07e0164534e3a6cb590b215a9246247cccda614166710da4e6',
+    dir: resolve(ROOT, 'docs/validation/L9/campaign-2026-11-19'), referenceDossier: resolve(ROOT, 'docs/validation/L9/Dossier_Clinique_L9.docx'),
   },
 ];
 export const ACTIVE_CAMPAIGN = CAMPAIGNS.find((campaign) => campaign.status === 'active');

@@ -99,7 +99,7 @@
 ---
 
 **Contrôles techniques actuels ; ouverture pilote non attestée.** Le code (backend **29 modules** / **194 endpoints REST + 1 WS**
-+ frontend **7 espaces**, **75 pages**) est testé (**907 tests verts** — 758 API + 149 web (déclarations statiques, résultats d’exécution détaillés dans LOT_Revue_2026-10-14), + 36 e2e
++ frontend **7 espaces**, **76 pages**) est testé (**911 tests verts** — 758 API + 153 web (déclarations statiques, résultats d’exécution détaillés dans LOT_Revue_2026-10-14), + 36 e2e
 Playwright déclarés — dernière exécution locale complète le 8 novembre 2026, `docs/REVUE_Restant_Finalisation_2026-11-07.md` §11-12), l'infra scriptée. Restent la finalisation L9–L11 (validation humaine, recettes réelles L10, GO L11) et l'exécution
 en production sur le VPS IONOS partagé (étapes ci-dessus ; préproduction déployée, sous maintenance).
 

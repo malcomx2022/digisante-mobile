@@ -42,7 +42,7 @@ export function TopNav({
     <header className={cn('hidden lg:block sticky top-0 z-30 bogolan-dark text-white', BAR[accent])}>
       <div className="mx-auto max-w-6xl flex items-center gap-2 px-6 h-14">
         <span className="font-display font-extrabold text-[0.9375rem] mr-4">DigiSanté</span>
-        <nav className="flex items-center gap-1 flex-1" aria-label="Navigation principale">
+        <nav className="flex items-center gap-1 flex-1" aria-label={t('nav.main')}>
           {items.map((it) => {
             const active = pathname === it.href;
             return (

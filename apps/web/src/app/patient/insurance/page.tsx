@@ -11,6 +11,12 @@ import { useApi } from '@/lib/api/useApi';
 import { cn } from '@/lib/cn';
 import { formatDate } from '@/i18n/format';
 
+// Aucune vérification de couverture n'existe : une ligne ACTIVE est seulement
+// déclarée par le patient. Ne jamais l'afficher « Active » (décision du porteur, 19/11/2026).
+function statusLabelKey(status: string): string {
+  return status === 'ACTIVE' ? 'insurance.status.DECLARED' : `insurance.status.${status}`;
+}
+
 const STATUS_VARIANT: Record<string, 'normal' | 'eleve' | 'pro'> = {
   ACTIVE: 'normal',
   EXPIRED: 'pro',
@@ -104,7 +110,7 @@ export default function InsurancePage() {
                   )}
                 </div>
                 <div className="flex flex-col items-end gap-2">
-                  <Badge variant={STATUS_VARIANT[c.status] ?? 'normal'}>{t(`insurance.status.${c.status}`)}</Badge>
+                  <Badge variant={STATUS_VARIANT[c.status] ?? 'normal'}>{t(statusLabelKey(c.status))}</Badge>
                   <button
                     type="button"
                     onClick={() => remove(c.id)}

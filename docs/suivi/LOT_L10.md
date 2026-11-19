@@ -263,3 +263,9 @@ et l'outillage CI ; aucune migration nouvelle.
 - Gestes de recette induits : ceux de `8ed7e540` (CGU, KYC des pharmacies, verrous OTP), plus l'observation d'une
   exécution de la purge D-8 sans suppression.
 - Copie root de la production à aligner sur ce SHA pendant la fenêtre (P7, point 4 b du plan).
+
+- **19/11/2026 — PV préprod `e959db1` signé** (`docs/suivi/PV_GO_NOGO_Preprod_e959db1.md`, pièce privée
+  `PV-PREPROD-e959db1`) : **A = GO** (déploiement technique, 12/12 tâches planifiées observées), **B = NO-GO** (levée de
+  la maintenance ; 0/100 cas, gestes de recette non faits). D-2, D-9 et D-13 reconfirmées, les autres décisions restent
+  ouvertes. Le même jour, #262 (fusionnée, `main` `30dd038`) puis la PR #264 (dernier lot de code) changent `main` :
+  `e959db1` n'est plus la candidate à recetter ; une nouvelle candidate sera déclarée après la fusion de #264.
